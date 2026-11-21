@@ -1826,8 +1826,8 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: a second tool that prints `PASS` after a `SKIP` line in the same run (then the status class belongs in one shared helper, say so in the EXP).
   - Claims: C-6340–C-6349
 
-- [ ] **H121 — A PR must not delete claim rows or task blocks it does not own (main lost 199 claim rows and 7 tasks in PR #340)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **H121 — A PR must not delete claim rows or task blocks it does not own (main lost 199 claim rows and 7 tasks in PR #340)**
+  - Status: done · Owner: task/h121-board-mergebase-check · Critical: yes · Pair: required
   - Depends: —
   - Goal: commit `6ca7bc3` of PR #340 (M9.55, merged 2026-11-20 22:20 UTC) replaced the tail of `TODO.md` (from the M9 section on, 787 lines) and of `docs/research/claims.md` (324 lines, 28 sections) with an older copy after a conflict. Every gate passed: `todo_check` and `claims_check` judge the file they are given and cannot see what is gone. Main ran 100 minutes without M9.56–M9.62, with nine closed tasks open again and without the claims of 28 tasks, and three later PRs merged on top. The loss was restored by hand (this PR), found only because a 3-way merge deleted another branch's rows.
   - Precheck: `git diff --numstat 4900961 6ca7bc3 -- TODO.md docs/research/claims.md` prints `1 787` and `11 324`.
@@ -1838,6 +1838,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the merge base cannot be found in CI's shallow clone, fetch `origin/main` with depth 200 in the workflow and record the time it adds.
   - Falsifier: a legitimate PR of the last 50 merged that the check would have failed (then widen the exemption and say which).
   - Claims: C-6520–C-6529
+  - Result: EXP-2026-11-21-H121-board-mergebase-check; C-6520–C-6529. `board.py check 6ca7bc3` exits 1 naming 42 lost tasks and 199 lost claim rows; `check origin/main` and `check HEAD` exit 0; `board.py --selftest` OK (74 checks) covers a deleted row, a deleted task block, an archived task, a dropped RESERVED row and the round-1 whole-ID collision (M9.56 does not exempt a lost M9.5); `gate.py --selftest` OK (15 checks); `gate: 5 pass, 0 fail, 0 skip` with `board_check PASS` and `fn_audit PASS` on the tree rebased onto `01a67a6e` (re-frozen fn_audit snapshots from `67a12666` in the base)
+  - Note: The main check reads `board.py check <ref>`: the branch was rebased onto `01a67a6e` (round 3, after M1.43/M4.58) before the final run, so the final bases are `HEAD vs 01a67a6ea6b3` (exit 0), `origin/main vs 2c82b9ce2683` (exit 0), `6ca7bc3 vs 49009617d2bc` (exit 1, 42 tasks / 199 claim rows). An unpinned base in a quote is stale by construction once main moves; pin both sides (`check 01a67a6e --base 2c82b9ce`) or cite what the command prints on that tree.
 
 - [ ] **H122 — `l3_harness/corpus.py --selftest` fails 4 `hdd_info` checks on main and the gate skips the suite**
   - Status: open · Owner: — · Critical: no · Pair: solo

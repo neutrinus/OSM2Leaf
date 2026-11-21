@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""One standing gate: run the four quality commands and apply one policy.
+"""One standing gate: run the five quality commands and apply one policy.
 
-The TL/QA gate has been four commands with four exit semantics:
+The TL/QA gate has been several commands with several exit semantics:
 
 * ``selftest.py`` -- ``0`` green, ``1`` a suite failed, suites that need
   vendor data are ``SKIP`` inside its own report;
 * ``claims_check.py [--strict]`` -- ``0`` clean, ``1`` a rule failed;
 * ``todo_check.py [--strict]`` -- ``0`` no errors, ``1`` errors (warnings do
   not fail);
+* ``board.py check HEAD`` -- ``0`` the PR drops no claim row or task block it
+  does not own (H121), ``1`` it does (PR #340 lost 42 task blocks and 199
+  claim rows this way while every other gate passed);
 * ``fn_audit.py --corpus … --overlay …`` -- ``0`` clean, ``2`` the image is
   missing (a SKIP), ``1`` drift.
 
@@ -24,6 +27,10 @@ This runner fixes one policy and prints it:
 * **SKIP (reason)** -- the gate could not run because a vendor input is
   absent. A SKIP is never counted as a pass; the summary line prints both.
 
+The ``board_check`` row is not a vendor gate: on a tree with no history to
+diff against (a shallow clone, a root commit) ``board.py check`` prints that
+and exits 0, so it can never pass by being unable to look.
+
 Exit code is ``1`` iff a runnable gate FAILed (and ``2`` only if the runner
 itself is misused). A run where every vendor-dependent gate SKIPs but every
 runnable gate PASSes exits ``0`` with a summary that says ``0 SKIP`` or names
@@ -34,6 +41,7 @@ Usage::
     python3 tools/gate.py                 # human table, exit 1 on a FAIL
     python3 tools/gate.py --json          # same, machine-readable
     python3 tools/gate.py --no-count      # claims_check without --count-check
+    python3 tools/gate.py --no-board-check  # skip the H121 board row
     python3 tools/gate.py --selftest      # prove PASS/FAIL/SKIP with stubs
 """
 
@@ -148,9 +156,10 @@ def _first_marker_line(out: str) -> str:
 
 
 def standing_gate(*, count_check: bool = True, board_strict: bool = False,
-                  corpus: str | None = None, overlay: str | None = None,
+                  board_check: bool = True, corpus: str | None = None,
+                  overlay: str | None = None,
                   image: str | None = None) -> list[Gate]:
-    """The four commands, in the fixed order the TL runs them."""
+    """The five commands, in the fixed order the TL runs them."""
     claims = [PY, "tools/claims_check.py", "--strict"]
     if count_check:
         claims.append("--count-check")
@@ -162,12 +171,15 @@ def standing_gate(*, count_check: bool = True, board_strict: bool = False,
     image = image or "archive/head256.img"
     fn_audit = [PY, "tools/fn_audit.py", image, "--corpus", corpus,
                 "--overlay", overlay, "--quiet"]
-    return [
+    gates = [
         Gate("selftest", [PY, "tools/selftest.py"]),
         Gate("claims_check", claims),
         Gate("todo_check", todo),
-        Gate("fn_audit", fn_audit, optional_input=image),
     ]
+    if board_check:
+        gates.append(Gate("board_check", [PY, "tools/board.py", "check", "HEAD"]))
+    gates.append(Gate("fn_audit", fn_audit, optional_input=image))
+    return gates
 
 
 def _print_table(results, stream=None) -> None:
@@ -341,6 +353,58 @@ def selftest() -> int:
         check("--json never records a SKIP as PASS",
               doc.get("counts", {}).get("SKIP", 0) >= 1)
 
+        # --- H121: the board_check row is in the standing gate and its own
+        # tool fails a PR that drops a claim row it does not own.
+        names = [g.name for g in standing_gate()]
+        check("standing gate carries the H121 board_check row",
+              "board_check" in names)
+        check("board_check can be turned off for a bare-history run",
+              "board_check" not in [g.name for g in standing_gate(board_check=False)])
+
+        # The working tree (this checkout) is clean against its base.
+        r = _run(Gate("board_check", [PY, "tools/board.py", "check", "HEAD"]),
+                 REPO, 60)
+        check("board.py check HEAD on this tree -> PASS", r["status"] == "PASS")
+
+        # A synthetic PR #340 shape: base has a row, head drops it -> FAIL,
+        # and the gate's FAIL tail names the ID.
+        synth = d / "synth"
+        (synth / "docs/research").mkdir(parents=True)
+
+        def sg(*a):
+            return subprocess.run(["git", *a], cwd=str(synth),
+                                  capture_output=True, text=True)
+
+        sg("init", "-q")
+        sg("config", "user.email", "t@t")
+        sg("config", "user.name", "t")
+        todo_base = ("# TODO\n\n## H — H\n\n- [ ] **H1 — A**\n  - Status: open\n"
+                     "- [ ] **H2 — B**\n  - Status: open\n")
+        claims_base = ("# Claims\n\n| ID | Claim | Status | Confidence | Evidence |\n"
+                       "| --- | --- | --- | --- | --- |\n"
+                       "| C-700 | a | VERIFIED | H | x |\n"
+                       "| C-701 | b | VERIFIED | H | y |\n")
+        (synth / "TODO.md").write_text(todo_base, encoding="utf-8")
+        (synth / "docs/research/claims.md").write_text(claims_base, encoding="utf-8")
+        sg("add", "-A"); sg("commit", "-qm", "base")
+        base = sg("rev-parse", "HEAD").stdout.strip()
+        (synth / "TODO.md").write_text(todo_base.replace(
+            "- [ ] **H2 — B**\n  - Status: open\n", ""), encoding="utf-8")
+        (synth / "docs/research/claims.md").write_text(
+            claims_base.replace("| C-701 | b | VERIFIED | H | y |\n", ""), encoding="utf-8")
+        sg("add", "-A"); sg("commit", "-qm", "loss")
+        bad = sg("rev-parse", "HEAD").stdout.strip()
+
+        class _FixedGate:
+            name = "board_check"
+            argv = [PY, str(REPO / "tools" / "board.py"), "check", bad, "--base", base]
+            optional_input = None
+            ok_exit = (0,)
+
+        r = _run(_FixedGate(), synth, 60)
+        check("a dropped claim row turns the board row FAIL",
+              r["status"] == "FAIL" and "C-701" in r["output"])
+
     print("gate selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
     return 1 if fails else 0
@@ -377,6 +441,8 @@ def main(argv=None) -> int:
                     help="write the machine-readable report (default stdout)")
     ap.add_argument("--no-count", action="store_true",
                     help="run claims_check --strict without --count-check")
+    ap.add_argument("--no-board-check", action="store_true",
+                    help="skip the H121 board row (a tree with no history)")
     ap.add_argument("--board-clean", action="store_true",
                     help="run todo_check --strict (red until H53) instead of "
                          "the default gate")
@@ -392,6 +458,7 @@ def main(argv=None) -> int:
     kwargs = {
         "count_check": not args.no_count,
         "board_strict": args.board_clean,
+        "board_check": not args.no_board_check,
         "corpus": args.corpus,
         "overlay": args.overlay,
         "image": args.image,

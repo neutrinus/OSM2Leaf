@@ -36,8 +36,10 @@ Commands (``python3 tools/board.py CMD --help`` for each)::
     next-claims                     next free claim block (TODO + claims.md)
     add-claims --section TITLE (--row ROW … | --file F) [--create]
     claim-status C-ID STATUS        change the Status cell of one claim row
+    claim-row C-ID --text ROW       replace one whole claim row (no hand edit)
     lost --base REF [--head REF] [FILE …]
                                     IDs present at REF and missing now (exit 1)
+    check [REF] [--base REF]        H121: a PR must not drop IDs it does not own
     resolve FILE                    merge a conflicted TODO/claims file by ID
 
 ``resolve`` replaces hand-resolution of a rebase or merge conflict in these two
@@ -213,6 +215,237 @@ def lost_ids(old_text: str, new_text: str) -> dict[str, list[str]]:
 
 def _id_sort_key(s: str):
     return [int(p) if p.isdigit() else p for p in re.split(r"(\d+)", s)]
+
+
+# ---------------------------------------------------------------- H121 check
+#
+# H121: a PR must not delete claim rows or task blocks it does not own. The
+# local `lost` above is a line-count diff of the two files; the PR check (run
+# by tools/gate.py and CI) needs three things `lost` does not have:
+#
+# * a weight per file so a claims row is not read as a task header, and one
+#   git object per ref instead of one per ID (TODO.md is 5k lines, a PR is
+#   checked against a 200-commit window in under a second that way);
+# * the *segment* base: the first parent of a merge, so a PR that restores
+#   rows (PR #417 restored PR #340's tail after a bump) shows no loss;
+# * the block-scoped exemptions: a lost ID named in a block the PR itself
+#   changed, an archived task that is in `docs/research/todo-history-*.md`,
+#   and a bare `RESERVED (…)` row dropped with its owner's retirement.
+
+HISTORY_GLOB = "docs/research/todo-history-*.md"
+
+
+def git_cmd(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+    """``git ARGS`` in *cwd* (default: the process cwd), text mode."""
+    return subprocess.run(["git", *args], cwd=str(cwd) if cwd else None,
+                          capture_output=True, text=True)
+
+
+def _toplevel() -> Path:
+    """The current git checkout's root, or this tool's repo when there is none."""
+    got = git_cmd(["rev-parse", "--show-toplevel"])
+    if got.returncode == 0 and got.stdout.strip():
+        return Path(got.stdout.strip())
+    return REPO_ROOT
+
+
+def _counts(items) -> dict[str, int]:
+    from collections import Counter
+    return Counter(items)
+
+
+def _dropped(old, new):
+    co, cn = _counts(old), _counts(new)
+    return sorted((k for k in co if cn.get(k, 0) < co[k]), key=_id_sort_key)
+
+
+def _is_reserved_row(line: str) -> bool:
+    """A bare ``| C-nnnn | RESERVED (…)… |`` placeholder row (H100 shape)."""
+    cells = line.strip().strip("|").split("|")
+    return len(cells) >= 2 and "RESERVED" in cells[1]
+
+
+def changed_task_blocks(base_text: str, head_text: str) -> set[str]:
+    """Task IDs whose block differs between *base_text* and *head_text*, plus
+    every ID the head carries that the base does not (a PR's own new tasks)."""
+    old, new = task_blocks(base_text), task_blocks(head_text)
+    return {t for t in new if new[t] != old.get(t)}
+
+
+def own_ids(base_text: str, head_text: str) -> set[str]:
+    """The PR's own task IDs: a new block, or block text the PR changed."""
+    return changed_task_blocks(base_text, head_text)
+
+
+def history_ids(texts) -> set[str]:
+    """Every task ID present in one or more ``todo-history`` files."""
+    out: set[str] = set()
+    for text in texts:
+        out.update(task_ids(text))
+    return out
+
+
+def _claims_ids_in(text: str) -> set[str]:
+    """Every claim ID named in *text* (a block's ``Claims:`` field or prose)."""
+    return set(re.findall(r"\bC-\d+\b", text))
+
+
+def _names_id(text: str, tid: str) -> bool:
+    """True when *text* contains *tid* as a whole ID token.
+
+    Not a substring test: ``M9.5`` is named by ``M9.5,``, ``(M9.5)`` or a
+    sentence-ending ``M9.5.`` but **not** by ``M9.56``, ``M9.55`` or
+    ``M9.5.1`` — the navigator's H121 round 1 defect: a substring
+    ``t in own_text`` let a PR exempt a dropped ``M9.5`` because its own block
+    happened to name ``M9.56–M9.62``. A dot only continues the ID when a
+    letter or digit follows it, so a full stop ends the token.
+    """
+    return re.search(
+        r"(?<![A-Za-z0-9])" + re.escape(tid) + r"(?!\.[A-Za-z0-9])(?![A-Za-z0-9])",
+        text) is not None
+
+
+def board_loss_problems(base_todo: str, head_todo: str, base_claims: str,
+                        head_claims: str, history_texts) -> dict:
+    """The H121 verdict for one diff.
+
+    *base\\** is the tree the PR branched from (a merge's first parent, or the
+    merge base), *head\\** the PR tree; *history_texts* are the
+    ``docs/research/todo-history-*.md`` bodies in the PR tree.
+
+    A lost task ID is exempt when (a) it is named as a whole ID token in a
+    task block the PR's own change touched (``own_ids``) — a restore names
+    what it restored, PR #417 — or (b) its block is in a history file (an
+    archive move). A lost claim row is exempt when it is a bare
+    ``RESERVED (…)`` row (H100 retires the owner's placeholders) or when its
+    ID is named in the PR's own task block (the task renumbers its own
+    claims). Anything else is the PR #340 shape.
+
+    Returns ``{"tasks", "claims", "exempt_tasks", "exempt_claims", "errors"}``
+    — the raw lost lists (what the diff dropped), why each exemption applies,
+    and one error line per non-exempt ID. The caller fails iff ``errors``.
+    """
+    base_blocks, head_blocks = task_blocks(base_todo), task_blocks(head_todo)
+    own = own_ids(base_todo, head_todo)
+    own_text = "\n".join(head_blocks[t] for t in own if t in head_blocks)
+    own_claims = _claims_ids_in("\n".join(base_blocks.get(t, "") for t in own))
+    hist = history_ids(history_texts)
+    lost_t = _dropped(task_ids(base_todo), task_ids(head_todo))
+    lost_c = _dropped(claim_ids(base_claims), claim_ids(head_claims))
+    base_rows = {}
+    for line in split_lines(base_claims):
+        m = ROW_RE.match(line)
+        if m:
+            base_rows.setdefault(m.group(1), line)
+
+    exempt_t, exempt_c, errors = {}, {}, []
+    for t in lost_t:
+        if t in hist:
+            exempt_t[t] = "archived (in a todo-history file)"
+        elif _names_id(own_text, t):
+            exempt_t[t] = "named in the PR's own task block"
+        else:
+            errors.append(f"lost task {t} (not its own, not archived)")
+    for c in lost_c:
+        if _is_reserved_row(base_rows.get(c, "")):
+            exempt_c[c] = "RESERVED (owner retired, H100)"
+        elif c in own_claims:
+            exempt_c[c] = "named in the PR's own task block"
+        else:
+            errors.append(f"lost claim row {c} (not its own, not RESERVED)")
+    return {"tasks": lost_t, "claims": lost_c, "exempt_tasks": exempt_t,
+            "exempt_claims": exempt_c, "errors": errors}
+
+
+def segment_base(ref: str, cwd: Path | None = None) -> str | None:
+    """The base the H121 check measures a PR tree against.
+
+    * the first parent of *ref*, when *ref* is a merge — the PR merges into
+      that parent, so a difference is the merge's own loss, not history;
+    * else the merge base of *ref* and ``origin/main`` — a pushed branch
+      checked by CI;
+    * else the single parent of an ordinary commit — the local reproducer
+      (``git checkout 6ca7bc3``: ``4900961``);
+    * ``None`` when there is no history to diff against (a root commit).
+    """
+    def git(*a):
+        return git_cmd(list(a), cwd=cwd)
+
+    if git("rev-parse", "--verify", "--quiet", ref + "^{commit}").returncode != 0:
+        return None
+    full = git("rev-parse", ref).stdout.strip()
+    parents = git("rev-list", "--parents", "-1", ref).stdout.split()[1:]
+    if len(parents) >= 2:
+        return parents[0]
+    origin = git("rev-parse", "--verify", "--quiet", "origin/main^{commit}")
+    if origin.returncode == 0:
+        mb = git("merge-base", ref, "origin/main")
+        if mb.returncode == 0 and mb.stdout.strip() and mb.stdout.strip() != full:
+            return mb.stdout.strip()
+    if len(parents) == 1:
+        return parents[0]
+    return None
+
+
+def _history_texts(ref: str, cwd: Path | None = None) -> list[str]:
+    """Every ``todo-history`` file body at *ref* (none if the ref has none)."""
+    root = Path(cwd) if cwd else _toplevel()
+    out = []
+    listing = git_cmd(["ls-tree", "--name-only", ref, "docs/research/"], cwd=root)
+    for name in listing.stdout.split():
+        if name.startswith("docs/research/todo-history-") and name.endswith(".md"):
+            body = git_cmd(["show", f"{ref}:{name}"], cwd=cwd)
+            if body.returncode == 0:
+                out.append(body.stdout)
+    return out
+
+
+def check_ref(ref: str = "HEAD", base: str | None = None,
+              cwd: Path | None = None) -> int:
+    """H121 as a command: exit 1 and name the lost IDs, exit 0 when clean.
+
+    *base* overrides the ``segment_base`` choice (a test pins it).
+    """
+    base = base or segment_base(ref, cwd=cwd)
+    if not base:
+        print("board check: no history to diff against; nothing to judge")
+        return 0
+    cwd = Path(cwd) if cwd else _toplevel()
+    files = {"TODO.md": task_ids, "docs/research/claims.md": claim_ids}
+    texts = {}
+    for f in files:
+        got = git_cmd(["show", f"{ref}:{f}"], cwd=cwd)
+        if got.returncode != 0:
+            print(f"board check: {ref} has no {f}; nothing to judge")
+            return 0
+        texts[f] = got.stdout
+    missing = [f for f in files if git_cmd(
+        ["cat-file", "-e", f"{base}:{f}"], cwd=cwd).returncode != 0]
+    if missing:
+        print(f"board check: {base} lacks {', '.join(missing)}; nothing to judge")
+        return 0
+    base_todo = git_cmd(["show", f"{base}:TODO.md"], cwd=cwd).stdout
+    base_claims = git_cmd(["show", f"{base}:docs/research/claims.md"], cwd=cwd).stdout
+    verdict = board_loss_problems(
+        base_todo, texts["TODO.md"], base_claims, texts["docs/research/claims.md"],
+        _history_texts(ref, cwd=cwd))
+    errors = verdict["errors"]
+    print("board check: %s vs base %s: %d task(s) and %d claim row(s) lost, "
+          "%d exempt, %d problem(s)"
+          % (ref[:12], base[:12], len(verdict["tasks"]), len(verdict["claims"]),
+             len(verdict["exempt_tasks"]) + len(verdict["exempt_claims"]),
+             len(errors)))
+    for t in verdict["tasks"]:
+        if t in verdict["exempt_tasks"]:
+            print(f"  ok task {t}: {verdict['exempt_tasks'][t]}")
+        else:
+            print(f"  LOST task {t}")
+    for c in verdict["claims"]:
+        if c in verdict["exempt_claims"]:
+            print(f"  ok claim {c}: {verdict['exempt_claims'][c]}")
+        else:
+            print(f"  LOST claim {c}")
+    return 1 if errors else 0
 
 
 def guard(old_text: str, new_text: str, *, delta: int, target: str | None = None,
@@ -513,6 +746,27 @@ def op_claim_status(bf: BoardFile, cid: str, status: str) -> tuple[str, int]:
     return bf.splice(i, i + 1, ["|".join(parts)])
 
 
+def op_claim_row(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
+    """Replace the whole line of claim row *cid* (one splice, like every op).
+
+    ``claim-status`` changes one cell; this is for the other cells a navigator
+    asks about (evidence, status reason) without a hand edit of ``claims.md``.
+    The replacement must still be a ``| C-<id> | …`` row of the same ID, and
+    must keep a table row shape (5 cells: ID, claim, status, confidence,
+    evidence).
+    """
+    hits = [i for i, l in enumerate(bf.lines) if (m := ROW_RE.match(l)) and m.group(1) == cid]
+    if len(hits) != 1:
+        raise BoardError(f"{cid}: {len(hits)} rows (need exactly one)")
+    new = text.strip("\n")
+    m = ROW_RE.match(new)
+    if not m or m.group(1) != cid:
+        raise BoardError(f"replacement must start `| {cid} |`")
+    if len(re.split(r"(?<!\\)\|", new)) < 6:
+        raise BoardError("replacement needs 5 cells: ID, claim, status, confidence, evidence")
+    return bf.splice(hits[0], hits[0] + 1, [new])
+
+
 # ---------------------------------------------------------------- resolve
 
 def _units(text: str) -> list[tuple[tuple, list[str]]]:
@@ -672,9 +926,15 @@ def main(argv=None) -> int:
     p.add_argument("--row", action="append", default=[]); p.add_argument("--file")
     p.add_argument("--create", action="store_true")
     p = sub.add_parser("claim-status"); p.add_argument("id"); p.add_argument("status")
+    p = sub.add_parser("claim-row"); p.add_argument("id")
+    p.add_argument("--text", required=True, help="the whole replacement row text")
     p = sub.add_parser("lost"); p.add_argument("--base", required=True)
     p.add_argument("--head", help="git ref (default: the working tree)")
     p.add_argument("files", nargs="*", default=list(DEFAULT_FILES))
+    p = sub.add_parser("check")
+    p.add_argument("ref", nargs="?", default="HEAD",
+                   help="tree to judge (default: HEAD; a merge uses its first parent)")
+    p.add_argument("--base", help="override the segment base (a test pins it)")
     p = sub.add_parser("resolve"); p.add_argument("file")
     p.add_argument("--base-file"); p.add_argument("--ours-file"); p.add_argument("--theirs-file")
     p.add_argument("-o", "--output", help="write here instead of FILE")
@@ -765,6 +1025,12 @@ def _dispatch(args) -> int:
         bf.write(text, delta=d, dry_run=dry)
         print(f"board: {args.id} -> {args.status}")
         return 0
+    if c == "claim-row":
+        bf = BoardFile(args.claims)
+        text, d = op_claim_row(bf, args.id, args.text)
+        bf.write(text, delta=d, dry_run=dry)
+        print(f"board: claim-row {args.id}: {d:+d} lines")
+        return 0
     if c == "lost":
         # The checkout the command runs in (any worktree), else this tool's.
         r = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True)
@@ -783,6 +1049,8 @@ def _dispatch(args) -> int:
             if lost["claims"]:
                 print("  claims: " + _ranges(lost["claims"]))
         return 1 if bad else 0
+    if c == "check":
+        return check_ref(args.ref, base=args.base)
     if c == "resolve":
         # Index stages of the conflicted file, read from its own checkout
         # (works in any worktree): 1 = base, 2 = ours, 3 = theirs.
@@ -1090,6 +1358,165 @@ def run_selftest() -> int:
                "same task list as todo_check.parse_tasks")
         except ImportError as exc:
             ok(False, f"import checker: {exc}")
+
+        # --- H121: board_loss_problems (a PR must not drop what it does not own)
+        # One base with three tasks and four claim rows; each case deletes one
+        # unit and the exemption decides.
+        h_todo = """# TODO
+
+## H — Housekeeping
+
+- [ ] **H1 — Own**
+  - Status: in progress · Owner: b · Critical: no
+  - Goal: g.
+  - Claims: C-200–C-201
+
+- [ ] **H2 — Other**
+  - Status: open · Owner: — · Critical: no
+  - Goal: h.
+
+- [ ] **H3 — Third**
+  - Status: done · Owner: — · Critical: no
+  - Result: r.
+"""
+        h_claims = """# Claims
+
+## S
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-200 | a | VERIFIED | H | x |
+| C-201 | RESERVED (H9). | — | — | — |
+| C-202 | c | VERIFIED | H | y |
+| C-203 | d | VERIFIED | H | z |
+"""
+        hist_text = "# TODO history\n\n- [x] **H3 — Third**\n  - Status: done\n"
+
+        def verdict(head_todo, head_claims, history=()):
+            return board_loss_problems(h_todo, head_todo, h_claims, head_claims, list(history))
+
+        # baseline: an unchanged board is clean (negative control)
+        v = verdict(h_todo, h_claims)
+        ok(not v["errors"] and not v["tasks"] and not v["claims"], "H121: unchanged board is clean")
+
+        # a deleted claim row fails and names the row
+        cut = h_claims.replace("| C-202 | c | VERIFIED | H | y |\n", "")
+        v = verdict(h_todo, cut)
+        ok(v["claims"] == ["C-202"] and any("lost claim row C-202" in e for e in v["errors"]),
+           "H121: a deleted claim row fails and is named")
+
+        # a deleted task block fails and names the block
+        cut = h_todo.replace("""- [ ] **H2 — Other**
+  - Status: open · Owner: — · Critical: no
+  - Goal: h.
+
+""", "")
+        v = verdict(cut, h_claims)
+        ok(v["tasks"] == ["H2"] and any("lost task H2" in e for e in v["errors"]),
+           "H121: a deleted task block fails and is named")
+
+        # an archived task is exempt when its block is in a history file
+        no_h3 = h_todo.split("- [ ] **H3")[0]
+        v = verdict(no_h3, h_claims, [hist_text])
+        ok(v["tasks"] == ["H3"] and not v["errors"] and v["exempt_tasks"].get("H3"),
+           "H121: an archived task is exempt")
+        v = verdict(no_h3, h_claims)
+        ok(v["tasks"] == ["H3"] and any("lost task H3" in e for e in v["errors"]),
+           "H121: the same archive without a history file fails")
+
+        # a dropped RESERVED row is exempt; a non-reserved one is not
+        cut = h_claims.replace("| C-201 | RESERVED (H9). | — | — | — |\n", "")
+        v = verdict(h_todo, cut)
+        ok(v["claims"] == ["C-201"] and not v["errors"], "H121: a dropped RESERVED row is exempt")
+        cut = h_claims.replace("| C-203 | d | VERIFIED | H | z |\n", "")
+        v = verdict(h_todo, cut)
+        ok(v["claims"] == ["C-203"] and any("C-203" in e for e in v["errors"]),
+           "H121: a dropped non-RESERVED row fails")
+
+        # a restore: an ID lost from the board but named in the PR's own block
+        restore_head = (h_todo.replace(
+            "- [ ] **H1 — Own**\n  - Status: in progress · Owner: b · Critical: no\n",
+            "- [ ] **H1 — Own**\n  - Status: in progress · Owner: b · Critical: no\n"
+            "  - Note: restores H3.\n", 1).split("- [ ] **H3")[0])
+        v = verdict(restore_head, h_claims)
+        ok(v["tasks"] == ["H3"] and not v["errors"] and v["exempt_tasks"].get("H3"),
+           "H121: a lost ID named in the PR's own block is exempt")
+
+        # ...but only as a whole ID token: the navigator's round-1 defect.
+        # H1's own block names M9.56 and M9.5 is dropped -> M9.5 must FAIL.
+        pre_todo = ("# TODO\n\n## M9 — x\n\n- [ ] **M9.5 — Five**\n  - Status: open\n"
+                    "  - Claims: C-300–C-309\n")
+        pre_claims = ("# Claims\n\n| ID | Claim | Status | Confidence | Evidence |\n"
+                      "| --- | --- | --- | --- | --- |\n"
+                      "| C-300 | a | VERIFIED | H | x |\n")
+        coll_head = ("# TODO\n\n## M9 — x\n\n- [ ] **M9.56 — Six**\n  - Status: open\n"
+                     "  - Note: extends M9.56, restores M9.56.\n")
+        # M9.56 is the PR's own new block (head-only); M9.5 is dropped from it.
+        v = board_loss_problems(pre_todo, coll_head, pre_claims, pre_claims, [])
+        ok(v["tasks"] == ["M9.5"] and v["errors"] and "M9.5" not in v["exempt_tasks"],
+           "H121: a dropped M9.5 is NOT exempt by a block naming M9.56")
+        # positive control for that case: the own block naming the exact ID
+        coll_ok = coll_head.replace("restores M9.56.", "restores M9.5.")
+        v = board_loss_problems(pre_todo, coll_ok, pre_claims, pre_claims, [])
+        ok(v["tasks"] == ["M9.5"] and not v["errors"] and v["exempt_tasks"].get("M9.5"),
+           "H121: a dropped M9.5 IS exempt when the own block names M9.5 exactly")
+        ok(_names_id("M9.56–M9.62 and M9.55", "M9.5") is False
+           and _names_id("see M9.5, then", "M9.5") is True
+           and _names_id("(M9.5)", "M9.5") is True
+           and _names_id("M9.5.1", "M9.5") is False,
+           "H121: _names_id matches whole IDs, not prefixes")
+
+        # a claims renumber: the lost row's ID is named in the PR's own block
+        renum = h_todo.replace("C-200–C-201", "C-210–C-211", 1)
+        cut = h_claims.replace("| C-200 | a | VERIFIED | H | x |\n", "")
+        v = verdict(renum, cut)
+        ok(v["claims"] == ["C-200"] and not v["errors"],
+           "H121: a claim row the PR's own block renumbers is exempt")
+
+        # segment_base: a merge uses its first parent (a restore shows no loss)
+        # and a plain commit falls back to its single parent — tested in the
+        # synthetic repo below, where there is no origin/main to confuse it.
+
+        # check_ref end to end on the PR #340 shape in a synthetic repo
+        synth = Path(td) / "synth"
+        synth.mkdir()
+        def sg(*a):
+            return subprocess.run(["git", *a], cwd=str(synth), capture_output=True, text=True)
+
+        sg("init", "-q")
+        sg("config", "user.email", "t@t")
+        sg("config", "user.name", "t")
+        (synth / "docs/research").mkdir(parents=True)
+        (synth / "TODO.md").write_text(h_todo, encoding="utf-8")
+        (synth / "docs/research/claims.md").write_text(h_claims, encoding="utf-8")
+        sg("add", "-A"); sg("commit", "-qm", "base")
+        base_rev = sg("rev-parse", "HEAD").stdout.strip()
+        (synth / "TODO.md").write_text(no_h3, encoding="utf-8")
+        (synth / "docs/research/claims.md").write_text(
+            h_claims.replace("| C-202 | c | VERIFIED | H | y |\n", ""), encoding="utf-8")
+        sg("add", "-A"); sg("commit", "-qm", "loss")
+        bad = sg("rev-parse", "HEAD").stdout.strip()
+        rc = check_ref(bad, base=base_rev, cwd=synth)
+        ok(rc == 1, "H121 check_ref: the PR #340 shape exits 1")
+        # the same tree with the archive + reserved exemptions is clean
+        (synth / "docs/research/todo-history-2026-01-02.md").write_text(hist_text, encoding="utf-8")
+        (synth / "docs/research/claims.md").write_text(h_claims, encoding="utf-8")
+        sg("add", "-A"); sg("commit", "-qm", "archive+restore")
+        good = sg("rev-parse", "HEAD").stdout.strip()
+        ok(check_ref(good, base=base_rev, cwd=synth) == 0,
+           "H121 check_ref: an archived task and a restored row exit 0")
+        # segment_base inside the synthetic repo (no origin/main): a plain
+        # commit falls back to its single parent, a merge to its first parent
+        good_parent = sg("rev-parse", "HEAD^").stdout.strip()
+        ok(segment_base(good, cwd=synth) == good_parent,
+           "H121: segment_base of a plain commit is its parent")
+        sg("checkout", "-q", "-b", "side", good)
+        (synth / "side-note.txt").write_text("side\n", encoding="utf-8")
+        sg("add", "-A"); sg("commit", "-qm", "side")
+        sg("checkout", "-q", "-")
+        sg("merge", "-q", "--no-ff", "-m", "merge", "side")
+        merged = sg("rev-parse", "HEAD").stdout.strip()
+        ok(segment_base(merged, cwd=synth) == good,
+           "H121: segment_base of a merge is its first parent")
 
     if failures:
         for f in failures:
