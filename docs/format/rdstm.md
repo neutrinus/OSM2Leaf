@@ -387,6 +387,28 @@ Build a file: `python3 tools/lctbl_build.py synth SPEC.json -o LCTBL001.DAT`
 (`example-spec` writes a synthetic Polish spec); check one:
 `python3 tools/lctbl_build.py check -v FILE`.
 
+### Lookup path at L3 (M5.60, EU2011)
+
+The whole lookup runs in PySh4 on a generated file
+(`python3 tools/lctbl_lookup_l3.py run`, EXP-2026-11-20-M5.60-lctbl-index-l3,
+C-6140–C-6149):
+
+- request `0x14e4` sub 1 (sender fn `0x003bcac0`,
+  `sdl_rdstmc_search_non_cache`): body `+16` country code, `+20` location
+  database number, `+24` location code;
+- **table code = (ASCII hex digit of the country code) << 8 | database
+  number** (country 2, database 25 → `0x3219`; country 13 → `0x4401`). A
+  generated table is reachable only under a code of this form;
+- reads: header, catalog, index pages (root, then one leaf), page directory,
+  the zlib record page; the page is inflated by `HDL_MapTblTask` (entry fn
+  `0x003ebe70`, messages `0x14b8`/`0x14b9`);
+- answer `0x14fb` sub 29: `+16` status (1 found, 4 not found), `+24` pointer
+  to the record, the file's record with each `u16` byte-swapped.
+
+On a `lctbl_build.py synth` file the record equals the writer's model for
+4/4 held codes; absent codes are not found. Observed, not explained: a table
+code missing from the catalog is served from the file's first table.
+
 ### Code-side reader (M3.15, located)
 
 The record walk and the name decode are named (EXP-2026-11-20-M3.15-lctbl-reader;
@@ -744,3 +766,16 @@ This matches the level-2 column of `fa_encode.CLASSES` (motorway 1, trunk 3,
 primary 4, secondary 5, tertiary and below 7) — HYPOTHESIS until a firmware
 reader or OSM-tagged roads confirm it. `python3 tools/rdstm_class_hint.py run
 LCTBL001.DAT RDSTM001.DAT MAPAL001`.
+
+**Second country and controls (M4.35, C-3200–C-3204).** The same reading
+holds on the US 2011 card (303,023/303,023 records). On both cards every
+resolvable reference obeys the class: `liner ref` names a linear, `area
+ref` an area, the offsets a record of the record's own class (1,667,631 of
+1,667,631; 36 % with permuted codes). For `L1.x` the subtype equals the
+road class that the road number shows (`D`/`I/`/`II/`/`III/` in Czechia,
+`A`/`B`/`L`/`K` in Germany, `M`/`A` in the UK, `I-`/`US-`/`CR-` in the USA):
+7,831 of 7,852. A generated table must give every record a valid type and
+keep these reference rules. In EU2011 `Navi.exe` the value is returned by
+fn `0x003bbfe0` (`SDL_TMC_GetLocationCode`; the firmware's name for the
+file's `kind code`). `tools/lctbl_kind.py`.
+

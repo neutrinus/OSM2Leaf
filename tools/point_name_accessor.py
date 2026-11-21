@@ -154,8 +154,12 @@ def check_build(data: bytes, cfg: dict) -> None:
                               f"not {want:#010x}: wrong build?")
 
 
-def build_context(data: bytes, build: str, native_page: bytes, dict_native: bytes | None):
-    """Engine with the writer-filled slot table; dict_native=None leaves +0x20 empty."""
+def build_context(data: bytes, build: str, native_page: bytes, dict_native: bytes | None,
+                  stub_log: list | None = None):
+    """Engine with the writer-filled slot table; dict_native=None leaves +0x20 empty.
+
+    *stub_log*, when given, gets one entry per call of the only import the
+    run binds (``OSMDLL!taskIdSelf``)."""
     wcfg = dw.BUILDS[build]
     cfg = BUILDS[build]
     glob = dw.type_global(data, wcfg, dw.TYPE_POINT)
@@ -166,7 +170,11 @@ def build_context(data: bytes, build: str, native_page: bytes, dict_native: byte
     eng.map("page", dw.PAGE_VA, bytearray(native_page) + bytearray(0x40), "rw")
     eng.map("dict", DICT_VA, bytearray(dict_native or b"\0" * DICT_SPAN), "rw")
     eng.map("stub", STUB_VA, bytearray(0x10), "rx")
-    eng.on_exec(STUB_VA, lambda _e, _va: 1)          # OSMDLL!taskIdSelf
+    def task_id_self(_e, _va):                        # OSMDLL!taskIdSelf
+        if stub_log is not None:
+            stub_log.append("OSMDLL!taskIdSelf")
+        return 1
+    eng.on_exec(STUB_VA, task_id_self)
     dw.put32(eng, cfg["iat_task_id_self"], STUB_VA)
     dw.put32(eng, dw.CTX_VA + dw.CTX_TYPE, dw.TYPE_POINT)
     dw.put32(eng, glob, dw.OBJ_VA)
@@ -288,6 +296,63 @@ def cmd_run(args) -> int:
         ok = ok and got == want
     print("result:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
+
+
+def decode_page(data: bytes, build: str, blob: bytes, raw: bytes, limit: int = 100000) -> dict:
+    """Run the accessors on every record of *raw* (a decoded page of *blob*).
+
+    The library form of ``run`` for ``l3_harness/runner.py`` (M9.10): no
+    printing, one dict.  ``blocked`` is set when the field dictionary is not
+    unique in *blob*.  Raises ``d53500_writer.Mismatch`` for a wrong build.
+    """
+    cfg = BUILDS[build]
+    check_build(data, cfg)
+    records = mrp.parse_page(raw)
+    hits = find_dictionary(blob)
+    out = {"build": build, "records": len(records), "dictionary": [list(h) for h in hits]}
+    if len(hits) != 1:
+        out["blocked"] = "the field dictionary is not unique in this file (%d candidates)" % len(hits)
+        return out
+    c = hits[0][0]
+    dict_native = pw.swap16(blob[c:c + DICT_SPAN].ljust(DICT_SPAN, b"\0"))
+    native = pw.swap16(raw)
+    stub_log: list = []
+    eng, _hdr, _glob, slots = build_context(data, build, native, dict_native, stub_log)
+    rows = run_records(eng, cfg, raw, records, limit)
+    verdicts: dict[str, int] = {}
+    for row, rec in zip(rows, records):
+        row["verdict"] = judge(row, rec["bytes"])
+        verdicts[row["verdict"]] = verdicts.get(row["verdict"], 0) + 1
+    eng0, _h, _g, slots0 = build_context(data, build, native, None)
+    r0 = records[0]
+    ptr0, _f0 = call(eng0, cfg["name"], [dw.PAGE_VA, dw.PAGE_VA + r0["offset"]])
+    ptr1, _f1 = call(eng, cfg["name"], [dw.PAGE_VA + 2, dw.PAGE_VA + r0["offset"]])
+    out.update(rows=rows, verdicts=verdicts, slots=list(slots),
+               slots_ok=slots == (dw.PAGE_VA, DICT_VA),
+               stub_calls=len(stub_log),
+               negative={"no_dictionary": ptr0, "db_not_in_table": ptr1,
+                         "ok": ptr0 in (None, 0, 0xFFFFFFFF) and ptr1 in (None, 0, 0xFFFFFFFF)})
+    return out
+
+
+def name_of_record0(data: bytes, build: str, blob: bytes, raw: bytes) -> dict:
+    """Record 0's name by the accessor alone, without ``parse_page`` (for a
+    page the Python parser refuses, e.g. a corrupted ``len2``)."""
+    cfg = BUILDS[build]
+    check_build(data, cfg)
+    hits = find_dictionary(blob)
+    if len(hits) != 1:
+        return {"blocked": "the field dictionary is not unique in this file"}
+    c = hits[0][0]
+    stub_log: list = []
+    eng, _h, _g, _s = build_context(data, build, pw.swap16(raw),
+                                    pw.swap16(blob[c:c + DICT_SPAN].ljust(DICT_SPAN, b"\0")), stub_log)
+    ptr, f1 = call(eng, cfg["name"], [dw.PAGE_VA, dw.PAGE_VA])
+    ln, f2 = call(eng, cfg["length"], [dw.PAGE_VA, dw.PAGE_VA])
+    name = None
+    if ptr not in (None, 0, 0xFFFFFFFF) and ln is not None:
+        name = raw[ptr - dw.PAGE_VA:ptr - dw.PAGE_VA + 2 * ln]
+    return {"name": name, "fault": f1 or f2, "stub_calls": len(stub_log)}
 
 
 # ---------------------------------------------------------------------------

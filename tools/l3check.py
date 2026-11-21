@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import hashlib
 import io
 import json
@@ -102,6 +103,16 @@ TARGET_EVIDENCE = {
         "claims": ("C-3630",),
         "note": "US build of the same engine (fn 0x00444540); M1.22",
     },
+    "point_walk_us2011": {
+        "reader": "point_walk",
+        "claims": ("C-5770", "C-5771", "C-5772"),
+        "note": "US POINT walker fn 0x0041db44; runner point_walk_v1 (M9.55); framing only, not names (C-4178)",
+    },
+    "poi_record_decode": {
+        "reader": "point_name",
+        "claims": ("C-2140", "C-2141", "C-2142"),
+        "note": "US POINT name accessor fn 0x0041ec8c; runner point_name_v1 (M9.10); names, not the .cmp layer",
+    },
     "tile_reader": {
         "reader": "tile",
         "claims": (),
@@ -124,8 +135,8 @@ TARGET_EVIDENCE = {
     },
     "drstr_parser": {
         "reader": "drstr",
-        "claims": (),
-        "note": "no DRSTR parser entry point yet",
+        "claims": ("C-2640", "C-2641", "C-2642"),
+        "note": "Navi.exe fn 0x00419350 (EU2011) via tools/drstr_l3.py; needs --image/--input (M9.24)",
     },
     "mapcode_comparator": {
         "reader": "hdd_info",
@@ -441,14 +452,14 @@ _CARD_TARGETS = [
         "label": "POI record reader (M9.10)",
         "applies": lambda p: p.upper().startswith("REFER001/POINT") and p.upper().endswith(".DAT.CMP"),
         "adapter": "not-yet-available",
-        "unavailable_note": "POI reader not yet available (M9.10; no poi_record_decode target in targets.json, name accessor waits M3.11c)",
+        "unavailable_note": "POI reader not yet available in --card mode: the target exists since M9.10 (runner.py run poi_record_decode --image US256 --cmp PAIR.cmp --ind PAIR.ind --expect-name NAME) but this gate does not yet find the changed page of a POINT pair (M9.12)",
     },
     {
         "name": "drstr_parser",
         "label": "DRSTR001 parser (M9.14)",
         "applies": lambda p: p.upper() == "DRSTR001.DAT",
         "adapter": "targets.json",
-        "unavailable_note": "drstr_parser blocked (compressed sec1/import stubs; M1.2f/M9.24)",
+        "unavailable_note": "drstr_parser is a firmware_call (M9.24): run it with runner.py run drstr_parser --image IMG --input DRSTR001.DAT",
     },
     {
         "name": "tile_reader",
@@ -533,6 +544,27 @@ def _find_img256() -> Path | None:
         if p and str(p) and p.is_file():
             return p
     return None
+
+
+def _find_us256() -> Path | None:
+    candidates = [
+        TOOLS_DIR.parent / "archive" / "us256.img",
+        Path(os.environ.get("US256", "")),
+        Path("/home/marek/projekty/OSM2Leaf/archive/us256.img"),
+    ]
+    for p in candidates:
+        if p and str(p) and p.is_file():
+            return p
+    return None
+
+
+#: ``build`` -> the head image whose firmware the target's VAs belong to.  A
+#: wrong pairing still yields a verdict (``FAIL (unmapped ...)``, M9.42), so a
+#: missing image is never silently swapped for the other build's.
+BUILD_IMAGES = {
+    "eu2011": _find_img256,
+    "us2011": _find_us256,
+}
 
 
 def _card_status_norm(status: str) -> str:
@@ -779,17 +811,63 @@ def _select_targets(by_name: dict[str, dict], requested) -> list[dict]:
             selected.append(name)
     return [by_name[name] for name in selected]
 
+def _corpus_firmware_inputs(target: dict, corpus_root: Path) -> dict:
+    """Corpus-mode ``--image/--cmp/--ind`` for a ``point_walk_v1`` row (M9.55).
+
+    The image comes from the target's ``build`` (``BUILD_IMAGES``), the pair
+    from ``entry.inputs.source`` under the corpus root.  A build with no head
+    image is reported by the caller as BLOCKED (nothing claimed), never
+    swapped for the other build's image.
+    """
+    entry = target.get("entry") or {}
+    if entry.get("program") not in ("point_walk_v1", "point_name_v1"):
+        return {}
+    source = (entry.get("inputs") or {}).get("source")
+    if not isinstance(source, str) or not source:
+        return {}
+    build = target.get("build") or "eu2011"
+    finder = BUILD_IMAGES.get(build)
+    image = finder() if finder else None
+    cmp_path = corpus_root / source
+    ind_path = cmp_path.with_suffix(".ind")
+    inputs = {
+        "corpus_source": str(cmp_path),
+        "image_missing": image is None,
+    }
+    if image is not None:
+        inputs["image"] = str(image)
+    # M9.10: the synthetic corpus page declares record 0's name; a card run
+    # passes its own --expect-name to runner.py instead.
+    corpus_name = (entry.get("inputs") or {}).get("corpus_name")
+    if entry.get("program") == "point_name_v1" and isinstance(corpus_name, str):
+        inputs["expect_name"] = corpus_name
+    if cmp_path.is_file():
+        inputs["cmp"] = str(cmp_path)
+    if ind_path.is_file():
+        inputs["ind"] = str(ind_path)
+    return inputs
+
+
 
 def _run_one(target: dict, corpus_root: Path, engine: str) -> dict:
     """Run one target through ``runner.run_target``; never raise at the caller."""
 
     evidence = TARGET_EVIDENCE[target["name"]]
+    firmware_inputs = _corpus_firmware_inputs(target, corpus_root)
     namespace = argparse.Namespace(
         engine=engine,
         input=None,
         corpus=str(corpus_root),
         max_insns=engine_mod.DEFAULT_MAX_INSNS,
         dry_run=False,
+        image=firmware_inputs.get("image"),
+        cmp=firmware_inputs.get("cmp"),
+        ind=firmware_inputs.get("ind"),
+        offset=None,
+        length=None,
+        mutate="none",
+        expect=None,
+        expect_name=firmware_inputs.get("expect_name"),
     )
     try:
         payload = runner_mod.run_target(target, namespace)
@@ -799,6 +877,20 @@ def _run_one(target: dict, corpus_root: Path, engine: str) -> dict:
             "exit": runner_mod.EXIT_INVALID,
             "problems": [f"runner error: {type(exc).__name__}: {exc}"],
             "reason": None,
+            "l3_claim": False,
+        }
+
+    if firmware_inputs.get("image_missing"):
+        payload = {
+            **payload,
+            "status": "BLOCKED",
+            "exit": runner_mod.EXIT_BLOCKED,
+            "problems": [],
+            "reason": (
+                f"firmware head for build {target.get('build')!r} not found "
+                f"({', '.join(sorted(p for p in BUILD_IMAGES if p))} candidates); "
+                "rule 11, rerun with the archive head present"
+            ),
             "l3_claim": False,
         }
 
@@ -940,6 +1032,11 @@ def build_report(args) -> dict:
     rows = [_run_one(target, root, engine) for target in selected]
     counts = _counts(rows)
     result, exit_code = _result(counts)
+    gen_rows, gen_problems = generated_rows(
+        {row["name"]: by_name[row["name"]] for row in rows},
+        _parse_generated(getattr(args, "generated", None)))
+    if gen_problems:
+        result, exit_code = "FAIL", 1
 
     return {
         "schema": SCHEMA,
@@ -953,7 +1050,8 @@ def build_report(args) -> dict:
         "counts": counts,
         "result": result,
         "exit": exit_code,
-        "problems": [],
+        "problems": list(gen_problems),
+        "generated_corpus": gen_rows,
         "target_count": len(targets_doc.get("targets", [])),
         "note": (
             "a PASS on a synthetic target proves the runner/dispatcher path, "
@@ -961,6 +1059,121 @@ def build_report(args) -> dict:
             "nothing and are counted, not failed"
         ),
     }
+
+
+# --------------------------------------------------------------------------
+# Generated corpus (H106): which of *our* files a target ran on
+# --------------------------------------------------------------------------
+
+#: Status words of a ``generated_corpus`` row.  None of them is a target
+#: result: the rows are listed next to the targets and never change
+#: ``counts`` (H107: two names for one reader would read as progress).
+GEN_RAN = "RAN (recorded)"   # printed as "RAN (recorded: <verdict>)"
+GEN_STALE = "STALE (file differs from the recorded run)"
+GEN_NOT_RUN_TREE = "NOT RUN (no tree)"
+GEN_NOT_RUNNABLE = "NOT RUNNABLE in runner.py (run it with the 'run' command)"
+GEN_BAD_FILE = "NOT RUN (file is not the listed tile)"
+
+GEN_KEYS = {"id", "what", "generator", "path", "size", "sha256", "run",
+            "recorded", "ran_on_our_generated_data"}
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _parse_generated(specs) -> dict[str, Path]:
+    out = {}
+    for spec in specs or []:
+        ident, sep, path = spec.partition("=")
+        if not sep or not ident or not path:
+            raise UsageError(f"--generated wants ID=PATH, got {spec!r}")
+        out[ident] = Path(path).expanduser()
+    return out
+
+
+def generated_rows(by_name: dict, files: dict[str, Path] | None = None) -> tuple[list, list]:
+    """One row per ``generated_corpus`` entry; ``(rows, problems)``.
+
+    A row is ``RAN`` only when a run is recorded **for the listed SHA-256**
+    (the run's own log names the file it served, ``datask_l3.py mount
+    --json`` ``card.overlay``); with ``--generated ID=PATH`` the local file
+    is hashed and a mismatch is ``STALE`` (recorded) or ``NOT RUN`` (no
+    record).  Without a file and without a record the row is ``NOT RUN (no
+    tree)``.  Nothing here runs the firmware.
+    """
+    files = dict(files or {})
+    rows, problems, seen = [], [], set()
+    for name, target in by_name.items():
+        for i, entry in enumerate(target.get("generated_corpus") or []):
+            where = f"{name}.generated_corpus[{i}]"
+            if not isinstance(entry, dict):
+                problems.append(f"{where}: not an object")
+                continue
+            unknown = sorted(set(entry) - GEN_KEYS)
+            if unknown:
+                problems.append(f"{where}: unknown key(s) {unknown}")
+            ident = entry.get("id")
+            sha = entry.get("sha256")
+            if not isinstance(ident, str) or not ident:
+                problems.append(f"{where}: missing id")
+                continue
+            if not (isinstance(sha, str) and len(sha) == 64):
+                problems.append(f"{where}: sha256 must be 64 hex digits")
+            recorded = entry.get("recorded")
+            if recorded is not None and recorded.get("sha256") != sha:
+                problems.append(f"{where}: recorded run is for another file")
+            if bool(entry.get("ran_on_our_generated_data")) != (recorded is not None):
+                problems.append(f"{where}: ran_on_our_generated_data disagrees with recorded")
+            seen.add(ident)
+            local = files.get(ident)
+            local_sha = None
+            if local is not None:
+                if not local.is_file():
+                    problems.append(f"--generated {ident}: no such file {local}")
+                    local = None
+                else:
+                    local_sha = _sha256_file(local)
+            if recorded is not None and local_sha not in (None, sha):
+                status = GEN_STALE
+                reason = (f"recorded {recorded.get('verdict')} applies to {sha[:16]}..., "
+                          f"not this file ({local} has {local_sha[:16]}...); re-run: "
+                          + (entry.get("run") or "-"))
+                problems.append(f"{where} ({ident}): {status}: {reason}")
+            elif recorded is not None:
+                status = f"{GEN_RAN[:-1]}: {recorded.get('verdict')})"
+                reason = f"{recorded.get('verdict')}: {recorded.get('detail')} ({recorded.get('exp')})"
+            elif local_sha is None:
+                status = GEN_NOT_RUN_TREE
+                reason = "no run recorded and no file given (--generated ID=PATH); generator: " \
+                    + (entry.get("generator") or "not committed")
+            elif local_sha != sha:
+                status = GEN_BAD_FILE
+                reason = f"{local} has sha256 {local_sha[:16]}..., listed {sha[:16]}..."
+                problems.append(f"{where} ({ident}): {status}: {reason}")
+            else:
+                status = GEN_NOT_RUNNABLE
+                reason = "no run recorded; " + (entry.get("run") or "-")
+            rows.append({
+                "target": name,
+                "id": ident,
+                "status": status,
+                "reason": reason,
+                "sha256": sha,
+                "size": entry.get("size"),
+                "file": str(local) if local is not None else None,
+                "file_sha256": local_sha,
+                "ran_on_our_generated_data": status.startswith(GEN_RAN[:-1]),
+                "recorded_verdict": None if recorded is None else recorded.get("verdict"),
+                "recorded": recorded,
+            })
+    for ident in sorted(set(files) - seen):
+        problems.append(f"--generated {ident}: no generated_corpus entry has this id")
+    return rows, problems
 
 
 # --------------------------------------------------------------------------
@@ -1036,6 +1249,14 @@ def _print_report(report: dict) -> None:
         for name, status, detail in details:
             print(f"  {status} {name}: {detail}")
 
+    gen = report.get("generated_corpus") or []
+    if gen:
+        print()
+        print("generated corpus (H106; listed, not counted):")
+        for row in gen:
+            print(f"  {row['target']}  {row['id']}  {row['status']}")
+            print(f"      sha256 {row['sha256']}; {row['reason']}")
+
     counts = report["counts"]
     print()
     print(
@@ -1055,6 +1276,8 @@ def _print_report(report: dict) -> None:
         )
     else:
         print(f"RESULT: FAIL ({counts['fail']} target(s) failed; exit 1)")
+
+
 
 
 # --------------------------------------------------------------------------
@@ -1126,6 +1349,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="machine-readable report: bare flag or '-' prints to stdout, "
         "PATH writes the same document to that file (atomic, UTF-8)",
+    )
+    parser.add_argument(
+        "--generated",
+        action="append",
+        metavar="ID=PATH",
+        help="H106: a local copy of a generated_corpus file (hashed and "
+        "compared with the listed SHA-256; nothing is run)",
     )
     parser.add_argument(
         "--selftest",
@@ -1229,7 +1459,7 @@ def test_full_run():
     assert report["claim"] == "C-1700"
     assert report["engine"] == "pysh4"
     assert report["corpus"]["source"] == "supplied", report["corpus"]
-    assert report["corpus"]["entries"] == 108, report["corpus"]
+    assert report["corpus"]["entries"] == 111, report["corpus"]
     rows = {row["name"]: row for row in report["targets"]}
     probe = rows["probe-zlib-cmf"]
     assert probe["status"] == "PASS", probe
@@ -1238,32 +1468,71 @@ def test_full_run():
     assert probe["synthetic"] is True and probe["l3_claim"] is False, probe
     assert probe["input"]["manifest_sha256_match"] is True, probe["input"]
     assert probe["steps"] and probe["steps"] > 0, probe
+    # M9.55: the POINT walker row is runnable from the corpus alone when the
+    # us2011 head is present (image from the target's build, pair from the
+    # corpus); without the archive head it is honestly BLOCKED, not FAIL.
+    point = rows["point_walk_us2011"]
+    us_head = (BUILD_IMAGES.get("us2011") or (lambda: None))()
+    if us_head is not None:
+        assert point["status"] == "PASS", point
+        assert point["verdict"] == "ACCEPT" and point["expected"] == "ACCEPT", point
+        assert point["claims"] == ["C-5770", "C-5771", "C-5772"], point
+        assert point["l3_claim"] is True, point
+        expected_blocked = [
+            "applaunch_mapcode_compare",
+            "cmp_ind_reader",
+            "cmp_ind_reader_us2011",
+            "drstr_parser",
+            "hddinfo_compare",
+            "lev3456_reader",
+            "mapcode_comparator",
+            "mmain_reader",
+            "tile_reader",
+            "tile_section4_reader",
+        ]
+        # M9.10: the name accessor row runs on the synthetic corpus page too
+        name = rows["poi_record_decode"]
+        assert name["status"] == "PASS", name
+        assert name["verdict"] == "ACCEPT" and name["l3_claim"] is True, name
+        assert name["claims"] == ["C-2140", "C-2141", "C-2142"], name
+        expected_counts = {"pass": 3, "fail": 0, "skip": 0, "blocked": 10,
+                           "runnable": 3, "total": 13}
+    else:
+        assert point["status"] == "BLOCKED", point
+        assert point["verdict"] is None and point["accepted"] is None, point
+        assert point["l3_claim"] is False and point["reason"], point
+        assert "firmware head for build 'us2011' not found" in point["reason"], point
+        assert point["claims"] == ["C-5770", "C-5771", "C-5772"], point
+        expected_blocked = [
+            "applaunch_mapcode_compare",
+            "cmp_ind_reader",
+            "cmp_ind_reader_us2011",
+            "drstr_parser",
+            "hddinfo_compare",
+            "lev3456_reader",
+            "mapcode_comparator",
+            "mmain_reader",
+            "poi_record_decode",
+            "point_walk_us2011",
+            "tile_reader",
+            "tile_section4_reader",
+        ]
+        assert rows["poi_record_decode"]["status"] == "BLOCKED", rows["poi_record_decode"]
+        expected_counts = {"pass": 1, "fail": 0, "skip": 0, "blocked": 12,
+                           "runnable": 1, "total": 13}
     blocked = sorted(name for name, row in rows.items() if row["status"] == "BLOCKED")
     # The firmware_call readers (EU cmp_ind_reader, US cmp_ind_reader_us2011)
     # need external --image/--cmp/--ind, so a corpus-only run reports them
     # BLOCKED in this mode (M9.11b, M1.22); so does the AppLaunch map-code
-    # compare, which needs --image/--input/--unit-from (M9.6).
-    assert blocked == [
-        "applaunch_mapcode_compare",
-        "cmp_ind_reader",
-        "cmp_ind_reader_us2011",
-        "drstr_parser",
-        "hddinfo_compare",
-        "lev3456_reader",
-        "mapcode_comparator",
-        "mmain_reader",
-        "tile_reader",
-        "tile_section4_reader",
-    ], blocked
+    # compare, which needs --image/--input/--unit-from (M9.6), and the
+    # DRSTR001 parser, which needs --image/--input (M9.24).
+    assert blocked == expected_blocked, blocked
     for name in blocked:
         row = rows[name]
         assert row["verdict"] is None and row["accepted"] is None, row
         assert row["l3_claim"] is False and row["reason"], row
         assert row["claims"] == list(TARGET_EVIDENCE[name]["claims"]), row
-    assert report["counts"] == {
-        "pass": 1, "fail": 0, "skip": 0, "blocked": 10,
-        "runnable": 1, "total": 11,
-    }, report["counts"]
+    assert report["counts"] == expected_counts, report["counts"]
 
 
 @check("run: --target selects exactly one target (PASS)")
@@ -1383,7 +1652,7 @@ def test_build_corpus():
         assert code == 0, report
         corpus = report["corpus"]
         assert corpus["source"] == "built" and corpus["kept"] is True, corpus
-        assert corpus["entries"] == 108, corpus
+        assert corpus["entries"] == 111, corpus
         assert Path(corpus["root"]).is_dir(), corpus
         assert (Path(corpus["root"]) / "manifest.json").is_file(), corpus
         assert report["targets"][0]["status"] == "PASS", report["targets"]
@@ -1495,6 +1764,81 @@ def test_card_cmp_pair():
     assert _norm_cmp_pair("REFER001/POINT010.DAT.ind") == (
         "REFER001/POINT010.DAT.cmp", "REFER001/POINT010.DAT.ind")
     assert _norm_cmp_pair("DRSTR001.DAT") is None
+
+
+@check("generated corpus (H106): tile_reader lists our tiles with a status, counts unchanged")
+def test_generated_corpus_listed():
+    code, report = _json_cli(["--corpus", str(_corpus())])
+    assert code == 0, (code, report.get("problems"))
+    rows = {r["id"]: r for r in report["generated_corpus"]}
+    for ident in ("generated:m5.11:B48R058R", "synthetic:one_tile_pipeline"):
+        assert ident in rows and rows[ident]["target"] == "tile_reader", rows.keys()
+        assert rows[ident]["status"].startswith(GEN_RAN[:-1]) \
+            or rows[ident]["status"] == GEN_NOT_RUN_TREE, rows[ident]
+    assert rows["synthetic:one_tile_pipeline"]["status"] == "RAN (recorded: DIFFERENT)", rows
+    assert rows["generated:m5.11:B48R058R"]["status"] == "RAN (recorded: SAME)", rows
+    assert rows["generated:m5.34:B48R058R"]["status"] == GEN_NOT_RUN_TREE
+    assert not rows["generated:m5.34:B48R058R"]["ran_on_our_generated_data"]
+    names = [t["name"] for t in report["targets"]]
+    assert names.count("tile_reader") == 1, names
+    assert report["counts"]["total"] == len(names) == report["target_count"]
+
+
+@check("generated corpus (H106): a STALE file makes the run FAIL (exit 1), never PASS")
+def test_generated_corpus_stale_fails():
+    bad = Path(_SELFTEST_TMP) / "gen-stale.DAT"
+    bad.write_bytes(b"not the M5.11 tile")
+    code, report = _json_cli(["--corpus", str(_corpus()),
+                              "--generated", f"generated:m5.11:B48R058R={bad}"])
+    assert code == 1 and report["result"] == "FAIL", (code, report["result"])
+    row = next(r for r in report["generated_corpus"] if r["id"] == "generated:m5.11:B48R058R")
+    assert row["status"] == GEN_STALE and "applies to 1927c3a9" in row["reason"], row
+    assert any(GEN_STALE in p for p in report["problems"]), report["problems"]
+
+
+def _gen_fixture(recorded: bool, data: bytes = b"our tile"):
+    sha = hashlib.sha256(data).hexdigest()
+    entry = {"id": "generated:test:T", "path": "MAPAL001/T.DAT", "sha256": sha,
+             "run": "datask_l3.py mount --replace MAPAL001/T.DAT=FILE",
+             "recorded": ({"exp": "EXP-x", "sha256": sha, "verdict": "SAME", "detail": "d"}
+                          if recorded else None),
+             "ran_on_our_generated_data": recorded}
+    return {"tile_reader": {"name": "tile_reader", "generated_corpus": [entry]}}, sha
+
+
+@check("generated corpus (H106): status follows the file's SHA-256, not its name")
+def test_generated_corpus_status():
+    good = Path(_SELFTEST_TMP) / "gen-good.DAT"
+    bad = Path(_SELFTEST_TMP) / "gen-bad.DAT"
+    good.write_bytes(b"our tile")
+    bad.write_bytes(b"another tile")
+    by_name, _sha = _gen_fixture(False)
+    rows, probs = generated_rows(by_name)
+    assert not probs and rows[0]["status"] == GEN_NOT_RUN_TREE, (rows, probs)
+    rows, probs = generated_rows(by_name, {"generated:test:T": good})
+    assert not probs and rows[0]["status"] == GEN_NOT_RUNNABLE, rows
+    assert not rows[0]["ran_on_our_generated_data"]
+    rows, probs = generated_rows(by_name, {"generated:test:T": bad})
+    assert rows[0]["status"] == GEN_BAD_FILE and any(GEN_BAD_FILE in p for p in probs), (rows, probs)
+    by_name, _sha = _gen_fixture(True)
+    rows, probs = generated_rows(by_name)
+    assert not probs and rows[0]["status"] == "RAN (recorded: SAME)" and rows[0]["ran_on_our_generated_data"]
+    rows, probs = generated_rows(by_name, {"generated:test:T": good})
+    assert not probs and rows[0]["status"] == "RAN (recorded: SAME)", (rows, probs)
+    rows, probs = generated_rows(by_name, {"generated:test:T": bad})
+    assert rows[0]["status"] == GEN_STALE and not rows[0]["ran_on_our_generated_data"], rows
+    assert any(GEN_STALE in p for p in probs), probs
+    assert "applies to" in rows[0]["reason"] and not rows[0]["reason"].startswith("SAME"), rows
+    # negative: a record for another file, or a flag that disagrees, is a problem
+    by_name["tile_reader"]["generated_corpus"][0]["recorded"]["sha256"] = "0" * 64
+    _rows, probs = generated_rows(by_name)
+    assert any("another file" in p for p in probs), probs
+    by_name, _sha = _gen_fixture(False)
+    by_name["tile_reader"]["generated_corpus"][0]["ran_on_our_generated_data"] = True
+    _rows, probs = generated_rows(by_name)
+    assert any("disagrees" in p for p in probs), probs
+    _rows, probs = generated_rows(by_name, {"generated:nope": good})
+    assert any("no generated_corpus entry" in p for p in probs), probs
 
 
 def run_selftest() -> int:

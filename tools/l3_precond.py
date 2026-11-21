@@ -863,11 +863,12 @@ def run_selftest() -> int:
         check("real cmp_ind_reader -> READY (baseline-known)", r_cmp["verdict"] == READY,
               f"{r_cmp['verdict']} reasons={r_cmp['reasons']}")
         r_drs = assess_target(by_name["drstr_parser"])
-        check("real drstr_parser -> BLOCKED (M1.2f/missing compressed sec1 reachability)", r_drs["verdict"] == BLOCKED,
-              f"{r_drs['verdict']} reasons={r_drs['reasons']}")
-        check("real drstr_parser mentions M1.2f or compressed sec1 or unmapped",
-              any(("m1.2f" in x.lower()) or ("compressed sec1" in x.lower()) or ("sec1" in x.lower()) or ("unmapped" in x.lower())
-                  for x in r_drs["reasons"] + [r_drs["compressed_sec1_data_dependency_m1_2f"].get("detail", "")]),
+        # M9.24: drstr_parser is a firmware_call with sec1 read from the image
+        # (nk_decomp) and bound imports; it runs, so the precheck is READY.
+        check("real drstr_parser -> READY (M9.24 firmware_call, sec1 from the image)",
+              r_drs["verdict"] == READY, f"{r_drs['verdict']} reasons={r_drs['reasons']}")
+        check("real drstr_parser names the image-sourced sec1 (M1.19)",
+              any("sec1 bytes read from the image" in x for x in r_drs["reasons"]),
               str(r_drs["reasons"]))
         # A target with no VA / missing mapping.
         for name in ("tile_reader", "hddinfo_compare"):

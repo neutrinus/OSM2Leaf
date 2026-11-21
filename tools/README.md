@@ -285,6 +285,21 @@ OK (section 1 level 5 strict; levels 3/4 best-effort)
 See [`../docs/format/map-tiles.md`](../docs/format/map-tiles.md) "LEV3456R.DAT:
 coarse levels 3–5".
 
+## `lev3456gen.py` — write coarse-level roads into `LEV3456R.DAT` (M5.16, M5.59)
+
+Splices road shapes for levels 3, 4 and 5 from a JSON extract into a factory
+template. The level-3 directory is chosen by the directory box (M5.59).
+`placement` checks a generated file without the generator's split: every
+changed record is decoded back to lat/lon and must lie on a road of the
+extract. `codes` counts record headers that equal the geometric parcel code.
+
+```bash
+python3 tools/lev3456gen.py --selftest
+python3 tools/lev3456gen.py generate --template LEV3456R.DAT --extract tools/fixtures/m9.18-krotoszyn-lev3456.json -o G.DAT
+python3 tools/lev3456gen.py placement --template LEV3456R.DAT --generated G.DAT --extract tools/fixtures/m9.18-krotoszyn-lev3456.json --expect-l3-dir 24
+python3 tools/lev3456gen.py codes LEV3456R.DAT
+```
+
 ## `cerom.py` — CE ROM header, modules and sections
 
 Reads the Windows CE ROM (`ECEC` → `ROMHDR` → `TOCentry`/`e32_rom`/`o32_rom`,
@@ -340,6 +355,91 @@ python3 tools/callgraph.py path    archive/work/navi_eu.json 0x0041c044 0x005422
 ```
 
 The graph file is derived from vendor code: keep it under `archive/`.
+
+## `event_subs.py` — who listens to which object-store event (M9.57)
+
+Lists every call of `OBJ_Event_setPrm` / `OBJ_Event_setPrmForMP` in every
+module of a CE segment, with the task, the sub (the `+10` word of the
+`0x07d0` message the task will receive) and the object call that follows.
+Import stubs come from each module's own import table, so DLLs are covered;
+helpers that take the task or sub as an argument are listed once per caller.
+
+```bash
+python3 tools/event_subs.py --selftest
+python3 tools/event_subs.py archive/head256.img --expect-site 0x003eb99c
+python3 tools/event_subs.py archive/head256.img --task 0x011fff58 \
+    --handler-table Navi.exe:0x001796f4:6        # table rows without a subscriber
+python3 tools/event_subs.py archive/head256.img --sub 11 --json out.json
+```
+
+With `--task`/`--sub` the exit status is 1 when no row matches; a negative
+needs `--expect-site` (a known site that must be in the census, else exit 2).
+
+## `tile_drop_l3.py` — does the mount keep the tile under a position? (M3.33)
+
+Runs `datask_l3.py`'s mount with hooks on the header check `0x0040acb8`
+(EU2011) and prints, per tile header, the box, the section list at `0x800`
+and whether a part is missing (status 3, the tile is left and the mount
+goes on in box 0). `sections` lists the section lists of a card's tiles
+without the firmware.
+
+```bash
+python3 tools/tile_drop_l3.py --selftest
+python3 tools/tile_drop_l3.py sections --card-image CARD
+python3 tools/tile_drop_l3.py run archive/head256.img --card-image CARD --position 65.0,30.0
+python3 tools/tile_drop_l3.py third-entry --card-image CARD B60R048R.DAT   # --flip arguments
+```
+
+## `lctbl_kind.py` — what the `LCTBL001` kind code (`class_code`) encodes (M4.35)
+
+Tests field 0 of every record as the TMC location type `10000·class +
+100·type + subtype`: `census` checks that the reference columns obey the
+class (`liner ref` → linear, `area ref` → area, offsets → same class),
+`roadclass` compares the `L1.x` subtype with the road class that the syntax
+of the road number shows (Czechia, Germany, UK, USA). Both repeat the test
+with permuted codes as the control. Read-only.
+
+```bash
+python3 tools/lctbl_kind.py --selftest
+python3 tools/lctbl_kind.py census LCTBL001.DAT
+python3 tools/lctbl_kind.py roadclass LCTBL001.DAT --market eu
+python3 tools/lctbl_kind.py kinds LCTBL001.DAT
+```
+
+## `lctbl_lookup_l3.py` — the firmware looks a TMC location code up in `LCTBL001.DAT` (M5.60)
+
+Runs the whole lookup of EU2011 `Navi.exe` in PySh4 on a card image: request
+`0x14e4` → catalog → B-tree index pages → page directory → zlib page inflated
+by `HDL_MapTblTask` → answer `0x14fb`, and compares the returned record with
+the model of `lctbl_build.py parse`. `--file` puts a generated file on the
+card for the run; `--flip OFF[:XOR]` damages one byte (negative control).
+Exit 0 all lookups agree, 1 one does not, 3 blocked.
+
+```bash
+python3 tools/lctbl_lookup_l3.py --selftest
+python3 tools/lctbl_lookup_l3.py extract --card-image CARD -o /tmp/LCTBL001.DAT   # never commit
+python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --lookup 2,25,1203
+python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --file SYN.DAT --lookup 3,25,3604 --lookup 3,25,5
+```
+
+## `point_census.py` — every byte of a `POINTnnn.DAT` by structure, and the fine POI position (M4.27)
+
+Walks a decoded POINT file from its directory: descriptor records, name
+tries, index chains, spatial trees, the phone B-tree and the three page
+chains, and reports the bytes of each class and the bytes nothing reached
+(0 in all 44 files of EU 2011 and US 2011). `joins` checks the cross
+references (spatial leaf ↔ name record, index key ↔ name record, phone key ↔
+`INFORMATION` record). `refs` checks the fine position formula
+(`fine_position`, inverse `encode_position`) against reference coordinates.
+Read-only.
+
+```bash
+python3 tools/point_census.py --selftest
+python3 tools/point_census.py extract --card-image CARD /tmp/pt   # never commit
+python3 tools/point_census.py census /tmp/pt
+python3 tools/point_census.py joins /tmp/pt
+python3 tools/point_census.py refs --us /tmp/pt_us --eu /tmp/pt_eu --refs docs/experiments/EXP-2026-11-08-M4.8b-poi-refs.tsv
+```
 
 ## `nk_decomp.py` — decompress ROM sections with the kernel's own routine (H51)
 
@@ -812,6 +912,8 @@ python3 tools/l3_harness/runner.py check --manifest corpus.json
 python3 tools/l3_harness/runner.py targets
 python3 tools/l3_harness/runner.py run probe-zlib-cmf --input FILE --json
 python3 tools/l3_harness/runner.py run NAME --rommap map.json --image FW.img --json
+# the US firmware's POI name accessor on a POINT pair (M9.10); --mutate corrupt-len2 is the len2 control
+python3 tools/l3_harness/runner.py run poi_record_decode --image archive/us256.img --cmp POINT010.DAT.cmp --ind POINT010.DAT.ind --expect-name "HANA HEALTH CENTER"
 python3 tools/l3_harness/runner.py run NAME --rommap map.json --image FW.img   --input-root DIR --json   # M9.28: entry.input_region file source
 ```
 
