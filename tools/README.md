@@ -422,6 +422,36 @@ python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --loo
 python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image CARD --file SYN.DAT --lookup 3,25,3604 --lookup 3,25,5
 ```
 
+## `poi_position_l3.py` — the firmware's POI position arithmetic on factory records (M3.34)
+
+Runs EU2011 `Navi.exe` fn `0x003c032c` (name record → mesh point) and
+`STDDLL!STD_MeshPnt_chgMapPnt` (mesh point → 1/512″ map point) in
+`sh4fpu.PySh4Fpu`, from the image's own code and import/export tables, on
+the name records of a factory (or generated) `POINTnnn` pair, and compares
+the result with `point_census.fine_position`. Controls: fine fields
+exchanged, the one-unit reading, a class-0 record. Exit 0 ACCEPT, 1
+mismatch, 3 BLOCKED (other build). Read-only.
+
+```bash
+python3 tools/poi_position_l3.py --selftest
+python3 tools/poi_position_l3.py run archive/head256.img --dir /tmp/pt --file POINT010 --count 200
+python3 tools/poi_position_l3.py mesh archive/head256.img 0x8b608b60 100 200
+```
+
+## `sh4fpu.py` — SH-4 floating point for the PySh4 engine (M3.34)
+
+`PySh4Fpu(PySh4)` adds the FPU instructions the firmware's coordinate code
+uses (single and double arithmetic, `fmov` forms, `float`/`ftrc`,
+`fcnvsd`/`fcnvds`, compares, `FPUL`/`FPSCR` moves, `fschg`/`frchg`) to
+`tools/l3_harness/engine.py`, which stops on them. Python doubles, rounding
+to nearest, `ftrc` saturating; `fipr`/`ftrv` and FPU exceptions are not
+modelled and stop the run. Import it instead of `PySh4` when a routine
+calls into `STDDLL.dll` geometry.
+
+```bash
+python3 tools/sh4fpu.py --selftest
+```
+
 ## `point_census.py` — every byte of a `POINTnnn.DAT` by structure, and the fine POI position (M4.27)
 
 Walks a decoded POINT file from its directory: descriptor records, name
