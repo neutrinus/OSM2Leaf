@@ -126,6 +126,18 @@ change — that would mean the rule was not confined to `--strict`.
   checks, 305 real tasks)`; `python3 tools/selftest.py --only todo_check` →
   `PASS`.
 - `python3 tools/claims_check.py` → `claims_check: OK` (exit 0).
+- `python3 tools/gate.py` (base gate; `todo_check` runs **non-strict**) stays
+  green, with `fn_audit` PASS and not SKIP:
+
+  ```text
+  GATE          RESULT    SECS  NOTE
+  selftest      PASS    125.99
+  claims_check  PASS      7.55
+  todo_check    PASS      0.06
+  fn_audit      PASS      4.19
+  gate: 4 pass, 0 fail, 0 skip
+  gate exit=0
+  ```
 
 ## Interpretation
 
