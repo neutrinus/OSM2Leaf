@@ -3717,7 +3717,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-20-M5.56-no-factory-container. The firmware asks `min(0x100 * T[kind].n, size - pos)` with `size` from `DRSTR001.DAT`: the factory's last section-4 directories are read short (`0x2900`, `0x5d00`) and parsed. The run-S failure (C-3256) came from `--replace` keeping the factory DRSTR001 size; with the true size the unpadded tile mounts, with `0x100` too much it fails. `tilewriter.py` (fresh path only) now zero-pads to the longest directory read (`pad_directory_reads`, 22,272 → 37,376 B): Precheck run has no negative status, the one declared directory (section 1; sections 2/4 declare none) is read and parsed by `0x00414dbc` (16,514 B); cut `0x100` short → -1 (falsifier control); targeted `l2check` PASS, `tilewriter --selftest` 89/89; `--factory` F/G SAME (28 reads). New `dir_read_len.py drstr-size`. C-5830–C-5834.
 
 - [ ] **M5.61 — "Poland to look at": a display-only card with OSM roads in every section-1 directory of the 4 Poland tiles**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.61-poland-card · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.53/M5.54 (all 20 directory kinds spliceable, done), M5.30 (relocation + manifest patch, done), M9.13 (container read in L3, done); M9.53 strengthens the gate (records read) but does not block the build
   - Goal: the ladder has P0 (one directory) and P1 as a census/one-tile row, but no task builds the first card a person would call a map of Poland: `profiles/poland-full.json`, tiles `B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`, every level-1 and level-2 section-1 directory that intersects the profile filled from OSM; sections 2/4, `LEV3456R`, `REFER001`, `RDSTM001` and assets factory. This is the nearest result that can be shown in a car, and it measures the size budget (M7.1/M7.2) on real data.
@@ -5125,7 +5125,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: `docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md` (C-5910–C-5917). `datask_l3.py mount --request MESH` (new; opens the client slot with `0x003ed6e8`, which `0x00405970` requires) reads one record block after the mount: parcel code `0xa6cdd6be` (the record's own words 0–1; directory (77, −83) of `B48R058R`) → tag `0x0900`, handler `0x00404ee4` (memmove to the buffer start), word swap `0x003f6968`, inflate `0x0054233c`, unit table read by `0x00405078` (the "parsed" of Done when: read, inflated, unit table read and served; the link walk is M9.58), reply `0x14b6` sub 3 (data). On the generated tile the firmware reads **our** record (from our pair entries), inflates it to 184 B with the Adler-32 checked, reads its unit table and answers sub 3 as for the factory record; pair-entry flip (M9.13 C2) and record-byte flip are DIFFERENT (the latter: sub 9). Navigator review fixed the request id (`0x26c18ab2` got sub 9 = no record; C-5916 retracted, C-5918). Correction of M9.52: state 3 refuses map requests; they are served in state 2 (C-5913). The links are walked by the client task (`0x14b6` sub 3): M9.58.
 
 - [ ] **M9.58 — Walk our road record in the client task: hand `0x14b6` sub 3 to the renderer**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.58-renderer-walk-record · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.53 (done)
   - Goal: M9.53 makes the data-access task read and inflate our record and serve it (`0x00405078` reads the unit table, reply `0x14b6` sub 3; C-5918); the links are walked by the client task that gets that reply. Rule 13 for records: see the firmware walk *our* links.
@@ -5176,7 +5176,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: EXP-2026-11-21-M9.59-precond-build-runs-elsewhere; C-6060–C-6069; selftest 45 PASS; --all-targets 7 READY/2 BLOCKED/4 RUNS-ELSEWHERE; gate 4 pass/0 fail/0 skip
 
 - [ ] **M9.60 — Card gate, first slice: the firmware's own mount and file sweep as `l3check --card` rows with an exit code**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.60-card-gate-first-slice · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.13 (done), M9.14 (done), M9.52 (done)
   - Goal: M9.12 (the software gate before any car test) waits on M9.31 → M9.41 → M9.55, all for the POI row. The rows that check a whole card already run and do not need it: `vcard_l3.py boot` and `sweep` (M9.12's own note, C-4630/C-4651) and `datask_l3.py mount` + `diff` against the factory run. They are not a gate yet: `datask_l3.py mount` exits 0 on a tile the firmware fails to read (re-run 2026-11-20 on EU2011: the M5.56 padded tile cut at `0x9100` logs two extra `ErrorLogMsg` and still exits 0). Make them one command whose exit code is the verdict, so P0/P1 cards are gated at L3 now and M9.12 only adds rows later.
@@ -5189,7 +5189,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6350–C-6359
 
 - [ ] **M9.61 — The US build's map client on an EU card: does the firmware in Marek's unit read Poland tiles**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.61-us-build-eu-card · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M1.22, M1.22b (EU→US function map, done), M9.14 (US2011 file layer in `vcard_l3.py`, done), M9.13, M9.53 (the EU2011 run to compare with, done)
   - Goal: the only hardware is a US unit and it runs the US `Navi.exe` (H51), but every map-client result (mount, directory reads, record read) is EU2011. Region is a property of the unit, not of the card (M2.7), so the Poland card will be read by US code. Run that code now, in L3: it either reads the EU card like the EU build does, or it names the first check or table that refuses a tile outside North America. This is the cheapest test of "a Poland card in Marek's car" that exists without the car.
