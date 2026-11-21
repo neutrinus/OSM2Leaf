@@ -3290,8 +3290,8 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6320–C-6329
   - Step: tooling
 
-- [ ] **M4.58 — Skins: where they live and the `.skn` format (`ReleaseMain.skn`, the TFAT16 volume, `OPNG/`, ROM PNGs)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.58 — Skins: where they live and the `.skn` format (`ReleaseMain.skn`, the TFAT16 volume, `OPNG/`, ROM PNGs)**
+  - Status: done · Owner: task/m4.58-skins-tfat16 · Critical: no · Pair: solo
   - Depends: — (M1.36b helps: the atlas lists `FILESentry` files per image)
   - Goal: Marek wants to change the unit's look. Three places hold skin data and none is decoded: `ReleaseMain.skn` (8,224 B, the only `FILESentry` of ROM A, C-3522) loaded by `multiskin.dll` (`Multiskin.Loader`), the TFAT16 volume at card offset `0x1C8400400` ("skin data", C-166, contents never listed), and PNG assets in ROM A (~`0x00df0000`) and `OPNG/`. Say which file decides what is drawn and what a skin id selects (`CApi_GetSkinID`/`SetSkinID`/`IsAvailableSpecifiedSkin` in `commondll.dll`).
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 files --extract <dir>` writes `ReleaseMain.skn`; the TFAT16 boot sector is at `0x1C8400400` of the full image (`7z l` or `mtools` on a slice lists it; this needs the full EU2011 image, not IMG256).
@@ -3301,6 +3301,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the TFAT16 volume holds no skin files, record its real contents and correct C-166.
   - Claims: C-6500–C-6509
   - Step: tooling
+  - Result: EXP-2026-11-21-M4.58-skins-tfat16 (C-6500–C-6509); docs/format/skins.md lists TFAT16 (3070 entries, 3066 placeholders, 1 real .skn) and the .skn field table; skin id 1..4 -> \SystemSD2\SkinChange\001..004\Substance.skn; gate 4 pass 0 fail
 
 - [ ] **M4.59 — One changed image on the screen: the smallest skin edit that passes the checks**
   - Status: blocked · Owner: — · Critical: no · Pair: required
