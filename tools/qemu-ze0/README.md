@@ -17,21 +17,33 @@ QEMU source.
 | Git mirror | <https://gitlab.com/qemu-project/qemu.git>, tag `v8.2.10` |
 | Target | `sh4-softmmu` only |
 
-The previous pin, **8.2.7**, stays in the `QEMU_PINS` table and still builds;
-see the EXP for the measured equivalence.
+The previous pin, **8.2.7**, stays in the `QEMU_PINS` table and still builds.
+**11.1.3** is pinned too and has its own ported series (below).
 
 `build.sh` refuses to continue if the downloaded file has another size or
 SHA-256, and refuses a full build of a version that is not in `QEMU_PINS`
 (an unverified tarball is never compiled). Change the pin only together with
 this table and an EXP entry.
 
-### Why a pin, and where it stops
+### Tested range, and the two series
 
-The machine is five out-of-tree patches on `hw/sh4`, an API QEMU moves.
-Measured on 11.1.3 (2026-11-17): four of five patches reject, and not from
-line drift — `exec/address-spaces.h` is gone, `DeviceClass.reset` became
-`legacy_reset`, `SHIX` was deleted. `hw/sh4/{Kconfig,meson.build}` are
-byte-identical 8.2.7→8.2.10, so the whole series applies unchanged there.
+The machine is twelve out-of-tree patches on `hw/sh4` and `target/sh4`, an
+API QEMU moves. Instead of one frozen version there is a **tested range**
+with one series per API generation (TODO M8.A9):
+
+| QEMU | Series | State |
+| --- | --- | --- |
+| 8.2.7 | `patches/*.patch` | pinned; built and booted (C-4310, C-4311) |
+| **8.2.10** (default) | `patches/*.patch` | pinned; built and booted |
+| **11.1.3** | [`patches/11.1/*.patch`](patches/11.1/README.md) | pinned (SHA-256 `5a8289c7…84b22`, 141819712 bytes); built and booted, same boot observables as 8.2.10 (C-4320, C-4321) |
+| 9.x, 10.x | — | not tested; `--check-version V` reports which series applies |
+
+`build.sh` picks the series from the version (`>= 11.0` → `patches/11.1`);
+`--patch-dir` overrides. The series are not interchangeable (the 8.2 one on
+11.1.3: 8 applied, 4 failed, and what applies does not compile) — `exec/address-spaces.h` is gone,
+`DeviceClass.reset` became `legacy_reset`, `SHIX` was deleted, class-init
+and property-table signatures changed. What the port changed, patch by
+patch, is in `patches/11.1/README.md`.
 
 `--check-version V` answers "would this release accept our patches?" in
 minutes without building anything:
@@ -39,14 +51,23 @@ minutes without building anything:
 ```bash
 tools/qemu-ze0/build.sh --check-version 11.1.3
 # check: 0002-sh4-ze0-boot-stubs.patch                  APPLIES
-# check: m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch      FAILED
-# build.sh: check: QEMU 11.1.3: 3 applied, 2 failed, 1 unpinned-tarball
+# ...
+# build.sh: check: QEMU 11.1.3: 12 applied, 0 failed, 0 unpinned-tarball
 ```
 
 A pinned version is hash-verified; an unpinned one is downloaded and its
-SHA-256/size printed so it can be added to `QEMU_PINS`. The port itself is
-TODO **M8.A9**, with the per-hunk recipe in
-[`docs/research/qemu-ze0-port-delta.md`](../../docs/research/qemu-ze0-port-delta.md).
+SHA-256/size printed so it can be added to `QEMU_PINS`.
+
+Two things differ on an 11.x host, both handled by the scripts:
+
+- `configure` installs the Python package `qemu.qmp` into its build venv
+  (from PyPI unless already installed) and, without a system `libfdt`, would
+  clone the `dtc` subproject from gitlab; `build.sh` passes `--disable-fdt`
+  for `>= 11.0` (no sh4 board uses a device tree).
+- "Invalid read/write at addr …" (an access to unmapped memory) moved from
+  `-d guest_errors` to `-d invalid_mem`. `run.sh` and `ce_qemu_probe.py` add
+  `invalid_mem` when the binary knows it; without it an 11.x log shows an
+  empty unmodelled-access list.
 
 ### Exit codes
 

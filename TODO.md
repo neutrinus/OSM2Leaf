@@ -285,8 +285,7 @@ PR rewrites the two fn_audit snapshots).
 8. **M9.18** (re-opened this pass, rule 15) — `LEV3456R` and section 4 at record level; unblocks M5.16.
 
 **In flight (draft PRs, do not claim):** M5.60 #382,
-M3.33 #381, M4.35 #387, M4.27 #386, M5.32 #368, M8.C row C10 #355, M8.A8 #372,
-M8.A9 #383.
+M3.33 #381, M4.35 #387, M4.27 #386, M5.32 #368, M8.C row C10 #355, M8.A8 #372.
 
 **For Marek (decisions and one upload):**
 
@@ -4025,12 +4024,12 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-17-M8.A10-bump-8210 (C-4330).
   - Claims: C-4330–C-4339
 
-- [ ] **M8.A9 — Port the `ze0` patch series to current QEMU (11.1.3)**
+- [x] **M8.A9 — Port the `ze0` patch series to current QEMU (11.1.3)**
   The five patches in `tools/qemu-ze0/patches/` are pinned to 8.2.7. Port the
   **intent** of each patch, not its diff: the per-hunk intent tables are in
   `tools/qemu-ze0/patches/README.md` §§1–6 and the measured delta is
   [`docs/research/qemu-ze0-port-delta.md`](docs/research/qemu-ze0-port-delta.md).
-  - Status: in progress · Owner: task/m8.a9-qemu-11-port · Critical: no
+  - Status: done · Owner: task/m8.a9-qemu-11-port · Critical: no
   - Depends: — (M8.A2 is merged; this is a port, not a re-run)
   - Goal: `-M ze0` works on current QEMU, not only on the frozen 8.2.7 pin.
   - Precheck: reproduce the two application columns in the delta doc for
@@ -4074,7 +4073,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     `abort()` is the known one), stop at that hunk, record the decision as
     `NEEDS HUMAN`, and do not invent a new MMU path.
   - Claims: C-4320–C-4329
-
+  - Result: done — `tools/qemu-ze0/patches/11.1/` is the series for QEMU
+    11.1.3 (12 patches; the task text counted five, the series had grown).
+    It applies without fuzz, `build.sh --version 11.1.3` builds it and
+    `-M help` lists `ze0`. A 10 s boot of `archive/head256.img` gives the
+    same kernel debug text (13,949 bytes), the same 2,920 API traps, the same
+    7 interrupts and the same 138 unmodelled accesses as the 8.2.10 build
+    (`tools/qemu_boot_cmp.py`, C-4321); `ce_qemu_probe.py` prints the same
+    15-entry list on both. The literal oracle "0 exceptions, one `write
+    0x38`" is obsolete on both versions (C-4326) and was replaced by that
+    comparison. The ITLB `abort()` is dropped as upstream did (C-4322, a
+    decision a human may overturn; unobservable in this boot). Also fixed:
+    `--check-version` now applies cumulatively (it reported 5/7 for 8.2.10's
+    own series, C-4325) and the scripts ask for `-d invalid_mem` on QEMU
+    >= 10 (C-4323). EXP-2026-11-21-M8.A9-qemu-11-port.
 - [x] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not.

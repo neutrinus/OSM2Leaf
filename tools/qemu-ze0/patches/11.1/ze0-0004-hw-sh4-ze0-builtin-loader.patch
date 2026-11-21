@@ -1,0 +1,246 @@
+QEMU 11.1.3 port (TODO M8.A9) of patches/ze0-0004-hw-sh4-ze0-builtin-loader.patch.
+Base: tag v11.1.3 plus the earlier patches of this directory, in sorted order.
+What the patch does and why: the header of the 8.2 patch of the same name
+and patches/README.md; what changed in the port: patches/11.1/README.md.
+
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 78959ddca..50595a264 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -35,6 +35,9 @@
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties-system.h"
+ #include "system/system.h"
++#include "system/reset.h"
++#include "qemu/bswap.h"
++#include "qom/object.h"
+ 
+ #define ZE0_RAM_BASE   0x08000000u
+ #define ZE0_RAM_SIZE   (128 * MiB)
+@@ -71,6 +74,172 @@
+ #define ZE0_TMU012_BASE     0x1fd80000u
+ #define ZE0_PERIPH_FREQ     60000000u
+ 
++/*
++ * Built-in CE image loader (TODO M8.A3).  The ZE0 SD card has no boot
++ * loader (the IPL is in on-board flash), so -kernel takes the whole SD
++ * image and the machine options kernel-off=/app-off= give the file
++ * offsets of the CE images in it (EU2011: nk.exe image B at 0x3e00200,
++ * image A at 0x200200; app-off=0 loads no application image).  ("kernel"
++ * itself is MachineState's -kernel file name.)  Each image is located the
++ * way tools/cerom.py does: "ECEC" at +0x40, pTOC (ROMHDR VA) at +0x44 and
++ * the ROMHDR's offset from the image start at +0x48, so physfirst =
++ * pTOC - that offset; ROMHDR physfirst (+0x08) must agree.  physfirst ..
++ * physlast is copied to physfirst & 0x1fffffff.  The entry point is
++ * e32_vbase + e32_entryrva of the nk.exe TOC entry (32-byte TOC entries
++ * follow the 0x54-byte ROMHDR; ulE32Offset at +0x14 points at e32_rom:
++ * entryrva +4, vbase +8).  Nothing is shelled out.
++ */
++#define TYPE_ZE0_MACHINE MACHINE_TYPE_NAME("ze0")
++OBJECT_DECLARE_SIMPLE_TYPE(Ze0MachineState, ZE0_MACHINE)
++
++struct Ze0MachineState {
++    MachineState parent_obj;
++    uint64_t kernel_off;
++    uint64_t app_off;
++};
++
++#define ZE0_DEFAULT_KERNEL_OFF 0x3e00200u
++#define ZE0_DEFAULT_APP_OFF    0x200200u
++#define ZE0_CE_MAX_LEN         (256 * MiB)
++#define ZE0_ROMHDR_LEN         0x54
++#define ZE0_TOCENTRY_LEN       32
++
++typedef struct Ze0Reset {
++    SuperHCPU *cpu;
++    uint32_t entry;
++} Ze0Reset;
++
++static void ze0_cpu_reset(void *opaque)
++{
++    Ze0Reset *r = opaque;
++
++    cpu_reset(CPU(r->cpu));
++    r->cpu->env.pc = r->entry;
++}
++
++static void ze0_pread(int fd, void *buf, size_t len, uint64_t off,
++                      const char *what)
++{
++    size_t done = 0;
++
++    while (done < len) {
++        ssize_t n = pread(fd, (uint8_t *)buf + done, len - done, off + done);
++
++        if (n <= 0) {
++            error_report("ze0: %s: cannot read %zu bytes at file offset "
++                         "0x%" PRIx64, what, len, off);
++            exit(1);
++        }
++        done += n;
++    }
++}
++
++/* Load one CE image; returns the nk.exe entry VA when want_entry. */
++static uint32_t ze0_load_ce(int fd, uint64_t off, const char *what,
++                            bool want_entry, uint64_t ram_size)
++{
++    uint8_t hdr[0x4c], rh[ZE0_ROMHDR_LEN];
++    uint32_t ptoc, roff, physfirst, physlast, nummods, len, phys, entry = 0;
++    uint8_t *buf;
++    g_autofree char *name = g_strdup_printf("ze0.%s", what);
++
++    ze0_pread(fd, hdr, sizeof(hdr), off, what);
++    if (memcmp(hdr + 0x40, "ECEC", 4) != 0) {
++        error_report("ze0: %s image: no ECEC at file offset 0x%" PRIx64
++                     " (+0x40); wrong %s-off= offset?", what, off + 0x40, what);
++        exit(1);
++    }
++    ptoc = ldl_le_p(hdr + 0x44);
++    roff = ldl_le_p(hdr + 0x48);
++    ze0_pread(fd, rh, sizeof(rh), off + roff, what);
++    physfirst = ldl_le_p(rh + 0x08);
++    physlast = ldl_le_p(rh + 0x0c);
++    nummods = ldl_le_p(rh + 0x10);
++    if (physfirst != ptoc - roff || physlast <= physfirst ||
++        physlast - physfirst > ZE0_CE_MAX_LEN) {
++        error_report("ze0: %s image at 0x%" PRIx64 ": inconsistent ROMHDR "
++                     "(pTOC 0x%08x, offset 0x%x, physfirst 0x%08x, physlast "
++                     "0x%08x)", what, off, ptoc, roff, physfirst, physlast);
++        exit(1);
++    }
++    len = physlast - physfirst;
++    phys = physfirst & 0x1fffffffu;
++    if (phys < ZE0_RAM_BASE || phys + (uint64_t)len > ZE0_RAM_BASE + ram_size) {
++        error_report("ze0: %s image 0x%08x..0x%08x is outside DRAM", what,
++                     phys, phys + len);
++        exit(1);
++    }
++
++    buf = g_malloc(len);
++    ze0_pread(fd, buf, len, off, what);
++
++    if (want_entry) {
++        uint32_t i;
++
++        for (i = 0; i < nummods; i++) {
++            uint64_t te = (uint64_t)roff + ZE0_ROMHDR_LEN +
++                          (uint64_t)i * ZE0_TOCENTRY_LEN;
++            uint32_t nva, e32va;
++
++            if (te + ZE0_TOCENTRY_LEN > len) {
++                break;
++            }
++            nva = ldl_le_p(buf + te + 0x10);
++            e32va = ldl_le_p(buf + te + 0x14);
++            if (nva - physfirst + 7 > len || e32va - physfirst + 12 > len) {
++                continue;
++            }
++            if (g_ascii_strncasecmp((char *)buf + (nva - physfirst),
++                                    "nk.exe", 7) == 0) {
++                entry = ldl_le_p(buf + (e32va - physfirst) + 8) +
++                        ldl_le_p(buf + (e32va - physfirst) + 4);
++                break;
++            }
++        }
++        if (!entry) {
++            error_report("ze0: %s image at 0x%" PRIx64 ": no nk.exe in its "
++                         "%u TOC entries", what, off, nummods);
++            exit(1);
++        }
++    }
++
++    rom_add_blob_fixed(name, buf, len, phys);
++    g_free(buf);
++    info_report("ze0: %s image at file 0x%" PRIx64 ": VA 0x%08x..0x%08x "
++                "(%u bytes) -> phys 0x%08x", what, off, physfirst, physlast,
++                len, phys);
++    if (want_entry) {
++        info_report("ze0: entry 0x%08x (nk.exe e32_vbase + e32_entryrva)",
++                    entry);
++    }
++    return entry;
++}
++
++static void ze0_load_images(Ze0MachineState *s, SuperHCPU *cpu)
++{
++    MachineState *machine = MACHINE(s);
++    Ze0Reset *r;
++    int fd;
++
++    if (!machine->kernel_filename) {
++        return;
++    }
++    fd = qemu_open_old(machine->kernel_filename, O_RDONLY | O_BINARY);
++    if (fd < 0) {
++        error_report("ze0: cannot open -kernel %s", machine->kernel_filename);
++        exit(1);
++    }
++    r = g_new0(Ze0Reset, 1);
++    r->cpu = cpu;
++    r->entry = ze0_load_ce(fd, s->kernel_off, "kernel", true,
++                           machine->ram_size);
++    if (s->app_off) {
++        ze0_load_ce(fd, s->app_off, "app", false, machine->ram_size);
++    }
++    close(fd);
++    qemu_register_reset(ze0_cpu_reset, r);
++}
++
+ static void ze0_init(MachineState *machine)
+ {
+     SuperHCPU *cpu;
+@@ -154,10 +323,33 @@ static void ze0_init(MachineState *machine)
+ 
+     /* Boot-blocker stubs (M8.A5): priority 1 over the P4/area-6 catch-all. */
+     qdev_realize_and_unref(qdev_new("ze0-stubs"), NULL, &error_fatal);
++
++    /* Built-in loader (M8.A3): -kernel IMAGE, kernel-off=, app-off= */
++    ze0_load_images(ZE0_MACHINE(machine), cpu);
+ }
+ 
+-static void ze0_machine_init(MachineClass *mc)
++static void ze0_machine_instance_init(Object *obj)
+ {
++    Ze0MachineState *s = ZE0_MACHINE(obj);
++
++    s->kernel_off = ZE0_DEFAULT_KERNEL_OFF;
++    s->app_off = ZE0_DEFAULT_APP_OFF;
++    object_property_add_uint64_ptr(obj, "kernel-off", &s->kernel_off,
++                                   OBJ_PROP_FLAG_READWRITE);
++    object_property_set_description(obj, "kernel-off",
++        "file offset of the nk.exe CE image in the -kernel SD image "
++        "(default 0x3e00200, EU2011 image B)");
++    object_property_add_uint64_ptr(obj, "app-off", &s->app_off,
++                                   OBJ_PROP_FLAG_READWRITE);
++    object_property_set_description(obj, "app-off",
++        "file offset of the application CE image (default 0x200200, "
++        "EU2011 image A; 0 = none)");
++}
++
++static void ze0_machine_class_init(ObjectClass *oc, const void *data)
++{
++    MachineClass *mc = MACHINE_CLASS(oc);
++
+     mc->desc = "Nissan Leaf ZE0 navigation unit (SH-4A, research skeleton)";
+     mc->init = ze0_init;
+     mc->default_cpu_type = TYPE_SH7785_CPU;
+@@ -165,4 +357,17 @@ static void ze0_machine_init(MachineClass *mc)
+     mc->default_ram_id = "ze0.ram";
+ }
+ 
+-DEFINE_MACHINE("ze0", ze0_machine_init)
++static const TypeInfo ze0_machine_type = {
++    .name = TYPE_ZE0_MACHINE,
++    .parent = TYPE_MACHINE,
++    .instance_size = sizeof(Ze0MachineState),
++    .instance_init = ze0_machine_instance_init,
++    .class_init = ze0_machine_class_init,
++};
++
++static void ze0_machine_register_types(void)
++{
++    type_register_static(&ze0_machine_type);
++}
++
++type_init(ze0_machine_register_types)
