@@ -518,13 +518,23 @@ def selftest() -> int:
             ok(False, "a target in another cell is refused")
         except MoveError as exc:
             ok("step 2" in str(exc), "a target in another cell is refused and names step 2")
-        # refusal: a non-factory encoder is refused before any plan is made
+        # refusal: a non-factory encoder is refused before any plan is made.
+        # The control must not depend on the host runtime: on a runner whose
+        # python zlib *is* 1.3.1, ``Wrong(None)`` would report is_reference.
         class Wrong(regen.Encoder):
+            def __init__(self):
+                self.version = "0.0-host-independent"
+                self.source = "selftest synthetic"
+                self.sha256 = None
+
+            @property
+            def is_reference(self):
+                return False
+
             def compress(self, data):
-                return __import__("zlib").compress(data, 1)
-        plan_move(blob, chain, row, *target, enc, allow_nonreference=True)
+                return enc.compress(data)
         try:
-            plan_move(blob, chain, row, *target, Wrong(None))
+            plan_move(blob, chain, row, *target, Wrong())
             ok(False, "a non-factory encoder is refused")
         except MoveError as exc:
             ok("not the pinned reference" in str(exc),
@@ -535,6 +545,19 @@ def selftest() -> int:
             ok(False, "a record with no leaf is refused")
         except MoveError as exc:
             ok("no spatial-tree leaf" in str(exc), "a record with no leaf is refused")
+
+        # refusal: run_move answers a --libz request with a synthetic encoder
+        # whose version is not the pinned one and exits unverifiable before it
+        # reads the pair (host-independent: never the default zlib)
+        real = regen.Encoder
+        regen.Encoder = lambda libz=None: Wrong() if libz else real(None)
+        try:
+            rc = main([str(cmp_path), str(td / "ghost"), "--position",
+                       f"{target[0]}", f"{target[1]}", "--libz", "synthetic"])
+        finally:
+            regen.Encoder = real
+        ok(rc == zlibinfo.EXIT_UNVERIFIABLE,
+           "run_move refuses a foreign encoder before reading the pair")
 
         # the written pair decodes to the moved bytes
         cmp_out, ind_out = write_pair(cmp_path, td / "out", blob, moved, enc)

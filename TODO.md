@@ -2353,7 +2353,7 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Done when: a tool with `--selftest` writes a pair in which the chosen POI decodes to the requested position within 2 m, `point_census.py census` and `joins` pass on the output, every other byte outside the touched page and leaf is unchanged, and a no-op run is byte-identical; negative control: a pair with the record moved but the leaf left is refused by `joins`.
   - Stop: one session.
   - Claims: C-6550–C-6559
-  - Result: EXP-2026-11-21-M5.63-poi-move (C-6550–C-6559): `tools/point_move_poi.py` (`--selftest`, 20 ok) moves record 0 of EU 2011 `POINT010` 1.95 m from the request (52.572276,-9.282440), census `unaccounted=0`, joins 15,378/15,378, 0 bytes changed outside the page slot and leaf, `cmpind verify` PASS; no-op byte-identical; `--control leave-leaf` refused by joins (15,377/15,378). Step 2 (another cell) and new POIs remain open.
+  - Result: EXP-2026-11-21-M5.63-poi-move (C-6550–C-6559): `tools/point_move_poi.py` (`--selftest`, 21 ok; host-independent on python3 zlib-ng, python3.13 and python3.11 stock 1.3.2) moves record 0 of EU 2011 `POINT010` 1.95 m from the request (52.572276,-9.282440), census `unaccounted=0`, joins 15,378/15,378, 0 bytes changed outside the page slot and leaf, `cmpind verify` PASS; no-op byte-identical; `--control leave-leaf` refused by joins (15,377/15,378). Step 2 (another cell) and new POIs remain open.
   - Step: P4
 
 - [ ] **M3.32 — Who reads the bytes inside an `ADDRE` record's point block and house-range items**
