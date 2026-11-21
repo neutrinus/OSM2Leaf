@@ -1748,8 +1748,8 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6450–C-6459
   - Result: EXP-2026-11-21-M1.43-vehicle-signals; 17 VCAN frames mapped, 10 with consumer+unit/flag/enum (Done-when 10>=10; 7 raw/unknown); energy-economy scaled for display at DriveComputerCC fn 0x02518f58, halfword 0xf463 fdiv FR6,FR4 @0x02519072
 
-- [ ] **M1.44 — Decompile map of the camera path (`CameraCC.dll`, `VIN.dll`)**
-  - Status: in progress · Owner: task/m1.44-camera-ioctl · Critical: no · Pair: solo
+- [x] **M1.44 — Decompile map of the camera path (`CameraCC.dll`, `VIN.dll`)**
+  - Status: done · Owner: task/m1.44-camera-ioctl · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track. How the reversing camera image gets to the screen (video input driver, overlay of guide lines), what triggers it (reverse signal over CAN or GPIO), and whether the input can be shown on demand.
   - Scope: static, EU2011. Output `docs/firmware/camera.md` (template: `docs/firmware/README.md`).
@@ -1757,6 +1757,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: the page names the trigger (signal and VA of the check) and the IOCTLs `CameraCC` sends to `VIN1:`.
   - Stop: static only; nothing is tried in a car.
   - Claims: C-6460–C-6469
+  - Result: EXP-2026-11-21-M1.44-camera-ioctl; Done-when met with correction: trigger EVENT_NAV_SENSOR_BACK navdrv fn 0x039e3a34 (raised from sensor bit 0 in fn 0x039e6690); the eight VIN1:/CEN1: IOCTLs are sent by SystemCC.dll (0x80062000/04/08/14/18/1c, 0x800d2044/54), not CameraCC.dll
 
 - [x] **M1.45 — Decompile map of telematics (`Telema.exe`, `ComMid.exe`, `Telema*CC`, `Cws_Apl`, `Prb_Apl`, `DCM_API`)**
   - Status: done · Owner: task/m1.45-telematics-endpoints · Critical: no · Pair: solo
