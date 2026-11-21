@@ -10,8 +10,10 @@
 - **Claims:** C-6520–C-6529
 - **Supersedes:** none
 - **Superseded by:** none
-- **Corrections after navigator review:** pending (this section is filled when
-  the navigator's review lands, or left as `none` if it raised nothing)
+- **Corrections after navigator review:** four defects in round 1 (PR #431),
+  all fixed before merge — see "Corrections after navigator review" below:
+  a raw-substring exemption, a selftest that could not see it, two claim rows
+  quoting hashes their commands do not print, and this section itself.
 
 ## Question
 
@@ -128,10 +130,12 @@ widened, and which one named).
   and exits 1; the named tasks are `M1.33` and 41 `M9.*` headers (`M9.11` …
   `M9.62`), the claim count is 199 rows.
 - `python3 tools/board.py check origin/main` prints
-  `board check: origin/main vs base 67d9fcbc62ba: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
-  and exits 0; `check HEAD` on this branch prints the same with base
-  `04872b503c1c` (after rebasing onto the concurrent `origin/main`; the earlier
-  run before the M9.60 merge read base `3bd0d39c1ceb`, same verdict) and exits 0.
+  `board check: origin/main vs base 091a48880733: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
+  and exits 0; `check HEAD` on the final tree (`366da513`) prints
+  `board check: HEAD vs base 7b43d68bc57e: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
+  and exits 0. Both bases are the hashes those commands print on this branch
+  (`7b43d68b` is the `origin/main` tip it was rebased onto); they move as
+  `main` moves, so the revision in the command is the stable part.
 - `python3 tools/board.py check 0d4916ab` prints
   `board check: 0d4916ab vs base 39600b6cd9ac: 2 task(s) and 0 claim row(s) lost, 2 exempt, 0 problem(s)`,
   both exempt as archived, exit 0.
@@ -147,9 +151,10 @@ widened, and which one named).
   lost ID are `119a74e7` (the PR #340 merge, 206 IDs), `0d4916ab` (PR #417, 2
   archived tasks) and `73ff0da6` (PR #338, 317 `RESERVED` retirements). Only
   `119a74e7` fails.
-- `python3 tools/board.py --selftest` prints `board selftest: OK (71 checks)`
-  (58 before this task, 13 added: the eight `board_loss_problems` cases, the
-  two `segment_base` cases and the three `check_ref` cases in a synthetic repo).
+- `python3 tools/board.py --selftest` prints `board selftest: OK (74 checks)`
+  (58 before this task, 16 added: the eight `board_loss_problems` cases, the
+  three whole-ID collision cases from navigator round 1, the two
+  `segment_base` cases and the three `check_ref` cases in a synthetic repo).
 - `python3 tools/gate.py --selftest` prints `gate selftest: OK (15 checks, 0 failed)`
   (11 before, 4 added: the `board_check` row is present, it can be turned off,
   `check HEAD` on this tree is PASS, and a dropped row turns it FAIL).
@@ -165,14 +170,17 @@ widened, and which one named).
   `git fetch --no-tags --depth=200 origin '+refs/heads/main:refs/remotes/origin/main'`
   then reports `5.860 s` in a clean `--depth 1` clone of the branch;
   `git rev-parse --is-shallow-repository` prints `true` and `check HEAD` still
-  exits 0 with base `a0bf0d9815a3` (the merge base is in the window). A local
-  refetch of an already-present `origin/main` takes `0.854 s`; the four
+  exits 0 with base `a0bf0d9815a3` (the merge base is in the window; that run
+  was before the final rebase, whose tree prints base `7b43d68bc57e` above).
+  A local refetch of an already-present `origin/main` takes `0.854 s`; the four
   historical verdicts were re-read on the final rebase (`origin/main` at
-  `04872b50`) and are unchanged.
+  `7b43d68b`) and are unchanged.
 - The four historical checks run unchanged in that shallow clone: `6ca7bc3`
   exit 1, `119a74e7` exit 1, `0d4916ab` exit 0, `73ff0da6` exit 0.
 - **Live CI (the oracle for the base path):** PR #431's `quality` job on run
-  `44887804569` (py3.11, py3.13, py3.14) is all `pass`; the log prints
+  `44887804569` (py3.11, py3.13, py3.14) is all `pass`; that run's head is
+  before the round-1 review fixes, but the fetched ref is the same
+  `origin/main` path. The log prints
   `fetched origin/main in 207 ms (depth 200)` and
   `merge base with origin/main: 04872b503c1cc196eb6b79be6cb6a97b4bcc1a3f`,
   and the standing gate prints `board_check   PASS      0.16` and
@@ -214,7 +222,7 @@ command; `tools/gate.py` gained the `board_check` row between `todo_check` and
 named "Board merge base (H121)" step and its summary names the new row. The
 task's Done-when holds on the recorded inputs, the exemption is narrower than
 the check's power (it fails PR #340 and passes both real archive/retirement
-events), and `board.py --selftest` is `OK (71 checks)` with `gate.py --selftest`
+events), and `board.py --selftest` is `OK (74 checks)` with `gate.py --selftest`
 `OK (15 checks, 0 failed)`, `gate: 5 pass, 0 fail, 0 skip`.
 
 ## Overtaken by a later commit
@@ -226,9 +234,51 @@ none
 ```bash
 python3 tools/board.py check 6ca7bc3 ; echo "exit=$?"      # expect exit=1, 42 tasks / 199 claims
 python3 tools/board.py check origin/main ; echo "exit=$?"  # expect exit=0
-python3 tools/board.py --selftest                          # expect "board selftest: OK (71 checks)"
+python3 tools/board.py --selftest                          # expect "board selftest: OK (74 checks)"
 python3 tools/gate.py --selftest                           # expect "gate selftest: OK (15 checks, 0 failed)"
 ```
+
+## Corrections after navigator review
+
+Navigator round 1 (PR #431) returned four defects; all are fixed on this
+branch (commit `366da513`, `tools/board.py` + this file, and the C-6521/C-6527
+rows). The check's verdicts did not change: `6ca7bc3` still exits 1 with 42
+tasks / 199 rows, `origin/main` and `HEAD` still exit 0.
+
+1. *(blocking, silent false negative)* **The exemption was a raw substring
+   test.** `board_loss_problems` had `elif t in own_text:`, so on this very
+   branch a dropped `M9.5` was exempt as "named in the PR's own task block"
+   because H121's own block names `M9.56–M9.62` and `M9.55` — exit 0,
+   `errors []`. Fixed with `_names_id(text, tid)`, an exact whole-ID token:
+   `(?<![A-Za-z0-9])<id>(?!\.[A-Za-z0-9])(?![A-Za-z0-9])`, so `M9.56`,
+   `M9.55` and `M9.5.1` do not name `M9.5`, while `M9.5,`, `(M9.5)` and a
+   sentence-ending `M9.5.` do. The navigator's repro on the real board now
+   prints `tasks ['M9.5']`, `exempt {}`, `errors ['lost task M9.5 (not its
+   own, not archived)']`.
+2. *(blocking)* **The selftest could not see defect 1.** The old "named in the
+   PR's own block" case used `H3` with no prefix collision, so `--selftest`
+   stayed green with a substring match. Three cases added: a block that names
+   `M9.56` while `M9.5` is dropped must FAIL, a positive control where it
+   names `M9.5` must exempt, and `_names_id` token cases. The first fixture
+   accidentally still kept `M9.5` in the head (so it passed for the wrong
+   reason); it now drops it. `board.py --selftest` is `OK (74 checks)`
+   (71 before).
+3. *(blocking)* **C-6521/C-6527 quoted base hashes their cited commands do not
+   print** (`67d9fcbc62ba`/`a0bf0d9815a3`, from an earlier rebase). Both rows
+   now quote the hashes `check origin/main` and `check HEAD` print on this
+   tree (`091a48880733` is what `check origin/main` prints; the branch merge
+   base is `7b43d68bc57e`) and state the revision as the stable part. Edited
+   through the new `board.py claim-row C-ID --text ROW` (a guarded one-line
+   splice; it was added so claim edits no longer need a hand edit, the same
+   reason every other board write is a `board.py` op) — both `+0 lines`.
+4. *(blocking)* **This section was `pending`.** It is filled above; H90/H93
+   require it filled or `none`.
+
+The final ladder on `366da513` + these edits: `check 6ca7bc3` exit 1, `check
+origin/main` exit 0, `check HEAD` exit 0, `board.py --selftest OK (74 checks)`,
+`gate: 5 pass, 0 fail, 0 skip` (`board_check PASS`, `fn_audit PASS`, not
+SKIP), `claims_check --strict --count-check` and `todo_check` PASS,
+`board.py lost --base origin/main` exit 0.
 
 ## Follow-ups
 
