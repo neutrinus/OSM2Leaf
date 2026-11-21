@@ -112,7 +112,7 @@ def packed_units(word: int, fine: int) -> float:
 def fine_fields(rec: bytes) -> tuple[int, int, int, int]:
     """``(A.x, A.y, fine_lon, fine_lat)`` of a name record."""
     ax, ay, v6, v8 = struct.unpack_from(">4H", rec, 2)
-    return ax, ay, v6 & 0x7FF, v8
+    return ax, ay, v6 & 0x7FF, v8 & 0x7FF      # the firmware masks both (M3.34)
 
 
 def fine_position(rec: bytes) -> tuple[float, float]:

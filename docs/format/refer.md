@@ -273,8 +273,19 @@ Still open:
 ### Fine POI position and the map of a POINT file (M4.27)
 
 > **Status:** `OBSERVED` on EU 2011 (33 files, 937,131,520 B decoded) and
-> US 2011 (11 files, 2,608,416,256 B) (C-2676–C-2679). Not yet tied to a
-> firmware reader (M3.34); a writer does not use it yet (M5.63).
+> US 2011 (11 files, 2,608,416,256 B) (C-2676–C-2679). The position
+> formula is `VERIFIED` against the firmware on EU 2011 (M3.34,
+> C-6540–C-6545, below); the spatial-tree reader is not located (M3.35); a
+> writer does not use it yet (M5.63).
+
+**Firmware reading (EU2011, M3.34).** `Navi.exe` fn `0x003c032c` builds a
+mesh point from a name record — `id = bytes 2–5 & 0xfff3fff3` (the `11` of
+each `11xx` nibble is a marker the reader strips), `x = word 6 & 0x7ff`,
+`y = word 8 & 0x7ff` — and `STDDLL!STD_MeshPnt_chgMapPnt` turns it into
+1/512″ units: one mesh is 1/48° of latitude (high half, `y`) by 1/32° of
+longitude (low half, `x`), 2048 fine steps each. This is the formula below
+with origins 32768 / 52736; the integer result is within 1 unit (6 cm) of
+it. `tools/poi_position_l3.py run` checks a pair against the firmware code.
 
 **Every byte of a POINT `.DAT` belongs to a structure reached from the
 directory.** `tools/point_census.py census` walks them all; no byte is left

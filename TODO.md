@@ -2252,8 +2252,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: one session; if the choice depends on a table filled by a task not in the run, name the table and its writer and block.
   - Claims: C-6080–C-6089
   - Result: `docs/experiments/EXP-2026-11-20-M3.33-b60-header-drop.md` (C-6080–C-6087), new `tools/tile_drop_l3.py`. The branch is `0x0040ad36`–`0x0040ad78` → `0x0040ae26` of the header check `0x0040acb8` (EU2011): every tile box asks for three parts, and a tile whose **third section-list entry (header `0x80c`) is `ff ff ff ff`** gets box status 3 and is left on the first mount; the box finder then skips it, answers -1, and the caller takes that as box 0 (`B28R070R.DAT`). Causal controls: `B60R048R` with a third entry written mounts (3 section tables); `B48R058R` with its third entry removed is left. 8 of the 45 factory tiles list fewer than three sections. Rule for the generator: list three sections (the fresh container already does). Follow-up: M5.62.
-- [ ] **M3.34 — Firmware reader of the POINT spatial tree and the code that turns (copy A, fine) into map units**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M3.34 — Firmware reader of the POINT spatial tree and the code that turns (copy A, fine) into map units**
+  - Status: done · Owner: task/m3.34-poi-position-reader · Critical: yes · Pair: solo
   - Depends: M4.27 (done), M4.52 (POINT header parser and page loader located, done)
   - Goal: M4.27 read the POI position from the file structure and fitted it to 16 reference points (C-2679): `u = (v & ~15) + 4·(v & 3) + fine/512`, origin 52736. Rule 13 wants the firmware's own arithmetic: find the code that takes a name record's copy A and bytes 6–9 (or a spatial-tree leaf) and produces a map coordinate, and the reader of the spatial tree (cell `0x85a`, 16-byte entries `0008 …`), so the formula, the two marker bits and the leaf flag bits stop being a fit.
   - Precheck: `python3 tools/point_census.py --selftest` passes; `tools/point_locator_l3.py` runs the header parser `fn 0x003f930c` (EU2011) on a card.
@@ -2262,6 +2262,17 @@ text of this section is in git (`13cb0cf`).
   - Done when: the conversion routine is named with its VA and its arithmetic written out, and an L3 run on ≥ 100 factory name records agrees with `fine_position` (or the EXP states the exact difference and `point_census.py` is corrected); the spatial-tree reader is named or the EXP says which message handler receives the tree bytes.
   - Stop: one session; if the conversion happens in another task's handler that the harness cannot reach, name the handler and block.
   - Claims: C-6540–C-6549
+  - Result: `docs/experiments/EXP-2026-11-21-M3.34-poi-position-firmware.md` (C-6540–C-6546). Conversion found and run: EU2011 `fn 0x003c032c` builds a mesh point (`id = bytes 2–5 & 0xfff3fff3`, `x`/`y` = words 6/8 `& 0x7ff`) and `STDDLL!STD_MeshPnt_chgMapPnt` gives 1/512″ units (mesh = 1/48° × 1/32°, 2048 steps). New `tools/poi_position_l3.py` (`--selftest`) runs both from the image: 15,469/15,469 records of `POINT010` and 9,483/9,483 of all 33 EU files equal `fine_position` within 1 unit (6 cm); controls 0 matches. New `tools/sh4fpu.py` (FPU for PySh4). `point_census.fine_fields` masks both fine words. **Negative part:** the spatial-tree reader was not found in one session → M3.35.
+- [ ] **M3.35 — Firmware reader of the POINT spatial tree (cell `0x85a`)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M3.34 (done)
+  - Goal: M3.34 tied the POI position to firmware code but did not find the code that reads the spatial tree (16-byte entries `0008, u32 ptr, u16 size_w, u16 kx, u16 ky, u32 fine`, node end `0005 ffffffff u32`, C-2678). Name it (EU2011), or name the message handler that receives the tree bytes, so M5.63 knows which leaf fields the unit really reads when a POI is moved or added.
+  - Precheck: `python3 tools/poi_position_l3.py --selftest` passes; C-6546 lists what M3.34 ruled out.
+  - Scope: EU2011 `Navi.exe`, static + L3. Leads: the seven callers of `fn 0x003c032c` (`0x003b1b44`, `0x003b42c0`, `0x003b4b58`, `0x003b5024`, `0x003b5808`, `0x003c0bf4`, `0x003d0110`); callers of the generic walker `fn 0x003f5194` on class-0 records (entry lengths 8 and 5 words fit its framing); the header parser's object field for cell `0x85a` (next to `+24`, `fn 0x003f930c`); `tools/datask_l3.py` read-completion handlers (M3.25).
+  - Input: EXP-2026-11-21-M3.34-poi-position-firmware, EXP-2026-11-20-M4.27-point-census-fine-position, `docs/format/refer.md` "Fine POI position".
+  - Done when: a function that reads `kx`/`ky`/`fine` of a tree entry is named with its VA and run in L3 on one factory node (descent to a leaf whose ordinal equals the `point_census` one), or a negative EXP lists the handlers checked.
+  - Stop: one session.
+  - Claims: none yet (take the next free block when claimed)
 
 - [ ] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
   - Status: open · Owner: — · Critical: no · Pair: solo
