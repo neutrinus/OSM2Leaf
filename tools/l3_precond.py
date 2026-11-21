@@ -10,29 +10,39 @@ reader VA/module, report preconditions without executing firmware:
     declared input, or unknown;
   * import/input/binding reachability - known, unknown, or blocked, with
     reasons;
-  * verdict READY | BLOCKED | UNKNOWN with reasons.
+  * verdict READY | BLOCKED | RUNS-ELSEWHERE | UNKNOWN with reasons.
 
 READY means the checked preconditions do not show a known blocker for a rerun
 (given any declared inputs the target already carries). It is not a firmware
 pass and does not claim the reader accepts data. BLOCKED means a known
 blocker (e.g. M1.2f compressed data/imports unreachable, missing entry/mapping)
-applies. UNKNOWN means metadata or image facts are insufficient to decide; the
-missing fields are listed and the verdict is never guessed as READY.
+applies. RUNS-ELSEWHERE means the target is a ``blocked`` ``runner.py`` entry
+whose ``reason`` names an existing ``tools/*_l3.py`` runner that actually
+executes it (M9.59); it is neither READY nor a missing-entry BLOCKED. UNKNOWN
+means metadata or image facts are insufficient to decide; the missing fields
+are listed and the verdict is never guessed as READY.
+
+Target VAs are classed only against their own build's head (M9.59): a ``build``
+of ``eu2011`` is never classed against ``us256.img`` and vice versa. The pin
+comes from ``tools/fetch_image.PART_PINS`` (one owner); a mismatched head is
+refused and named, never silently swapped.
 
 No firmware execution. No vendor bytes committed. Stdlib only.
 
 Usage:
   l3_precond.py --selftest
   l3_precond.py --target drstr_parser [--json]
-  l3_precond.py --all-targets [--targets PATH] [--json]
+  l3_precond.py --all-targets [--image archive/head256.img] [--image-us archive/us256.img] [--json]
   l3_precond.py --va 0x00419350 --module Navi.exe [--image IMG] [--json]
 
 EXP: docs/experiments/EXP-2026-11-09-H45-l3-precond.md
-Claims: C-3330-C-3339
+      docs/experiments/EXP-2026-11-21-M9.59-precond-build-runs-elsewhere.md
+Claims: C-3330-C-3339, C-6060-C-6069
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -47,11 +57,147 @@ DEFAULT_TARGETS = HERE / "l3_harness" / "targets.json"
 sys.path.insert(0, str(HERE))
 import va_class  # noqa: E402
 import cerom  # noqa: E402
+import fetch_image  # noqa: E402
 
 # Verdicts.
 READY = "READY"
 BLOCKED = "BLOCKED"
+RUNS_ELSEWHERE = "RUNS-ELSEWHERE"
 UNKNOWN = "UNKNOWN"
+
+#: ``fetch_image.PART_PINS`` image key -> the ``targets.json`` build it pins.
+#: Only the 256 MiB firmware heads matter here (the atlas covers all segments).
+BUILD_IMAGE_KEY = {"eu2011": "EU2011", "us2011": "US"}
+DEFAULT_BUILD = "eu2011"
+_HEAD_SHA_CACHE: dict[tuple[str, str], str | None] = {}
+
+
+def build_head_sha(build: str) -> str | None:
+    """The pinned 256 MiB head SHA-256 for *build* (``fetch_image`` is the owner)."""
+    key = BUILD_IMAGE_KEY.get(build)
+    if key is None:
+        return None
+    pin = fetch_image.PART_PINS.get((key, "256M"))
+    return pin[1] if pin else None
+
+
+def head_sha256(path: str | None) -> str | None:
+    """SHA-256 of the head file, cached per (realpath, mtime) without re-reading."""
+    if not path:
+        return None
+    real = os.path.realpath(path)
+    try:
+        stamp = "%d" % os.stat(real).st_mtime_ns
+    except OSError:
+        return None
+    key = (real, stamp)
+    if key not in _HEAD_SHA_CACHE:
+        h = hashlib.sha256()
+        try:
+            with open(real, "rb") as fh:
+                for chunk in iter(lambda: fh.read(1 << 20), b""):
+                    h.update(chunk)
+        except OSError:
+            _HEAD_SHA_CACHE[key] = None
+        else:
+            _HEAD_SHA_CACHE[key] = h.hexdigest()
+    return _HEAD_SHA_CACHE[key]
+
+
+def _pin_short(sha: str | None) -> str:
+    return (sha[:8] + "…") if sha else "?"
+
+
+_DEFAULT_HEAD_NAME = {"eu2011": "archive/head256.img", "us2011": "archive/us256.img"}
+
+
+def _default_head_path(build: str) -> str | None:
+    """The per-build 256 MiB head in ``archive/`` if present, else None."""
+    name = _DEFAULT_HEAD_NAME.get(build)
+    if not name:
+        return None
+    cand = REPO / name
+    return str(cand) if cand.is_file() else None
+
+
+def resolve_head(build: str, image: str | None, image_us: str | None,
+                 use_default: bool = True) -> dict:
+    """Pick the head whose firmware *build*'s VAs belong to, and refuse a mismatch.
+
+    Returns ``{"path", "sha256", "pin", "status", "detail", "source"}`` where
+    status is ``ok`` (a head of this build), ``no-image`` (nothing to class
+    against), or ``mismatch`` (a head of another build; ``path`` is None so no
+    VA is classed across builds). With ``use_default`` the per-build head in
+    ``archive/`` is taken when the caller passed none of this build's.
+    """
+    pin = build_head_sha(build)
+    candidates = []
+    if build == "us2011" and image_us:
+        candidates.append(("--image-us", image_us))
+    if image:
+        candidates.append(("--image", image))
+    # Last resort: the per-build head on disk (M9.59). A target is never left
+    # classifying against another build's head when its own head is present.
+    explicit = {path for _l, path in candidates}
+    default_path = _default_head_path(build) if use_default else None
+    if default_path and default_path not in explicit:
+        candidates.append((os.path.relpath(default_path, REPO), default_path))
+    if not candidates:
+        return {"path": None, "sha256": None, "pin": pin, "status": "no-image",
+                "detail": f"no head supplied for build {build!r}", "source": None}
+    # Pick the first candidate that is this build's head; a wrong-build head is
+    # reported as a mismatch, never used.
+    mismatched = None
+    for label, path in candidates:
+        sha = head_sha256(path)
+        if sha is None:
+            mismatched = mismatched or {"path": path, "sha256": None, "source": label,
+                                        "detail": f"cannot read head {path!r} for build {build!r}"}
+            continue
+        if pin and sha != pin:
+            mismatched = ("mismatch", {"path": path, "sha256": sha, "source": label,
+                                       "detail": f"head {os.path.basename(path)} SHA-256 {_pin_short(sha)} "
+                                                 f"is not the {build} head ({_pin_short(pin)})"})
+            continue
+        return {"path": path, "sha256": sha, "pin": pin, "status": "ok", "source": label,
+                "detail": f"{build} head {os.path.basename(path)} ({_pin_short(sha)})"}
+    if isinstance(mismatched, tuple):
+        _kind, info = mismatched
+        return {"path": None, "sha256": info["sha256"], "pin": pin, "status": "mismatch",
+                "detail": info["detail"], "source": info["source"]}
+    if mismatched:
+        return {"path": None, "sha256": None, "pin": pin, "status": "no-image",
+                "detail": mismatched["detail"], "source": mismatched["source"]}
+    return {"path": None, "sha256": None, "pin": pin, "status": "no-image",
+            "detail": f"no usable head for build {build!r}", "source": None}
+
+
+#: A ``tools/*.py`` runner named in a blocked reason (``datask_l3.py mount`` …).
+_RUNNER_RE = re.compile(r"\btools/([A-Za-z0-9_.\-]+\.py)\b")
+
+
+def _named_runner(target: dict) -> str | None:
+    """The ``tools/<name>.py`` runner named in a blocked target's text.
+
+    Only runners present on disk count (M9.59): a reason that names a tool this
+    checkout does not have is still a plain BLOCKED, never RUNS-ELSEWHERE. When
+    several are named, the one whose stem matches the target's leading token
+    wins (``mmain_reader`` -> ``mmain_l3.py`` beats ``vcard_l3.py``); otherwise
+    the first existing one listed.
+    """
+    entry = _entry(target)
+    text = _join_text(entry.get("reason"), entry.get("note"), target.get("notes"))
+    found = ["tools/" + m.group(1) for m in _RUNNER_RE.finditer(text)
+             if (REPO / ("tools/" + m.group(1))).is_file()]
+    if not found:
+        return None
+    token = str(target.get("name") or "").split("_")[0].lower()
+    if token:
+        for rel in found:
+            stem = Path(rel).stem.lower()
+            if stem == token or stem.startswith(token + "_") or stem.startswith(token):
+                return rel
+    return found[0]
 
 
 class PrecondError(ValueError):
@@ -392,25 +538,38 @@ def _va_class_dim(cls):
 
 
 def assess_target(target: dict, *, image: str | None = None, image_start: int = 0x200200,
-                  resolve_with: list[int] | None = None, _va_cache: dict | None = None) -> dict:
+                  resolve_with: list[int] | None = None, _va_cache: dict | None = None,
+                  image_us: str | None = None, use_default_head: bool = True) -> dict:
     name = target.get("name", "?")
     entry = _entry(target)
     kind = entry.get("kind")
     va_raw = entry.get("va")
     module = entry.get("module") or target.get("module")
-    va = None
+    raw_va = None
     if isinstance(va_raw, str):
         try:
-            va = int(va_raw, 0)
+            raw_va = int(va_raw, 0)
         except ValueError:
-            va = None
+            raw_va = None
     elif isinstance(va_raw, int):
-        va = va_raw
+        raw_va = va_raw
+
+    # M9.59 gap 1: class VAs only against the head of the target's own build.
+    build = target.get("build") or DEFAULT_BUILD
+    head = resolve_head(build, image, image_us, use_default=use_default_head)
+    image = head["path"]
+    va = raw_va
 
     m1_2f = _classify_m1_2f(target)
     reach = _classify_reachability(target)
     reasons: list[str] = []
     missing_fields: list[str] = []
+
+    if head["status"] == "mismatch":
+        reasons.append(f"build {build}: {head['detail']}; VA classes not computed (M9.59)")
+    elif head["status"] == "ok" and head.get("source") not in (None, "--image", "--image-us"):
+        reasons.append(f"build {build}: {head['detail']} substituted for the head passed "
+                       f"on the command line, which is not this build (M9.59)")
 
     bytes_info: dict[str, Any] = {"status": "unknown", "detail": "no image provided; byte counts not computed"}
     va_info = None
@@ -531,9 +690,19 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
             unknowns.append(f"{dim}: {info.get('detail')}")
             missing_fields.extend(info.get("missing_fields") or [])
 
+    runs_via = None
+    named_runner = _named_runner(target) if kind == "blocked" else None
     if kind == "synthetic":
         verdict = READY
         reasons.append("synthetic pipeline target; not a firmware reader precondition case (runner/dispatcher fixture)")
+    elif kind == "blocked" and named_runner and not m1_2f.get("blocker"):
+        # M9.59 gap 2: the reason names a real runner, so the target is not a
+        # missing-entry BLOCKED; it executes outside runner.py. (Its own entry
+        # fields are a blocked stub, so the entry_mapping BLOCKED is expected.)
+        reason_text = entry.get("reason") or "entry.kind=blocked"
+        verdict = RUNS_ELSEWHERE
+        runs_via = named_runner
+        reasons.append(f"target runs outside runner.py via {named_runner}: {reason_text}")
     elif blockers:
         verdict = BLOCKED
         reasons.extend(blockers)
@@ -562,6 +731,15 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
             if info.get("status") == "unknown":
                 reasons.append(f"{dim}: {info['detail']}")
 
+    # M9.59 gap 1: a head of another build was refused; the run could not verify
+    # this target's VA classes, so the verdict is not READY.
+    if head["status"] == "mismatch" and verdict == READY:
+        verdict = UNKNOWN
+        flag = "--image-us" if build == "us2011" else "--image"
+        reasons.append(f"build {build}: VA classes not verified against its own head "
+                       f"({_pin_short(head['pin'])}); pass {flag} with the {build} head")
+        missing_fields.append(f"head for build {build} ({head['pin']})")
+
     # Add va_class concerns as explicit reasons (correct concern, not M1.2f) when classified.
     if va_classifications:
         for r in va_classifications:
@@ -589,6 +767,12 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
         "entry_kind": kind,
         "module": module,
         "va": va_raw,
+        "build": build,
+        "image_used": os.path.basename(image) if image else None,
+        "image_pin": {"build": build, "expected_sha256": head["pin"],
+                      "actual_sha256": head["sha256"], "status": head["status"],
+                      "source": head.get("source"), "detail": head["detail"]},
+        "runs_via": runs_via,
         "executable_vs_data_bytes": bytes_info,
         "compressed_sec1_data_dependency_m1_2f": m1_2f,
         "import_input_binding_reachability": reach,
@@ -597,7 +781,6 @@ def assess_target(target: dict, *, image: str | None = None, image_start: int = 
         "verdict": verdict,
         "reasons": reasons,
         "missing_fields": missing_fields if verdict == UNKNOWN else [],
-        "image_used": os.path.basename(image) if image else None,
     }
 
 
@@ -756,6 +939,12 @@ def _print_report(reports: list[dict], *, as_json: bool) -> None:
         label = rep.get("name") or f"adhoc {rep.get('va')} {rep.get('module')}"
         print(f"== {label} ==")
         print(f"verdict: {rep['verdict']}")
+        if rep.get("runs_via"):
+            print(f"runs_via: {rep['runs_via']}")
+        pin = rep.get("image_pin") or {}
+        if pin:
+            src = f"  source: {pin['source']}" if pin.get("source") else ""
+            print(f"build: {pin.get('build')}  image_pin: {pin.get('status')} - {pin.get('detail')}{src}")
         print(f"reader: {rep.get('reader')}  entry_kind: {rep.get('entry_kind')}  module: {rep.get('module')}  va: {rep.get('va')}")
         b = rep.get("executable_vs_data_bytes") or {}
         if b.get("exec_decodable_bytes") is not None:
@@ -870,11 +1059,23 @@ def run_selftest() -> int:
         check("real drstr_parser names the image-sourced sec1 (M1.19)",
               any("sec1 bytes read from the image" in x for x in r_drs["reasons"]),
               str(r_drs["reasons"]))
-        # A target with no VA / missing mapping.
-        for name in ("tile_reader", "hddinfo_compare"):
-            if name in by_name:
-                rr = assess_target(by_name[name])
-                check(f"real {name} -> BLOCKED", rr["verdict"] == BLOCKED, f"{rr['verdict']} {rr['reasons']}")
+        # M9.59 gap 2: a blocked reason naming a real runner is RUNS-ELSEWHERE.
+        if "tile_reader" in by_name:
+            rt = assess_target(by_name["tile_reader"])
+            check("real tile_reader -> RUNS-ELSEWHERE (datask_l3.py)",
+                  rt["verdict"] == RUNS_ELSEWHERE and rt["runs_via"] == "tools/datask_l3.py",
+                  f"{rt['verdict']} runs_via={rt.get('runs_via')}")
+        if "mmain_reader" in by_name:
+            rm = assess_target(by_name["mmain_reader"])
+            check("real mmain_reader -> RUNS-ELSEWHERE (mmain_l3.py)",
+                  rm["verdict"] == RUNS_ELSEWHERE and rm["runs_via"] == "tools/mmain_l3.py",
+                  f"{rm['verdict']} runs_via={rm.get('runs_via')}")
+        # A blocked entry whose reason names no existing runner stays BLOCKED.
+        if "hddinfo_compare" in by_name:
+            rr = assess_target(by_name["hddinfo_compare"])
+            check("real hddinfo_compare -> BLOCKED (no runner named)",
+                  rr["verdict"] == BLOCKED and rr["runs_via"] is None,
+                  f"{rr['verdict']} runs_via={rr.get('runs_via')} {rr['reasons']}")
 
     # JSON output shape.
     r = assess_target(t_missing)
@@ -894,6 +1095,7 @@ def run_selftest() -> int:
     orig_load = globals().get("_load_va_context")
     orig_mod = globals().get("_module_bytes_report")
     orig_va = globals().get("_va_section_report")
+    orig_head = globals().get("resolve_head")
     def _fake_load(image, image_start, module, resolve_with, cache):
         return syn_sections, syn_slots
     def _fake_mod(image, image_start, module):
@@ -910,9 +1112,15 @@ def run_selftest() -> int:
                     "section_realaddr": "0x00011000", "compressed": False,
                     "executable": True, "kind": "exec-plain"}
         return {"va": hex(va), "module": module, "section": None, "detail": "not found"}
+    def _fake_neutral_head(build, image, image_us, use_default=True):
+        # The synthetic file has no real head; keep the va_class path reachable.
+        return {"path": image, "sha256": None, "pin": None,
+                "status": "ok" if image else "no-image",
+                "detail": "synthetic head" if image else "no head supplied"}
     globals()["_load_va_context"] = _fake_load
     globals()["_module_bytes_report"] = _fake_mod
     globals()["_va_section_report"] = _fake_va
+    globals()["resolve_head"] = _fake_neutral_head
     try:
         # IAT: blocked by metadata M1.2f in target text but va_class says IAT -> not M1.2f-blocked.
         t_iat = {"name": "syn-iat", "reader": "iat", "module": "Navi.exe",
@@ -979,6 +1187,72 @@ def run_selftest() -> int:
         globals()["_load_va_context"] = orig_load
         globals()["_module_bytes_report"] = orig_mod
         globals()["_va_section_report"] = orig_va
+        globals()["resolve_head"] = orig_head
+
+    # --- M9.59: per-build head (gap 1) and RUNS-ELSEWHERE (gap 2) -----------
+    # gap 1: class only against the target's own build's head.
+    pin_us = build_head_sha("us2011")
+    check("build us2011 has a pinned head (fetch_image.PART_PINS)",
+          bool(pin_us) and pin_us == fetch_image.PART_PINS[("US", "256M")][1],
+          str(pin_us))
+    t_us = {"name": "syn-us", "reader": "cmp_ind", "module": "Navi.exe", "build": "us2011",
+            "entry": {"kind": "firmware_call", "va": "0x00444540", "module": "Navi.exe"}}
+    # A US target given an EU head must be refused (never classed across builds).
+    # Mock the head hash by filename: "us" heads -> US pin, else -> EU pin.
+    _eu_pin = build_head_sha("eu2011")
+    _orig_head_sha = globals()["head_sha256"]
+    _orig_default = globals()["_default_head_path"]
+    globals()["head_sha256"] = lambda p: (
+        None if not p or "unreadable" in p
+        else (pin_us if "us" in os.path.basename(p).lower() else _eu_pin))
+    globals()["_default_head_path"] = lambda b: None
+    try:
+        head_ref = resolve_head("us2011", "head256.img", "eu256.img")
+        check("us2011 with only EU heads -> mismatch, path None (never class across builds)",
+              head_ref["status"] == "mismatch" and head_ref["path"] is None
+              and head_ref["pin"] == pin_us,
+              json.dumps(head_ref))
+        head_ok = resolve_head("us2011", "head256.img", "us256.img")
+        check("us2011 with --image-us -> the US head is used, the EU --image not",
+              head_ok["status"] == "ok" and head_ok["path"] == "us256.img",
+              json.dumps(head_ok))
+        head_no = resolve_head("us2011", "unreadable.img", "unreadable2.img")
+        check("us2011 with only unreadable heads -> no-image (path None)",
+              head_no["status"] == "no-image" and head_no["path"] is None,
+              json.dumps(head_no))
+        head_default = resolve_head("us2011", "head256.img", None, )
+        check("us2011 given EU --image, no --image-us, no default -> mismatch (still refused)",
+              head_default["status"] == "mismatch" and head_default["path"] is None,
+              json.dumps(head_default))
+    finally:
+        globals()["head_sha256"] = _orig_head_sha
+        globals()["_default_head_path"] = _orig_default
+    # The target itself carries the pin in its report.
+    r_us = assess_target(t_us)
+    check("target report carries build + image_pin",
+          r_us.get("build") == "us2011"
+          and (r_us.get("image_pin") or {}).get("expected_sha256") == pin_us,
+          json.dumps(r_us.get("image_pin")))
+
+    # gap 2: RUNS-ELSEWHERE vs BLOCKED, and the negative (missing tool).
+    t_runs = {"name": "syn-runs", "reader": "tile", "module": None,
+              "entry": {"kind": "blocked", "va": None,
+                        "reason": "runs as tools/mount_dirs_l3.py check, not runner.py"}}
+    r_runs = assess_target(t_runs)
+    check("blocked reason naming an existing runner -> RUNS-ELSEWHERE",
+          r_runs["verdict"] == RUNS_ELSEWHERE
+          and r_runs["runs_via"] == "tools/mount_dirs_l3.py",
+          f"{r_runs['verdict']} runs_via={r_runs.get('runs_via')}")
+    t_missing_tool = {"name": "syn-missing-tool", "reader": "tile", "module": None,
+                      "entry": {"kind": "blocked", "va": None,
+                                "reason": "the runner would be tools/no_such_runner_l3.py (does not exist)"}}
+    r_mt = assess_target(t_missing_tool)
+    check("blocked reason naming a missing tool stays BLOCKED (negative)",
+          r_mt["verdict"] == BLOCKED and r_mt["runs_via"] is None,
+          f"{r_mt['verdict']} runs_via={r_mt.get('runs_via')}")
+    check("RUNS-ELSEWHERE appears in JSON with runs_via",
+          json.loads(json.dumps({"targets": [r_runs]}))["targets"][0]["verdict"] == RUNS_ELSEWHERE
+          and json.loads(json.dumps({"targets": [r_runs]}))["targets"][0]["runs_via"] == "tools/mount_dirs_l3.py")
 
     if failures:
         print(f"\n{len(failures)} FAILED:")
@@ -1003,7 +1277,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--va", type=lambda s: int(s, 0), default=None, help="ad-hoc reader/entry VA")
     p.add_argument("--module", default=None, help="module name (with --va or to scope enrichment)")
     p.add_argument("--image", default=None, help="optional firmware image for byte/section enrichment")
+    p.add_argument("--image-us", default=None, dest="image_us",
+                   help="US2011 head for targets with build us2011 (classed only against its own build, M9.59)")
     p.add_argument("--image-start", type=lambda s: int(s, 0), default=0x200200)
+    p.add_argument("--no-default-head", action="store_true", dest="no_default_head",
+                   help="never fall back to archive/head256.img or archive/us256.img; a wrong-build "
+                        "--image is refused (M9.59)")
     p.add_argument("--resolve-with", action="append", type=lambda s: int(s, 0), default=None,
                    help="CE image start(s) whose exports resolve ordinal imports for va_class (repeatable; default 0x3e00200 for build-A)")
     p.add_argument("--json", action="store_true", dest="as_json", help="JSON output")
@@ -1020,6 +1299,10 @@ def main(argv: list[str] | None = None) -> int:
         cand = os.environ.get("OSM2LEAF_IMG")
         if cand and os.path.isfile(cand):
             image = cand
+    image_us = args.image_us
+    if image_us and not os.path.isfile(image_us):
+        print(f"l3_precond: --image-us {image_us!r} not found", file=sys.stderr)
+        return 2
 
     reports = []
     va_cache: dict = {}
@@ -1036,7 +1319,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"l3_precond: unknown target {name!r}", file=sys.stderr)
                 return 2
             reports.append(assess_target(by_name[name], image=image, image_start=args.image_start,
-                                         resolve_with=resolve_with, _va_cache=va_cache))
+                                         resolve_with=resolve_with, _va_cache=va_cache,
+                                         image_us=image_us,
+                                         use_default_head=not args.no_default_head))
     elif args.va is not None or args.module is not None:
         reports.append(assess_adhoc(va=args.va, module=args.module, image=image, image_start=args.image_start,
                                     resolve_with=resolve_with, _va_cache=va_cache))
