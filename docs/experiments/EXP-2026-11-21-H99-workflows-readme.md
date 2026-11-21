@@ -117,7 +117,7 @@ Board and ledger after the rewrite:
 
 ```
 $ python3 tools/todo_check.py
-todo_check: 297 tasks, 0 error(s), 156 warning(s)
+todo_check: 299 tasks, 0 error(s), 156 warning(s)
 todo_check: OK
 ```
 
@@ -132,10 +132,10 @@ Standing gate (`python3 tools/gate.py`, image present on this host):
 ```
 GATE          RESULT    SECS  NOTE
 ------------  ------  ------  ----------------------------------------
-selftest      PASS    117.13
-claims_check  PASS      6.69
+selftest      PASS    116.93
+claims_check  PASS      6.72
 todo_check    PASS      0.06
-fn_audit      PASS      4.21
+fn_audit      PASS      4.30
 gate: 4 pass, 0 fail, 0 skip
 ```
 
@@ -173,8 +173,8 @@ knowledge and no workflow logic changed. `python3 tools/todo_check.py` is OK,
 - `todo_check: 278 tasks, 0 error(s), 162 warning(s)` (first local run) and the
   gate timings `114.91 / 5.46 / 0.05 / 4.09` | no later commit changed a file
   this record cites; `origin/main` simply advanced while the branch was being
-  prepared (`git fetch origin && git log -1 origin/main` → `434a2949`) | the
-  post-rebase run reads `todo_check: 297 tasks, 0 error(s), 156 warning(s)` and
+  prepared (`git fetch origin && git log -1 origin/main` → `cc9f10dd`) | the
+  post-rebase run reads `todo_check: 299 tasks, 0 error(s), 156 warning(s)` and
   `gate: 4 pass, 0 fail, 0 skip` (timings `117.13 / 6.69 / 0.06 / 4.21`); no
   H99 claim changed meaning (`python3 tools/todo_check.py`; `python3 tools/gate.py`)
 
