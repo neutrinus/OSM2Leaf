@@ -3338,6 +3338,7 @@ text of this section is in git (`13cb0cf`).
 
 - [ ] **M4.62 — TMC `0x14f4`: the dynamic tag writer (M4.51's continuation) and M4.49's truthful Unblock**
   - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P3
   - Depends: M4.53 (done — the `0x14f4` file half: it reads `REFER001` POINT/ADDRE/INTER by its sub word, C-5680), M4.51 (blocked — the **negative static** census; read its Result first, this task does the dynamic half it could not do offline).
   - Goal: M4.49 blocks with "no link-group signature in the TMC data-layer subtree", and its `Unblock: M4.51` points at a task that has since blocked too. M4.51's Result closed the static question negatively: `0x14f4` has **no static sender** — the only send wrapper has 25 callers, each with one id literal, and none is `0x14f4`; the request is built at run time. M4.53 then closed the file half. So the whole chain M4.49 → M4.51 → M4.53 now ends in a `blocked`→`blocked`→`done` that can never re-open by rule 15, and the one open question is narrow and dynamic: which code writes the tag word of a request to `0x14f4` at run time, and what buffer it then fills. This task answers that or records it as unreachable, so M4.49 gets a `Unblock:` that names a merge that can actually happen (this task) instead of a dead token.
   - Precheck: `python3 tools/tmc_req_l3.py --selftest` passes; `python3 tools/rdstm_reader_scan.py archive/head256.img --const 0x14f4` prints its 7 data-layer users (the negative census M4.51 quotes — do not re-run the static literal scan as work); a `tools/read_watch_l3.py` run over the `OSM_TaskSend` wrapper path records the request tag word (offset `+8`) for a synthetic `0x14f4` call; quote the value, and if the run cannot write the tag that is the finding, not a failure.
@@ -4100,6 +4101,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 - [ ] **M5.64 — LCTBL: the real country/database table code for Poland, and whether the firmware actually keys LCTBL by country (the M5.60 open item)**
   - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P3
   - Depends: M5.60 (done), M5.17 (LCTBL builder, done), M4.16d (TMC reception table codes, done)
   - Goal: M5.60 built the first LCTBL ("names of places your card has") writer that the firmware's own lookup runs, but its Result leaves two things open that decide whether a Poland card's place names are found: "the real country/database numbers for Poland" and "an absent table is served from the first table (observed)" (`EXP-2026-11-20-M5.60-lctbl-index-l3`, C-6140–C-6149). M5.17's synthetic Polish set is written with a hand-picked table code; if a real unit looks up `(country 11, database 1)` and that is not the code in the file, the card's street names are not returned even though every byte round-trips. That makes this the format decision behind M5.61 ("Poland to look at") and M7.1.
   - Precheck: `python3 tools/lctbl_lookup_l3.py --selftest` prints `0 failed`; `python3 tools/lctbl_build.py synth --help` lists a table-code input; `python3 tools/tmc_reception.py table --help` resolves `(CC, LTN)` pairs (M4.16d, 14/14 on EU2011).
@@ -5559,6 +5561,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 - [ ] **M9.63 — US-build map client on an EU card: record what already runs at L3, so M9.61 is one small PR**
   - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: tooling
   - Depends: M1.22b (EU→US function map, done), M9.14 (US2011 file layer, done), M9.53 (EU2011 record read, done). **Does not wait on M9.61** (it is its first slice); M9.61 then keeps the remaining layers.
   - Goal: M9.61 is the cheapest software answer to "does Marek's US unit read a Poland card" but it is one `Pair: required` session covering four runs and a `--build` flag on `datask_l3.py`. Half of that surface already runs on `main` under the US build — `vcard_l3.py boot US256 --build us2011` (C-4651) and the US POI reader `runner.py run poi_record_decode` (M9.10) — while `datask_l3.py mount` has no `--build` at all (`python3 tools/datask_l3.py mount --help | grep -c -- --build` = 0, M9.61's own Precheck). Nobody has written down which layer of the US map client is already exercised and on what input, so M9.61 starts by rediscovering it and its Done-when mixes layers that are already green with one that is not. Record that boundary once, with a run per layer.
   - Precheck: `python3 tools/vcard_l3.py boot archive/us256.img --build us2011 --card-image <EU card>` ends `firmware error log calls: 0`; `python3 tools/poi_position_l3.py run archive/head256.img --dir <EU REFER001> --file POINT010` ends `RESULT: ACCEPT` (the EU control for the position arithmetic, M3.34); `python3 tools/datask_l3.py mount --help | grep -c -- --build` prints `0`.
