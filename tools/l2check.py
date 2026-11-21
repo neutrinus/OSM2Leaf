@@ -15,6 +15,12 @@ tools still understand the data and that a rebuild is faithful:
 * with ``--class-tiles``, the level-1 road class the writer emitted decodes
   back unchanged (``tile_class_roundtrip``, M5.36; ``decoded`` census without
   an emitted map, never a PASS);
+* every ``BxxRyyyR.DAT`` tile named on the command line lists three sections
+  at header ``0x800``/``0x806``/``0x80c`` (``tile_section_list``, M5.62); the
+  firmware leaves a tile whose third entry is ``ff ff ff ff`` and goes on in
+  box 0 (C-6080–C-6083).  A factory tile kept verbatim, and a short tile
+  reached only by the default list (unknown provenance), are INFO, not a
+  failure;
 * a same-length POI rename passes the offline mutation validator;
 * a different-length POI rename passes the offline mutation validator and the
   page re-parses into the same records (one record changed, the rest byte
@@ -59,6 +65,7 @@ import cardcheck  # noqa: E402
 import cmpind_writer  # noqa: E402
 import drstr_ze0  # noqa: E402
 import mutate_refer_poi  # noqa: E402
+import tile_drop_l3  # noqa: E402
 
 TOOLS = Path(__file__).resolve().parent
 VIEWER = TOOLS / "ze0-viewer"
@@ -520,6 +527,73 @@ def check_tile_class(root: Path, report: cardcheck.Report, tiles: list[str],
             for err in res["errors"][:5]:
                 check.error(f"{name}: {err}")
             check.error(f"{name}: tile_class_roundtrip {res['verdict']}")
+
+
+def check_tile_section_list(root: Path, report: cardcheck.Report,
+                            tiles: list[str],
+                            factory_root: Path | None,
+                            explicit: set[str]) -> None:
+    """M5.62: a generated ``BxxRyyyR.DAT`` must list three sections at 0x800.
+
+    The firmware's header check (`0x0040acb8`, EU2011) asks every tile box for
+    parts 0, 1 and 2, reading the 6-byte section-list entries at header
+    `0x800`, `0x806` and `0x80c`; an entry `ff ff ff ff` with the tile not yet
+    mounted sets box status 3, the tile is left after its header and the mount
+    goes on in box 0 (C-6080–C-6083).  L2 never said so (a writer that dropped
+    an empty section passed every gate).
+
+    A tile named on the command line (``--tiles``/``--semantic-tiles``/
+    ``--class-tiles``) is a generated target and held to the rule.  A short
+    list that is factory bytes kept verbatim — the run's ``--factory-root``
+    MAPAL001 file with the same name, byte-identical — is INFO, not a failure
+    (8 of 45 factory tiles have fewer, C-6085).  A tile reached only through
+    the default list has unknown provenance and is INFO too: a raw factory
+    card sweep must not fail on the firmware's own files.  ``LEV3456R.DAT``
+    lists two by design and is out of scope."""
+    check = report.add(cardcheck.Check("tile_section_list"))
+    short = factory_kept = unnamed = checked = 0
+    for name in tiles:
+        if name.upper() == LEV_TILE:
+            continue
+        path = root / "MAPAL001" / name
+        if not path.is_file():
+            check.warn(f"MAPAL001/{name}: not present on this card; skipped")
+            continue
+        checked += 1
+        try:
+            raw = path.read_bytes()
+        except OSError as exc:
+            check.error(f"{name}: {exc}")
+            continue
+        entries = tile_drop_l3.parse_section_list(
+            raw[tile_drop_l3.SECT_OFF:tile_drop_l3.SECT_OFF + 18], 3)
+        check.stats[name] = len(entries)
+        if len(entries) >= 3:
+            continue
+        short += 1
+        reference = factory_root / "MAPAL001" / name if factory_root else None
+        if reference is not None and reference.is_file() and \
+                reference.read_bytes() == raw:
+            factory_kept += 1
+            check.warn(f"{name}: {len(entries)} section entries, factory bytes "
+                       f"kept verbatim (INFO, not a failure)")
+            continue
+        if name not in explicit:
+            unnamed += 1
+            check.warn(f"{name}: {len(entries)} section entries, not a named "
+                       f"generated target (INFO; pass --tiles to enforce)")
+            continue
+        missing = ", ".join(f"0x{tile_drop_l3.SECT_OFF + 6 * i:03x}"
+                            for i in range(len(entries), 3))
+        check.error(
+            f"{name}: section list has {len(entries)} entr"
+            f"{'y' if len(entries) == 1 else 'ies'} at 0x800; the firmware "
+            f"leaves the tile without three (entries {missing} are ff ff ff ff)"
+        )
+    check.stats["checked"] = checked
+    check.stats["short"] = short
+    check.stats["factory_verbatim"] = factory_kept
+    check.stats["unnamed"] = unnamed
 
 
 def check_tile_mutation(root: Path, report: cardcheck.Report,
@@ -1053,6 +1127,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--class-tiles", default="",
                         help="comma-separated tiles for tile_class_roundtrip (M5.36); off when empty")
     parser.add_argument("--class-emitted", help="emitted road-class map (ze0-road-class/1)")
+    parser.add_argument("--factory-root",
+                        help="factory card root: a tile identical to its MAPAL001/<name> "
+                             "is factory bytes kept verbatim, so a short section list there "
+                             "is INFO, not a failure (M5.62)")
     parser.add_argument("--skip-mutation", action="store_true")
     parser.add_argument("--image", help="optional raw image for the golden hash")
     parser.add_argument("--hash-image", action="store_true",
@@ -1116,6 +1194,19 @@ def main(argv: list[str] | None = None) -> int:
     if not args.no_tiles:
         check_tile_roundtrip(root, profile, report, tiles)
         check_tile_semantic(root, profile, report, semantic, args.include_lev)
+        section_tiles = list(dict.fromkeys(tiles + semantic + [
+            t.strip() for t in args.class_tiles.split(",") if t.strip()
+        ]))
+        explicit = set()
+        if args.tiles is not None:
+            explicit.update(tiles)
+        if args.semantic_tiles is not None:
+            explicit.update(semantic)
+        explicit.update(t.strip() for t in args.class_tiles.split(",") if t.strip())
+        check_tile_section_list(
+            root, report, section_tiles,
+            Path(args.factory_root) if args.factory_root else None, explicit,
+        )
         graph_tiles = [t.strip() for t in args.graph_tiles.split(",") if t.strip()]
         if graph_tiles:
             check_tile_graph(root, report, graph_tiles,
@@ -1251,6 +1342,57 @@ def selftest() -> int:
                                           "--semantic-tiles", "B48R058R.DAT"])
         ok(rc == 1 and "[tile_roundtrip] FAIL" in out and "RESULT: FAIL" in out,
            f"truncated tile -> tile_roundtrip FAIL, exit 1 (got {rc})")
+
+    # M5.62: a generated tile must list three sections at header 0x800; a
+    # factory tile kept verbatim is the only short list that does not fail.
+    with tempfile.TemporaryDirectory(prefix="l2check-sections-") as tmp:
+        root = Path(tmp) / "root"
+        tile = _fixture_root(root)
+        base = ["--partial", "--no-golden", "--no-cmp"]
+        pristine = tile.read_bytes()
+        ok(len(tile_drop_l3.parse_section_list(pristine[0x800:0x812], 3)) == 3,
+           "fixture tile lists three sections")
+        rc, out, err = _run_main(["--root", str(root)] + base
+                                 + ["--tiles", "B48R058R.DAT"])
+        ok(rc == 0 and "[tile_section_list] OK" in out,
+           f"three-section tile -> tile_section_list OK, exit 0 (got {rc}; {err.strip()[:160]})")
+        blanked = bytearray(pristine)
+        blanked[0x80c:0x812] = b"\xff\xff\xff\xff\x00\x00"
+        tile.write_bytes(bytes(blanked))
+        rc, out, _err = _run_main(["--root", str(root)] + base
+                                  + ["--tiles", "B48R058R.DAT"])
+        ok(rc == 1 and "[tile_section_list] FAIL" in out and "0x80c" in out,
+           f"third entry blanked -> tile_section_list FAIL names 0x80c, exit 1 (got {rc})")
+        # The default list does NOT enforce (unknown provenance): a raw factory
+        # card sweep or a generated tree's sibling must not fail.  Only a tile
+        # named on the command line is a generated target.
+        tile.write_bytes(bytes(blanked))
+        (root / "MAPAL001" / "B30R060R.DAT").write_bytes(bytes(blanked))
+        rc, out, _err = _run_main(["--root", str(root)] + base)
+        ok(rc == 0 and "not a named generated target" in out,
+           f"default list -> short tile INFO, not a failure (got {rc})")
+        # Factory verbatim: identical to --factory-root -> INFO, not a failure.
+        factory = Path(tmp) / "factory"
+        (factory / "MAPAL001").mkdir(parents=True, exist_ok=True)
+        (factory / "MAPAL001" / "B48R058R.DAT").write_bytes(bytes(blanked))
+        tile.write_bytes(bytes(blanked))
+        (root / "MAPAL001" / "B30R060R.DAT").unlink()
+        rc, out, _err = _run_main(["--root", str(root)] + base
+                                 + ["--tiles", "B48R058R.DAT",
+                                    "--factory-root", str(factory)])
+        ok(rc == 0 and "factory bytes kept verbatim" in out
+           and "[tile_section_list] OK" in out,
+           f"factory verbatim short list -> INFO/OK, exit 0 (got {rc})")
+        # A different byte changes it from factory-verbatim to generated:
+        # the rule must still fail it.
+        changed = bytearray(blanked)
+        changed[0x100] ^= 0x01
+        tile.write_bytes(bytes(changed))
+        rc, out, _err = _run_main(["--root", str(root)] + base
+                                 + ["--tiles", "B48R058R.DAT",
+                                    "--factory-root", str(factory)])
+        ok(rc == 1 and "[tile_section_list] FAIL" in out,
+           f"short list differing from factory -> FAIL (got {rc})")
 
     # M5.36: tile_class_roundtrip on a tile whose class the writer emitted.
     import tile_class_roundtrip as tcr
