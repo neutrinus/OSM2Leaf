@@ -924,7 +924,7 @@ is in [`../research/feedback-loop.md`](../research/feedback-loop.md).
 
 ## ze0 register table (M8.A8, EU2011)
 
-What the QEMU `-M ze0` machine (QEMU 8.2.10, patches up to `ze0-0009`)
+What the QEMU `-M ze0` machine (QEMU 11.1.3 since M8.A11, patches up to `ze0-0009`; measured on 8.2.10 up to `ze0-0008`)
 models, and which registers the EU2011 boot still touches outside those
 models. Source: EXP-2026-11-20-M8.A8-f0-registers (claims C-1300–C-1304).
 "Read from" names the EU2011 code that reads or programs the window

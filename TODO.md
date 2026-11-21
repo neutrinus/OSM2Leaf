@@ -4586,8 +4586,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     own series, C-4325) and the scripts ask for `-d invalid_mem` on QEMU
     >= 10 (C-4323). EXP-2026-11-21-M8.A9-qemu-11-port.
 
-- [ ] **M8.A11 — One QEMU version: make 11.1.3 the only supported `ze0` base**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.A11 — One QEMU version: make 11.1.3 the only supported `ze0` base**
+  - Status: done · Owner: Claude (task/m8.a11-qemu-single-version) · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.A9, M8.C1b
   - Goal: the `ze0` series is kept twice (`patches/` for 8.2.10, `patches/11.1/` for 11.1.3) and every patch is written, built and booted twice. Runs A and D of EXP-2026-11-21-M8.C1b give the same boot on both (C-6873). Marek, 2026-11-21: migrate fully to the new QEMU.
@@ -4597,6 +4597,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: `build.sh` with no option builds 11.1.3 from one patch directory; `build.sh --selftest`/`--dry-run` and `run.sh --selftest` pass; no document tells a reader to build 8.2; `python3 tools/gate.py` green; EXP + claims.
   - Falsifier: a boot stage or tool that works only on the 8.2.10 build.
   - Claims: C-6890–C-6899
+  - Result: EXP-2026-11-21-M8.A11-qemu-single-version (C-6890–C-6893). `tools/qemu-ze0/patches/` is now one series of 13 patches for QEMU 11.1.3 (old headers kept, 11.1.3 diffs); `patches/11.1/` removed, its README is `patches/PORT-11.1.md`; `build.sh` pins only 11.1.3 and refuses 8.2. `build.sh --selftest` 78 passed; `--check-version 11.1.3` 13 applied; the patched tree equals the tree of the binary that reaches F3.
 - [x] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not.

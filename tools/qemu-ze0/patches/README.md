@@ -1,5 +1,11 @@
 # QEMU `ze0` patches: CPU control block (TODO M8.A4)
 
+> **M8.A11 (2026-11-21):** the patch files in this directory are now the
+> QEMU **11.1.3** forms (one supported version); this document is the
+> original M8.A4 record, written against 8.2.7, and its line numbers and
+> apply logs describe that tree. What the 11.x port changed:
+> [`PORT-11.1.md`](PORT-11.1.md).
+
 Out-of-tree QEMU patch series that factors the SH-4 **CCN/MMU control
 block** out of `hw/sh4/sh7750.c` into the standalone `sh4-ccn` device, so a
 `ze0` machine can map it without instantiating any SH7750 peripheral model.

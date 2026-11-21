@@ -1,6 +1,9 @@
 # Porting the `ze0` patch series from QEMU 8.2.7 to 11.1.3
 
-> **Outcome (M8.A9, 2026-11-21):** the port is done — `tools/qemu-ze0/patches/11.1/`,
+> **M8.A11 (2026-11-21):** 11.1.3 is now the only supported version; the
+> ported series moved to `tools/qemu-ze0/patches/` and the 8.2 one was removed.
+>
+> **Outcome (M8.A9, 2026-11-21):** the port is done — `tools/qemu-ze0/patches/11.1/` (since M8.A11 merged into `tools/qemu-ze0/patches/`, the only series),
 > twelve patches, builds and boots (EXP-2026-11-21-M8.A9-qemu-11-port). This
 > document stays as the pre-port inventory of the first five patches; §8 lists
 > what it missed.

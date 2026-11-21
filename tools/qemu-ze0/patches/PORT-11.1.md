@@ -1,16 +1,15 @@
-# `ze0` patch series for QEMU 11.x (TODO M8.A9)
+# What the port of the `ze0` series to QEMU 11.x changed (M8.A9, M8.A11)
 
-The same thirteen patches as [`../`](../README.md), ported to **QEMU 11.1.3**
-(tag `v11.1.3`, tarball SHA-256
+The series in this directory is written against **QEMU 11.1.3** (tag
+`v11.1.3`, tarball SHA-256
 `5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22`,
-141819712 bytes). File names are identical, so "patch N" means the same
-thing in both series; what each patch does is documented in `../README.md`
-and in the header of the 8.2 patch. This file only records what the port
-changed. Evidence:
-[`EXP-2026-11-21-M8.A9-qemu-11-port`](../../../../docs/experiments/EXP-2026-11-21-M8.A9-qemu-11-port.md).
-
-`tools/qemu-ze0/build.sh --version 11.1.3` picks this directory by itself
-(any version `>= 11.0`); `--version 8.2.10` (the default) keeps `../*.patch`.
+141819712 bytes) and is the only one since M8.A11 (2026-11-21). It began as
+a series for QEMU 8.2 and each patch keeps the header written then, so a
+header may name an 8.2 API (`dc->reset`, `sysemu/…`, `hw/sysbus.h`); the
+tables below translate. The 8.2 files are in git history up to the merge of
+M8.C1b. Evidence:
+[`EXP-2026-11-21-M8.A9-qemu-11-port`](../../../docs/experiments/EXP-2026-11-21-M8.A9-qemu-11-port.md),
+[`EXP-2026-11-21-M8.A11-qemu-single-version`](../../../docs/experiments/EXP-2026-11-21-M8.A11-qemu-single-version.md).
 
 ```bash
 tools/qemu-ze0/build.sh --check-version 11.1.3     # 12 applied, 0 failed
@@ -45,7 +44,7 @@ Mechanical renames, applied to added lines and to context lines alike:
 | `sdbus_do_command(bus, &req, resp)` → `int` | `sdbus_do_command(bus, &req, resp, sizeof(resp))` → `size_t` |
 
 The last three rows are **not** in
-[`qemu-ze0-port-delta.md`](../../../../docs/research/qemu-ze0-port-delta.md)
+[`qemu-ze0-port-delta.md`](../../../docs/research/qemu-ze0-port-delta.md)
 §§2–5: that inventory was read from headers for the first five patches; these
 were found by compiling all twelve (the thirteenth, `ze0-0009`, came later).
 
@@ -83,6 +82,5 @@ The series is the `git diff` of thirteen commits on a pristine 11.1.3 tree.
 To rebase it on a newer release: extract the tarball, `git init && git add -A
 && git commit`, apply each patch here with `patch -p1`, fix what rejects,
 build (`configure --target-list=sh4-softmmu --disable-fdt`), commit per
-patch and write `git diff C^ C` under the same file name with the four
-header lines kept. Then `build.sh --check-version V` must print
-`12 applied, 0 failed`.
+patch and write `git diff C^ C` under the same file name with the header
+kept. Then `build.sh --check-version V` must print `13 applied, 0 failed`.

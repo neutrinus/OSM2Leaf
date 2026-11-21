@@ -3,90 +3,18 @@ SH-4 CCN/MMU control block extracted from hw/sh4/sh7750.c.
 Base: QEMU 8.2.7 (tag v8.2.7), the pin in tools/qemu-ze0/README.md.
 Generated against the real file; see patches/README.md for the apply
 order and the verification status.
-diff --git a/include/hw/sh4/sh4_ccn.h b/include/hw/sh4/sh4_ccn.h
-new file mode 100644
---- /dev/null
-+++ b/include/hw/sh4/sh4_ccn.h
-@@ -0,0 +1,73 @@
-+/*
-+ * SH-4/SH-4A CPU control block: CCN/MMU registers and cache/TLB arrays.
-+ *
-+ * This is the part of the SH7750 that a machine needs before any
-+ * peripheral model exists: the P4 register page at 0xff000000 (PTEH,
-+ * PTEL, TTB, TEA, MMUCR, CCR, TRA, EXPEVT, INTEVT, PTEA and the
-+ * read-only PVR/CVR/PRR) and the IC/OC/UTLB/ITLB window at
-+ * 0xf0000000-0xf7ffffff.
-+ *
-+ * It used to be handled inline in hw/sh4/sh7750.c.  Factoring it out lets
-+ * a machine map the CPU control block without instantiating the SH7750
-+ * INTC, timers, SCI, RTC, PCI and GPIO models.  The architectural
-+ * register file stays in CPUSH4State, exactly as before; this device is
-+ * the MMIO front end and the code that applies the SH-4 side effects
-+ * (MMUCR.TI invalidation, PTEH ASID change) to it.
-+ *
-+ * Copyright (c) 2026 OSM2Leaf contributors
-+ *
-+ * SPDX-License-Identifier: GPL-2.0-or-later
-+ */
-+#ifndef HW_SH4_SH4_CCN_H
-+#define HW_SH4_SH4_CCN_H
-+
-+#include "exec/memory.h"
-+#include "hw/qdev-core.h"
-+#include "qom/object.h"
-+#include "target/sh4/cpu-qom.h"
-+
-+#define TYPE_SH4_CCN "sh4-ccn"
-+OBJECT_DECLARE_SIMPLE_TYPE(SH4CCNState, SH4_CCN)
-+
-+/* Register offsets inside the P4 page at 0xff000000 (sh7750_regs.h). */
-+enum {
-+    SH4_CCN_PTEH   = 0x000,
-+    SH4_CCN_PTEL   = 0x004,
-+    SH4_CCN_TTB    = 0x008,
-+    SH4_CCN_TEA    = 0x00c,
-+    SH4_CCN_MMUCR  = 0x010,
-+    SH4_CCN_CCR    = 0x01c,
-+    SH4_CCN_TRA    = 0x020,
-+    SH4_CCN_EXPEVT = 0x024,
-+    SH4_CCN_INTEVT = 0x028,
-+    SH4_CCN_PVR    = 0x030,
-+    SH4_CCN_PTEA   = 0x034,
-+    SH4_CCN_CVR    = 0x040,
-+    SH4_CCN_PRR    = 0x044,
-+};
-+
-+#define SH4_CCN_IOMEM_BASE  0xff000000
-+#define SH4_CCN_IOMEM_SIZE  0x1000
-+#define SH4_CCN_ARRAY_BASE  0xf0000000
-+#define SH4_CCN_ARRAY_SIZE  0x08000000
-+
-+struct SH4CCNState {
-+    DeviceState parent_obj;
-+
-+    MemoryRegion iomem;
-+    MemoryRegion arrays;
-+
-+    /* CPU whose CPUSH4State holds the architectural register file. */
-+    SuperHCPU *cpu;
-+
-+    /* CCR has no CPU-side storage and stays in the device. */
-+    uint32_t ccr;
-+};
-+
-+void sh4_ccn_set_cpu(SH4CCNState *s, SuperHCPU *cpu);
-+uint32_t sh4_ccn_reg_read(SH4CCNState *s, unsigned int reg);
-+void sh4_ccn_reg_write(SH4CCNState *s, unsigned int reg, uint32_t value);
-+MemoryRegion *sh4_ccn_iomem(SH4CCNState *s);
-+MemoryRegion *sh4_ccn_arrays(SH4CCNState *s);
-+
-+#endif /* HW_SH4_SH4_CCN_H */
+
+This file is the QEMU 11.1.3 form of the patch (TODO M8.A11): the text
+above was written for the 8.2 series, where the patch was first made;
+API names in it that 11.x renamed are listed in PORT-11.1.md.  Base: tag
+v11.1.3 plus the earlier patches of this directory, in sorted order.
 
 diff --git a/hw/sh4/sh4_ccn.c b/hw/sh4/sh4_ccn.c
 new file mode 100644
+index 000000000..f460c747d
 --- /dev/null
 +++ b/hw/sh4/sh4_ccn.c
-@@ -0,0 +1,323 @@
+@@ -0,0 +1,326 @@
 +/*
 + * SH-4/SH-4A CPU control block: CCN/MMU registers and cache/TLB arrays.
 + *
@@ -108,7 +36,7 @@ new file mode 100644
 +#include "qemu/osdep.h"
 +#include "qemu/log.h"
 +#include "qemu/module.h"
-+#include "exec/exec-all.h"
++#include "exec/cputlb.h"
 +#include "hw/sh4/sh4_ccn.h"
 +#include "migration/vmstate.h"
 +#include "target/sh4/cpu.h"
@@ -331,8 +259,11 @@ new file mode 100644
 +        cpu_sh4_write_mmaped_itlb_addr(env, addr, value);
 +        break;
 +    case MM_ITLB_DATA:
++        /*
++         * QEMU 8.2 aborted here after the write; upstream dropped that
++         * abort() and the 11.x port follows upstream (TODO M8.A9).
++         */
 +        cpu_sh4_write_mmaped_itlb_data(env, addr, value);
-+        abort();
 +        break;
 +    case MM_OCACHE_ADDR:
 +    case MM_OCACHE_DATA:
@@ -387,12 +318,12 @@ new file mode 100644
 +    },
 +};
 +
-+static void sh4_ccn_class_init(ObjectClass *klass, void *data)
++static void sh4_ccn_class_init(ObjectClass *klass, const void *data)
 +{
 +    DeviceClass *dc = DEVICE_CLASS(klass);
 +
 +    dc->realize = sh4_ccn_realize;
-+    dc->reset = sh4_ccn_reset;
++    device_class_set_legacy_reset(dc, sh4_ccn_reset);
 +    dc->vmsd = &vmstate_sh4_ccn;
 +    dc->desc = "SH-4 CCN/MMU control block";
 +}
@@ -410,3 +341,82 @@ new file mode 100644
 +}
 +
 +type_init(sh4_ccn_register_types)
+diff --git a/include/hw/sh4/sh4_ccn.h b/include/hw/sh4/sh4_ccn.h
+new file mode 100644
+index 000000000..5fcc37993
+--- /dev/null
++++ b/include/hw/sh4/sh4_ccn.h
+@@ -0,0 +1,73 @@
++/*
++ * SH-4/SH-4A CPU control block: CCN/MMU registers and cache/TLB arrays.
++ *
++ * This is the part of the SH7750 that a machine needs before any
++ * peripheral model exists: the P4 register page at 0xff000000 (PTEH,
++ * PTEL, TTB, TEA, MMUCR, CCR, TRA, EXPEVT, INTEVT, PTEA and the
++ * read-only PVR/CVR/PRR) and the IC/OC/UTLB/ITLB window at
++ * 0xf0000000-0xf7ffffff.
++ *
++ * It used to be handled inline in hw/sh4/sh7750.c.  Factoring it out lets
++ * a machine map the CPU control block without instantiating the SH7750
++ * INTC, timers, SCI, RTC, PCI and GPIO models.  The architectural
++ * register file stays in CPUSH4State, exactly as before; this device is
++ * the MMIO front end and the code that applies the SH-4 side effects
++ * (MMUCR.TI invalidation, PTEH ASID change) to it.
++ *
++ * Copyright (c) 2026 OSM2Leaf contributors
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#ifndef HW_SH4_SH4_CCN_H
++#define HW_SH4_SH4_CCN_H
++
++#include "system/memory.h"
++#include "hw/core/qdev.h"
++#include "qom/object.h"
++#include "target/sh4/cpu-qom.h"
++
++#define TYPE_SH4_CCN "sh4-ccn"
++OBJECT_DECLARE_SIMPLE_TYPE(SH4CCNState, SH4_CCN)
++
++/* Register offsets inside the P4 page at 0xff000000 (sh7750_regs.h). */
++enum {
++    SH4_CCN_PTEH   = 0x000,
++    SH4_CCN_PTEL   = 0x004,
++    SH4_CCN_TTB    = 0x008,
++    SH4_CCN_TEA    = 0x00c,
++    SH4_CCN_MMUCR  = 0x010,
++    SH4_CCN_CCR    = 0x01c,
++    SH4_CCN_TRA    = 0x020,
++    SH4_CCN_EXPEVT = 0x024,
++    SH4_CCN_INTEVT = 0x028,
++    SH4_CCN_PVR    = 0x030,
++    SH4_CCN_PTEA   = 0x034,
++    SH4_CCN_CVR    = 0x040,
++    SH4_CCN_PRR    = 0x044,
++};
++
++#define SH4_CCN_IOMEM_BASE  0xff000000
++#define SH4_CCN_IOMEM_SIZE  0x1000
++#define SH4_CCN_ARRAY_BASE  0xf0000000
++#define SH4_CCN_ARRAY_SIZE  0x08000000
++
++struct SH4CCNState {
++    DeviceState parent_obj;
++
++    MemoryRegion iomem;
++    MemoryRegion arrays;
++
++    /* CPU whose CPUSH4State holds the architectural register file. */
++    SuperHCPU *cpu;
++
++    /* CCR has no CPU-side storage and stays in the device. */
++    uint32_t ccr;
++};
++
++void sh4_ccn_set_cpu(SH4CCNState *s, SuperHCPU *cpu);
++uint32_t sh4_ccn_reg_read(SH4CCNState *s, unsigned int reg);
++void sh4_ccn_reg_write(SH4CCNState *s, unsigned int reg, uint32_t value);
++MemoryRegion *sh4_ccn_iomem(SH4CCNState *s);
++MemoryRegion *sh4_ccn_arrays(SH4CCNState *s);
++
++#endif /* HW_SH4_SH4_CCN_H */

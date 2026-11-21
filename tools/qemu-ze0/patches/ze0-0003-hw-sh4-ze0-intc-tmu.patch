@@ -17,8 +17,13 @@ Evidence and controls: docs/experiments/EXP-2026-11-20-M8.B1-intc-model.md
 (C-1310..C-1313).  Base: QEMU 8.2.10 + the earlier patches (sorts after
 ze0-0002).
 
+This file is the QEMU 11.1.3 form of the patch (TODO M8.A11): the text
+above was written for the 8.2 series, where the patch was first made;
+API names in it that 11.x renamed are listed in PORT-11.1.md.  Base: tag
+v11.1.3 plus the earlier patches of this directory, in sorted order.
+
 diff --git a/hw/intc/sh_intc.c b/hw/intc/sh_intc.c
-index c9b0b0c..8ad98a5 100644
+index 0da82f9d5..5b76c6bfe 100644
 --- a/hw/intc/sh_intc.c
 +++ b/hw/intc/sh_intc.c
 @@ -88,15 +88,35 @@ int sh_intc_get_pending_vector(struct intc_desc *desc, int imask)
@@ -65,12 +70,12 @@ index c9b0b0c..8ad98a5 100644
  
  typedef enum {
 diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
-index ae14a4d..b2d6e87 100644
+index 9abf521a4..ad084fd3c 100644
 --- a/hw/sh4/Kconfig
 +++ b/hw/sh4/Kconfig
-@@ -23,7 +23,9 @@ config SHIX
- config ZE0
-     bool
+@@ -21,7 +21,9 @@ config ZE0
+     default y
+     depends on SH4
      select SH4_CCN
 +    select SH_INTC
      select SH_SCI
@@ -79,31 +84,30 @@ index ae14a4d..b2d6e87 100644
  
  config SH7750
 diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
-index 8c26fd3..53836fc 100644
+index 12141ae07..3598a0883 100644
 --- a/hw/sh4/meson.build
 +++ b/hw/sh4/meson.build
-@@ -6,7 +6,7 @@ sh4_ss.add(files(
+@@ -6,6 +6,6 @@ sh4_ss.add(when: 'CONFIG_SH7750', if_true: files(
  sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
  sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
- sh4_ss.add(when: 'CONFIG_SHIX', if_true: files('shix.c'))
+ 
 -sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c'))
 +sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c'))
- 
  hw_arch += {'sh4': sh4_ss}
  sh4_ss.add(files('ze0_stubs.c'))
 diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
-index f3abeb2..43b0465 100644
+index 49d1a84c4..78959ddca 100644
 --- a/hw/sh4/ze0.c
 +++ b/hw/sh4/ze0.c
 @@ -30,6 +30,8 @@
- #include "hw/qdev-properties.h"
+ #include "hw/core/qdev-properties.h"
  #include "hw/sh4/sh.h"
  #include "hw/sh4/sh4_ccn.h"
 +#include "hw/sh4/ze0_intc.h"
 +#include "hw/timer/tmu012.h"
- #include "hw/sysbus.h"
- #include "hw/qdev-properties-system.h"
- #include "sysemu/sysemu.h"
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties-system.h"
+ #include "system/system.h"
 @@ -59,6 +61,16 @@
   */
  #define ZE0_DEBUG_SCIF_BASE 0xffe46000u
@@ -143,7 +147,7 @@ index f3abeb2..43b0465 100644
          DeviceState *scif = qdev_new(TYPE_SH_SERIAL);
 diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
 new file mode 100644
-index 0000000..ec51b53
+index 000000000..bf30a677f
 --- /dev/null
 +++ b/hw/sh4/ze0_intc.c
 @@ -0,0 +1,264 @@
@@ -190,13 +194,13 @@ index 0000000..ec51b53
 +#include "qemu/log.h"
 +#include "qemu/module.h"
 +#include "qapi/error.h"
-+#include "exec/address-spaces.h"
-+#include "exec/memory.h"
-+#include "hw/irq.h"
-+#include "hw/qdev-core.h"
++#include "system/address-spaces.h"
++#include "system/memory.h"
++#include "hw/core/irq.h"
++#include "hw/core/qdev.h"
 +#include "hw/sh4/sh_intc.h"
 +#include "hw/sh4/ze0_intc.h"
-+#include "cpu.h"
++#include "target/sh4/cpu.h"
 +
 +#define ZE0_INTC_BASE   0xff802000u
 +#define ZE0_INT2_BASE   0xff804000u
@@ -389,12 +393,12 @@ index 0000000..ec51b53
 +    return &s->desc;
 +}
 +
-+static void ze0_intc_class_init(ObjectClass *klass, void *data)
++static void ze0_intc_class_init(ObjectClass *klass, const void *data)
 +{
 +    DeviceClass *dc = DEVICE_CLASS(klass);
 +
 +    dc->realize = ze0_intc_realize;
-+    dc->reset = ze0_intc_reset;
++    device_class_set_legacy_reset(dc, ze0_intc_reset);
 +    dc->user_creatable = false;
 +}
 +
@@ -412,7 +416,7 @@ index 0000000..ec51b53
 +
 +type_init(ze0_intc_register_types)
 diff --git a/include/hw/sh4/sh_intc.h b/include/hw/sh4/sh_intc.h
-index f62d5c5..ac4f1ba 100644
+index 94f183121..b65f82b02 100644
 --- a/include/hw/sh4/sh_intc.h
 +++ b/include/hw/sh4/sh_intc.h
 @@ -41,6 +41,7 @@ struct intc_source {
@@ -425,7 +429,7 @@ index f62d5c5..ac4f1ba 100644
  
 diff --git a/include/hw/sh4/ze0_intc.h b/include/hw/sh4/ze0_intc.h
 new file mode 100644
-index 0000000..f844279
+index 000000000..2f2ec424d
 --- /dev/null
 +++ b/include/hw/sh4/ze0_intc.h
 @@ -0,0 +1,26 @@
@@ -438,7 +442,7 @@ index 0000000..f844279
 +#define HW_SH4_ZE0_INTC_H
 +
 +#include "qom/object.h"
-+#include "hw/irq.h"
++#include "hw/core/irq.h"
 +#include "hw/sh4/sh_intc.h"
 +
 +#define TYPE_ZE0_INTC "ze0-intc"

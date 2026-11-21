@@ -30,37 +30,52 @@ here:
      aborted with "unknown type 'unimplemented-device'".  config ZE0 now
      also selects UNIMP.
 
+This file is the QEMU 11.1.3 form of the patch (TODO M8.A11): the text
+above was written for the 8.2 series, where the patch was first made;
+API names in it that 11.x renamed are listed in PORT-11.1.md.  Base: tag
+v11.1.3 plus the earlier patches of this directory, in sorted order.
+
+diff --git a/configs/devices/sh4-softmmu/default.mak b/configs/devices/sh4-softmmu/default.mak
+index efb401bfb..18055c35f 100644
 --- a/configs/devices/sh4-softmmu/default.mak
 +++ b/configs/devices/sh4-softmmu/default.mak
-@@ -9,3 +9,4 @@
- #
- CONFIG_R2D=y
- CONFIG_SHIX=y
-+CONFIG_ZE0=y
+@@ -7,3 +7,4 @@
+ 
+ # Boards are selected by default, uncomment to keep out of the build.
+ # CONFIG_R2D=n
++# CONFIG_ZE0=n
+diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
+index 9614ad25c..9f9354dd0 100644
 --- a/hw/sh4/Kconfig
 +++ b/hw/sh4/Kconfig
-@@ -20,6 +20,11 @@
+@@ -16,6 +16,13 @@ config R2D
      select SH7750
-     select TC58128
+     select SH_PCI
  
 +config ZE0
 +    bool
++    default y
++    depends on SH4
 +    select SH4_CCN
 +    select UNIMP
 +
  config SH7750
      bool
      select SH4_CCN
+diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
+index 8997e956e..12141ae07 100644
 --- a/hw/sh4/meson.build
 +++ b/hw/sh4/meson.build
-@@ -6,6 +6,7 @@
+@@ -6,5 +6,6 @@ sh4_ss.add(when: 'CONFIG_SH7750', if_true: files(
  sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
  sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
- sh4_ss.add(when: 'CONFIG_SHIX', if_true: files('shix.c'))
-+sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c'))
  
++sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c'))
  hw_arch += {'sh4': sh4_ss}
  sh4_ss.add(files('ze0_stubs.c'))
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+new file mode 100644
+index 000000000..09f8cfa23
 --- /dev/null
 +++ b/hw/sh4/ze0.c
 @@ -0,0 +1,119 @@
@@ -89,14 +104,14 @@ here:
 +#include "qemu/units.h"
 +#include "qapi/error.h"
 +#include "qemu/error-report.h"
-+#include "cpu.h"
-+#include "hw/boards.h"
-+#include "hw/loader.h"
++#include "target/sh4/cpu.h"
++#include "hw/core/boards.h"
++#include "hw/core/loader.h"
 +#include "hw/misc/unimp.h"
-+#include "hw/qdev-properties.h"
++#include "hw/core/qdev-properties.h"
 +#include "hw/sh4/sh.h"
 +#include "hw/sh4/sh4_ccn.h"
-+#include "sysemu/sysemu.h"
++#include "system/system.h"
 +
 +#define ZE0_RAM_BASE   0x08000000u
 +#define ZE0_RAM_SIZE   (128 * MiB)

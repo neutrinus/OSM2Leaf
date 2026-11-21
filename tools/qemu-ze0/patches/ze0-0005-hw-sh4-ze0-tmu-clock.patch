@@ -13,8 +13,13 @@ Evidence and controls: docs/experiments/EXP-2026-11-20-M8.B2-ze0-tmu.md
 (C-1320..C-1323).  Base: QEMU 8.2.10 + the earlier patches (sorts after
 ze0-0004).
 
+This file is the QEMU 11.1.3 form of the patch (TODO M8.A11): the text
+above was written for the 8.2 series, where the patch was first made;
+API names in it that 11.x renamed are listed in PORT-11.1.md.  Base: tag
+v11.1.3 plus the earlier patches of this directory, in sorted order.
+
 diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
-index 42d1150..c04f13c 100644
+index 50595a264..31b180c3d 100644
 --- a/hw/sh4/ze0.c
 +++ b/hw/sh4/ze0.c
 @@ -68,11 +68,18 @@

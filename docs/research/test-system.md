@@ -166,7 +166,7 @@ the named evidence, never that L4 accepts a generated card. The run itself is
 the emulator has got and what each next stage waits on.
 
 The machine is **QEMU `-M ze0`** built by `tools/qemu-ze0/build.sh` (default
-pin 8.2.10, C-4330); the boot orchestrator is `tools/qemu-ze0/run.sh`. The
+pin 11.1.3 since M8.A11, C-6890; 8.2.10 before, C-4330); the boot orchestrator is `tools/qemu-ze0/run.sh`. The
 panel is printed by `python3 tools/l4_status.py` (C-4410); every stage's
 number below names the claim that carries it — none is retyped from TODO prose.
 

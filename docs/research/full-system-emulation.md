@@ -221,11 +221,13 @@ M8 runs on an out-of-tree patch series that must be pinned: the patches touch
 | --- | --- | --- |
 | 8.2.7 | applies, builds, `-M ze0` boots | the current pin; 8.2 is EOL |
 | 8.2.10 | applies **unchanged**, boots identically | `hw/sh4` byte-identical to 8.2.7 |
-| 11.1.3 | the 8.2 series rejects; the **ported series** `patches/11.1/` applies, builds and boots like 8.2.10 (M8.A9, C-4320/C-4321) | include moves, `dc->reset` removed, `SHIX` gone, class-init/property/`sdbus_do_command` signatures |
+| 11.1.3 | the 8.2 series rejects; the **ported series** `patches/11.1/` (now `patches/`, M8.A11) applies, builds and boots like 8.2.10 (M8.A9, C-4320/C-4321) | include moves, `dc->reset` removed, `SHIX` gone, class-init/property/`sdbus_do_command` signatures |
+
+**Since M8.A11 (2026-11-21) 11.1.3 is the only supported version**: the 8.2 series was removed and `patches/` holds the 11.1.3 one (C-6890).
 
 The per-hunk port recipe is
 [`qemu-ze0-port-delta.md`](qemu-ze0-port-delta.md); the port was done in TODO
-**M8.A9** (`tools/qemu-ze0/patches/11.1/README.md`). The one trap worth repeating: the UTLB/ITLB helpers are spelled
+**M8.A9** (now `tools/qemu-ze0/patches/PORT-11.1.md`). The one trap worth repeating: the UTLB/ITLB helpers are spelled
 `mmaped` (one `p`) and all eight still exist, so the CCN device is a copy,
 not a rewrite.
 

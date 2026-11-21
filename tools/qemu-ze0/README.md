@@ -10,40 +10,34 @@ QEMU source.
 
 | Item | Value |
 | --- | --- |
-| Version | **QEMU 8.2.10** (last 8.2 release, 2025-03-26; the 8.2 line is EOL) |
-| Tarball | <https://download.qemu.org/qemu-8.2.10.tar.xz> |
-| SHA-256 | `37b4a643da8ed6015eef35f5d7f06e7259d9c95359965a0a98e9667c621ab2bb` |
-| Size | `132685948` bytes (~127 MiB) |
-| Git mirror | <https://gitlab.com/qemu-project/qemu.git>, tag `v8.2.10` |
+| Version | **QEMU 11.1.3** (the only supported version since M8.A11, 2026-11-21) |
+| Tarball | <https://download.qemu.org/qemu-11.1.3.tar.xz> |
+| SHA-256 | `5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22` |
+| Size | `141819712` bytes (~135 MiB) |
+| Git mirror | <https://gitlab.com/qemu-project/qemu.git>, tag `v11.1.3` |
 | Target | `sh4-softmmu` only |
-
-The previous pin, **8.2.7**, stays in the `QEMU_PINS` table and still builds.
-**11.1.3** is pinned too and has its own ported series (below).
 
 `build.sh` refuses to continue if the downloaded file has another size or
 SHA-256, and refuses a full build of a version that is not in `QEMU_PINS`
 (an unverified tarball is never compiled). Change the pin only together with
 this table and an EXP entry.
 
-### Tested range, and the two series
+### One version, one series
 
-The machine is thirteen out-of-tree patches on `hw/sh4` and `target/sh4`, an
-API QEMU moves. Instead of one frozen version there is a **tested range**
-with one series per API generation (TODO M8.A9):
+The machine is thirteen out-of-tree patches on `hw/sh4`, `hw/sd` and
+`target/sh4` in [`patches/`](patches/), written against QEMU 11.1.3.
 
-| QEMU | Series | State |
-| --- | --- | --- |
-| 8.2.7 | `patches/*.patch` | pinned; built and booted (C-4310, C-4311) |
-| **8.2.10** (default) | `patches/*.patch` | pinned; built and booted |
-| **11.1.3** | [`patches/11.1/*.patch`](patches/11.1/README.md) | pinned (SHA-256 `5a8289c7…84b22`, 141819712 bytes); built and booted, same boot observables as 8.2.10 (C-4320, C-4321) |
-| 9.x, 10.x | — | not tested; `--check-version V` reports which series applies |
-
-`build.sh` picks the series from the version (`>= 11.0` → `patches/11.1`);
-`--patch-dir` overrides. The series are not interchangeable (the 8.2 one on
-11.1.3: 8 applied, 4 failed, and what applies does not compile) — `exec/address-spaces.h` is gone,
-`DeviceClass.reset` became `legacy_reset`, `SHIX` was deleted, class-init
-and property-table signatures changed. What the port changed, patch by
-patch, is in `patches/11.1/README.md`.
+Until 2026-11-21 the series existed twice: for QEMU 8.2.7/8.2.10 (the
+original, default) and as a port to 11.1.3 (M8.A9). Both gave the same boot
+up to F3 (C-6873), every patch had to be written, built and booted twice,
+and 8.2 is end-of-life, so the 8.2 series was removed (M8.A11,
+[`EXP-2026-11-21-M8.A11-qemu-single-version.md`](../../docs/experiments/EXP-2026-11-21-M8.A11-qemu-single-version.md)).
+It is in git history up to the merge of M8.C1b; `build.sh --version 8.2.10`
+now answers "no verified tarball pin". The dated notes below that name 8.2
+describe the builds of their day. What changed between the two API
+generations, patch by patch, is in
+[`patches/PORT-11.1.md`](patches/PORT-11.1.md); each patch keeps the
+explanatory header it was first written with.
 
 `--check-version V` answers "would this release accept our patches?" in
 minutes without building anything:
@@ -52,7 +46,7 @@ minutes without building anything:
 tools/qemu-ze0/build.sh --check-version 11.1.3
 # check: 0002-sh4-ze0-boot-stubs.patch                  APPLIES
 # ...
-# build.sh: check: QEMU 11.1.3: 12 applied, 0 failed, 0 unpinned-tarball
+# build.sh: check: QEMU 11.1.3: 13 applied, 0 failed, 0 unpinned-tarball
 ```
 
 A pinned version is hash-verified; an unpinned one is downloaded and its
@@ -136,7 +130,7 @@ QEMU is not vendored, so the first build needs network. `--dry-run` and
 `--selftest` never fetch anything. When the download fails the script prints a
 `NETWORK NEEDED` block with the tarball and git URLs and exits `3`; nothing is
 built or written outside the cache. To build offline, copy
-`qemu-8.2.10.tar.xz` into the cache (or pass `--srcdir` pointing at an already
+`qemu-11.1.3.tar.xz` into the cache (or pass `--srcdir` pointing at an already
 prepared tree) and re-run.
 
 Disk and time: the extracted tree is ~0.8 GiB, the build tree ~0.9 GiB and
@@ -243,6 +237,7 @@ kept), so the next run extracts cleanly.
   QEMU's card model (CMD6 status, CMD42 length checks) and an area-7 alias
   for the debug SCIF. With it the boot unlocks the card, reads the opening
   image and mounts both partitions (`Store Mgr Ready! [DSK1:]`): **F3**.
+  (Written for both series of the day; M8.A11 kept the 11.1.3 one.)
   Options `hpbdmac=off` (negative control), `hpbdmac-trace=on`,
   `sd-pwd-tofu=off`, `sd-start-locked=on`. `mkoverlay.py CARD.img OUT.qcow2`
   writes the qcow2 overlay without `qemu-img` (`build.sh` builds no tools).
