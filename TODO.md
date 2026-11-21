@@ -1865,8 +1865,8 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6580–C-6589
   - Result: EXP-2026-11-21-H123-board-tool (C-6580–C-6584): `board.py --selftest` OK (58 checks); `lost` on `6ca7bc3` names 42 tasks and 199 claim rows (exit 1); the conflict replay keeps both sides' tasks and rows and leaves only the two-sided H122 edit; AGENTS.md, TODO rules 3/5/6/9 and the role prompts name the tool.
 
-- [ ] **H125 — Prose freshness is unchecked: TODO task text goes stale while the EXP/claim already says otherwise, and no tool flags it**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H125 — Prose freshness is unchecked: TODO task text goes stale while the EXP/claim already says otherwise, and no tool flags it**
+  - Status: done · Owner: task/h125-unblock-done-target · Critical: no · Pair: required
   - Depends: — (rule 17: this is the tool half of a record defect the SE pass found; no map task depends on it, so it also needs a `Pair:` and one bounded session)
   - Goal: three tasks on the board say the opposite of what their result proves, and every checker stays green because all of them judge structure, never prose. (1) M3.29 is `blocked` with `Unblock: M9.53`, and M9.53 is `done` since 2026-11-20 16:54Z (`EXP-2026-11-20-M9.53-record-block-read`), so rule 15's re-open never fired — a one-cycle-old dead-end labelled that way (the task's own Result says the Stop rule was met, so re-opening may not be the fix). (2) M3.13, M3.14 and M3.16 are `blocked` on M3.30, whose status line is `open · Owner: —` and whose own `Depends` says it "cannot be taken until M3.29 merges done" — an open door onto a locked room. (3) M4.23's `Unblock` names M4.25 and M4.26, which were archived `[x]` on 2026-11-09 (`docs/research/todo-history-2026-11-09.md`, both `done`), so the token it waits on can never merge again. `todo_check.py` reports the archived case only as WARN (`TODO.md:5146 M9.56: Depends references blocked task ID 'M4.40'` is the census of the class), and nothing reports an `Unblock` that names a `done` task.
   - Precheck: `python3 tools/board.py show M3.29 | grep -m1 Status:` prints `blocked`; `python3 tools/board.py show M9.53 | grep -m1 Status:` prints `done`; `python3 tools/todo_check.py | grep -c 'WARN.*archived task ID'` is non-zero on `main` at this commit.
@@ -1876,6 +1876,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: one session. If `todo_check` cannot tell an archived ID from a ghost without the history files, ship the `done` case only, and file the archive case as its own task — do not guess.
   - Falsifier: a `blocked` task on `main` whose `Unblock` names a `done` task that the new rule does not print. Then the rule reads the wrong field, and the pair fixes the field, not the test.
   - Claims: C-6590–C-6599
+  - Result: EXP-2026-11-21-H125-unblock-done-target (C-6590–C-6593). `todo_check.py --strict` exits 1 and names M3.29 (Unblock M9.53 done) and M4.23 (Unblock M4.25/M4.26 archived); the class census is 5 blocked tasks / 9 refs (M3.16, M3.18, M4.51 are the same hole) = 8 prior + 9 new strict errors; default `todo_check` exit 0 and `gate.py` 4 pass / 0 fail / 0 skip (fn_audit PASS); selftest 43 checks covers done/archived ERROR + open no-error. Board repair is M3.36.
 
 - [ ] **H126 — PR checks go stale: a push to a PR head after its last run leaves zero check-runs, and nothing re-runs or refuses the merge**
   - Status: open · Owner: — · Critical: yes · Pair: required
