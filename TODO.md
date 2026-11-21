@@ -5109,7 +5109,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5860–C-5869
 
 - [ ] **M9.59 — `l3_precond`: classify a target against its own build, and know targets that run outside `runner.py`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m9.59-l3-precond-classify · Critical: no · Pair: solo
   - Step: tooling
   - Depends: H45 (done)
   - Goal: M9.33 found two gate gaps (EXP-2026-11-20-M9.33-rerun-prereqs-map, C-3401/C-3402). (1) `--all-targets --image archive/head256.img` classes the US2011 VAs of `cmp_ind_reader_us2011` against EU sections (`INIT` instead of `CODE sec0`). (2) `tile_reader`, `drstr_parser` and `mmain_reader` are `BLOCKED` ("entry kind blocked with no VA") although their `reason` names the tool that runs them (`datask_l3.py`, `vcard_l3.py`, `mmain_l3.py`). The gate should say what is true.
