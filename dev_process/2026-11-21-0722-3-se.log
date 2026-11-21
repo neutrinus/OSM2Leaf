@@ -7,7 +7,7 @@ branch: main (primary checkout; commits from it)
 inputs read: AGENTS.md, prompt_common.txt, prompt_se.txt, TODO.md rules 1-17 + Priorities,
   docs/retro/2026-11-21.md (SM cycle 19), dev_process/2026-11-21-0703-1-sm.log,
   dev_process/2026-11-20-1815-10-se.log (my last run), docs/experiments/TEMPLATE.md,
-  gh pr list --state open (19 PRs; #355 M8.C1/HPB-DMAC now has a draft PR — retro action 2 done).
+  gh pr list --state open (15 open PRs at the hand-off; PR #394 [M8.C1] is a 2-commit draft `task/m8.c1-hpb-dmac` — retro action 2 done).
 
 actions, in order:
   - board status diff 13cb0cf..HEAD by script: 21 done / 3 blocked / 2 re-opened in the window
@@ -61,7 +61,7 @@ tasks added (6, next-ids + contiguous claim blocks 6590-6649):
     definition, not implementation; not re-filed.
 
 decisions / rejected:
-  - Did not edit any of the 19 open PRs' tasks; all my IDs are fresh (next-id H125/M9.63/M5.64/
+  - Did not edit any of the 15 open PRs' tasks; all my IDs are fresh (next-id H125/M9.63/M5.64/
     M4.62/M1.47/M3.36 confirmed each time).
   - Collided with the live TL in the shared checkout: fast-forwarded over it, restored my uncommitted
     TODO (it was only my 72 lines), re-added. No TL branch was touched; I never reset their work.
