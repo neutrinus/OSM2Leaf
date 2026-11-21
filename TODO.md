@@ -20,6 +20,17 @@ explicit dependency. Each front always keeps at least two tasks in state
 `open` with all dependencies done; when you close a task and see that your
 front has fewer, add the next tasks (see rule 9).
 
+- [x] **H124 — `claims_check` exempts the pinned US head: `main` (and every PR) is red on a clean checkout because `archive/us256.img` is not in `PINNED_HEAD_PATHS`**
+  - Status: done · Owner: task/fix-us256-claims-pin · Critical: yes · Pair: solo
+  - Depends: — (H62 pinned the `US256` key; this task only lets `claims_check` see it)
+  - Goal: H62 gave the US 2011 head the `US256` fetch key and its SHA-256 (`70d945d8…04da`) and H123's clean-clone CI then failed `claims_check` with `genuine missing evidence paths: 4` / `MISSING C-2141 C-2143 C-2144 C-2145 archive/us256.img` (run 44841962936, issue #418) on every pull request, while a developer tree with the file exits 0. The exemption list still held only `archive/head256.img`.
+  - Precheck: `git clone . /tmp/opencode/ci-checkout && ( cd /tmp/opencode/ci-checkout && python3 tools/claims_check.py --strict --count-check; echo $? )` prints the four `MISSING` rows and `1`.
+  - Scope: `tools/claims_check.py` only: add `archive/us256.img` to `PINNED_HEAD_PATHS`, name H62's key in the comment, and add a `--selftest` assertion that both pinned heads map to a real `fetch_image` alias/pin. No change to any row, no weakening of a local verdict.
+  - Done when: the clean-clone command exits 0 with `genuine missing evidence paths: 0`; the developer tree stays exit 0; `claims_check --selftest` and `selftest.py --only claims_check` PASS; `tools/gate.py` 4 pass.
+  - Stop: one session.
+  - Result: EXP-2026-11-21-H124-us256-claims-pin; C-6490–C-6494. Clean clone (no `archive/` bytes) pre-change exit 1 with the four `MISSING` rows, post-change `genuine missing evidence paths: 0` / exit 0; the developer tree is 0 before and after; `claims_check --selftest` `OK (51 checks)`; `gate: 4 pass, 0 fail, 0 skip`.
+  - Claims: C-6490–C-6494
+
 ## How to take a task
 
 1. **Pick.** Choose a task with `Status: open` whose `Depends` are all done
