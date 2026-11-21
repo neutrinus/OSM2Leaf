@@ -29,7 +29,7 @@ without a reproducible command is a hypothesis; mark it so.
    worktree's copy), and list open PRs (`gh pr list --state open --search
    "[ID]"`) and the claim blocks in use.
 2. **First commit claims it**: change only your task's line to
-   `Status: in progress · Owner: <branch>`, then `git push -u origin <branch>`
+   `Status: in progress · Owner: <branch>` (`tools/board.py claim ID --owner <branch>`), then `git push -u origin <branch>`
    before any other work, and open a draft PR `[ID] short title`. An unpushed
    claim is invisible: a claim edited in a worktree exists only on your disk,
    other agents read `origin` and open PRs. The claim commit holds the claim
@@ -45,6 +45,36 @@ without a reproducible command is a hypothesis; mark it so.
 6. Blocked is a result: `Status: blocked` + a one-line blocker + `Unblock:`
    naming the task that re-opens it + a negative EXP. When the unblocking task
    merges, its PR sets you back to `open` (rule 15).
+
+## Editing `TODO.md` and `claims.md`: use `tools/board.py`
+
+Never rewrite these two files with an editor or a model, and never paste a
+whole copy back after a conflict: PR #340 replaced the last 787 lines of
+`TODO.md` and 324 of `claims.md` with an older copy (42 task blocks and 199
+claim rows gone) and every checker passed. `tools/board.py` changes one
+splice and refuses a write that drops a task or claim ID or moves the line
+count by more than its own edit (H123).
+
+```bash
+python3 tools/board.py claim M9.12 --owner task/m9.12-slug     # rule 2: the claim commit
+python3 tools/board.py done M9.12 --result "EXP-…; 14/14"       # rule 4: [x] + done + Result
+python3 tools/board.py block M9.12 --blocker "…" --unblock M1.2f --result "EXP-… (negative)"
+python3 tools/board.py field M9.12 Note "…"                      # set one field
+python3 tools/board.py next-id M9 && python3 tools/board.py next-claims
+python3 tools/board.py add-task new-task.md                      # appended to its stream
+python3 tools/board.py add-claims --section "M9.12 — …" --create --file rows.md
+python3 tools/board.py claim-status C-2149 RETRACTED
+python3 tools/board.py archive M1.2e M3.19 --to docs/research/todo-history-YYYY-MM-DD.md
+python3 tools/board.py lost --base origin/main                   # before every push: exit 0
+```
+
+On a rebase or merge conflict in either file, do **not** edit the markers by
+hand: `python3 tools/board.py resolve TODO.md` (and the same for
+`docs/research/claims.md`) merges task blocks and claim rows by ID from the
+three index stages, keeps both sides' additions, and leaves only a unit both
+sides changed in conflict markers (exit 1). Then `git add` and run
+`todo_check.py`/`claims_check.py`. Prose sections (rules, Priorities) may still
+be edited normally; `--dry-run` prints the diff of any command.
 
 ## Worktrees (worktrunk)
 
