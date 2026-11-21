@@ -1900,7 +1900,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6680–C-6689
 
 - [ ] **H128 — `todo_check --strict` has no ledger of its own debt: 8 ERROR held by open PRs, and no baseline says whether the count grew**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h128-h128-todo-strict-debt · Critical: no · Pair: required
   - Depends: — (H53 lowered its own Done-when to "no ERROR for tasks this cycle can own"; this task makes the remainder measurable)
   - Goal: the QA prompt says report the `--strict` count and "do not treat it as a new regression until H53 cleans it" — but nothing records what the count was, so each pass re-derives "8 ERROR / is it new?" by memory. At `b67d1519` `python3 tools/todo_check.py --strict` exits 1 with **8 ERROR** over **4** tasks (`M1.38`, `M3.13`, `M3.29`, `M8.C`; two of them also `WARN … references blocked task`) and **181 WARN**. H53's Result recorded 17 ERROR over 7 tasks at `ea15563` and said they "clear when those land `done`" — 3 of those 7 are still open (`M3.13 #351`, `M3.29 #341`, `M8.C #355`), so the debt is a set of PRs, not a number to eyeball. A baseline keyed by task ID turns "it grew" into a command.
   - Precheck: `python3 tools/todo_check.py --strict >/tmp/opencode/tc.txt 2>&1; echo $?` prints `1`; `grep -cE '^  ERROR' /tmp/opencode/tc.txt` prints `8`; `grep -E '^  ERROR' /tmp/opencode/tc.txt | sed -E 's/.*TODO.md:[0-9]+ ([A-Z0-9.]+):.*/\1/' | sort -u` prints the four IDs above; `python3 tools/todo_check.py; echo $?` prints `0` (default stays green).
