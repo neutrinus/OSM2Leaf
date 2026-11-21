@@ -36,6 +36,7 @@ Commands (``python3 tools/board.py CMD --help`` for each)::
     next-claims                     next free claim block (TODO + claims.md)
     add-claims --section TITLE (--row ROW … | --file F) [--create]
     claim-status C-ID STATUS        change the Status cell of one claim row
+    claim-row C-ID --text ROW       replace one whole claim row (no hand edit)
     lost --base REF [--head REF] [FILE …]
                                     IDs present at REF and missing now (exit 1)
     check [REF] [--base REF]        H121: a PR must not drop IDs it does not own
@@ -289,6 +290,21 @@ def _claims_ids_in(text: str) -> set[str]:
     return set(re.findall(r"\bC-\d+\b", text))
 
 
+def _names_id(text: str, tid: str) -> bool:
+    """True when *text* contains *tid* as a whole ID token.
+
+    Not a substring test: ``M9.5`` is named by ``M9.5,``, ``(M9.5)`` or a
+    sentence-ending ``M9.5.`` but **not** by ``M9.56``, ``M9.55`` or
+    ``M9.5.1`` — the navigator's H121 round 1 defect: a substring
+    ``t in own_text`` let a PR exempt a dropped ``M9.5`` because its own block
+    happened to name ``M9.56–M9.62``. A dot only continues the ID when a
+    letter or digit follows it, so a full stop ends the token.
+    """
+    return re.search(
+        r"(?<![A-Za-z0-9])" + re.escape(tid) + r"(?!\.[A-Za-z0-9])(?![A-Za-z0-9])",
+        text) is not None
+
+
 def board_loss_problems(base_todo: str, head_todo: str, base_claims: str,
                         head_claims: str, history_texts) -> dict:
     """The H121 verdict for one diff.
@@ -297,12 +313,13 @@ def board_loss_problems(base_todo: str, head_todo: str, base_claims: str,
     merge base), *head\\** the PR tree; *history_texts* are the
     ``docs/research/todo-history-*.md`` bodies in the PR tree.
 
-    A lost task ID is exempt when (a) it is named in a task block the PR's own
-    change touched (``own_ids``) — a restore names what it restored, PR #417
-    — or (b) its block is in a history file (an archive move). A lost claim
-    row is exempt when it is a bare ``RESERVED (…)`` row (H100 retires the
-    owner's placeholders) or when its ID is named in the PR's own task block
-    (the task renumbers its own claims). Anything else is the PR #340 shape.
+    A lost task ID is exempt when (a) it is named as a whole ID token in a
+    task block the PR's own change touched (``own_ids``) — a restore names
+    what it restored, PR #417 — or (b) its block is in a history file (an
+    archive move). A lost claim row is exempt when it is a bare
+    ``RESERVED (…)`` row (H100 retires the owner's placeholders) or when its
+    ID is named in the PR's own task block (the task renumbers its own
+    claims). Anything else is the PR #340 shape.
 
     Returns ``{"tasks", "claims", "exempt_tasks", "exempt_claims", "errors"}``
     — the raw lost lists (what the diff dropped), why each exemption applies,
@@ -325,7 +342,7 @@ def board_loss_problems(base_todo: str, head_todo: str, base_claims: str,
     for t in lost_t:
         if t in hist:
             exempt_t[t] = "archived (in a todo-history file)"
-        elif t in own_text:
+        elif _names_id(own_text, t):
             exempt_t[t] = "named in the PR's own task block"
         else:
             errors.append(f"lost task {t} (not its own, not archived)")
@@ -729,6 +746,27 @@ def op_claim_status(bf: BoardFile, cid: str, status: str) -> tuple[str, int]:
     return bf.splice(i, i + 1, ["|".join(parts)])
 
 
+def op_claim_row(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
+    """Replace the whole line of claim row *cid* (one splice, like every op).
+
+    ``claim-status`` changes one cell; this is for the other cells a navigator
+    asks about (evidence, status reason) without a hand edit of ``claims.md``.
+    The replacement must still be a ``| C-<id> | …`` row of the same ID, and
+    must keep a table row shape (5 cells: ID, claim, status, confidence,
+    evidence).
+    """
+    hits = [i for i, l in enumerate(bf.lines) if (m := ROW_RE.match(l)) and m.group(1) == cid]
+    if len(hits) != 1:
+        raise BoardError(f"{cid}: {len(hits)} rows (need exactly one)")
+    new = text.strip("\n")
+    m = ROW_RE.match(new)
+    if not m or m.group(1) != cid:
+        raise BoardError(f"replacement must start `| {cid} |`")
+    if len(re.split(r"(?<!\\)\|", new)) < 6:
+        raise BoardError("replacement needs 5 cells: ID, claim, status, confidence, evidence")
+    return bf.splice(hits[0], hits[0] + 1, [new])
+
+
 # ---------------------------------------------------------------- resolve
 
 def _units(text: str) -> list[tuple[tuple, list[str]]]:
@@ -888,6 +926,8 @@ def main(argv=None) -> int:
     p.add_argument("--row", action="append", default=[]); p.add_argument("--file")
     p.add_argument("--create", action="store_true")
     p = sub.add_parser("claim-status"); p.add_argument("id"); p.add_argument("status")
+    p = sub.add_parser("claim-row"); p.add_argument("id")
+    p.add_argument("--text", required=True, help="the whole replacement row text")
     p = sub.add_parser("lost"); p.add_argument("--base", required=True)
     p.add_argument("--head", help="git ref (default: the working tree)")
     p.add_argument("files", nargs="*", default=list(DEFAULT_FILES))
@@ -984,6 +1024,12 @@ def _dispatch(args) -> int:
         text, d = op_claim_status(bf, args.id, args.status)
         bf.write(text, delta=d, dry_run=dry)
         print(f"board: {args.id} -> {args.status}")
+        return 0
+    if c == "claim-row":
+        bf = BoardFile(args.claims)
+        text, d = op_claim_row(bf, args.id, args.text)
+        bf.write(text, delta=d, dry_run=dry)
+        print(f"board: claim-row {args.id}: {d:+d} lines")
         return 0
     if c == "lost":
         # The checkout the command runs in (any worktree), else this tool's.
@@ -1394,6 +1440,30 @@ def run_selftest() -> int:
         v = verdict(restore_head, h_claims)
         ok(v["tasks"] == ["H3"] and not v["errors"] and v["exempt_tasks"].get("H3"),
            "H121: a lost ID named in the PR's own block is exempt")
+
+        # ...but only as a whole ID token: the navigator's round-1 defect.
+        # H1's own block names M9.56 and M9.5 is dropped -> M9.5 must FAIL.
+        pre_todo = ("# TODO\n\n## M9 — x\n\n- [ ] **M9.5 — Five**\n  - Status: open\n"
+                    "  - Claims: C-300–C-309\n")
+        pre_claims = ("# Claims\n\n| ID | Claim | Status | Confidence | Evidence |\n"
+                      "| --- | --- | --- | --- | --- |\n"
+                      "| C-300 | a | VERIFIED | H | x |\n")
+        coll_head = ("# TODO\n\n## M9 — x\n\n- [ ] **M9.56 — Six**\n  - Status: open\n"
+                     "  - Note: extends M9.56, restores M9.56.\n")
+        # M9.56 is the PR's own new block (head-only); M9.5 is dropped from it.
+        v = board_loss_problems(pre_todo, coll_head, pre_claims, pre_claims, [])
+        ok(v["tasks"] == ["M9.5"] and v["errors"] and "M9.5" not in v["exempt_tasks"],
+           "H121: a dropped M9.5 is NOT exempt by a block naming M9.56")
+        # positive control for that case: the own block naming the exact ID
+        coll_ok = coll_head.replace("restores M9.56.", "restores M9.5.")
+        v = board_loss_problems(pre_todo, coll_ok, pre_claims, pre_claims, [])
+        ok(v["tasks"] == ["M9.5"] and not v["errors"] and v["exempt_tasks"].get("M9.5"),
+           "H121: a dropped M9.5 IS exempt when the own block names M9.5 exactly")
+        ok(_names_id("M9.56–M9.62 and M9.55", "M9.5") is False
+           and _names_id("see M9.5, then", "M9.5") is True
+           and _names_id("(M9.5)", "M9.5") is True
+           and _names_id("M9.5.1", "M9.5") is False,
+           "H121: _names_id matches whole IDs, not prefixes")
 
         # a claims renumber: the lost row's ID is named in the PR's own block
         renum = h_todo.replace("C-200–C-201", "C-210–C-211", 1)
