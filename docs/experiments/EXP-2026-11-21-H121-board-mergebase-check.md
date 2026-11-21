@@ -130,7 +130,7 @@ widened, and which one named).
 - `python3 tools/board.py check origin/main` prints
   `board check: origin/main vs base 67d9fcbc62ba: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
   and exits 0; `check HEAD` on this branch prints the same with base
-  `a0bf0d9815a3` and exits 0.
+  `3bd0d39c1ceb` (after rebasing onto the concurrent `origin/main`) and exits 0.
 - `python3 tools/board.py check 0d4916ab` prints
   `board check: 0d4916ab vs base 39600b6cd9ac: 2 task(s) and 0 claim row(s) lost, 2 exempt, 0 problem(s)`,
   both exempt as archived, exit 0.
@@ -146,14 +146,20 @@ widened, and which one named).
   lost ID are `119a74e7` (the PR #340 merge, 206 IDs), `0d4916ab` (PR #417, 2
   archived tasks) and `73ff0da6` (PR #338, 317 `RESERVED` retirements). Only
   `119a74e7` fails.
-- `python3 tools/board.py --selftest` prints `board selftest: OK (70 checks)`
-  (58 before this task, 12 added: the eight `board_loss_problems` cases, the
-  `segment_base` case and the three `check_ref` cases in a synthetic repo).
+- `python3 tools/board.py --selftest` prints `board selftest: OK (71 checks)`
+  (58 before this task, 13 added: the eight `board_loss_problems` cases, the
+  two `segment_base` cases and the three `check_ref` cases in a synthetic repo).
 - `python3 tools/gate.py --selftest` prints `gate selftest: OK (15 checks, 0 failed)`
   (11 before, 4 added: the `board_check` row is present, it can be turned off,
   `check HEAD` on this tree is PASS, and a dropped row turns it FAIL).
 - `python3 tools/gate.py` on this branch with `archive/` symlinked prints
-  `gate: 5 pass, 0 fail, 0 skip` and exits 0.
+  `gate: 5 pass, 0 fail, 0 skip` and exits 0, with `TMPDIR` on disk scratch
+  (`TMPDIR=/tmp/opencode`): `selftest PASS 121.60 s`, `claims_check PASS`,
+  `todo_check PASS`, `board_check PASS 0.16 s`, `fn_audit PASS` (not SKIP).
+  With the default `/tmp` (3.8 GiB tmpfs, 99 % full) the same run fails only
+  `selftest` on three disk-heavy suites (`imgpatch`, `lev3456gen`, `mkcard`,
+  each passing on its own with `TMPDIR` moved), the AGENTS `/tmp` constraint,
+  not this change.
 - CI clone timing: `git clone --depth 200` of the branch is 1146 commits;
   `git fetch --no-tags --depth=200 origin '+refs/heads/main:refs/remotes/origin/main'`
   then reports `5.860 s` in a clean `--depth 1` clone of the branch;
@@ -200,7 +206,7 @@ command; `tools/gate.py` gained the `board_check` row between `todo_check` and
 named "Board merge base (H121)" step and its summary names the new row. The
 task's Done-when holds on the recorded inputs, the exemption is narrower than
 the check's power (it fails PR #340 and passes both real archive/retirement
-events), and `board.py --selftest` is `OK (70 checks)` with `gate.py --selftest`
+events), and `board.py --selftest` is `OK (71 checks)` with `gate.py --selftest`
 `OK (15 checks, 0 failed)`, `gate: 5 pass, 0 fail, 0 skip`.
 
 ## Overtaken by a later commit
@@ -212,7 +218,7 @@ none
 ```bash
 python3 tools/board.py check 6ca7bc3 ; echo "exit=$?"      # expect exit=1, 42 tasks / 199 claims
 python3 tools/board.py check origin/main ; echo "exit=$?"  # expect exit=0
-python3 tools/board.py --selftest                          # expect "board selftest: OK (70 checks)"
+python3 tools/board.py --selftest                          # expect "board selftest: OK (71 checks)"
 python3 tools/gate.py --selftest                           # expect "gate selftest: OK (15 checks, 0 failed)"
 ```
 

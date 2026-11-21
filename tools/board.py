@@ -1403,12 +1403,8 @@ def run_selftest() -> int:
            "H121: a claim row the PR's own block renumbers is exempt")
 
         # segment_base: a merge uses its first parent (a restore shows no loss)
-        real_merge = git_cmd(["rev-parse", "--show-toplevel"]).returncode == 0
-        if real_merge:
-            mid = git_cmd(["rev-parse", "HEAD~1"]).stdout.strip()
-            ok(segment_base(mid, cwd=REPO_ROOT) == git_cmd(
-                ["rev-parse", mid + "^1"], cwd=REPO_ROOT).stdout.strip(),
-               "H121: segment_base is HEAD's single parent on a linear commit")
+        # and a plain commit falls back to its single parent — tested in the
+        # synthetic repo below, where there is no origin/main to confuse it.
 
         # check_ref end to end on the PR #340 shape in a synthetic repo
         synth = Path(td) / "synth"
@@ -1438,6 +1434,19 @@ def run_selftest() -> int:
         good = sg("rev-parse", "HEAD").stdout.strip()
         ok(check_ref(good, base=base_rev, cwd=synth) == 0,
            "H121 check_ref: an archived task and a restored row exit 0")
+        # segment_base inside the synthetic repo (no origin/main): a plain
+        # commit falls back to its single parent, a merge to its first parent
+        good_parent = sg("rev-parse", "HEAD^").stdout.strip()
+        ok(segment_base(good, cwd=synth) == good_parent,
+           "H121: segment_base of a plain commit is its parent")
+        sg("checkout", "-q", "-b", "side", good)
+        (synth / "side-note.txt").write_text("side\n", encoding="utf-8")
+        sg("add", "-A"); sg("commit", "-qm", "side")
+        sg("checkout", "-q", "-")
+        sg("merge", "-q", "--no-ff", "-m", "merge", "side")
+        merged = sg("rev-parse", "HEAD").stdout.strip()
+        ok(segment_base(merged, cwd=synth) == good,
+           "H121: segment_base of a merge is its first parent")
 
     if failures:
         for f in failures:
