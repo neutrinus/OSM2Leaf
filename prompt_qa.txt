@@ -30,4 +30,4 @@ What the test system should show (a progress signal, not a coverage number):
   every red is covered by a later green; exit 1 = a salient red with a
   `[H117] fix:` issue; exit 2 = no runs, never a pass.
 
-Do not do the work; plan it instead — create tasks in TODO (with context: which file, which command, what Done when looks like, which fixture). Mark the order and dependencies between them.
+Do not do the work; plan it instead — create tasks in TODO with `tools/board.py add-task` (with context: which file, which command, what Done when looks like, which fixture). Mark the order and dependencies between them.

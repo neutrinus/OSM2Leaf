@@ -43,7 +43,7 @@ front has fewer, add the next tasks (see rule 9).
 3. **First commit: mark the task `in progress`.** Immediately after creating
    the branch/worktree (within a minute, before reading or planning), make a commit that changes **only** your
    task's line to `Status: in progress · Owner: <branch>` (subject
-   `todo: start <ID>`). **Push it at once** (`git push -u origin
+   `todo: start <ID>`; `python3 tools/board.py claim <ID> --owner <branch>`). **Push it at once** (`git push -u origin
    <branch>`), before any other work: an unpushed in-progress commit is
    invisible to the other agents and claims nothing. Then open a **draft PR** titled
    `[ID] short title`. The draft PR makes the claim visible before it
@@ -55,10 +55,13 @@ front has fewer, add the next tasks (see rule 9).
    A finding outside your task becomes a new task (rule 9), not an edit.
 5. **Rebase on `main` before you mark the PR ready**, and again if `main`
    moved while it waits. In `TODO.md`, `claims.md` and index tables keep
-   both sides of a conflict; never drop another task's lines.
+   both sides of a conflict; never drop another task's lines. For the two
+   board files use `python3 tools/board.py resolve <file>` (merge by ID), never
+   a pasted copy, and check `python3 tools/board.py lost --base origin/main`
+   exits 0 before the push (H123; PR #340 lost 42 tasks and 199 claim rows).
 6. **Last commit: the work plus `done`.** Commit the actual work, and in the
    same commit set `Status: done`, tick `[x]` and add one line `Result:`
-   naming the EXP (subject in the normal style, e.g. `tools: …`). Run `python3 tools/selftest.py` (and the task's
+   naming the EXP (`python3 tools/board.py done <ID> --result "…"`) (subject in the normal style, e.g. `tools: …`). Run `python3 tools/selftest.py` (and the task's
    own check) and paste the result into the PR body. Mark the PR ready.
    **Then merge it to `main` yourself** (merge the PR, or rebase on
    `origin/main` and `git push origin HEAD:main`; on a rejected push rebase
@@ -73,7 +76,9 @@ front has fewer, add the next tasks (see rule 9).
 8. **Stale claims.** A claim with no push for 24 h may be released by the
    coordinator (`Status: open`, `Owner: —`). Push work in progress often.
 9. **New tasks.** Add them at the end of the right workstream with the next
-   free ID of that stream, the full field set, and `Owner: —`. Before
+   free ID of that stream, the full field set, and `Owner: —`
+   (`tools/board.py next-id <stream>`, `next-claims`, `add-task <file>`; every
+   edit of `TODO.md`/`claims.md` goes through `tools/board.py`, AGENTS.md). Before
    assigning an ID, `grep` the file for it: parallel merges can add the same
    ID on another branch, and a reused ID (even with different meaning) is a
    board defect. Take the next free claim block from
@@ -1480,6 +1485,7 @@ text of this section is in git (`13cb0cf`).
   - Precheck: `git diff --numstat 4900961 6ca7bc3 -- TODO.md docs/research/claims.md` prints `1 787` and `11 324`.
   - Scope: one check in `tools/gate.py` and CI (`quality`): against the merge base with `origin/main`, list claim IDs and task IDs that exist in the base and not in the branch; fail unless each is named in the PR's own task block (archive move: the ID must then exist in `docs/research/todo-history-*.md`), or is a `RESERVED` row. No change to the two checkers' other rules.
   - Input: `tools/claims_check.py`, `tools/todo_check.py`, `tools/gate.py`, `.github/workflows/`.
+    Reuse `tools/board.py` (`lost_ids`, `lost --base`; H123) for the ID diff instead of a second parser.
   - Done when: on a checkout of `6ca7bc3` the check exits 1 and names the lost task IDs and the count of lost claim rows; on `main` it exits 0; `--selftest` covers a deleted row, a deleted task block, an archived task and a dropped `RESERVED` row.
   - Stop: if the merge base cannot be found in CI's shallow clone, fetch `origin/main` with depth 200 in the workflow and record the time it adds.
   - Falsifier: a legitimate PR of the last 50 merged that the check would have failed (then widen the exemption and say which).
@@ -1497,15 +1503,16 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: another `l3_harness/*.py` suite that `selftest.py` reports as `SKIP no --selftest` while its own `--selftest` exits non-zero.
   - Claims: C-6530–C-6539
 
-- [ ] **H123 — `tools/board.py`: edit `TODO.md` and `claims.md` by line operations, never by rewriting the file**
-  - Status: in progress · Owner: claude/project-thread-1tslvr · Critical: yes · Pair: solo
+- [x] **H123 — `tools/board.py`: edit `TODO.md` and `claims.md` by line operations, never by rewriting the file**
+  - Status: done · Owner: claude/project-thread-1tslvr · Critical: yes · Pair: solo
   - Depends: —
   - Goal: agents (LLMs) rewrite `TODO.md` (5k lines) and `claims.md` (4.5k lines) whole and lose what they did not read: PR #340 dropped 787 + 324 lines (H121). A script does each board change as one splice (claim, set a field, close, add a task block, add a claim row, take the next free ID / claim block, resolve a merge conflict by ID) and refuses any write that drops a task ID or claim ID or changes the line count by other than the operation's own delta (Marek, 2026-11-21).
   - Scope: `tools/board.py` with `--selftest`; AGENTS.md, `TODO.md` rules 3/5/6/9 and the role prompts name it as the way to edit the two files. H121 (the CI check against the merge base) stays a separate task; it reuses `board.lost_ids()`.
   - Input: `tools/todo_check.py` (`TASK_RE`, `FIELD_RE`), `tools/claims_check.py` (`ROW_RE`), PR #340 / commit `6ca7bc3`.
-  - Done when: `python3 tools/board.py --selftest` passes; on `6ca7bc3` `python3 tools/board.py lost --base 4900961` exits 1 and names M9.56–M9.62; replaying a TODO conflict of PR #340 with `board.py resolve` keeps both sides' task blocks; `todo_check.py` and `claims_check.py` stay green.
+  - Done when: `python3 tools/board.py --selftest` passes; on `6ca7bc3` `python3 tools/board.py lost --base 4900961 --head 6ca7bc3` exits 1 and names M9.56–M9.62; `tools/fixtures/h123-board-conflict-replay.sh` keeps both branches' task blocks and claim rows; `todo_check.py` and `claims_check.py` stay green.
   - Falsifier: an edit through `board.py` that changes a line outside its own splice, or a `resolve` that drops an ID present on either side.
   - Claims: C-6580–C-6589
+  - Result: EXP-2026-11-21-H123-board-tool (C-6580–C-6584): `board.py --selftest` OK (58 checks); `lost` on `6ca7bc3` names 42 tasks and 199 claim rows (exit 1); the conflict replay keeps both sides' tasks and rows and leaves only the two-sided H122 edit; AGENTS.md, TODO rules 3/5/6/9 and the role prompts name the tool.
 
 
 ## M2 — Map code, activation, updater

@@ -1451,6 +1451,26 @@ back to stock `-M none -cpu sh7785`. Stages F0–F5 and their gates are in
 [`docs/research/full-system-emulation.md`](../docs/research/full-system-emulation.md)
 and TODO M8.
 
+## `board.py` — edit `TODO.md` and `claims.md` by line operations (H123)
+
+Every change to the board files is one splice; a guard refuses a write that
+drops a task ID or claim ID, moves the line count by more than the edit, or
+touches another task block. `resolve` merges a conflicted board file by ID
+from the three index stages; `lost` lists IDs present at a ref and missing now
+(the local form of H121).
+
+```bash
+python3 tools/board.py claim M9.12 --owner task/m9.12-x   # Status: in progress · Owner: …
+python3 tools/board.py done M9.12 --result "EXP-…"         # [x], done, Result
+python3 tools/board.py add-task block.md                   # end of its stream
+python3 tools/board.py add-claims --section "…" --row "| C-… | … | … | … | … |"
+python3 tools/board.py archive M1.2e --to docs/research/todo-history-2026-11-21.md
+python3 tools/board.py resolve TODO.md                     # during a conflicted rebase/merge
+python3 tools/board.py lost --base origin/main             # exit 1 names lost IDs
+python3 tools/board.py --dry-run done M9.12 --result x     # print the diff only
+python3 tools/board.py --selftest
+```
+
 ## `todo_check.py`
 
 Lint `TODO.md` board structure: duplicate task IDs, duplicate/overlapping or
