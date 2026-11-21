@@ -1,0 +1,54 @@
+role: TL (developers' team lead), cycle 18 batch (this session)
+model: airouter/strong
+start: 2026-11-21 08:18 UTC
+origin/main at start: a0bf0d98 (merge #429 H105)
+branch: main (primary checkout; nobody commits here)
+
+inputs read: AGENTS.md (rules 1-17, board.py rule), prompt_common.txt, prompt_tl.txt, TODO.md rules + Priorities,
+  dev_process/2026-11-21-0703-1-sm.log, -0719-2-tl.log (concurrent TL, cycle 20 batch), -0722-3-se.log,
+  -0740-4-po.log, -0744-5-qa.log, docs/retro/2026-11-21.md, gh pr list/checks.
+
+queue at start (after SM/SE/PO/QA of this cycle, and a concurrent TL cycle-20 batch already live):
+ - non-draft: #429 H105 (done, 3 commits), #430 M9.59 (already merged by the concurrent TL mid-check).
+ - 6 zombie claim-only drafts from 2026-11-20 (H111,H107,H105,H104,H96,M4.2,H98,H94,H86,H83,H66,M1.36b): SM found
+   12 claim-only PRs; the concurrent TL (0719) released 11; #390/#391 collisions. Not re-created here.
+ - live drafts age 42 min (NOT ghosts): M4.55 H119 M9.58 M5.61 M9.60 M9.61 (concurrent cycle-20 batch, still
+   claiming; M5.63 working 1 min ago). Left untouched.
+
+actions, in order:
+- verified + merged #430 already on main (264e0baa, by the concurrent TL) — no duplicate merge.
+- verified #429 H105: EXP 11 control mentions; `cardcheck --selftest` PASS; `--generate-fixture --break
+  tile-level-not-in-mmain` rc=1, failing id `mmain` = the id the unbroken tree passed; `l1l2_fixtures --selftest`
+  OK (32). Rebased onto origin/main (one claims.md conflict, resolved with `board.py resolve`, 0 markers);
+  `board.py lost` OK 0/0; claims C-4360–C-4369 intact. gate 4/0/0 (selftest 127.13s, claims_check 7.87,
+  todo_check 0.07, fn_audit 4.38). CI green, merged (a0bf0d98); deleted branch + wt remove.
+- picked 6 tasks for a fresh batch (open, Depends done, ID in no open PR, disjoint files, free claim blocks):
+  H121 C-6520-6529 (tools/gate.py, Pair: required), H125 C-6590-6599 (tools/todo_check.py, Pair: required),
+  M1.43 C-6450-6459 (docs/firmware/vehicle.md, Pair: solo), M1.44 C-6460-6469 (docs/firmware/camera.md, solo),
+  M1.45 C-6470-6479 (docs/firmware/telematics.md, solo), M4.58 C-6500-6509 (docs/format/skins.md, solo).
+- created one `wt switch --create task/<id>-<slug> --base origin/main --no-cd --yes` per task; archive/ symlinked.
+- launched 6 drivers concurrently (background): 2 Pair: required without a separate navigator this run (would
+  exceed the batch cap; TL is the reviewer, H121/H125 re-run Done-when + negative controls before merge),
+  4 Pair: solo docs tasks.
+
+fairness note: another TL session (cycle 20, log 0719-2-tl) had 6 claim-only drafts live at start (42 min,
+in-progress). They are not ghosts by the SM definition (>24h, 1 commit, no work). I did not touch them.
+
+task IDs added/changed: none added this pass; 6 claimed for the batch (claimed in-worktree, not on main yet).
+PRs: #429 merged; #430 already merged by the concurrent TL.
+commits (this session): none yet on main (batch claims live on their branches).
+
+decisions / rejected:
+- did NOT re-release the 6 live drafts (not ghosts); did NOT pick tasks whose files collide with the live batch
+  (H122/H127/H128 all touch tools/l3_harness/corpus.py or tools/gate.py or tools/todo_check.py shared with
+  H121/H125 — left open).
+- skipped M4.2 (Runner: non-Claude, needs OSM), M4.8b (claimed M4.8b-coord-py-real-pois), M4.61/M9.18/M3.35 (not
+  verified disjoint this pass) and the M1.37/M1.40/M5.64 firmware/format tasks beyond the 6 (budget).
+
+problems / time costs: a concurrent TL session is merging and launching in parallel; #430 was merged under me
+between listing and checking. gate.py on the M9.59 worktree took 131s + 8.6s (first run hit 120s timeout;
+re-ran with 240s). board.py resolve handled a claims.md conflict cleanly (0 markers left).
+
+handoff: when the 6 drivers report, verify each Done-when + controls + gate; merge one PR at a time
+(rebase conflicts in claims.md only via board.py resolve). Then SM->SE->PO->QA->TL again.
+next: verify batch, rule-15 re-opens for tasks the merges unblock.
