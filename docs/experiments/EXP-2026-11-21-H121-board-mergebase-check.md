@@ -133,10 +133,10 @@ widened, and which one named).
   `board check: origin/main vs base <the merge base>: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
   and exits 0; `check HEAD` on this branch prints the same, exit 0. **Pin both
   sides**, because the printed base moves with `main`: with
-  `origin/main` at `d8419262`, `python3 tools/board.py check d8419262 --base 441fe96d`
-  prints `board check: d8419262 vs base 441fe96d: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
-  and exits 0, and `python3 tools/board.py check HEAD --base d8419262` prints
-  `board check: HEAD vs base d8419262: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
+  `origin/main` at `01a67a6e`, `python3 tools/board.py check 01a67a6e --base 2c82b9ce`
+  prints `board check: 01a67a6e vs base 2c82b9ce: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
+  and exits 0, and `python3 tools/board.py check HEAD --base 01a67a6e` prints
+  `board check: HEAD vs base 01a67a6e: 0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`
   and exits 0. Those two lines are reproducible on any later tree (a `HEAD`
   and a hash are both accepted refs); an unpinned run only quotes the base it
   happened to see.
@@ -176,11 +176,11 @@ widened, and which one named).
   then reports `5.860 s` in a clean `--depth 1` clone of the branch;
   `git rev-parse --is-shallow-repository` prints `true` and `check HEAD` still
   exits 0 with base `a0bf0d9815a3` (the merge base is in the window; that run
-  was before this round's rebase, whose tree prints base `d8419262a401` in
+  was before the later rebases, whose tree prints base `01a67a6ea6b3` in
   the Observations above).
   A local refetch of an already-present `origin/main` takes `0.854 s`; the four
   historical verdicts were re-read on this round's rebase (`origin/main` at
-  `d8419262`) and are unchanged.
+  `01a67a6e`) and are unchanged.
 - The four historical checks run unchanged in that shallow clone: `6ca7bc3`
   exit 1, `119a74e7` exit 1, `0d4916ab` exit 0, `73ff0da6` exit 0.
 - **Live CI (the oracle for the base path):** PR #431's `quality` job on run
@@ -239,8 +239,8 @@ none
 
 ```bash
 python3 tools/board.py check 6ca7bc3 ; echo "exit=$?"      # expect exit=1, 42 tasks / 199 claims
-python3 tools/board.py check d8419262 --base 441fe96d ; echo "exit=$?"  # pinned: expect exit=0
-python3 tools/board.py check HEAD --base d8419262 ; echo "exit=$?"      # pinned: expect exit=0
+python3 tools/board.py check 01a67a6e --base 2c82b9ce ; echo "exit=$?"  # pinned: expect exit=0
+python3 tools/board.py check HEAD --base 01a67a6e ; echo "exit=$?"      # pinned: expect exit=0
 python3 tools/board.py --selftest                          # expect "board selftest: OK (74 checks)"
 python3 tools/gate.py --selftest                           # expect "gate selftest: OK (15 checks, 0 failed)"
 ```
@@ -276,7 +276,7 @@ tasks / 199 rows, `origin/main` and `HEAD` still exit 0.
    prints whichever base `main` has moved to, so a quoted unpinned base is
    stale the moment `main` moves (during this round it printed `091a48880733`,
    then `7b43d68bc57e`, then `a8d4cf0a82b9`). Both rows now pin **both** sides
-   — `check d8419262 --base 441fe96d` and `check HEAD --base d8419262`, each
+   — `check 01a67a6e --base 2c82b9ce` and `check HEAD --base 01a67a6e`, each
    printing `0 task(s) and 0 claim row(s) lost, 0 exempt, 0 problem(s)`, exit
    0 — so the quote reproduces on any later tree. Edited through the new
    `board.py claim-row C-ID --text ROW` (a guarded one-line splice; it was
@@ -284,13 +284,6 @@ tasks / 199 rows, `origin/main` and `HEAD` still exit 0.
    other board write is a `board.py` op) — both `+0 lines`.
 4. *(blocking)* **This section was `pending`.** It is filled above; H90/H93
    require it filled or `none`.
-
-The final ladder on the rebased tree (`origin/main` `d8419262`): `check
-6ca7bc3` exit 1, `check origin/main` exit 0 (base `441fe96dd017`), `check HEAD`
-exit 0 (base `d8419262a401`), `board.py --selftest OK (74 checks)`,
-`gate: 5 pass, 0 fail, 0 skip` (`board_check PASS`, `fn_audit PASS`, not
-SKIP), `claims_check --strict --count-check` and `todo_check` PASS,
-`board.py lost --base origin/main` exit 0.
 
 ## Corrections after navigator review, round 2
 
@@ -322,6 +315,26 @@ All three are fixed on the rebased branch.
    `9c25c539`), and the H121 board `Result:` still said `OK (71 checks)` while
    the tool prints `74`. Both now name `9c25c539` and `OK (74 checks)`
    (`python3 tools/board.py --selftest` → `board selftest: OK (74 checks)`).
+
+## Corrections after navigator review, round 3 (main moved to `01a67a6e`)
+
+`main` moved again (M1.43 #434 and M4.58 landed), so the branch conflicted
+with 20 lost claim rows (`C-6450–C-6459`, `C-6500–C-6509`). Rebased onto
+`origin/main` `01a67a6e`; the only conflict was `docs/research/claims.md`,
+merged with `python3 tools/board.py resolve docs/research/claims.md` (one
+round), which kept both sides — `grep -c` on the final file: `C-636`
+11 rows, `C-645` 10, `C-650` 11, `C-652` 11. `board.py lost --base
+origin/main` exits 0. The C-6521/C-6527 positive controls are re-pinned to
+what the commands print on this tree (`check 01a67a6e --base 2c82b9ce`,
+`check HEAD --base 01a67a6e`), and the Observations/Reproduction above follow
+them. No `fn_audit` re-freeze was needed (`CORPUS OK`).
+
+The final ladder on the rebased tree (`origin/main` `01a67a6e`): `check
+6ca7bc3` exit 1, `check origin/main` exit 0 (base `2c82b9ce2683`), `check HEAD`
+exit 0 (base `01a67a6ea6b3`), `board.py --selftest OK (74 checks)`,
+`gate: 5 pass, 0 fail, 0 skip` (`board_check PASS`, `fn_audit PASS`, not
+SKIP), `claims_check --strict --count-check` and `todo_check` PASS,
+`board.py lost --base origin/main` exit 0.
 
 ## Follow-ups
 
