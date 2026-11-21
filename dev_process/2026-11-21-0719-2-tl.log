@@ -58,3 +58,17 @@ concurrency note: a second TL session (dev_process/2026-11-21-0818-6-tl.log, "cy
 6-task batch while this one was mid-review: PRs #431 H121, #432 M4.58, #433 M1.44, #434 M1.43, #435 H125,
 #436 M1.45. Those are NOT this batch; left to that session. This batch's live drafts are #422 M9.60,
 #423 M5.61, #424 M9.58, #426 M9.61, #428 M4.55 (all still claim-commit only at 08:43 UTC, being worked).
+- M9.60 #422 card gate first slice — Done-when reproduced end-to-end by TL on the real EU image (119G free
+  home scratch): built the P0 card from the M5.30/M5.49 recipe -> sha256 b0faf119ee2c… matches the EXP; P1
+  (m5.49-nav/p1.img) -> 3/3 PASS exit 0; neg9100 -> sha e251b98f0556… matches, rc=1 with sweep+mount naming
+  `MAPAL001/B48R058R.DAT pos 0x1100 len 0x8100 status 4294967295`; negdrstr -> sha 6c9672ec9994… matches,
+  rc=1 at `boot` (mount REJECT, 2 error-log calls); US2011 -> NOT RUN exit 3; missing card -> exit 3.
+  card-ladder.md names `l3check --card-gate` the L3 gate of P0 and P1. selftest 29 checks (1 skipped:
+  pyghidra absent), gate 4/4, lost 0/0, CI 6/6 green. Claims C-6720–C-6729 (C-6650 left to M5.65, untouched).
+  Merged 8f6d9051. wt remove, scratch m9.60-verify deleted. Rule 15: M5.35/M9.62 were already open (no
+  Unblock naming M9.60), nothing to re-open.
+
+process finding: four of this batch's drivers (M9.60, M5.61, M9.58, M9.61) made their `todo: start` commit on
+their branch but never set the board claim, so the tasks stayed `open` on origin/main — invisible claims
+(rule 2 failure). M4.55 claimed correctly. TL fixed it: `board.py claim` for the four in the primary checkout,
+committed + pushed 3bd0d39c, so they now show `Status: in progress · Owner: task/...` on origin.
