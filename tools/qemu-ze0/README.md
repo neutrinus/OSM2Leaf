@@ -27,7 +27,7 @@ this table and an EXP entry.
 
 ### Tested range, and the two series
 
-The machine is twelve out-of-tree patches on `hw/sh4` and `target/sh4`, an
+The machine is thirteen out-of-tree patches on `hw/sh4` and `target/sh4`, an
 API QEMU moves. Instead of one frozen version there is a **tested range**
 with one series per API generation (TODO M8.A9):
 
@@ -235,6 +235,20 @@ kept), so the next run extracts cleanly.
   until the HPB DMAC exists (M8.C1). `tools/ze0_sdhost.py` decodes the
   trace. See
   [`EXP-2026-11-20-M8.C10-sd-host.md`](../../docs/experiments/EXP-2026-11-20-M8.C10-sd-host.md).
+- **M8.C1b (2026-11-21):** `ze0-0009` adds the HPB-DMAC (`0xffc08000`,
+  area-7 alias `0x1fc08000`; channels 8/9 = SD ports 0/1, interrupts INTEVT
+  `0xc60`/`0xc80`, INT2 bit 19), so SD data transfers complete; a card
+  password by "trust on first use" (the unit refuses a card with no CMD42
+  password, and the real one must not be in the repository); three fixes of
+  QEMU's card model (CMD6 status, CMD42 length checks) and an area-7 alias
+  for the debug SCIF. With it the boot unlocks the card, reads the opening
+  image and mounts both partitions (`Store Mgr Ready! [DSK1:]`): **F3**.
+  Options `hpbdmac=off` (negative control), `hpbdmac-trace=on`,
+  `sd-pwd-tofu=off`, `sd-start-locked=on`. `mkoverlay.py CARD.img OUT.qcow2`
+  writes the qcow2 overlay without `qemu-img` (`build.sh` builds no tools).
+  `tools/ze0_sdhost.py dmatrace LOG --card CARD.img` compares every block
+  read with the card image. See
+  [`EXP-2026-11-21-M8.C1b-hpb-dmac-model.md`](../../docs/experiments/EXP-2026-11-21-M8.C1b-hpb-dmac-model.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

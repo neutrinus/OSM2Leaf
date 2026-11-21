@@ -18,19 +18,33 @@ Sub-commands:
         set; repeats are collapsed (``x67``).  Also counts DMA-mode requests
         (``CC_EXT_MODE`` bit 1) and commands that got no response.
 
+  dmatrace LOG [--card CARD.img]
+        Decode the HPB-DMAC transfers of a ``-d unimp`` log of ``-M
+        ze0,sdhi-trace=on,hpbdmac-trace=on`` (M8.C1b): every ``ze0-hpbdmac:
+        chN read|write`` line is paired with the SD command and argument
+        before it.  With ``--card`` each CMD17/CMD18 read is compared with
+        the card image: CRC-32 of ``bytes`` at block ``arg`` (SDHC block
+        addressing) must equal the CRC-32 the model logged.
+
   serial LOG
         Count the SD milestones in a kernel debug log (``run.sh --serial``
         with ``dbgmsg``, M8.B6): ``SD Check Error``, ``ActivateSDCardDriver
         ... Start``/``End(OK``/``End(NG``, ``EventID = 2 Timeout``,
-        ``EVT_SD_SYS_MOUNT``, ``ACM::WaitModule Timeout ID[37]``.
+        ``EVT_SD_SYS_MOUNT``, ``ACM::WaitModule Timeout ID[37]``, and the
+        launcher lines after the unlock (``SD Card Security Unlocked!``,
+        ``Mount System SD Proc Start``, the lock/no-security error) and
+        the F3 lines (``Store Mgr Ready! [DSK1:]``, ``Mount Time of
+        PartNN``, ``AppLch >> Error Proc<``, ``FailSafe.exe Start``).
 
 Usage:
   ze0_sdhost.py inttable archive/head256.img [--find-sysintr 0x1f]
   ze0_sdhost.py sdtrace qemu-unimp.log
+  ze0_sdhost.py dmatrace qemu-unimp.log --card CARD.img
   ze0_sdhost.py serial serial.log
   ze0_sdhost.py --selftest
 
-Method and results: docs/experiments/EXP-2026-11-20-M8.C10-sd-host.md
+Method and results: docs/experiments/EXP-2026-11-20-M8.C10-sd-host.md and
+docs/experiments/EXP-2026-11-21-M8.C1b-hpb-dmac-model.md
 """
 
 import argparse
@@ -52,10 +66,22 @@ MARKERS = [
     ("event2_timeout", "EventID = 2 Timeout"),
     ("sys_mount_event", "Stub_SetEvent[EVT_SD_SYS_MOUNT]"),
     ("wait37_timeout", "ACM::WaitModule Timeout ID[37]"),
+    ("lock_unlock_call", "SDHC_Lock_Unlock_Card() byFlag["),
+    ("lock_unlock_err", "SDHC_Lock_Unlock_Card() Err"),
+    ("security_unlocked", "SD Card Security Unlocked!"),
+    ("security_error", "SD Card is [Security lock state] or [no Security]"),
+    ("mount_sd_start", "Mount System SD Proc Start"),
+    ("store_ready", "Store Mgr Ready! [DSK1:]"),
+    ("part_mounted", "Mount Time of Part"),
+    ("applch_error", "AppLch >> Error Proc<"),
+    ("failsafe_start", "*** FailSafe.exe Start ***"),
 ]
 
 CMD_RE = re.compile(r"ze0-sdhi(\d): wr\d+ \+0x00 = 0x([0-9a-f]+)")
 DMA_RE = re.compile(r"ze0-sdhi(\d): DMA mode requested")
+ARG_RE = re.compile(r"ze0-sdhi(\d): wr\d+ \+0x0([46]) = 0x([0-9a-f]+)")
+XFER_RE = re.compile(r"ze0-hpbdmac: ch(\d+) (read|write) (\d+) bytes, D[DS]AR 0x([0-9a-f]+), "
+                     r"left (\d+), crc32 0x([0-9a-f]+)")
 NORSP_RE = re.compile(r"ze0-sdhi(\d): CMD(\d+) arg 0x[0-9a-f]+: no response")
 
 
@@ -101,6 +127,72 @@ def decode_trace(text):
         if m:
             norsp[int(m.group(1))] = norsp.get(int(m.group(1)), 0) + 1
     return seq, dma, norsp
+
+
+def decode_dma(text):
+    """[(port, cmd name, arg, direction, bytes, guest address, left, crc32)]"""
+    arg = {}
+    last = {}
+    out = []
+    for line in text.splitlines():
+        m = ARG_RE.search(line)
+        if m:
+            port, reg, v = int(m.group(1)), m.group(2), int(m.group(3), 16)
+            a = arg.get(port, 0)
+            arg[port] = (a & 0xFFFF0000) | v if reg == "4" else (a & 0xFFFF) | (v << 16)
+            continue
+        m = CMD_RE.search(line)
+        if m:
+            port = int(m.group(1))
+            last[port] = (cmd_name(int(m.group(2), 16)), arg.get(port, 0))
+            continue
+        m = XFER_RE.search(line)
+        if m:
+            port = int(m.group(1)) - 8
+            name, a = last.get(port, ("?", 0))
+            out.append((port, name, a, m.group(2), int(m.group(3)), int(m.group(4), 16),
+                        int(m.group(5)), int(m.group(6), 16)))
+    return out
+
+
+def check_card(xfers, read_at):
+    """Compare CMD17/CMD18 reads with the card: (checked, mismatches)."""
+    import zlib
+    checked = bad = 0
+    for port, name, a, direction, nbytes, _addr, _left, crc in xfers:
+        if direction != "read" or name not in ("CMD17+data", "CMD18+data"):
+            continue
+        checked += 1
+        if zlib.crc32(read_at(a * 512, nbytes)) & 0xFFFFFFFF != crc:
+            bad += 1
+    return checked, bad
+
+
+def cmd_dmatrace(args):
+    with open(args.log, encoding="utf-8", errors="replace") as fh:
+        xfers = decode_dma(fh.read())
+    kinds = {}
+    for port, name, a, direction, nbytes, addr, left, crc in xfers:
+        k = kinds.setdefault((port, name, direction), [0, 0])
+        k[0] += 1
+        k[1] += nbytes
+    print("transfers %d, bytes %d, incomplete %d"
+          % (len(xfers), sum(x[4] for x in xfers), sum(1 for x in xfers if x[6])))
+    for (port, name, direction), (n, b) in sorted(kinds.items()):
+        print("  port %d %-12s %-5s x%-4d %d bytes" % (port, name, direction, n, b))
+    if args.list:
+        for port, name, a, direction, nbytes, addr, left, crc in xfers:
+            print("  port %d %s arg 0x%08x %s %d bytes -> 0x%08x crc32 0x%08x"
+                  % (port, name, a, direction, nbytes, addr, crc))
+    if args.card:
+        with open(args.card, "rb") as fh:
+            def read_at(off, n):
+                fh.seek(off)
+                return fh.read(n)
+            checked, bad = check_card(xfers, read_at)
+        print("card check: %d block reads compared, %d mismatch(es)" % (checked, bad))
+        return 1 if bad or not checked else 0
+    return 0
 
 
 def fmt_seq(s):
@@ -191,6 +283,24 @@ def selftest():
     check("no-response count", norsp, {1: 1})
     check("argument write is not a command", sum(c for _, c in seq[0]), 3)
 
+    dlog = "\n".join([
+        "ze0-sdhi0: wr16 +0x04 = 0x0002",
+        "ze0-sdhi0: wr16 +0x06 = 0x0000",
+        "ze0-sdhi0: wr16 +0x00 = 0x1811",
+        "ze0-hpbdmac: ch8 read 512 bytes, DDAR 0xa99c1000, left 0, crc32 0x%08x, head 00"
+        % __import__("zlib").crc32(bytes([7]) * 512),
+        "ze0-sdhi0: wr16 +0x00 = 0x184d",
+        "ze0-hpbdmac: ch8 read 64 bytes, DDAR 0xa99c1000, left 0, crc32 0x00000001, head 00",
+    ])
+    xf = decode_dma(dlog)
+    check("dma transfers", [(x[1], x[2], x[4]) for x in xf],
+          [("CMD17+data", 2, 512), ("ACMD13+data", 2, 64)])
+    card = bytes(1024) + bytes([7]) * 512
+    check("card check equal", check_card(xf, lambda o, n: card[o:o + n]), (1, 0))
+    check("card check wrong block (negative)",
+          check_card(xf, lambda o, n: card[o - 512:o - 512 + n]), (1, 1))
+    check("non-block reads are not compared", check_card(xf[1:], lambda o, n: b""), (0, 0))
+
     m = count_markers("AppLch > SD Check Error\n###SDHC(Port=0)-->ActivateSDCardDriver"
                       "(lpszDevKey=Drivers\\SD\\Card) End(NG??]\n")
     check("marker check error", m["sd_check_error"], 1)
@@ -215,6 +325,10 @@ def main(argv=None):
     t.add_argument("--find-sysintr", type=_int)
     s = sub.add_parser("sdtrace")
     s.add_argument("log")
+    d = sub.add_parser("dmatrace")
+    d.add_argument("log")
+    d.add_argument("--card")
+    d.add_argument("--list", action="store_true")
     r = sub.add_parser("serial")
     r.add_argument("log")
     args = ap.parse_args(argv)
@@ -224,6 +338,8 @@ def main(argv=None):
         return cmd_inttable(args)
     if args.cmd == "sdtrace":
         return cmd_sdtrace(args)
+    if args.cmd == "dmatrace":
+        return cmd_dmatrace(args)
     if args.cmd == "serial":
         return cmd_serial(args)
     ap.print_help()

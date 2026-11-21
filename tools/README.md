@@ -1515,7 +1515,27 @@ work directory) and `gdb-ze0.py`. The pin and its SHA-256 are in
 tools/qemu-ze0/build.sh --dry-run    # print every command; write nothing
 tools/qemu-ze0/build.sh              # fetch, verify, patch, build, check `ze0`
 tools/qemu-ze0/run.sh --help         # boot orchestrator (stage F0, M8.A7)
+python3 tools/qemu-ze0/mkoverlay.py CARD.img OUT.qcow2   # qcow2 overlay for --sd, no qemu-img needed (M8.C1b)
+python3 tools/qemu-ze0/mkoverlay.py --selftest
 ```
+
+`mkoverlay.py` writes an empty qcow2 v3 file of 8 GiB whose backing file is
+the raw card image: QEMU's `sd-card` needs a power-of-two size, the card
+image is never written, and `build.sh` builds no `qemu-img`.
+
+## `ze0_sdhost.py` — SD bring-up evidence for `-M ze0` (M8.C10, M8.C1b)
+
+```bash
+python3 tools/ze0_sdhost.py inttable archive/head256.img          # OAL interrupt table of nk.exe
+python3 tools/ze0_sdhost.py sdtrace  qemu-unimp.log               # SD commands (sdhi-trace=on)
+python3 tools/ze0_sdhost.py dmatrace qemu-unimp.log --card CARD.img   # HPB-DMAC transfers vs the card (hpbdmac-trace=on)
+python3 tools/ze0_sdhost.py serial   serial.log                   # SD/lock/mount milestones of the debug log
+python3 tools/ze0_sdhost.py --selftest
+```
+
+`dmatrace --card` exits 0 only when at least one CMD17/CMD18 read was
+compared and every one has the CRC-32 of the card image at its block.
+Records: EXP-2026-11-20-M8.C10-sd-host, EXP-2026-11-21-M8.C1b-hpb-dmac-model.
 
 Status: `ze0` machine not yet written (M8.A2); until it exists `run.sh` falls
 back to stock `-M none -cpu sh7785`. Stages F0–F5 and their gates are in

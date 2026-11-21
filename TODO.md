@@ -4585,6 +4585,18 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     `--check-version` now applies cumulatively (it reported 5/7 for 8.2.10's
     own series, C-4325) and the scripts ask for `-d invalid_mem` on QEMU
     >= 10 (C-4323). EXP-2026-11-21-M8.A9-qemu-11-port.
+
+- [ ] **M8.A11 — One QEMU version: make 11.1.3 the only supported `ze0` base**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: tooling
+  - Depends: M8.A9, M8.C1b
+  - Goal: the `ze0` series is kept twice (`patches/` for 8.2.10, `patches/11.1/` for 11.1.3) and every patch is written, built and booted twice. Runs A and D of EXP-2026-11-21-M8.C1b give the same boot on both (C-6873). Marek, 2026-11-21: migrate fully to the new QEMU.
+  - Precheck: `ls tools/qemu-ze0/patches/*.patch | wc -l` and `ls tools/qemu-ze0/patches/11.1/*.patch | wc -l` both print `13`.
+  - Scope: `tools/qemu-ze0/` (`build.sh` default and pins, `run.sh`, READMEs, patch directories), the documents that name the supported version (`docs/research/qemu-ze0-port-delta.md`, `docs/format/firmware.md` register table header, `tools/README.md`). The 8.2 series is removed or frozen under a name that says so; history stays in git.
+  - Input: EXP-2026-11-21-M8.A9-qemu-11-port, `tools/qemu-ze0/patches/11.1/README.md`.
+  - Done when: `build.sh` with no option builds 11.1.3 from one patch directory; `build.sh --selftest`/`--dry-run` and `run.sh --selftest` pass; no document tells a reader to build 8.2; `python3 tools/gate.py` green; EXP + claims.
+  - Falsifier: a boot stage or tool that works only on the 8.2.10 build.
+  - Claims: C-6890–C-6899
 - [x] **M8.A6 — Debug serial** (`sh_serial` at `0xffe46000`; writer
   `0x8804cfa4`, pointer at `0x8804ce78`). Done when the CE boot banner
   appears or an EXP shows why not.
@@ -4746,8 +4758,35 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     - C1 (HPB DMAC, `0xff801000` + mux/clock `0xffc08000`; F3/SD blocker): blocked 2026-11-21 (task/m8.c1-hpb-dmac). Static read: `SDHC.dll fn 0x039be010` (port 0 → ch 8) maps 0xffc08000 (ch 0–20, 0x40 stride) vs 0xff801000 (ch 21–22); ch8/ +0x0814 match C10 ACMD13 window `0x1fc08200`–`0x1fc08234`/`0x1fc08814` (C-1370–C-1372). `fn 0x039bafcc` waits >=4000 ms on `0x01f381c4` (C-1373). Helpers decoded (C-1376–C-1378): `sub_039be50c` SAR/DAR/TCR (+0x00/04/08 or +0x0C/10/14), `sub_039be4d0/59c/5d8` +0x24/28/2C, `sub_039be614` OR `(1<<ctx[0])` into common +0x0814 under 0x7530 ms sync, `sub_039be6b8` trigger +0x30/poll +0x34 bit 0; callers show two-layer completion (event wait + poll, EXP O8). DMARS ptr for ch8 computed as `0xffc0883c` (`ctx+96`) but no static runtime write/literal found; nk refs only +0x80c/810/814 (O9, C-1379). Blocker: DMARS request-source for SD ch 8 and nk ISR/INTC→event completion linkage unresolved; no `-M ze0` HPB-DMAC model/validation, so F3 remains blocked. Unblock: implement+validate HPB-DMAC in tools/qemu-ze0 and re-run C10 ACMD13 (or resolve DMARS/IRQ linkage by runtime trace). EXP: `docs/experiments/EXP-2026-11-20-M8.C1-hpb-dmac.md`. Claims C-1370–C-1379.
     - C10 (SD host): done 2026-11-20 (task/m8.c-sd-host-c10). Result: EXP-2026-11-20-M8.C10-sd-host (C-1460–C-1464). Patch `ze0-0008`: SDHI/TMIO-style ports at `0xffe4c000`/`0xffe4d000` on QEMU's SD bus (card detect = SD_INFO1 bit 5, `SDHC.dll fn 0x039bcedc`, EU2011), IRQs INTEVT `0xae0`/`0xb00` (SYSINTR `0x1f`/`0x20`, INT2 bit 29), SCIF stubs for a kernel-mode TEND spin in `serial_scif.dll`; `run.sh --sd`; tool `ze0_sdhost.py`. The launcher's SD check passes, `ActivateSDCardDriver` runs the card identification on the EU card and its init returns `End(NG)` without hanging boot; the first data transfer (ACMD13) uses the HPB DMAC and times out, so F3 (FAT mount) waits on **C1** (HPB DMAC, channel registers at `0xffc08200`).
 
-- [ ] **M8.D1 — Decision gate after F1: continue to F2/F3?**
-  - Status: blocked · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
+- [x] **M8.C1b — HPB-DMAC model on `-M ze0`: SD data transfers work, the card mounts (F3)**
+  - Status: done · Owner: Claude (task/m8.c1b-hpb-dmac-model) · Critical: no · Pair: solo
+  - Step: tooling
+  - Depends: M8.B5; rows C1 and C10 of the peripheral umbrella task
+  - Goal: row C1 of M8.C read the DMA engine statically and stopped with no model: `SDHC.dll` programs HPB-DMAC channel 8 (`0xffc08200`, common `0xffc08814`) for every data transfer, and on `-M ze0` the first one (ACMD13, 64 B) times out (`EventID = 2`, 4000 ms; C-1462, C-1370–C-1379). Model the DMAC in the `ze0` machine so SD reads complete and the FAT volume of the card mounts (F3). Requested by Marek 2026-11-21.
+  - Precheck: `bash tools/qemu-ze0/run.sh --image archive/head256.img --machine ze0 --icount shift=0,sleep=off --sd CARD.qcow2 --timeout 240 --qemu QEMU --workdir W --log /dev/null --no-summary; python3 tools/ze0_sdhost.py serial W/serial.log` prints `activate_ng 1` and `event2_timeout 2` with the current twelve patches.
+  - Scope: a new patch `ze0-0009` in both series (`tools/qemu-ze0/patches/` for 8.2.10 and `patches/11.1/` for 11.1.3): HPB-DMAC channel and common registers as `SDHC.dll` uses them, the transfer between the SD host's data port and guest RAM, the completion signal the driver waits for (event 2) and its interrupt; `tools/ze0_sdhost.py` reports the transfers. EU2011 IMG256 with the EU 2011 card behind a qcow2 overlay.
+  - Input: EXP-2026-11-20-M8.C1-hpb-dmac (C-1370–C-1379), EXP-2026-11-20-M8.C10-sd-host (C-1460–C-1464), `tools/qemu-ze0/patches/ze0-0008-hw-sh4-ze0-sd-host.patch`, `tools/ze0_sdhost.py`, `tools/ze0_dbgmsg.py`.
+  - Done when: one `-M ze0` boot with the card logs `ActivateSDCardDriver … End(OK` (no `EventID = 2 Timeout`), data blocks read through the DMAC equal the card image (hash of at least one block), and either the FAT volume is mounted (a file of the card is opened: F3) or the next blocker after the first block reads is named with its log line. Negative controls: the same boot with the DMAC model off reproduces the timeout; a transfer with a wrong block returns different bytes. EXP + claims.
+  - Stop: if completion needs a peripheral other than the DMAC and the SD host (for example the micon), record the register or event and stop.
+  - Falsifier: with a model that moves the bytes and raises every interrupt the driver enables, event 2 still times out.
+  - Claims: C-6870–C-6879
+  - Result: EXP-2026-11-21-M8.C1b-hpb-dmac-model (C-6870–C-6879). Patch `ze0-0009` (8.2.10 and 11.1.3): HPB-DMAC model at `0xffc08000` (status/clear/enable `+0x80c`/`+0x810`/`+0x814`; channels 8/9 = SD ports, INTEVT `0xc60`/`0xc80`, INT2 bit 19), DMA side of the SD host, card password by trust-on-first-use, three fixes of QEMU's card model (CMD6 status, CMD42 length checks), PIO gate fix, debug-SCIF area-7 alias. Boot on the EU card: `End(OK`, no `EventID = 2 Timeout`, 47 DMA transfers, 42 of 42 block reads equal to the card image (shifted control 0 of 42), LOCK+UNLOCK pass, opening image loaded, `Store Mgr Ready! [DSK1:]`, two partitions mounted: **F3 reached**. Controls: `hpbdmac=off` brings the timeout back; a card with no password is refused. Next stop: `VerInf` empty, `Error Proc<00000050>`, `FailSafe.exe` (M8.C1c). New: `tools/qemu-ze0/mkoverlay.py`, `ze0_sdhost.py dmatrace`.
+
+- [ ] **M8.C1c — Launcher after the mount: where `VerInf` comes from and what `Error Proc<00000050>` tests**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: reader
+  - Depends: M8.C1b
+  - Goal: with the card mounted under `-M ze0` (F3, C-6875) the EU2011 launcher logs `VerInf: / HddInf:QSD-302-100` with an empty `VerInf`, then `AppLch >> Error Proc<00000050>!!` and starts `FailSafe.exe` instead of `Navi.exe` (C-6877). This is the unit's own accept/reject decision for a card, in situ. Find the code, name both inputs (which file gives `HddInf`, what gives `VerInf`: flash, registry, micon?) and the comparison, and say what the emulator must provide for the applications to start.
+  - Precheck: `python3 tools/ze0_sdhost.py serial SERIAL.log` of a `-M ze0` boot with `ze0-0009` and the EU card prints `store_ready 1`, `applch_error 1`, `failsafe_start 1`.
+  - Scope: EU2011 launcher (`AppLch`): the function that prints `VerInf: %s / HddInf:%s`, its callers and the `Error Proc<%08x>` path for code `0x50`; static first, then one `-M ze0` run that confirms the branch (`tools/ze0_dbgmsg.py run --hook`).
+  - Input: EXP-2026-11-21-M8.C1b-hpb-dmac-model, `tools/sh4xref.py`, `tools/cerom.py`, `tools/ze0_dbgmsg.py`, M8.E2 (registry as loaded), `docs/research/us-eu-region.md`.
+  - Done when: the two inputs and the test are named with VAs and one run shows the branch taken; either a machine option or stub makes the launcher pass the check and the next log lines are recorded, or the missing input (for example a flash block) is named. EXP + claims.
+  - Stop: if `VerInf` comes from the micon or the NOR flash user area with no static default, record the access and stop (rows C4/C8 of M8.C).
+  - Falsifier: the launcher reaches `Error Proc<00000050>` on a path that does not read `VerInf` or `HddInf`.
+  - Claims: C-6880–C-6889
+
+- [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
+  - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F1 stable kernel; see `todo-history-2026-11-05.md` §M8.D)
   - Goal: after F1, continue to F2/F3 only if L3 (M9) is blocked by runtime state, or an automatic regression loop without hardware is wanted; re-estimate F2–F4 and record the decision.
   - Precheck: `grep -c '^- \[x\] \*\*M8.B5 — Milestone F1' TODO.md` prints `1` (the trigger, F1, is reached).
@@ -4760,7 +4799,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     2. **F2 only when a driver blocks the F3 boot: 2–4 weeks, unchanged.** 11 rows, none worked except C1/C2, which the `ze0-0008` patch already touches (C-1463); F2 loads `device.exe` drivers, it does not read a map file.
     3. **F4 only after M8.D2: 1–3 months, unchanged.** Nine rows; C4 micon + C5 CAN are the "unknown protocol" risk and C18 the display. It is the only stage that feeds the map tasks, through M8.E4.
     The automatic-regression-loop half of the Goal has no consumer today (no M9 task waits on F3); it pays only if a boot-run gate is wanted. Re-estimate: F2 `2–4 weeks` (unchanged), F3 `1–2 weeks` (was `2–4 weeks`, HLE `~1 week`), F4 `1–3 months` (unchanged).
-  - Result: EXP-2026-11-21-M8.D1-decision-after-f1 (negative, with positive control; recommendation and F2–F4 re-estimate in this block and the critical path). C-1590–C-1594.
+  - Result: Marek decision 2026-11-21 (project thread): "Zrealizuj zatem DMA dla karty SD" = continue to F3 on the model path. F3 was reached the same day (M8.C1b, C-6875), in hours rather than the estimated 1–2 weeks. F2 as a separate stage was not needed.
   - Done when: the decision and its re-estimate are written down; no code change implied.
   - Claims: C-1590–C-1594
 
@@ -4780,6 +4819,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     - **Cheaper alternative while F3 is blocked:** §5's table already gives L3 the per-function answers F4 would give in context, so F4 is worth its months only for the boot-ordered file-access log and the `HDD_INFO` decision in situ (M8.E4) — not for format coverage.
   - Result: EXP-2026-11-21-M8.D2-decision-after-f3; C-1595–C-1599. Negative gate record: trigger not reached, recommendation above, `blocked` on the F3 log.
   - Claims: C-1595–C-1599
+  - Note: 2026-11-21: the gate is due — F3 is reached (M8.C1b, C-6875; `ze0_sdhost.py serial` prints `store_ready 1`, `part_mounted 2`; `l4_status.py` still scores only F0 from a log). Marek the same day asked for the next two steps (launcher `VerInf`/`Error Proc<00000050>` = M8.C1c, serial DMA = row C2) and for the move to QEMU 11.1.3 (M8.A11); the F4 decision itself (micon/CAN) is still his.
 
 - [x] **M8.E1 — Run the kernel's ROM decompressor as a tool**
   - Status: done · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: no

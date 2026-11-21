@@ -36,7 +36,7 @@ REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 #
 # Two patch series, one per QEMU API generation; the file names are the same:
 #   patches/*.patch        QEMU 8.2.x   (the default pin)
-#   patches/11.1/*.patch   QEMU >= 11.0 (port of the same 12 patches)
+#   patches/11.1/*.patch   QEMU >= 11.0 (port of the same 13 patches)
 # series_dir() below picks the series from the version; --patch-dir overrides.
 # --------------------------------------------------------------------------
 QEMU_VERSION="8.2.10"
