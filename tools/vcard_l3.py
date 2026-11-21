@@ -792,6 +792,16 @@ def _ticks(m):
     return 0
 
 
+@model("GetSystemTime")
+def _getsystemtime(m):
+    # SYSTEMTIME *out; 2011-03-15 10:20:30.000, Tuesday (wDayOfWeek 2).
+    try:
+        m.put(m.arg(0), struct.pack("<8H", 2011, 3, 2, 15, 10, 20, 30, 0))
+    except EngineError:
+        pass
+    return 0
+
+
 @model("GetLastError")
 def _gle(m):
     return m.last_error

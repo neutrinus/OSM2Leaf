@@ -5484,8 +5484,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-5910–C-5919 (was none yet (take the next free block when claimed); fresh block for this run)
   - Result: `docs/experiments/EXP-2026-11-20-M9.53-record-block-read.md` (C-5910–C-5917). `datask_l3.py mount --request MESH` (new; opens the client slot with `0x003ed6e8`, which `0x00405970` requires) reads one record block after the mount: parcel code `0xa6cdd6be` (the record's own words 0–1; directory (77, −83) of `B48R058R`) → tag `0x0900`, handler `0x00404ee4` (memmove to the buffer start), word swap `0x003f6968`, inflate `0x0054233c`, unit table read by `0x00405078` (the "parsed" of Done when: read, inflated, unit table read and served; the link walk is M9.58), reply `0x14b6` sub 3 (data). On the generated tile the firmware reads **our** record (from our pair entries), inflates it to 184 B with the Adler-32 checked, reads its unit table and answers sub 3 as for the factory record; pair-entry flip (M9.13 C2) and record-byte flip are DIFFERENT (the latter: sub 9). Navigator review fixed the request id (`0x26c18ab2` got sub 9 = no record; C-5916 retracted, C-5918). Correction of M9.52: state 3 refuses map requests; they are served in state 2 (C-5913). The links are walked by the client task (`0x14b6` sub 3): M9.58.
 
-- [ ] **M9.58 — Walk our road record in the client task: hand `0x14b6` sub 3 to the renderer**
-  - Status: in progress · Owner: task/m9.58-renderer-walk-record · Critical: yes · Pair: required
+- [x] **M9.58 — Walk our road record in the client task: hand `0x14b6` sub 3 to the renderer**
+  - Status: done · Owner: task/m9.58-renderer-walk-record · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.53 (done)
   - Goal: M9.53 makes the data-access task read and inflate our record and serve it (`0x00405078` reads the unit table, reply `0x14b6` sub 3; C-5918); the links are walked by the client task that gets that reply. Rule 13 for records: see the firmware walk *our* links.
@@ -5495,6 +5495,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the handler needs the renderer's own state that cannot be set after two models, record the faulting read and stop.
   - Falsifier: the client handler copies the record but loads none of its link words (then name where it goes next).
   - Claims: C-6010–C-6019
+  - Result: EXP-2026-11-21-M9.58-renderer-walk; 0x0042613c copies rec+0x2c 11264 B F / 512 B G and the tail 1112 B / 20 B; one-link change DIFFERENT; no link word loaded, next hop LOC_map (M9.66)
 
 - [x] **M9.57 — Find who subscribes the data-access task to object-store event 11 (state 3 of the mount)**
   - Status: done · Owner: task/m9.57-event11-subscriber · Critical: no
@@ -5615,6 +5616,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if loading a second module's text into `vcard_l3`'s engine needs more than wiring the existing loader (e.g. a shared global map it cannot provide), record what is missing and set `blocked` on the engine change it needs.
   - Falsifier: after binding, the consumer still faults before its first unit-0 read, or the `STDDLL` call returns a different verdict than `poi_position_l3.py`.
   - Claims: C-6740–C-6749
+
+- [ ] **M9.66 — Drive the `LOC_map`/`LOC_db`/`raw_rec` tasks and find the shape walk of a served record**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M9.58 (done)
+  - Goal: M9.58 shows the client task's sub-3 handler `0x0042613c` copies the record into the group buffers and then posts `LOC_map` a `0x0fa0` sub `0x019a` message (`0x004259bc` -> `0x0041ee14`, destination `*0x011fff74`), but no code in that run reads the copies and the `LOC_map` receiver `0x00421548` returns without touching them (C-6016, C-6017). The shape/link walk of a served record is therefore in one of the tasks the launcher `Navi_ctrl` starts (`LOC_db`, `LOC_map`, `RAW_rec`) or behind `0x00421548`'s branches that need that task's own state. Find it and run it on our record (rule 13: `docs/format/map-tiles.md` needs the walk, not only the copy).
+  - Precheck: `python3 /home/marek/projekty/leafre-work/scratch/m9.58/probe_exp_record4.py` prints `[G] memmove … n=512 sha1=6ffb5d4ffbb3c3ec…` and `buffer guest reads during 0x00428200: b0=0 b1=0`; `python3 tools/datask_l3.py mount archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.70,17.45 --request 0xa6cdd6be` prints `reply 0x14b6 sub 3: 0x1 0x4 0xd8b53c 0x0 0x0`.
+  - Scope: EU2011. (1) the launcher's `Navi_ctrl` section `0x0032efa8`: how `LOC_db` (`0x111c0`), `LOC_map` (`0x111c8`) and `RAW_rec` (`0x111d0`) are started (`0x004b9174` receive loop, task create `0x0042??`), their ids landing in `0x011fff5c`/`0x011fff74`; (2) start them in `vcard_l3.py`/`datask_l3.py` (or a new tool) in the order the launcher does and deliver the `0x0fa0` sub `0x019a` message; (3) name the function that reads the group's shape buffer (`group+0x1a0`) or the tail (`group+0x1b0`) and the byte counts it loads; (4) F/G compare plus a one-link change control; (5) the other `0x0fa0` subtypes (`0x019a`, `0x0258`, M3.6's type table) if the walk is behind one of them.
+  - Input: `tools/vcard_l3.py`, `tools/datask_l3.py`, `tools/sh4dis.py`, `tools/sh4xref.py`, EXP-2026-11-21-M9.58-renderer-walk (C-6010–C-6017), EXP-2026-11-06-M3.6-tile-sections-renderer (`0x0fa0` type table), `docs/format/map-tiles.md`.
+  - Done when: the function(s) that walk a served record's shape/link words are named with their VAs, the byte counts they load on F and on G, and a one-link change gives DIFFERENT; or the walk is shown to need the display/preview layer and the task records where it stops, with the positive control that the same harness runs one other `0x0fa0` subtype end to end. EXP + claims; `reader-coverage.md` row 17.
+  - Stop: if a task needs the display driver (`XGLDLL`/`MDP_draw`) to be mapped, record the missing export and stop; do not stub the draw.
+  - Falsifier: the served record's link words are never loaded by any code, and the shape buffers are dead until the next map request overwrites them.
+  - Claims: C-6750–C-6759
 
 ## Retired leads
 
