@@ -274,8 +274,10 @@ def _is_git_ignored(path):
 
 # A pinned head the repository can fetch by key (`fetch_image.py --image IMG256`
 # writes the IMG256 head; `archive/head256.img` is its documented local name,
-# TODO "Shared inputs"). Add the US head here only when H62 pins a `US256` key.
-PINNED_HEAD_PATHS = {"archive/head256.img"}
+# TODO "Shared inputs"). H62 added the `US256` key for the US head
+# (`archive/us256.img`, `70d945d8…`); both are re-creatable, so a clean clone
+# (no `archive/`) is not a missing-evidence defect.
+PINNED_HEAD_PATHS = {"archive/head256.img", "archive/us256.img"}
 
 # A path is additionally ``vendor-pin`` when its evidence cell carries a way to
 # re-create it (a fetch command or a pinned SHA-256).
@@ -1406,7 +1408,7 @@ def run_selftest():
         PINNED_HEAD_PATHS.discard("archive/h74-pinned-head.img")
 
     # (e3) an unpinned archive/ file with no pinned row is the genuine defect
-    # (C-3703 shape: `archive/us256.img`, no H62 fetch yet).
+    # (C-3703 shape before H62 pinned `US256`; a synthetic path stands in).
     solo = ("| C-9012 | The run reads an unfetched head. | VERIFIED (tool) | H | "
             "EXP-2026-11-16-H74-fixture; `python3 tools/fn_match.py match "
             "archive/h74-solo.img archive/head256.img` |\n")
@@ -1414,6 +1416,18 @@ def run_selftest():
     r15 = check(solo, exps_fixture, run_counts=False)
     assert [p["kind"] for p in r15["bad_paths"]] == ["gd"], r15["bad_paths"]
     assert [p["id"] for p in genuine_path_problems(r15["bad_paths"])] == ["C-9012"]
+
+    # (e4) both heads the repo can re-create by key are vendor-pin exemptions,
+    # and each key exists in fetch_image's table (H60-side regression: a clean
+    # clone must not report `archive/us256.img` as missing evidence).
+    assert PINNED_HEAD_PATHS == {"archive/head256.img", "archive/us256.img"}, \
+        PINNED_HEAD_PATHS
+    import fetch_image as _fi
+    for key, head in (("IMG256", "archive/head256.img"),
+                      ("US256", "archive/us256.img")):
+        alias = _fi.ALIASES[key]
+        assert alias in _fi.PART_PINS, (key, alias)
+        assert head in PINNED_HEAD_PATHS, head
 
     # --- H74 round 2: claim vs cited EXP count ----------------------------
     # (f) a claim's `26 checks` against an EXP that quotes `22` is a conflict;
