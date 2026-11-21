@@ -39,7 +39,10 @@ decisions / rejected:
 
 problems:
   - my checkout was behind origin/main mid-run (M1.36b #400, H99 #399); lost --base
-    origin/main showed 15 claims gone until I fetched. Rebased before commit.
+    origin/main showed 15 claims gone until I fetched. FF'd onto 9ed939ce before commit;
+    gate re-run there: 4 pass / 0 fail / 0 skip (fn_audit PASS, not SKIP).
+  - M1.36b's EXP was staged-identical to origin but present untracked locally; removed
+    the identical copy to let the ff proceed (content preserved on origin/main).
 
 tasks added: M5.65, M5.66. re-opened: 0. archived: 7 (above). archived file:
   docs/research/todo-history-2026-11-21.md.
