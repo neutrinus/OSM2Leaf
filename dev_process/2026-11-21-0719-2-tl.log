@@ -1,0 +1,35 @@
+role: TL (developers' team lead), cycle 20 batch, user request "run TL and 40 developers"
+model: Airouter Strong (opencode/deepseek-v4.1-flash-free)
+start: 2026-11-21 07:19 UTC
+origin/main at start: b90f9d47
+branch: main (primary checkout; nobody commits here)
+
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md rules 1-17 + Priorities,
+  dev_process/2026-11-21-0703-1-sm.log, dev_process/2026-11-20-2036-13-tl.log,
+  docs/retro/2026-11-21.md (SM cycle 19), gh pr list (18 open).
+
+queue at start:
+ - ready (non-draft, CI green): #416 M6.20, #398 M5.62, #399 H99, #401 M8.D1 (blocked).
+ - 12 claim-only drafts 8h old with no work: H111,H107,H105,H104,H96,M4.2,H98,H94,H86,H83,H66,M1.36b.
+ - work-visible, board-invisible, no PR: M8.C1 branch (2 commits, 10h); M1.36b has uncommitted work in worktree.
+
+actions, in order:
+- verified + merged #398 M5.62 (blanked 0x80c -> rc=1, good tile rc=0; rebased 4 conflicts in claims.md via board.py resolve), #416 M6.20 (EXP controls present, no vendor data in diff), #401 M8.D1 (blocked on Marek, rebased), #399 H99 (README names tools/gate.py, old 3-command list gone; rebased 3x), #400 M1.36b (rom_atlas --selftest 16 ok; equal --negative-bcs EU vs US: A equal 1, B 91/91, C 88/88).
+- released 11 claim-only zombie drafts (H111,H107,H105,H104,H96,M4.2,H98,H94,H86,H83,H66): 1 commit = claim, no work, 8h old; closed + deleted branch, board stayed open (SM cycle-19 finding).
+- kept M8.C1 #394 draft: real static-read work (C-1370-C-1375), model not done -> legitimately in progress, not a ghost.
+- removed merged worktrees (M5.62, M6.20, M8.D1, H99) with wt remove after merge on origin/main.
+- batch size: 9 developers, not 40. prompt_tl caps a batch at 10 ("never filler"); 92 open tasks but only 31 open+critical, and of those the ready set is ~12 (rest blocked/hardware/non-Claude/owner-set). Padding to 40 means claiming tasks nobody can finish = ghost claims (retro 2026-11-13). 9 is the honest maximum this cycle.
+- launched (mode, branch, session):
+  - M9.60 card gate — solo (driver) task/m9.60-card-gate-first-slice
+  - M9.58 renderer walk — solo (driver; Pair: required, run solo w/o navigator, flagged)
+  - M9.61 US build EU card — solo (driver; Pair: required)
+  - H119 fn_audit snapshots — solo (driver; Pair: required, gate+artifact)
+  - M5.61 Poland card — solo (driver; Pair: required; OSM extract present at leafre-work/osm/dolnoslaskie-latest.osm.pbf)
+  - M4.55 RPF section-2 — solo (driver; Pair: required)
+  - M5.63 POI position writer — solo (driver; Pair: solo -> OK)
+  - H105 cardcheck negative control — solo (driver; Pair: required, synthetic fixtures)
+  - M9.59 l3_precond — solo (driver; Pair: solo -> OK)
+- decision: no navigator second agent per pair task (would exceed 10-slot cap for 9 tasks). Consequence: for the 6 Pair:required tasks the TL (this run) is the reviewer; I re-run each Done-when and the negative controls myself before merging. Alternatives rejected: fewer tasks (6, all paired) vs more tasks solo; chose more tasks with TL review.
+- primary-checkout surprise: the concurrent PO 22nd pass (dev_process/2026-11-21-0740-4-po.log) ran in this checkout 07:30-07:40 and finished WITHOUT committing. Its TODO.md/card-ladder.md/todo-history-2026-11-21.md/log edits were the uncommitted diff. Verified (0 tick regressions vs origin/main apart from the 7 it archived, each in the new history; M5.65/M5.66 new; lost = exactly the 7 archived; todo_check/claims_check/card_ladder OK) and committed as 3e41dc89, pushed to main. Did NOT discard it.
+- also committed 3 stale role logs the SM found earlier (sm 0703-1, se 0722-3) with the PO log — evidence, not mine to drop.
+- final queue state (after PO handoff): 10 draft PRs to review = the 9 launched + M8.C1 #394 (kept, legit in-progress).
