@@ -2275,8 +2275,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: one session.
   - Claims: none yet (take the next free block when claimed)
 
-- [ ] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
-  - Status: in progress · Owner: task/m5.62-l2-tile-section-list · Critical: no · Pair: solo
+- [x] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
+  - Status: done · Owner: task/m5.62-l2-tile-section-list · Critical: no · Pair: solo
   - Step: P1
   - Depends: M3.33 (done)
   - Goal: the firmware leaves a `BxxRyyyR.DAT` whose section list at header `0x800` has fewer than three entries on the first mount and goes on in the first tile of its box table (C-6080–C-6083). Nothing in L2 says so: a writer change that drops an empty section would pass every gate and lose the tile on the unit.
@@ -2284,7 +2284,8 @@ text of this section is in git (`13cb0cf`).
   - Scope: one rule in `tools/l2check.py` (and its selftest) for generated `BxxRyyyR.DAT` tiles: three entries at `0x800`, `0x806`, `0x80c`, none `ff ff ff ff`. Factory tiles copied verbatim are reported as INFO, not failed (8 of 45 factory tiles have fewer, C-6085). Use `tile_drop_l3.parse_section_list`.
   - Done when: `l2check` fails a synthetic tile whose third entry is blanked and passes the unchanged `one_tile_pipeline.py --synthetic` tile; the selftest holds both cases.
   - Stop: one session.
-  - Claims: none yet (take the next free block when claimed)
+  - Claims: C-6510–C-6519
+  - Result: `docs/experiments/EXP-2026-11-21-M5.62-l2-tile-sections.md` (C-6510–C-6519). `tools/l2check.py` gains `tile_section_list` (via `tile_drop_l3.parse_section_list`): a `BxxRyyyR.DAT` named on `--tiles`/`--semantic-tiles`/`--class-tiles` must list three entries at `0x800`/`0x806`/`0x80c`, none `ff ff ff ff`; `LEV3456R.DAT` is out of scope. The unchanged `one_tile_pipeline.py --synthetic` `B48R058R` tile passes (`[tile_section_list] OK (B48R058R.DAT=3; …)`, exit 0), the same tile with `0x80c` blanked fails naming `0x80c` (exit 1); a tile identical to the new `--factory-root` file (factory verbatim) and an unnamed default-list tile are INFO, so the raw EU 2011 factory card stays `RESULT: PASS` (the 2/2/1-entry B28R070R/B30R060R/B58R070R are INFO, C-6085). `--selftest` holds all five cases (27 ok); `selftest.py --only l2check` passed=1; gate 4 pass, 0 fail, 0 skip. Claim block C-6510–C-6519 (C-6500–C-6509 is reserved by M4.58).
 - [ ] **M5.63 — POI writer: fine position, spatial-tree leaf and index records for a moved or added POI**
   - Status: open · Owner: — · Critical: yes · Pair: solo
   - Depends: M4.27 (done), M5.26 / M4.47 (chain regeneration and relocation, done); M3.34 strengthens the gate but does not block the build
