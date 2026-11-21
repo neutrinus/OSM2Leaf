@@ -43,6 +43,12 @@ chunk the inner page lives in, so one outer stream differs instead of all of
 them.  ``--whole-blob`` keeps the old behaviour (every outer stream recompressed
 at factory parameters), which the M5.12c copy/round-trip scans rely on.
 
+``--legacy-m513b`` reproduces the M5.13b S2 pair (`af4c9ff1…`, 4,233,336 B
+``.cmp``): it pads the edited page to the next 0x100 boundary (L6, L9 fallback),
+which on the US POINT010 page overwrites an abutting inner page. That image is
+byte-reproducible but **corrupt**; use it to re-make the historical record only
+(EXP-2026-11-21-M6.20).
+
 Usage:
   python3 mutate_refer_poi.py CMP IND OUTDIR --page 0x4200 \
       --old "VATICAN MUSEUM" --new "OSM2LEAF PROBE"
@@ -702,6 +708,38 @@ def selftest() -> int:
     assert same_offs == list(offs)
     checks += 1
 
+    # M6.20 --legacy-m513b: the pre-M5.25 refit pads the edited page to the next
+    # 0x100 boundary and does not stop at a non-zero tail, so it overwrites the
+    # bytes an abutting page left there.  This is the historical M5.13b path,
+    # reproducible but corrupt; pin both halves of that behaviour.
+    lpage = 0x100
+    lstream = zlib.compress(page, 6)
+    lslot = (len(lstream) + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
+    # An abutting page head starts just past this stream, inside the pad window.
+    abutting = b"\x78\x9c" + b"\xAA" * 8
+    lb = bytes(b"\x00" * lpage + lstream + abutting + b"\x00" * (PAGE_ALIGN - len(lstream) - len(abutting)) + b"\xBB" * 0x20)
+    edited, _ = edit_inner(page, [
+        {"at": beta_at, "old": "BETA MUSEUMS", "new": "OSM2 TEST   "},
+    ])
+    lnew, lrow = refit_page_legacy(lb, lpage, edited)
+    assert lrow["decision"] == "legacy" and lrow["encoder"]["level"] == 6, lrow
+    assert lrow["nonblank_overwritten"] >= len(abutting), lrow
+    # the abutting page head is gone from the output, and the pad to the boundary is zero
+    assert abutting not in lnew[lpage:lpage + lslot]
+    assert lnew[lpage + lrow["new_stream"]: lpage + lslot] == b"\x00" * (lslot - lrow["new_stream"])
+    assert lnew[lpage + lslot:] == b"\xBB" * 0x20, "legacy path touched bytes past the pad"
+    assert b"OSM2 TEST   @VIA TWO" in zlib.decompress(lnew[lpage:lpage + lrow["new_stream"]])
+    # the modern path refuses to eat that tail: its slot is capped at the stream
+    # end, so the edited page (which grew) does not fit and is refused, untouched
+    try:
+        refit_page_budget(lb, lpage, edited, headroom_ratio=0.0)
+    except FitError as exc:
+        assert "stream" in str(exc) and "> limit" in str(exc), exc
+        assert exc.row["slot"] == len(lstream) < lrow["slot"], exc.row
+    else:
+        raise AssertionError("modern refit overwrote an abutting page")
+    checks += 1
+
     print(f"mutate_refer_poi selftest: OK ({checks}/{checks} checks)")
     return 0
 
@@ -744,6 +782,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--chunk-preserving", action="store_false", dest="whole_blob",
                     help="keep unchanged outer 64 KiB streams byte-verbatim "
                          "(the default; the opposite of --whole-blob)")
+    ap.add_argument("--legacy-m513b", action="store_true",
+                    help="reproduce the M5.13b S2 pair: pad the edited page to the "
+                         "next 0x100 boundary (L6, L9 fallback), which overwrites an "
+                         "abutting page. REPRODUCTION ONLY -- the result is corrupt "
+                         "(EXP-2026-11-21-M6.20)")
     ap.add_argument("--selftest", action="store_true",
                     help="run the synthetic page-framing checks and exit")
     return ap
@@ -835,6 +878,47 @@ def refit_page(blob: bytes, page: int, new_inner: bytes,
     new blob. See ``refit_page_budget`` for the budget row."""
     new_blob, _ = refit_page_budget(blob, page, new_inner, headroom_ratio=headroom_ratio)
     return new_blob
+
+
+def refit_page_legacy(blob: bytes, page: int, new_inner: bytes) -> tuple[bytes, dict]:
+    """The M5.13b refit (commit 339feed8): pad past the stream to the next
+    0x100 boundary, L6 with an L9 fallback, no zero-run guard.
+
+    M5.13b's US POINT010 page ends 15 B before a 0x100 boundary and an
+    **abutting** inner page starts 3 B after the stream end. This path writes
+    the slot as ``pad to boundary``, so it overwrites the first ~204 B of that
+    neighbouring page with zero bytes -- the recorded S2 (`af4c9ff1…`) is
+    byte-reproducible only this way and is therefore **corrupt** (EXP-2026-11-21-M6.20).
+    It is kept for reproduction of that historical image, not as a card recipe.
+    Returns ``(new_blob, row)``.
+    """
+    dec = zlib.decompressobj()
+    dec.decompress(blob[page:])
+    if not dec.eof:
+        raise PageError(f"page {page:#x} is not a complete zlib stream")
+    consumed = len(blob[page:]) - len(dec.unused_data)
+    limit = (page + consumed + PAGE_ALIGN - 1) & ~(PAGE_ALIGN - 1)
+    # The neighbour bytes this path destroys, for the caller's warning.
+    overwritten = bytes(blob[page + consumed: limit])
+    stream = zlib.compress(new_inner, 6)
+    level_used = 6
+    if page + len(stream) > limit:
+        stream9 = zlib.compress(new_inner, 9)
+        if page + len(stream9) <= limit:
+            stream = stream9
+            level_used = 9
+        else:
+            raise FitError(
+                f"page {page:#x}: L6 {len(stream)} / L9 {len(stream9)} bytes, "
+                f"only {limit - page} available before {limit:#x}")
+    row = {"page": page, "stream": consumed, "slot": limit - page,
+           "headroom": 0, "limit": limit - page, "new_stream": len(stream),
+           "encoder": {"level": level_used, "memLevel": 8},
+           "decision": "legacy", "overwritten": len(overwritten),
+           "nonblank_overwritten": sum(1 for b in overwritten if b)}
+    buf = bytearray(blob)
+    buf[page:limit] = stream + bytes(limit - page - len(stream))
+    return bytes(buf), row
 
 
 def batch_edit(blob: bytes, plan: list[dict],
@@ -993,15 +1077,26 @@ def main(argv: list[str] | None = None) -> int:
         assert len(new_inner) == len(inner)
 
     # M5.25: unified M5.21 slot budget (factory params M1.13/M1.16, refuse+report).
-    headroom = 0.0 if args.headroom is None else args.headroom
-    try:
-        new_blob, row = refit_page_budget(blob, page, new_inner, headroom_ratio=headroom)
-    except FitError as exc:
-        raise SystemExit(f"refusing: {exc}") from exc
-    limit = page + row["slot"]
-    print(f"inner page recompressed: {row['new_stream']} bytes "
-          f"(was {row['stream']}, enc {row.get('encoder')}), "
-          f"slot {row['slot']} limit {row['limit']} headroom {row['headroom']}")
+    if args.legacy_m513b:
+        try:
+            new_blob, row = refit_page_legacy(blob, page, new_inner)
+        except (FitError, PageError) as exc:
+            raise SystemExit(f"refusing: {exc}") from exc
+        limit = page + row["slot"]
+        print(f"inner page recompressed [LEGACY M5.13b]: {row['new_stream']} bytes "
+              f"(was {row['stream']}, L{row['encoder']['level']} memLevel 8), "
+              f"slot {row['slot']} -> boundary {limit:#x}; overwrites "
+              f"{row['overwritten']} B past the stream, {row['nonblank_overwritten']} non-zero")
+    else:
+        headroom = 0.0 if args.headroom is None else args.headroom
+        try:
+            new_blob, row = refit_page_budget(blob, page, new_inner, headroom_ratio=headroom)
+        except FitError as exc:
+            raise SystemExit(f"refusing: {exc}") from exc
+        limit = page + row["slot"]
+        print(f"inner page recompressed: {row['new_stream']} bytes "
+              f"(was {row['stream']}, enc {row.get('encoder')}), "
+              f"slot {row['slot']} limit {row['limit']} headroom {row['headroom']}")
     assert len(new_blob) == usize
     if args.copies_report:
         try:
