@@ -15,8 +15,8 @@ A rung with no runnable gate is printed as `NOT RUN — <task>`, never as prose.
 
 | Rung | Region / profile | Tile set | Change vs factory | Gate commands | Deliberately not proven |
 | --- | --- | --- | --- | --- | --- |
-| **P0** | `profiles/dolnoslaskie-test.json` | `B48R058R` (the whole test box is inside it) | section-1 display geometry of that one tile is OSM-derived; everything else factory | census, `cardcheck --root/--image`, `fit_census`, `check-diff`, `l2check`, `7z t` (§P0) | routing, names, search, any firmware read (rule 13) |
-| **P1** | same profile | same one tile | **nothing in the tile**: factory bytes copied verbatim; only `DRSTR001.DAT` may move | census, `fit_census` delta 0; the card gate is `NOT RUN — M5.49` (§P1) | that OSM data reaches the unit (P0 does that); routing/names/search; firmware read |
+| **P0** | `profiles/dolnoslaskie-test.json` | `B48R058R` (the whole test box is inside it) | section-1 display geometry of that one tile is OSM-derived; everything else factory | census, `cardcheck --root/--image`, `fit_census`, `check-diff`, `l2check`, `7z t`, **`l3check --card-gate`** (§P0) | routing, names, search (rule 13); what the gate's three rows do not reach (§P0) |
+| **P1** | same profile | same one tile | **nothing in the tile**: factory bytes copied verbatim; only `DRSTR001.DAT` may move | census, `fit_census` delta 0, **`l3check --card-gate`** (§P1) | that OSM data reaches the unit (P0 does that); routing/names/search; firmware read beyond the gate's three rows |
 | **P2** | `profiles/poland-full.json` | 4 tiles (`B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`) | section 2 + `LEV3456R.DAT` sec2 (routing), road-class table | census only today; **`NOT RUN — M5.16`** (routing), **`NOT RUN — M5.36`** (class golden) (§P2) | everything about names/search; firmware read |
 
 P3 (names) and P4 (search) are M5.38's rows and are out of scope here until a
@@ -57,6 +57,7 @@ copy the image, patch the tile, patch the manifest (EXP-2026-11-19-M5.30).
 | 8 | same, **without** `--allow-metadata` | `diffs: 586 range(s), outside: 9, metadata: 0` | **1** |
 | 9 | `python3 tools/l2check.py --root $W --no-golden --tiles B48R058R.DAT --semantic-tiles B48R058R.DAT --cmp-limit 20` | `tile_semantic] OK (B48R058R.DAT=2333602)` and `RESULT: PASS` | 0 |
 | 10 | `7z t $S/p0.img` | `Everything is Ok` | 0 |
+| 11 | `python3 tools/l3check.py --card-gate --card $S/p0.img --factory $IMG --position 51.70,17.45` | `counts   pass=3 fail=0 not-run=0 total=3` and `RESULT: PASS` | 0 |
 
 Rows 3 and 8 are **expected to exit 1**: `fit_census` signals "does not fit the
 factory chain" and `check-diff` signals "bytes outside the admitted class" with
@@ -98,6 +99,36 @@ not move".
 **What P1 deliberately does not prove.** Everything P0 does not prove, plus the
 one P1-specific gap: a verbatim factory tile proves the *pipeline* carries the
 region unchanged, not that OSM data reaches the unit — that is P0's gate.
+
+## P0 and P1 read by the firmware: the L3 card gate
+
+`tools/l3check.py --card-gate --card CARD.img --factory IMG [--position LAT,LON]`
+runs the firmware's own mount and file sweep in the pure-Python SH-4 engine
+(M9.60) and makes the exit code the verdict. Three rows, each `PASS` / `FAIL` /
+`NOT RUN`:
+
+| Row | What it runs | PASS means |
+| --- | --- | --- |
+| `boot` | `vcard_l3.py boot` (the map-file layer's mount) | verdict `ACCEPT`, `0` firmware error-log calls |
+| `sweep` | `vcard_l3.py sweep` (every file of the volume table read back) | every file comes back byte-identical to the host decode |
+| `mount` | `datask_l3.py mount` at each `--position` (the data-access task) | no tile read has a negative status and the run equals the factory run (`SAME`) |
+
+EU2011 build only; a US or 2014/2016 EU card is `NOT RUN (build)`, never
+`PASS`; without a card the rows are `NOT RUN` and the exit is `3`. The card's
+build is read from its first 96 MiB (the firmware region, below the map
+partition), so a card edit in the map cannot move it. On the factory card, P0
+and P1 the gate prints `counts   pass=3 fail=0` and exits `0`
+(EXP-2026-11-21-M9.60-card-gate-first-slice). A card whose
+`MAPAL001/B48R058R.DAT` is the M5.56 tile cut at `0x9100` fails the `sweep` and
+`mount` rows naming `MAPAL001/B48R058R.DAT` (exit `1`); a card with a corrupted
+`DRSTR001.DAT` fails `boot` with `mount REJECT` (exit `1`).
+
+**What the L3 gate deliberately does not reach.** The three rows run the
+map-file layer, the data-access task's mount and the tile reads it parses; they
+do not run routing (M5.16), names/search (M4.36/M5.16), the renderer (M9.58)
+or the launcher's map-code check (M2.5/M2.15), and L3 is a firmware fragment,
+not the unit (L4 is M8, the car is L5). The POI row is M9.12/M9.31; this gate
+does not carry it.
 
 ## P2 — routing and the class golden (placeholder)
 

@@ -5175,18 +5175,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6060–C-6069
   - Result: EXP-2026-11-21-M9.59-precond-build-runs-elsewhere; C-6060–C-6069; selftest 45 PASS; --all-targets 7 READY/2 BLOCKED/4 RUNS-ELSEWHERE; gate 4 pass/0 fail/0 skip
 
-- [ ] **M9.60 — Card gate, first slice: the firmware's own mount and file sweep as `l3check --card` rows with an exit code**
-  - Status: in progress · Owner: task/m9.60-card-gate-first-slice · Critical: yes · Pair: required
+- [x] **M9.60 — Card gate, first slice: the firmware's own mount and file sweep as `l3check --card` rows with an exit code**
+  - Status: done · Owner: task/m9.60-card-gate-first-slice · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.13 (done), M9.14 (done), M9.52 (done)
   - Goal: M9.12 (the software gate before any car test) waits on M9.31 → M9.41 → M9.55, all for the POI row. The rows that check a whole card already run and do not need it: `vcard_l3.py boot` and `sweep` (M9.12's own note, C-4630/C-4651) and `datask_l3.py mount` + `diff` against the factory run. They are not a gate yet: `datask_l3.py mount` exits 0 on a tile the firmware fails to read (re-run 2026-11-20 on EU2011: the M5.56 padded tile cut at `0x9100` logs two extra `ErrorLogMsg` and still exits 0). Make them one command whose exit code is the verdict, so P0/P1 cards are gated at L3 now and M9.12 only adds rows later.
   - Precheck: `python3 tools/datask_l3.py mount archive/head256.img --card-image CARD --position 51.70,17.45 --json F.json` ends `state 2 … reads 28` on the EU2011 factory card (SHA-256 `105e2032…76307`); `python3 tools/vcard_l3.py boot archive/head256.img --card-image CARD` prints `firmware error log calls: 0`.
-  - Scope: `tools/l3check.py --card IMG --factory IMG [--position LAT,LON]…` runs three rows and prints PASS/FAIL/NOT RUN per row: `boot` (mount verdict, 0 error-log calls), `sweep` (every file read back through the firmware), `mount` (no tile read with a negative status, error-log count equal to the factory run; `SAME` when the card claims to be a no-op). EU2011 build only; a US card is `NOT RUN (build)`, never PASS. No change to `targets.json` semantics; M9.31/M9.12 keep their rows.
+  - Scope: `tools/l3check.py --card-gate --card IMG --factory IMG [--position LAT,LON]…` runs three rows and prints PASS/FAIL/NOT RUN per row (`--card-gate` added so M9.12's plain `--card/--factory` diff gate is unchanged): `boot` (mount verdict, 0 error-log calls), `sweep` (every file read back through the firmware), `mount` (no tile read with a negative status, error-log count equal to the factory run; `SAME` when the card claims to be a no-op). EU2011 build only; a US card is `NOT RUN (build)`, never PASS. No change to `targets.json` semantics; M9.31/M9.12 keep their rows.
   - Input: `tools/vcard_l3.py`, `tools/datask_l3.py` (`mount`, `diff`), `tools/l3check.py`, EXP-2026-11-20-M5.56-no-factory-container (the negative cases), M5.49's P1 card recipe.
   - Done when: on EU2011 the factory card and the P0 card (`b0faf119…`) exit 0 with three PASS rows; a card whose `B48R058R.DAT` is the M5.56 tile cut at `0x9100` exits 1 naming the read; a card with a corrupt `DRSTR001.DAT` (M9.14's case) exits 1 at `boot`; without a card image the rows are `NOT RUN` and the exit is 3. `--selftest` covers the verdict table without vendor data. `docs/format/card-ladder.md` names this command as the L3 gate of P0 and P1.
   - Stop: if `sweep` on a full card takes more than 20 minutes, gate on `boot` + `mount` and record the sweep time.
   - Falsifier: a card that fails in the factory-compared mount but passes the gate.
-  - Claims: C-6350–C-6359
+  - Claims: C-6720–C-6729
+  - Result: EXP-2026-11-21-M9.60-card-gate-first-slice; factory/P1/P0 3/3 PASS exit 0, US NOT RUN exit 3, neg9100 exit 1 (sweep+mount name the read), negdrstr exit 1 at boot, selftest 29 checks
 
 - [ ] **M9.61 — The US build's map client on an EU card: does the firmware in Marek's unit read Poland tiles**
   - Status: in progress · Owner: task/m9.61-us-build-eu-card · Critical: yes · Pair: required
