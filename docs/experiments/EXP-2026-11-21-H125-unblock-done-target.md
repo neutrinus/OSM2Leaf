@@ -142,14 +142,19 @@ change — that would mean the rule was not confined to `--strict`.
   green, with `fn_audit` PASS and not SKIP:
 
   ```text
+  $ git rev-parse --short HEAD
+  ece6408c
   GATE          RESULT    SECS  NOTE
-  selftest      PASS    125.99
-  claims_check  PASS      7.55
+  ------------  ------  ------  ----------------------------------------
+  selftest      PASS    123.32
+  claims_check  PASS      8.51
   todo_check    PASS      0.06
-  fn_audit      PASS      4.19
+  fn_audit      PASS      4.43
   gate: 4 pass, 0 fail, 0 skip
-  gate exit=0
   ```
+
+  The verdict (`4 pass, 0 fail, 0 skip`) is stable across runs; the SECS
+  column is host- and load-dependent, quoted from the run at `ece6408c`.
 
 ## Interpretation
 
