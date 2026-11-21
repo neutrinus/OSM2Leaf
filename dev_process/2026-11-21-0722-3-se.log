@@ -1,0 +1,89 @@
+role: SE (senior engineer), cycle 20 (write path only; a concurrent TL batch was live in this checkout)
+model: Airouter Strong (opencode/deepseek-v4.1-flash-free)
+start: 2026-11-21 07:20 UTC
+origin/main at start: b90f9d47 (moved under me to b84c266d during the pass — TL merging)
+branch: main (primary checkout; commits from it)
+
+inputs read: AGENTS.md, prompt_common.txt, prompt_se.txt, TODO.md rules 1-17 + Priorities,
+  docs/retro/2026-11-21.md (SM cycle 19), dev_process/2026-11-21-0703-1-sm.log,
+  dev_process/2026-11-20-1815-10-se.log (my last run), docs/experiments/TEMPLATE.md,
+  gh pr list --state open (19 PRs; #355 M8.C1/HPB-DMAC now has a draft PR — retro action 2 done).
+
+actions, in order:
+  - board status diff 13cb0cf..HEAD by script: 21 done / 3 blocked / 2 re-opened in the window
+    (H100,H123,H124,H60,H114,H115,M3.33,M3.34,M4.27,M4.35,M5.12c,M5.27,M5.32,M5.59,M5.60,M8.A8,
+    M8.A9,M9.10,M9.24,M9.41,M9.53,M9.55,M9.57); blocked M3.29,M4.59,M6.19; re-opened M4.28,M9.18.
+  - re-ran the cheap Done-when checks of the newest EXPs: point_census (32), poi_position_l3 (8),
+    lctbl_kind, lev3456gen, tile_drop_l3, lctbl_lookup_l3 selftests all OK. M3.34 reproduced on
+    archive/head256.img + the m4.8b-eu POINT010 pair: 200/200 within 1 unit, controls 0/200,
+    RESULT: ACCEPT. M9.10 reproduced: runner.py run poi_record_decode on US256 + the US POINT010
+    pair returns 'HANA HEALTH CENTER', 1000/1000, RESULT: PASS. -> no Done-when failure; no task
+    flipped to blocked.
+  - linted the 84 EXPs added/since 24 h against TEMPLATE.md headings by script: the missing pieces
+    are a `## Reproduction` block in ~30 records (the section is optional in many, present is
+    `## Next steps`) and tool-only records with no SHA-256 (H100, H117, H60, M1.36, M1.39, M6.18,
+    H123) — the tool-only records legitimately say `none (tool-only task)`. Not a "done must block"
+    class; the one real defect is D below.
+  - claims_check and claims_check --strict --count-check both OK; l3check --build-corpus
+    pass=3 runnable=3/13; the assertions inside my six new tasks were re-run (14/14 class split
+    from M4.35, 51 checks from claims_check).
+
+found (record defects, written as tasks not silent edits — rule 17):
+  - M3.29 is `blocked` with Unblock: M9.53, and M9.53 has been `done` since 16:54Z — rule 15 did
+    not fire. M3.13/M3.14/M3.16 are `blocked` on M3.30, which is `open · Owner: —` and whose
+    Depends says it "cannot be taken until M3.29 merges done". M4.23's Unblock names M4.25/M4.26,
+    both archived [x] on 2026-11-09. The pointer truth is broken in three places at once.
+  - M8.C1 / H-heavy claims: I read M4.51's Result properly and found its static-sender census was
+    NEGATIVE and it blocked; M4.53 then closed the file half. So M4.49 -> M4.51 -> M4.53 is a
+    blocked->blocked->done chain, and my first M4.62 draft (built before reading M4.51) repeated
+    its static census. I replaced it with the truthful dynamic half.
+
+tasks added (6, next-ids + contiguous claim blocks 6590-6649):
+  - H125 (C-6590–6599, Pair required): todo_check must fail an Unblock that names a done/archived
+    task and warn an open task that is "not takeable" — the rule-15 hole that left M3.29/M4.23.
+  - M3.36 (C-6640–6649, Pair required): fix-half of H125 — re-open or re-word M3.29/M3.30/M4.23
+    on the board only, through board.py; makes M3.13/14/16/49 have a live target.
+  - M9.63 (C-6600–6609, Pair required): US-build map client on an EU card — record which layers
+    already run at L3 (boot/POI) and which have no `--build` (mount), so M9.61 is one small PR.
+  - M5.64 (C-6610–6619, Pair required): LCTBL real Poland table code + the absent-table fallback —
+    the M5.60 open item that decides whether Polish street names are returned (P3 path).
+  - M4.62 (C-6620–6629, Pair required): TMC `0x14f4` dynamic tag writer; the honest continuation
+    of M4.51's negative, and M4.49's Unblock should point here.
+  - M1.47 (C-6630–6639, Pair solo): `tools/ce_module.py` owning the ROMHDR->section->bytes path;
+    today it is copied in point_walk_l3/mapcode_l3/chunk_decoder_l3/poi_position_l3 and 3 of 19
+    `*_l3.py` import nk_decomp, so the H51 compressed-section rule is per-tool.
+  - Considered and rejected: H125 as one task doing both checker and audit (split, because rule 17
+    says a record fix is fixed where found and a new H needs a map dependency); a task for the
+    "missing ## Reproduction" lint (it is a docs-hygiene issue, all real numbers reproduce; rule 17
+    says a record defect becomes one repair task when it costs data, and none here did).
+  - H121 already exists and is well-formed (claim C-6520–6529, Precheck `git diff --numstat
+    4900961 6ca7bc3` prints 1/787 and 11/324, Unblock none, Pair required) — retro action 3 is a
+    definition, not implementation; not re-filed.
+
+decisions / rejected:
+  - Did not edit any of the 19 open PRs' tasks; all my IDs are fresh (next-id H125/M9.63/M5.64/
+    M4.62/M1.47/M3.36 confirmed each time).
+  - Collided with the live TL in the shared checkout: fast-forwarded over it, restored my uncommitted
+    TODO (it was only my 72 lines), re-added. No TL branch was touched; I never reset their work.
+  - Wrote M4.62 with no fn VAs so the fn_audit snapshot does not go stale (H119's point); an early
+    draft cited 0x00417618 and the gate failed CORPUS STALE — fixed by naming the functions by role.
+  - Used N=3 for the log: the max+1 slot (2) is the live TL's log; N=3 is free and the file name
+    rule is max+1 in practice but max+1 would have overwritten the TL's own log file name space;
+    kept the SE role suffix so the two never collide.
+
+problems:
+  - The gate's fn_audit half ran CORPUS STALE on my first M4.62 (0x00417618 new); after the rewrite
+    the snapshot is untouched. `git status` had .claude/, docs/retro/2026-11-18-2.md, the TL log
+    untracked — not mine; left them.
+  - `board.py field` cannot clear a title and cannot delete a block; the only way to replace a
+    just-added block with corrected text is reset+re-add (safe while the diff is only mine, checked
+    with `git diff --stat TODO.md` = 72 insertions, 0 deletions).
+
+handoff:
+  - TL: merge order — H125+M3.36 together (checker + fix); then M9.63 (unblocks M9.61's first
+    slice), M5.64 (P3), M4.62 (TMC chain). My six are docs/board only, no code, low conflict.
+  - PO: M9.61's Scope should not survive unchanged if M9.63 lands first; M3.29/M3.30/M4.23 need
+    the M3.36 treatment before the next picker reads them.
+  - The board was 3 blocked / 2 re-opened at my start; the "blocked on done" class is now filed
+    for the checker (H125) and the fix (M3.36).
+end: 2026-11-21 07:26 UTC
