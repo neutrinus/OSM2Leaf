@@ -1,0 +1,53 @@
+role: PO (product owner), 22nd pass
+model: Airouter Strong (opencode/deepseek-v4.1-flash-free)
+start: 2026-11-21 07:30 UTC
+origin/main at start: 1ebbae73 (advanced under me to 9ed939ce — M1.36b #400, H99 #399)
+branch: main (primary checkout; commits from it)
+
+inputs read: AGENTS.md, prompt_common.txt, prompt_po.txt, TODO.md rules 1-17 +
+  Priorities, docs/retro/2026-11-21.md (SM cycle 19), dev_process/2026-11-21-0722-3-se.log
+  (my last run was 2026-11-20-1828-11-po.log), logs 0703-1-sm / 0719-2-tl since then,
+  the SE's six new blocks (H125, M3.36, M9.63, M5.64, M4.62, M1.47), gh pr list --state open.
+
+actions, in order:
+  - map_signals.py snapshot quoted into Priorities (numbers unchanged since cycle 18;
+    card_step now P0 — the four numbers did not move and the section says so).
+  - rule-15 audit by script: 31 blocked, 5 whose Unblock names a done task (M3.14,
+    M3.16, M3.18, M3.29, M4.51). None is a clean flip — each still has a live second
+    blocker, and M3.29/M4.23/M3.30 are M3.36's scope. Re-opened 0; left them to M3.36.
+  - archive: 7 done blocks, >24 h by Status-line blame, named by no live block and
+    holding no fn_audit-pinned line: M4.15 M4.18 M1.13 M5.21 M9.39 M8.A2 M8.A10.
+    TODO.md 5323 -> 5148. Verified 0 new/0 gone and 0 added drift (the 26 moved rows
+    are pre-existing at HEAD — measured against HEAD before restoring the archive).
+  - card-ladder: removed 2 stale pending rows (M9.55 M9.41, both merged); tagged the
+    9 untagged open blocks via board.py field Step (M4.57/58/59/60 tooling, M4.61 P4,
+    M4.62/M5.64 P3, M5.63 P4, M9.63 tooling). steps --check now missing=0 stale=0.
+  - added M5.65 (section-4 place names from OSM; M4.21's nameless generate is the gap)
+    and M5.66 (L2 visual map gate: render a tile, pixel/geometry diff). Searched TODO
+    first: no existing section-4 named-index writer, no L2 render row.
+  - rewrote Priorities prose: header, four rule-17 numbers, the in-flight 10 PRs, the
+    next TL list, the By-card-ladder and Critical-path subsections, Map-signal block.
+
+decisions / rejected:
+  - Did NOT hand-fix M3.29/M3.30/M4.23 (SE's M3.36 owns it; prompt says so).
+  - Did NOT re-open M3.14/16/18/M4.51: they still wait on a live blocker; a premature
+    re-open would make them pickable against an incomplete target.
+  - Archive kept off the last pinned live line? No — the pinned live rows are all below
+    4287 and my blocks sit above it in M4/M5/M8/M9, so movers 501..5038 only shift
+    pinned rows below 4287 by 0; the 26-moved drift is unchanged from HEAD anyway.
+  - Did NOT touch claims.md (M1.36b/H99 on origin changed it; my copy was stale).
+
+problems:
+  - my checkout was behind origin/main mid-run (M1.36b #400, H99 #399); lost --base
+    origin/main showed 15 claims gone until I fetched. Rebased before commit.
+
+tasks added: M5.65, M5.66. re-opened: 0. archived: 7 (above). archived file:
+  docs/research/todo-history-2026-11-21.md.
+
+handoff:
+  - TL: 10 draft PRs are the queue (M9.58 #424, M5.61 #423, M9.60 #422, M9.61 #426,
+    M4.55 #428, M5.63 #427, M9.59 #430, H105 #429, H119 #425, M8.C1 #394) — review and
+    merge, do not launch a new batch. H125+M3.36 together before any blocked REFER pick.
+  - QA: gate must be 4/0/0 with fn_audit not SKIP; card_ladder steps --check must stay
+    missing=0 stale=0 after the next merge (pending rows are prose, easy to re-add).
+end: 2026-11-21 07:40 UTC

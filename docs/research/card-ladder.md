@@ -193,5 +193,4 @@ on a row whose block is already tagged or closed (stale).
 
 | ID | Step | Why not in the block |
 | --- | --- | --- |
-| M9.55 | P4 | open PR #340 (second TL batch of 2026-11-20) |
-| M9.41 | P4 | re-opened by PR #340 when it merges |
+<!-- no pending rows: M9.55 (#340) and M9.41 both merged on 2026-11-20/21 (PO, rule-15/stale sweep) -->
