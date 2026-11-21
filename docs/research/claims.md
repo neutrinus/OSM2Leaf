@@ -4917,3 +4917,9 @@ into three printed classes.
 | C-6903 | With the transmit working the audio-network protocol still fails the same way: `CInaiProtocol::GetWriteResult! failed wait response.` 9 674 times in run S (one per transmit) and 9 770 in control N (`hpbdmac-serial=off`, no transmit); the failure is the missing reply of the peer, not the DMA. | VERIFIED | H | EXP-2026-11-22-M8.C2a-serial-dma O4, O5 runs S and N |
 | C-6904 | Every transmitted audio-network frame in run S is `10 02 02 08 00 10 03 19`: DLE STX, three payload bytes, DLE ETX and a last byte equal to the XOR of payload, `10` and `03`. That the reply is expected on SCIF1 through receive channel 1 is a HYPOTHESIS. | OBSERVED | M | EXP-2026-11-22-M8.C2a-serial-dma O6 |
 | C-6905 | The two `Retry... WriteFile (Write size disagreement. (6:0))` lines of the EU2011 boot belong to the LCD module (`ErrorLogMsg … [ERR_MDL_LCD]`) and appear with and without serial DMA; they are not the audio-network path. | OBSERVED | M | EXP-2026-11-22-M8.C2a-serial-dma O5 |
+
+
+## H86 - claims half of the standing gate
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-4090 | README hard-gate list names tools/gate.py. | PROPOSED | - | EXP-2026-11-21-H86-h86-claims-gate-blocking |
