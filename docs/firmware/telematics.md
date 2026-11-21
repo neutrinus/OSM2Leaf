@@ -95,11 +95,12 @@ trying them all (OBSERVED).
 | APN | `ISPDA@CINGULARGPRS.COM` | `0x00025520` | `0x00025b48` |
 | APN | `internet.connexion` | `0x00025548` | `0x00025b70` |
 
-The US scan (`ce_strfind … archive/us256.img … --encoding ascii`, 16 needles)
-reported **16 hits**, the EU scan **17**; the one missing US needle is
-`qa.nissan-gev.com`. So the endpoint *table* is essentially the same in both
-builds, but the EU build carries a `qa.nissan-gev.com` base-URL alternate the US
-build does not (VERIFIED by the two hit counts). The string VAs differ between
+The same scan (`ce_strfind … --encoding ascii`, 18 needles) reported **19
+hits** on EU and **18** on US (`biz.nissan-gev.com` matches twice in EU); the
+one needle absent in US is `qa.nissan-gev.com`. So the endpoint *table* is
+essentially the same in both builds, but the EU build carries a
+`qa.nissan-gev.com` base-URL alternate the US build does not (VERIFIED by the
+two hit counts). The string VAs differ between
 builds even where the string is identical (`biz.nissan-gev.com` at
 `0x000252d0` EU vs `0x000258f8` US), because `sec0` is a different size.
 
@@ -149,9 +150,11 @@ function allocates a `80<<2 = 320`-byte session record, EU `0x000b2336`).
 `fn 0x000a738c` (eu2011) is the HTTP request-body builder: it checks an object
 size of `68<<8`, writes the fixed XML prolog
 `<?xml version="1.0" encoding="UTF-8" standalone="no"?>` (EU `0x000234a8`), then
-copies a named message body from the file `cws_snd.xml` (`0x000235d0`). The
-received body is parsed into `cws_rcv.xml` (`0x00023630`). In us2011 the same
-role is `fn 0x000a8674` (string `cws_snd.xml` at `0x00023c88`). The probe side
+copies the named message body from the file `cws_snd.xml` (`0x000235d0`). The
+received body name `cws_rcv.xml` (`0x00023630`) is loaded by a separate
+function, `fn 0x000a7b10`, not by `0x000a738c`. In us2011 the send role is
+`fn 0x000a8674` (`cws_snd.xml` at `0x00023c88`) and the receive side
+`fn 0x000a8df8` (`cws_rcv.xml` at `0x00023ce8`). The probe side
 uses `prb_snd.xml` (`0x000235dc`). These are the **message envelope**: the
 request is an XML document, not a binary payload, at the application layer.
 
