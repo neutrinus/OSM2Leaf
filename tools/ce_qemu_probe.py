@@ -47,6 +47,24 @@ _EXC = re.compile(r"exception 0x([0-9a-f]+) \[([a-z_]+)\] raised")
 _PC = re.compile(r"\bpc=0x([0-9a-f]+)")
 
 
+def log_items(qemu):
+    """``-d`` items for the probe.
+
+    QEMU >= 10 logs an access to unmapped memory under ``invalid_mem``
+    instead of ``guest_errors``; ask for it where the binary has it, so the
+    access list means the same on 8.2 and on 11.x (TODO M8.A9, C-4323).
+    """
+    items = "unimp,guest_errors,int"
+    try:
+        out = subprocess.run([qemu, "-d", "help"], capture_output=True,
+                             text=True, timeout=20).stdout
+    except (OSError, subprocess.SubprocessError):
+        return items
+    if re.search(r"^invalid_mem\b", out, re.M):
+        items += ",invalid_mem"
+    return items
+
+
 def summarize_log(text):
     """Return (accesses, exceptions) from a QEMU ``-d unimp,guest_errors,int`` log.
 
@@ -161,7 +179,7 @@ def main(argv=None):
               % (first & 0x1FFFFFFF, (first & 0x1FFFFFFF) + len(blob), first, len(blob)))
     log = os.path.join(work, "qemu.log")
     cmd += ["-device", "loader,addr=0x%x,cpu-num=0" % entry,
-            "-d", "unimp,guest_errors,int", "-D", log]
+            "-d", log_items(a.qemu), "-D", log]
     print("entry  0x%08x (nk.exe)" % entry)
 
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

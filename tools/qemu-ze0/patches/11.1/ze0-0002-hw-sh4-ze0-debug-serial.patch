@@ -1,0 +1,66 @@
+QEMU 11.1.3 port (TODO M8.A9) of patches/ze0-0002-hw-sh4-ze0-debug-serial.patch.
+Base: tag v11.1.3 plus the earlier patches of this directory, in sorted order.
+What the patch does and why: the header of the 8.2 patch of the same name
+and patches/README.md; what changed in the port: patches/11.1/README.md.
+
+diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
+index 9f9354dd0..9abf521a4 100644
+--- a/hw/sh4/Kconfig
++++ b/hw/sh4/Kconfig
+@@ -21,6 +21,7 @@ config ZE0
+     default y
+     depends on SH4
+     select SH4_CCN
++    select SH_SCI
+     select UNIMP
+ 
+ config SH7750
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 09f8cfa23..49d1a84c4 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -30,6 +30,8 @@
+ #include "hw/core/qdev-properties.h"
+ #include "hw/sh4/sh.h"
+ #include "hw/sh4/sh4_ccn.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/qdev-properties-system.h"
+ #include "system/system.h"
+ 
+ #define ZE0_RAM_BASE   0x08000000u
+@@ -47,6 +49,16 @@
+ #define ZE0_AREA6_BASE     0x18000000u
+ #define ZE0_AREA6_SIZE     0x04000000u
+ 
++/*
++ * Kernel debug SCIF (TODO M8.A6, claim C-534).  nk.exe EU2011 polls SCFSR
++ * (+0x10) for TDFE (0x20), stores the byte to SCFTDR (+0x0c) and clears
++ * TDFE/TEND in its only SCIF routine, fn 0x8804cfa4; QEMU's sh_serial in
++ * SCIF mode has the same layout.  It is wired to serial port 0 (-serial),
++ * so -nographic puts it on stdio.  The other SCIF channels stay in the P4
++ * catch-all, where their accesses are logged.
++ */
++#define ZE0_DEBUG_SCIF_BASE 0xffe46000u
++
+ static void ze0_init(MachineState *machine)
+ {
+     SuperHCPU *cpu;
+@@ -103,6 +115,18 @@ static void ze0_init(MachineState *machine)
+     memory_region_add_subregion(sysmem, ZE0_CCN_IO_BASE, sh4_ccn_iomem(ccn));
+     memory_region_add_subregion(sysmem, ZE0_CCN_ARRAY_BASE, sh4_ccn_arrays(ccn));
+ 
++    /* Kernel debug SCIF (M8.A6) on serial port 0, over the P4 catch-all. */
++    {
++        DeviceState *scif = qdev_new(TYPE_SH_SERIAL);
++
++        scif->id = g_strdup("ze0-debug-scif");
++        qdev_prop_set_uint8(scif, "features", SH_SERIAL_FEAT_SCIF);
++        qdev_prop_set_chr(scif, "chardev", serial_hd(0));
++        sysbus_realize_and_unref(SYS_BUS_DEVICE(scif), &error_fatal);
++        memory_region_add_subregion(sysmem, ZE0_DEBUG_SCIF_BASE,
++                                    sysbus_mmio_get_region(SYS_BUS_DEVICE(scif), 0));
++    }
++
+     /* Boot-blocker stubs (M8.A5): priority 1 over the P4/area-6 catch-all. */
+     qdev_realize_and_unref(qdev_new("ze0-stubs"), NULL, &error_fatal);
+ }

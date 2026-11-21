@@ -1,0 +1,193 @@
+QEMU 11.1.3 port (TODO M8.A9) of patches/ze0-0007-sh4-ze0-dbgmsg-hook.patch.
+Base: tag v11.1.3 plus the earlier patches of this directory, in sorted order.
+What the patch does and why: the header of the 8.2 patch of the same name
+and patches/README.md; what changed in the port: patches/11.1/README.md.
+
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 4346c906e..9ff5cdf08 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -34,6 +34,7 @@
+ #include "hw/timer/tmu012.h"
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties-system.h"
++#include "chardev/char.h"
+ #include "system/system.h"
+ #include "system/reset.h"
+ #include "qemu/bswap.h"
+@@ -75,6 +76,31 @@
+  */
+ #define ZE0_DEBUG_SCIF_BASE 0xffe46000u
+ 
++/*
++ * Kernel debug text on the debug serial port (TODO M8.B6).  EU2011 nk.exe
++ * never writes its debug strings to a UART: every NKDbgPrintfW ends in
++ * fn 0x880404f4 (r4 = the formatted UTF-16 string), which writes them to an
++ * AstLog buffer (0x88044478) and, when the words at 0x89e613b0/0x89e613b4
++ * are both 1, to the "DebugLog" log handle (0x8804048c); neither path
++ * touches 0xffe46000 (M8.A6, C-1281/C-1282).  dbgmsg=VA makes QEMU copy the
++ * string at r4 to serial port 0 whenever the instruction at VA executes,
++ * before it runs: an emulator-side HLE hook, no guest byte is changed.
++ * A string that does not end in '\n' gets one, so each message is a line.
++ * Default 0 = off (the boot writes 0 serial bytes, C-1281).
++ */
++static Chardev *ze0_dbgmsg_chr;
++
++static void ze0_dbgmsg_write(const uint8_t *buf, size_t len)
++{
++    if (ze0_dbgmsg_chr) {
++        qemu_chr_write(ze0_dbgmsg_chr, buf, len, true);
++        if (len && buf[len - 1] != '\n') {
++            /* one message per line: end an unterminated string */
++            qemu_chr_write(ze0_dbgmsg_chr, (const uint8_t *)"\n", 1, true);
++        }
++    }
++}
++
+ /*
+  * TMU ch0-2 (TODO M8.B1/M8.B2).  EU2011 nk.exe fn 0x8803c9c6 programs
+  * TMU0 at 0xffd80000 (TSTR +4, TCOR0 +8, TCNT0 +0xc, TCR0 +0x10 = 0x0021,
+@@ -116,6 +142,7 @@ struct Ze0MachineState {
+     uint64_t app_off;
+     bool tmu;
+     bool ext_ram;
++    uint32_t dbgmsg_va;
+ };
+ 
+ #define ZE0_DEFAULT_KERNEL_OFF 0x3e00200u
+@@ -363,6 +390,13 @@ static void ze0_init(MachineState *machine)
+                                     sysbus_mmio_get_region(SYS_BUS_DEVICE(scif), 0));
+     }
+ 
++    /* Kernel debug text on serial port 0 (M8.B6), off unless dbgmsg=VA. */
++    if (ZE0_MACHINE(machine)->dbgmsg_va) {
++        ze0_dbgmsg_chr = serial_hd(0);
++        sh4_dbgmsg_sink = ze0_dbgmsg_write;
++        sh4_dbgmsg_va = ZE0_MACHINE(machine)->dbgmsg_va;
++    }
++
+     /* Boot-blocker stubs (M8.A5): priority 1 over the P4/area-6 catch-all. */
+     qdev_realize_and_unref(qdev_new("ze0-stubs"), NULL, &error_fatal);
+ 
+@@ -405,6 +439,11 @@ static void ze0_machine_instance_init(Object *obj)
+     object_property_add_bool(obj, "tmu", ze0_get_tmu, ze0_set_tmu);
+     object_property_set_description(obj, "tmu",
+         "map TMU ch0-2 at 0xffd80000 (default on; off = negative control)");
++    object_property_add_uint32_ptr(obj, "dbgmsg", &s->dbgmsg_va,
++                                   OBJ_PROP_FLAG_READWRITE);
++    object_property_set_description(obj, "dbgmsg",
++        "VA of the kernel debug-string sink whose r4 (UTF-16) is copied to "
++        "serial port 0 (EU2011: 0x880404f4; default 0 = off)");
+     object_property_add_uint64_ptr(obj, "kernel-off", &s->kernel_off,
+                                    OBJ_PROP_FLAG_READWRITE);
+     object_property_set_description(obj, "kernel-off",
+diff --git a/target/sh4/cpu.h b/target/sh4/cpu.h
+index 6984bb462..f8440040b 100644
+--- a/target/sh4/cpu.h
++++ b/target/sh4/cpu.h
+@@ -380,4 +380,14 @@ static inline void cpu_write_sr(CPUSH4State *env, uint32_t sr)
+ /* Set FPSCR and the derived float_status rounding/flush-to-zero state. */
+ void cpu_load_fpscr(CPUSH4State *env, uint32_t val);
+ 
++#ifndef CONFIG_USER_ONLY
++/*
++ * Debug-string hook (TODO M8.B6, set by -M ze0,dbgmsg=VA): when the guest
++ * executes the instruction at sh4_dbgmsg_va, the NUL-terminated UTF-16
++ * string at r4 is passed to sh4_dbgmsg_sink as UTF-8.  0 = off.
++ */
++extern uint32_t sh4_dbgmsg_va;
++extern void (*sh4_dbgmsg_sink)(const uint8_t *buf, size_t len);
++#endif
++
+ #endif /* SH4_CPU_H */
+diff --git a/target/sh4/helper.h b/target/sh4/helper.h
+index 77b6d878f..030aae343 100644
+--- a/target/sh4/helper.h
++++ b/target/sh4/helper.h
+@@ -1,6 +1,7 @@
+ DEF_HELPER_1(ldtlb, void, env)
+ DEF_HELPER_1(raise_illegal_instruction, noreturn, env)
+ DEF_HELPER_1(raise_iaddr_error, noreturn, env)
++DEF_HELPER_1(dbgmsg, void, env)
+ DEF_HELPER_1(raise_slot_illegal_instruction, noreturn, env)
+ DEF_HELPER_1(raise_fpu_disable, noreturn, env)
+ DEF_HELPER_1(raise_slot_fpu_disable, noreturn, env)
+diff --git a/target/sh4/op_helper.c b/target/sh4/op_helper.c
+index fbc7999d8..f54d880b8 100644
+--- a/target/sh4/op_helper.c
++++ b/target/sh4/op_helper.c
+@@ -76,6 +76,57 @@ void helper_raise_iaddr_error(CPUSH4State *env)
+     raise_exception(env, 0x0e0, 0);
+ }
+ 
++#ifndef CONFIG_USER_ONLY
++uint32_t sh4_dbgmsg_va;
++void (*sh4_dbgmsg_sink)(const uint8_t *buf, size_t len);
++
++#define SH4_DBGMSG_MAX_CHARS 1024
++
++/*
++ * Read the UTF-16LE string at r4 through the current MMU context (the way
++ * the gdbstub reads memory, no guest exception) and hand it to the sink as
++ * UTF-8.  Surrogates and unreadable memory end the string.
++ */
++void helper_dbgmsg(CPUSH4State *env)
++{
++    CPUState *cs = env_cpu(env);
++    bool bank1 = (env->sr & (1u << SR_MD)) && (env->sr & (1u << SR_RB));
++    uint32_t addr = env->gregs[bank1 ? 16 + 4 : 4];
++    uint8_t out[SH4_DBGMSG_MAX_CHARS * 3];
++    size_t n = 0;
++    int i;
++
++    if (!sh4_dbgmsg_sink) {
++        return;
++    }
++    for (i = 0; i < SH4_DBGMSG_MAX_CHARS; i++) {
++        uint8_t b[2];
++        uint16_t c;
++
++        if (cpu_memory_rw_debug(cs, addr + 2 * i, b, 2, false) != 0) {
++            break;
++        }
++        c = b[0] | (b[1] << 8);
++        if (c == 0 || (c >= 0xd800 && c <= 0xdfff)) {
++            break;
++        }
++        if (c < 0x80) {
++            out[n++] = c;
++        } else if (c < 0x800) {
++            out[n++] = 0xc0 | (c >> 6);
++            out[n++] = 0x80 | (c & 0x3f);
++        } else {
++            out[n++] = 0xe0 | (c >> 12);
++            out[n++] = 0x80 | ((c >> 6) & 0x3f);
++            out[n++] = 0x80 | (c & 0x3f);
++        }
++    }
++    if (n) {
++        sh4_dbgmsg_sink(out, n);
++    }
++}
++#endif
++
+ void helper_raise_slot_illegal_instruction(CPUSH4State *env)
+ {
+     raise_exception(env, 0x1a0, 0);
+diff --git a/target/sh4/translate.c b/target/sh4/translate.c
+index 4e840c026..57e71d3ae 100644
+--- a/target/sh4/translate.c
++++ b/target/sh4/translate.c
+@@ -2295,6 +2295,12 @@ static void sh4_tr_translate_insn(DisasContextBase *dcbase, CPUState *cs)
+         ctx->base.pc_next += 1;
+         return;
+     }
++#endif
++#ifndef CONFIG_USER_ONLY
++    if (unlikely(sh4_dbgmsg_va && ctx->base.pc_next == sh4_dbgmsg_va)) {
++        /* M8.B6: copy the debug string at r4 to the dbgmsg sink. */
++        gen_helper_dbgmsg(tcg_env);
++    }
+ #endif
+     ctx->opcode = translator_lduw(env, &ctx->base, ctx->base.pc_next);
+     decode_opc(ctx);

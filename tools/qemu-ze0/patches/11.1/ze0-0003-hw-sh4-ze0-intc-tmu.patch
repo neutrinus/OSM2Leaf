@@ -1,0 +1,442 @@
+QEMU 11.1.3 port (TODO M8.A9) of patches/ze0-0003-hw-sh4-ze0-intc-tmu.patch.
+Base: tag v11.1.3 plus the earlier patches of this directory, in sorted order.
+What the patch does and why: the header of the 8.2 patch of the same name
+and patches/README.md; what changed in the port: patches/11.1/README.md.
+
+diff --git a/hw/intc/sh_intc.c b/hw/intc/sh_intc.c
+index 0da82f9d5..5b76c6bfe 100644
+--- a/hw/intc/sh_intc.c
++++ b/hw/intc/sh_intc.c
+@@ -88,15 +88,35 @@ int sh_intc_get_pending_vector(struct intc_desc *desc, int imask)
+         return -1; /* FIXME, update code to include priority per source */
+     }
+ 
+-    for (i = 0; i < desc->nr_sources; i++) {
+-        struct intc_source *source = &desc->sources[i];
+-
+-        if (source->pending) {
+-            trace_sh_intc_pending(desc->pending, source->vect);
+-            return source->vect;
++    {
++        /*
++         * A source with prio != 0 (set only by models that track the
++         * level, e.g. ze0-intc) is taken only above SR.IMASK, highest
++         * level first; prio == 0 keeps the historical first-pending rule.
++         */
++        int best = -1, best_prio = -1;
++
++        for (i = 0; i < desc->nr_sources; i++) {
++            struct intc_source *source = &desc->sources[i];
++
++            if (!source->pending) {
++                continue;
++            }
++            if (!source->prio) {
++                trace_sh_intc_pending(desc->pending, source->vect);
++                return source->vect;
++            }
++            if (source->prio > imask && source->prio > best_prio) {
++                best = i;
++                best_prio = source->prio;
++            }
++        }
++        if (best >= 0) {
++            trace_sh_intc_pending(desc->pending, desc->sources[best].vect);
++            return desc->sources[best].vect;
+         }
++        return -1;
+     }
+-    g_assert_not_reached();
+ }
+ 
+ typedef enum {
+diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
+index 9abf521a4..ad084fd3c 100644
+--- a/hw/sh4/Kconfig
++++ b/hw/sh4/Kconfig
+@@ -21,7 +21,9 @@ config ZE0
+     default y
+     depends on SH4
+     select SH4_CCN
++    select SH_INTC
+     select SH_SCI
++    select SH_TIMER
+     select UNIMP
+ 
+ config SH7750
+diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
+index 12141ae07..3598a0883 100644
+--- a/hw/sh4/meson.build
++++ b/hw/sh4/meson.build
+@@ -6,6 +6,6 @@ sh4_ss.add(when: 'CONFIG_SH7750', if_true: files(
+ sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
+ sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
+ 
+-sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c'))
++sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c'))
+ hw_arch += {'sh4': sh4_ss}
+ sh4_ss.add(files('ze0_stubs.c'))
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 49d1a84c4..78959ddca 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -30,6 +30,8 @@
+ #include "hw/core/qdev-properties.h"
+ #include "hw/sh4/sh.h"
+ #include "hw/sh4/sh4_ccn.h"
++#include "hw/sh4/ze0_intc.h"
++#include "hw/timer/tmu012.h"
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties-system.h"
+ #include "system/system.h"
+@@ -59,6 +61,16 @@
+  */
+ #define ZE0_DEBUG_SCIF_BASE 0xffe46000u
+ 
++/*
++ * TMU ch0-2 (TODO M8.B1/M8.B2).  EU2011 nk.exe fn 0x8803c9c6 programs
++ * TMU0 at 0xffd80000 (TSTR +4, TCOR0 +8, TCNT0 +0xc, TCR0 +0x10 = 0x0021,
++ * TCR1 +0x1c), the SH7750 layout of hw/timer/sh_timer.c; its ISR fn
++ * 0x8803cb34 clears TCR0.UNF.  The peripheral clock is not established
++ * (HYPOTHESIS: 60 MHz, the sh7750 default); M8.B2 owns the tick rate.
++ */
++#define ZE0_TMU012_BASE     0x1fd80000u
++#define ZE0_PERIPH_FREQ     60000000u
++
+ static void ze0_init(MachineState *machine)
+ {
+     SuperHCPU *cpu;
+@@ -115,6 +127,19 @@ static void ze0_init(MachineState *machine)
+     memory_region_add_subregion(sysmem, ZE0_CCN_IO_BASE, sh4_ccn_iomem(ccn));
+     memory_region_add_subregion(sysmem, ZE0_CCN_ARRAY_BASE, sh4_ccn_arrays(ccn));
+ 
++    /* INTC/INT2 (M8.B1) and TMU ch0-2 wired to it. */
++    {
++        Ze0IntcState *intc = ZE0_INTC(qdev_new(TYPE_ZE0_INTC));
++
++        qdev_realize_and_unref(DEVICE(intc), NULL, &error_fatal);
++        cpu->env.intc_handle = ze0_intc_handle(intc);
++        tmu012_init(sysmem, ZE0_TMU012_BASE,
++                    TMU012_FEAT_TOCR | TMU012_FEAT_3CHAN, ZE0_PERIPH_FREQ,
++                    ze0_intc_irq(intc, ZE0_IRQ_TMU0),
++                    ze0_intc_irq(intc, ZE0_IRQ_TMU1),
++                    ze0_intc_irq(intc, ZE0_IRQ_TMU2), NULL);
++    }
++
+     /* Kernel debug SCIF (M8.A6) on serial port 0, over the P4 catch-all. */
+     {
+         DeviceState *scif = qdev_new(TYPE_SH_SERIAL);
+diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
+new file mode 100644
+index 000000000..bf30a677f
+--- /dev/null
++++ b/hw/sh4/ze0_intc.c
+@@ -0,0 +1,264 @@
++/*
++ * ZE0 (Nissan Leaf ZE0 navigation unit, SH-4A) interrupt controller model
++ *
++ * TODO M8.B1.  Register layout read from the EU2011 nk.exe OAL (VAs are
++ * EU2011, image B at 0x3e00200; tools/sh4dis.py, tools/ze0_serial.py refs):
++ *
++ *   0xff802000 INTC block, written once by BSPIntrInit fn 0x8803dc70:
++ *     +0x00 ICR0 (0x00800000), +0x10 INTPRI (0xd0000000), +0x1c ICR1
++ *     (0x80000000), +0x44/+0x48 INTMSK0/1 (0xff000000, write 1 = mask),
++ *     +0x64 INTMSKCLR0 (write 1 = unmask, 0x80000000).
++ *   0xff804000 INT2 block:
++ *     +0x00..+0x1c INT2PRI0..7 (BSPIntrInit and the timer hook fn
++ *     0x8803d168: INT2PRI0 = 0x08020202, INT2PRI1 = 0x02020012),
++ *     +0x40 INT2MSKR  (write 1 = mask;   BSPIntrInit writes 0xffffffff),
++ *     +0x44 INT2MSKCR (write 1 = unmask; the ISRs and OEMInterruptEnable/
++ *     Disable/Done use the pair 0xff804040/0xff804044 for 80+ sites).
++ *
++ * The kernel's interrupt entry (VBR+0x600, VBR = 0x8800ec10) reads INTEVT
++ * from 0xff000028 (the CCN) and indexes InterruptTable[INTEVT >> 5].  The
++ * timer hook fn 0x8803d168 puts the TMU0 ISR fn 0x8803cb34 at INTEVT 0x400
++ * (and 0x8803d260 at 0x440), sets INT2PRI0 and then unmasks INT2 bit 1
++ * (INT2MSKCR = 2).  So: TMU ch0..2 = INTEVT 0x400/0x420/0x440, INT2 bit 1.
++ *
++ * Priority: the level compared with SR.IMASK is the 5-bit INT2PRI field
++ * >> 1 (SH-4A INT2 convention).  TMU0/1/2 use INT2PRI0 bits 20:16 / 12:8 /
++ * 4:0 (0x02 each -> level 1).  Derived, not documented: the kernel's
++ * entry stub (0x8800f248..0x8800f276) lowers SR.IMASK to IntrPrio[INTEVT]
++ * before calling the ISR, and the timer hook sets IntrPrio = 1 for 0x400
++ * and 0x440, so the source's own level must be 1; with bits 28:24 (0x08,
++ * level 4) the still-asserted TMU0 re-enters at 0x8800f278 forever
++ * (EXP-2026-11-20-M8.B1-intc-model).  A level-0 source is never delivered.
++ *
++ * Everything else in both blocks is plain read-back storage.  Only the
++ * sources below are wired; any other INT2 bit can be masked/unmasked but
++ * never asserts.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++#include "qemu/osdep.h"
++#include "qemu/log.h"
++#include "qemu/module.h"
++#include "qapi/error.h"
++#include "system/address-spaces.h"
++#include "system/memory.h"
++#include "hw/core/irq.h"
++#include "hw/core/qdev.h"
++#include "hw/sh4/sh_intc.h"
++#include "hw/sh4/ze0_intc.h"
++#include "target/sh4/cpu.h"
++
++#define ZE0_INTC_BASE   0xff802000u
++#define ZE0_INT2_BASE   0xff804000u
++#define ZE0_BLOCK_SIZE  0x100u
++
++#define INTMSK0     0x44
++#define INTMSK1     0x48
++#define INTMSKCLR0  0x64
++#define INT2MSKR    0x40
++#define INT2MSKCR   0x44
++
++typedef struct Ze0IntcSource {
++    const char *name;
++    uint16_t intevt;
++    uint8_t int2_bit;
++    uint8_t pri_reg;     /* INT2PRIn word index */
++    uint8_t pri_shift;   /* 5-bit field position */
++} Ze0IntcSource;
++
++static const Ze0IntcSource ze0_sources[ZE0_INTC_NR_SOURCES] = {
++    [ZE0_IRQ_TMU0] = { "TMU0", 0x400, 1, 0, 16 },
++    [ZE0_IRQ_TMU1] = { "TMU1", 0x420, 1, 0, 8 },
++    [ZE0_IRQ_TMU2] = { "TMU2", 0x440, 1, 0, 0 },
++};
++
++struct Ze0IntcState {
++    DeviceState parent_obj;
++
++    MemoryRegion intc_mr;
++    MemoryRegion int2_mr;
++    uint32_t intc[ZE0_BLOCK_SIZE / 4];
++    uint32_t int2[ZE0_BLOCK_SIZE / 4];
++    int asserted[ZE0_INTC_NR_SOURCES];
++    struct intc_desc desc;   /* CPU-facing handle (env->intc_handle) */
++    qemu_irq *irqs;
++};
++
++static int ze0_intc_level(Ze0IntcState *s, int n)
++{
++    const Ze0IntcSource *src = &ze0_sources[n];
++    uint32_t field = (s->int2[src->pri_reg] >> src->pri_shift) & 0x1f;
++
++    return field >> 1;
++}
++
++static void ze0_intc_update(Ze0IntcState *s)
++{
++    int n, pending = 0;
++
++    for (n = 0; n < ZE0_INTC_NR_SOURCES; n++) {
++        struct intc_source *is = &s->desc.sources[n];
++        int masked = (s->int2[INT2MSKR / 4] >> ze0_sources[n].int2_bit) & 1;
++        int level = ze0_intc_level(s, n);
++
++        is->vect = ze0_sources[n].intevt;
++        is->prio = level;
++        is->pending = s->asserted[n] && !masked && level > 0;
++        pending += is->pending;
++    }
++    s->desc.pending = pending;
++    if (pending) {
++        cpu_interrupt(first_cpu, CPU_INTERRUPT_HARD);
++    } else {
++        cpu_reset_interrupt(first_cpu, CPU_INTERRUPT_HARD);
++    }
++}
++
++static void ze0_intc_set_irq(void *opaque, int n, int level)
++{
++    Ze0IntcState *s = opaque;
++
++    s->asserted[n] = !!level;
++    ze0_intc_update(s);
++}
++
++static uint64_t ze0_intc_read(void *opaque, hwaddr off, unsigned size)
++{
++    Ze0IntcState *s = opaque;
++
++    if (off == INTMSKCLR0) {
++        return 0;
++    }
++    return s->intc[off / 4];
++}
++
++static void ze0_intc_write(void *opaque, hwaddr off, uint64_t val,
++                           unsigned size)
++{
++    Ze0IntcState *s = opaque;
++
++    switch (off) {
++    case INTMSK0:
++    case INTMSK1:
++        s->intc[off / 4] |= val;
++        break;
++    case INTMSKCLR0:
++        s->intc[INTMSK0 / 4] &= ~val;
++        break;
++    default:
++        s->intc[off / 4] = val;
++        break;
++    }
++}
++
++static uint64_t ze0_int2_read(void *opaque, hwaddr off, unsigned size)
++{
++    Ze0IntcState *s = opaque;
++
++    if (off == INT2MSKCR) {
++        return 0;
++    }
++    return s->int2[off / 4];
++}
++
++static void ze0_int2_write(void *opaque, hwaddr off, uint64_t val,
++                           unsigned size)
++{
++    Ze0IntcState *s = opaque;
++
++    switch (off) {
++    case INT2MSKR:
++        s->int2[INT2MSKR / 4] |= val;
++        break;
++    case INT2MSKCR:
++        s->int2[INT2MSKR / 4] &= ~val;
++        break;
++    default:
++        s->int2[off / 4] = val;
++        break;
++    }
++    ze0_intc_update(s);
++}
++
++static const MemoryRegionOps ze0_intc_ops = {
++    .read = ze0_intc_read,
++    .write = ze0_intc_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++    .valid = { .min_access_size = 4, .max_access_size = 4 },
++};
++
++static const MemoryRegionOps ze0_int2_ops = {
++    .read = ze0_int2_read,
++    .write = ze0_int2_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++    .valid = { .min_access_size = 4, .max_access_size = 4 },
++};
++
++static void ze0_intc_reset(DeviceState *dev)
++{
++    Ze0IntcState *s = ZE0_INTC(dev);
++
++    memset(s->intc, 0, sizeof(s->intc));
++    memset(s->int2, 0, sizeof(s->int2));
++    s->int2[INT2MSKR / 4] = 0xffffffff;   /* all INT2 sources masked */
++    s->intc[INTMSK0 / 4] = 0xff000000;
++    ze0_intc_update(s);
++}
++
++static void ze0_intc_realize(DeviceState *dev, Error **errp)
++{
++    Ze0IntcState *s = ZE0_INTC(dev);
++    MemoryRegion *sysmem = get_system_memory();
++    int n;
++
++    memory_region_init_io(&s->intc_mr, OBJECT(dev), &ze0_intc_ops, s,
++                          "ze0-intc", ZE0_BLOCK_SIZE);
++    memory_region_init_io(&s->int2_mr, OBJECT(dev), &ze0_int2_ops, s,
++                          "ze0-int2", ZE0_BLOCK_SIZE);
++    memory_region_add_subregion_overlap(sysmem, ZE0_INTC_BASE, &s->intc_mr, 1);
++    memory_region_add_subregion_overlap(sysmem, ZE0_INT2_BASE, &s->int2_mr, 1);
++
++    s->desc.nr_sources = ZE0_INTC_NR_SOURCES;
++    s->desc.sources = g_new0(struct intc_source, ZE0_INTC_NR_SOURCES);
++    for (n = 0; n < ZE0_INTC_NR_SOURCES; n++) {
++        s->desc.sources[n].parent = &s->desc;
++        s->desc.sources[n].vect = ze0_sources[n].intevt;
++    }
++    s->irqs = qemu_allocate_irqs(ze0_intc_set_irq, s, ZE0_INTC_NR_SOURCES);
++    /* a plain TYPE_DEVICE sits on no bus and gets no system reset */
++    ze0_intc_reset(dev);
++}
++
++qemu_irq ze0_intc_irq(Ze0IntcState *s, int n)
++{
++    return s->irqs[n];
++}
++
++struct intc_desc *ze0_intc_handle(Ze0IntcState *s)
++{
++    return &s->desc;
++}
++
++static void ze0_intc_class_init(ObjectClass *klass, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++
++    dc->realize = ze0_intc_realize;
++    device_class_set_legacy_reset(dc, ze0_intc_reset);
++    dc->user_creatable = false;
++}
++
++static const TypeInfo ze0_intc_type_info = {
++    .name = TYPE_ZE0_INTC,
++    .parent = TYPE_DEVICE,
++    .instance_size = sizeof(Ze0IntcState),
++    .class_init = ze0_intc_class_init,
++};
++
++static void ze0_intc_register_types(void)
++{
++    type_register_static(&ze0_intc_type_info);
++}
++
++type_init(ze0_intc_register_types)
+diff --git a/include/hw/sh4/sh_intc.h b/include/hw/sh4/sh_intc.h
+index 94f183121..b65f82b02 100644
+--- a/include/hw/sh4/sh_intc.h
++++ b/include/hw/sh4/sh_intc.h
+@@ -41,6 +41,7 @@ struct intc_source {
+     int enable_count;
+     int enable_max;
+     int pending; /* emulates the result of signal and masking */
++    int prio; /* 0: not compared with SR.IMASK (legacy); else level 1..15 */
+     struct intc_desc *parent;
+ };
+ 
+diff --git a/include/hw/sh4/ze0_intc.h b/include/hw/sh4/ze0_intc.h
+new file mode 100644
+index 000000000..2f2ec424d
+--- /dev/null
++++ b/include/hw/sh4/ze0_intc.h
+@@ -0,0 +1,26 @@
++/*
++ * ZE0 interrupt controller model (TODO M8.B1); see hw/sh4/ze0_intc.c.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#ifndef HW_SH4_ZE0_INTC_H
++#define HW_SH4_ZE0_INTC_H
++
++#include "qom/object.h"
++#include "hw/core/irq.h"
++#include "hw/sh4/sh_intc.h"
++
++#define TYPE_ZE0_INTC "ze0-intc"
++OBJECT_DECLARE_SIMPLE_TYPE(Ze0IntcState, ZE0_INTC)
++
++enum {
++    ZE0_IRQ_TMU0,
++    ZE0_IRQ_TMU1,
++    ZE0_IRQ_TMU2,
++    ZE0_INTC_NR_SOURCES
++};
++
++qemu_irq ze0_intc_irq(Ze0IntcState *s, int n);
++struct intc_desc *ze0_intc_handle(Ze0IntcState *s);
++
++#endif

@@ -1233,13 +1233,30 @@ Expected on the EU 2011 sample: five valid SH-4 segments; build A has
 resolves names such as `Navi.exe`, `NaviStateCC.dll`, `OBJDLL.dll` and
 `STDDLL.dll`.
 
+## `qemu_boot_cmp.py` — is a `-M ze0` boot the same on another QEMU build?
+
+Compares `tools/qemu-ze0/run.sh --workdir` directories (the first is the
+reference) by the observables that do not depend on the emulator's own
+translation cache: the kernel debug text (one must be a prefix of the
+other), the sequence of synchronous traps with their pc (TLB misses and
+interrupts excluded), the interrupt counts and the unmodelled-access list.
+Exit 0 = same, 1 = different. Used to accept the QEMU 11.1.3 port of the
+`ze0` series (TODO M8.A9, C-4321); TLB-miss counts are printed for
+information only because they are not reproducible on QEMU 11.x.
+
+```bash
+python3 tools/qemu_boot_cmp.py /tmp/w8 /tmp/w11      # verdict: SAME
+python3 tools/qemu_boot_cmp.py --selftest
+```
+
 ## `ce_qemu_probe.py` — boot the CE kernel under stock QEMU
 
 Plays the (on-board) bootloader: copies kernel image B (or C) and app image A
 to their physical load addresses, starts `nk.exe` on QEMU's `none` machine with
 an `sh7785` (SH-4A) CPU, and lists every unmodelled SoC register access in
 first-seen order, the CPU exceptions and the final PC. Needs
-`qemu-system-sh4` (`apt install qemu-system-misc`). See
+`qemu-system-sh4` (`apt install qemu-system-misc`); on QEMU >= 10 it adds
+`-d invalid_mem`, where the unmapped-access lines now live (C-4323). See
 `docs/research/full-system-emulation.md` and EXP-2026-11-05-37.
 
 ```bash

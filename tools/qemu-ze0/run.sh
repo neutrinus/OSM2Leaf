@@ -18,7 +18,8 @@
 #      ROMHDR, M8.A3; the u32 at the image start is not the length, C-1283)
 #      and loads them with -device loader, as tools/ce_qemu_probe.py does
 #      (the card has no bootloader; the IPL lives in on-board flash).
-#   3. runs QEMU with -d unimp,guest_errors,int -D WORK/qemu.log, an optional
+#   3. runs QEMU with -d unimp,guest_errors,int (plus invalid_mem where the
+#      binary has it, QEMU >= 10) -D WORK/qemu.log, an optional
 #      gdbstub (--gdb) and a wall-clock --timeout, then asks the HMP monitor
 #      for `info registers` before killing it;
 #   4. prints ce_qemu_probe.summarize_log() of the log: the unmodelled register
@@ -513,7 +514,14 @@ if [ "$STOP" -eq 1 ]; then
   set -- "$@" -S
 fi
 
-set -- "$@" -d unimp,guest_errors,int -D "$LOG"
+# QEMU >= 10 moved "Invalid read/write at addr ..." (an access to unmapped
+# memory) from guest_errors to its own log item; without it an 11.x log
+# silently lacks the lines an 8.2 log has (TODO M8.A9, C-4323).
+DFLAGS=unimp,guest_errors,int
+if [ "$QEMU_PRESENT" -eq 1 ] && "$QEMU" -d help 2>/dev/null | grep -qw invalid_mem; then
+  DFLAGS=$DFLAGS,invalid_mem
+fi
+set -- "$@" -d "$DFLAGS" -D "$LOG"
 
 if [ -n "$IMAGE" ] && [ "$MACHINE" = ze0 ]; then
   info "kernel  -kernel $IMAGE, kernel-off=0x$(printf '%x' "$KERNEL_OFF"), app-off=0x$(printf '%x' "$APP_OFF") (built-in loader, M8.A3)"

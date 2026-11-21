@@ -1,5 +1,10 @@
 # Porting the `ze0` patch series from QEMU 8.2.7 to 11.1.3
 
+> **Outcome (M8.A9, 2026-11-21):** the port is done — `tools/qemu-ze0/patches/11.1/`,
+> twelve patches, builds and boots (EXP-2026-11-21-M8.A9-qemu-11-port). This
+> document stays as the pre-port inventory of the first five patches; §8 lists
+> what it missed.
+
 Measured inventory for TODO **M8.A9**. Every claim here is a file:line read
 from a real tree, or a command whose output is quoted. Trees:
 
@@ -174,3 +179,24 @@ grep -n 'legacy_reset' include/hw/core/qdev.h | head -2
 
 The `8.2.7` side of the same loop prints five `OK`; 8.2.10 is byte-identical
 for the patched files.
+
+## 8. What the port found beyond this inventory (M8.A9)
+
+The inventory above was read from headers and covers five patches; the
+series had twelve by the time of the port, and compiling all of them on
+11.1.3 found four more deltas (C-4324):
+
+| Delta | Where it bites | Port |
+| --- | --- | --- |
+| `TypeInfo.class_init` takes `const void *data` | all five class-init functions; only a `-Wincompatible-pointer-types` warning, but a real signature mismatch | `const void *data` |
+| `DEFINE_PROP_END_OF_LIST()` removed; `device_class_set_props()` takes a `const Property[]` sized by the compiler | `ze0_sdhi.c` (compile error) | `static const Property …[]`, no terminator |
+| `sdbus_do_command()` takes the response buffer size and returns `size_t` | `ze0_sdhi.c`, four calls (compile error) | pass `sizeof(r)` |
+| "Invalid read/write at addr" is logged under the new `-d invalid_mem`, no longer under `guest_errors` | not a build error: `run.sh`/`ce_qemu_probe.py` print an **empty** access list on 11.x | both scripts add `invalid_mem` when `-d help` lists it (C-4323) |
+
+Decisions taken (§6 step 1): the ITLB data-array `abort()` is dropped, as
+upstream did; `ZE0` is `default y` + `depends on SH4` in Kconfig; the pin is
+a tested range with one series per API generation. Step 5's oracle ("0
+exceptions and one `write 0x38`") describes the five-patch skeleton of
+2026-11-17 and no longer holds on **either** version: the twelve-patch
+machine boots Windows CE and takes about 29,000 exceptions in 10 s. The port
+is judged against the 8.2.10 build of the same twelve patches instead.

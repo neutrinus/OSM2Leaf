@@ -29,9 +29,15 @@ REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 # --------------------------------------------------------------------------
 # Pin: change only together with README.md and an EXP entry.
 #
-# 8.2.7 and 8.2.10 carry a verified tarball hash.  An unlisted version is only
-# accepted by --check-version (a probe that builds nothing); a full build
-# refuses it, because an unverified tarball must never be compiled.
+# Tested range (TODO M8.A9): 8.2.7, 8.2.10 and 11.1.3 carry a verified
+# tarball hash and a series that builds and boots.  An unlisted version is
+# only accepted by --check-version (a probe that builds nothing); a full
+# build refuses it, because an unverified tarball must never be compiled.
+#
+# Two patch series, one per QEMU API generation; the file names are the same:
+#   patches/*.patch        QEMU 8.2.x   (the default pin)
+#   patches/11.1/*.patch   QEMU >= 11.0 (port of the same 12 patches)
+# series_dir() below picks the series from the version; --patch-dir overrides.
 # --------------------------------------------------------------------------
 QEMU_VERSION="8.2.10"
 QEMU_MIN_VERSION="8.2"
@@ -43,13 +49,16 @@ QEMU_SHA256="37b4a643da8ed6015eef35f5d7f06e7259d9c95359965a0a98e9667c621ab2bb"
 declare -A QEMU_PINS=(
   ["8.2.7"]="1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55 132676368"
   ["8.2.10"]="$QEMU_SHA256 $QEMU_TARBALL_BYTES"
+  ["11.1.3"]="5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22 141819712"
 )
+# First version that needs the ported series (patches/11.1).
+QEMU_PORT_SINCE="11.0"
 PIN_KNOWN=1
 
 SRCDIR=""
 QEMU_BIN=""
 JOBS=""
-PATCH_DIR="$HERE/patches"
+PATCH_DIR=""
 USE_PATCHES=1
 VERSION="$QEMU_VERSION"
 URL_BASE="$QEMU_URL_BASE"
@@ -74,9 +83,12 @@ Options:
   --qemu PATH        qemu-system-sh4 binary to verify
                      (default SRCDIR/build/qemu-system-sh4)
   --jobs N           parallel make jobs (default: nproc)
-  --patch-dir DIR    where the local patches live (default tools/qemu-ze0/patches)
+  --patch-dir DIR    where the local patches live (default: chosen by version,
+                     tools/qemu-ze0/patches for 8.2.x and
+                     tools/qemu-ze0/patches/11.1 for QEMU >= 11.0)
   --no-patch         do not apply patches/*.patch
-  --version V        QEMU release to build (default 8.2.10, must be >= 8.2)
+  --version V        QEMU release to build (default 8.2.10, must be >= 8.2;
+                     tested: 8.2.7, 8.2.10, 11.1.3)
   --check-version V  probe V without building: verify the tarball when it is
                      in the pin table, extract to a scratch tree, apply every
                      patch and report per patch.  Exit: 0 every patch applies,
@@ -200,6 +212,21 @@ else
     usage_error "no verified tarball pin for QEMU $VERSION (known:${QEMU_PINS[*]/#/ }); use --check-version $VERSION to probe it without building, or add its sha256/size to QEMU_PINS together with README.md and an EXP"
   fi
 fi
+
+# series_dir VERSION — the patch series for this QEMU API generation.
+series_dir() {
+  if version_ge "$1" "$QEMU_PORT_SINCE"; then
+    printf '%s\n' "$HERE/patches/11.1"
+  else
+    printf '%s\n' "$HERE/patches"
+  fi
+}
+if [ -z "$PATCH_DIR" ]; then
+  PATCH_DIR="$(series_dir "$VERSION")"
+fi
+# `patch -d SRC -i FILE` resolves FILE inside SRC, so a relative --patch-dir
+# made every patch "fail" for the wrong reason: always work with the full path.
+PATCH_DIR="$(abs_path "$PATCH_DIR")"
 
 if [ -z "$JOBS" ]; then
   JOBS="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
@@ -436,10 +463,18 @@ configure_and_build() {
   else
     run mkdir -p "$BUILD"
     note "configure: sh4-softmmu only, warnings not fatal"
+    # QEMU >= 11 without a system libfdt clones the dtc subproject from
+    # gitlab at configure time; no sh4 board needs a device tree, so the
+    # ported build turns it off and stays inside the verified tarball.
+    local extra=()
+    if version_ge "$VERSION" "$QEMU_PORT_SINCE"; then
+      extra+=(--disable-fdt)
+    fi
     run_in "$BUILD" "$SRC/configure" \
       --target-list=sh4-softmmu \
       --disable-werror \
-      --disable-docs
+      --disable-docs \
+      "${extra[@]}"
   fi
   note "build: make -j$JOBS"
   run_in "$BUILD" make -j"$JOBS"
@@ -495,7 +530,11 @@ check_version() {
     note "check: no patches to test in $PATCH_DIR"
   fi
   for p in "${list[@]}"; do
-    if patch -d "$src" -p1 --forward --batch --dry-run -i "$p" >/dev/null 2>&1; then
+    # The series is cumulative (later patches edit files that earlier ones
+    # add), so each patch is really applied to the scratch tree; a --dry-run
+    # against the pristine tree would fail every dependent patch.  The tree
+    # is a throw-away copy under check-V/ and is never built.
+    if patch -d "$src" -p1 --forward --batch -i "$p" >/dev/null 2>&1; then
       printf 'check: %-46s APPLIES\n' "$(basename "$p")"
       ok=$((ok + 1))
     else
@@ -727,7 +766,8 @@ selftest() {
   # A real .tar.xz cache (fake `configure`) and a patch dir of two synthetic
   # patches: P1 appends a new file (always applies), P2 edits `configure` with
   # the correct context (applies).  The red case rewrites P2 against a stale
-  # context, so `patch --dry-run` must reject it; the probe must say 4.
+  # context, so `patch` must reject it; the probe must say 4.  P3 edits the
+  # file P1 adds: it applies only because the probe applies cumulatively.
   if command -v tar >/dev/null 2>&1 && tar --help 2>/dev/null | grep -q -- '-J'; then
     local cv="9.9.9" cache_g="$tmp/cache-green" cache_r="$tmp/cache-red"
     local patches="$tmp/patches" p1="$tmp/patches/p1-append.patch" p2="$tmp/patches/p2-edit.patch"
@@ -739,11 +779,12 @@ selftest() {
 
     printf '%s\n' '--- /dev/null' '+++ b/newfile.txt' '@@ -0,0 +1 @@' '+hello' > "$p1"
     printf '%s\n' '--- a/configure' '+++ b/configure' '@@ -1,2 +1,2 @@' ' #!/bin/sh' '-exit 0' '+exit 0  # patched' > "$p2"
+    printf '%s\n' '--- a/newfile.txt' '+++ b/newfile.txt' '@@ -1 +1 @@' '-hello' '+hello again' > "$patches/p3-depends-on-p1.patch"
 
     st_run "check-version all-apply" 0 -- env HOME="$tmp/home" "$SELF" \
       --check-version "$cv" --patch-dir "$patches" --srcdir "$cache_g"
-    st_contains "check-version all-apply" "2 applied, 0 failed, 1 unpinned-tarball"
-    if printf '%s\n' "$ST_OUT" | tail -n 1 | grep -Fq "2 applied, 0 failed"; then
+    st_contains "check-version all-apply" "3 applied, 0 failed, 1 unpinned-tarball"
+    if printf '%s\n' "$ST_OUT" | tail -n 1 | grep -Fq "3 applied, 0 failed"; then
       st_ok "check-version all-apply verdict is the last line"
     else
       st_fail "check-version all-apply verdict is not the last line"
@@ -753,6 +794,12 @@ selftest() {
     cp "$p1" "$tmp/patches-red/p1-append.patch"
     printf '%s\n' '--- a/configure' '+++ b/configure' '@@ -1,2 +1,2 @@' ' #!/bin/bash' '-exit 1' '+exit 1  # patched' \
       > "$tmp/patches-red/p2-edit.patch"
+    # a relative --patch-dir must mean the same directory
+    st_run "check-version relative patch dir" 0 -- env HOME="$tmp/home" bash -c \
+      'cd "$1" && shift && exec "$@"' _ "$tmp" "$SELF" \
+      --check-version "$cv" --patch-dir patches --srcdir "$cache_g"
+    st_contains "check-version relative patch dir" "3 applied, 0 failed"
+
     st_run "check-version one-fails" 4 -- env HOME="$tmp/home" "$SELF" \
       --check-version "$cv" --patch-dir "$tmp/patches-red" --srcdir "$cache_r"
     st_contains "check-version one-fails" "1 applied, 1 failed, 1 unpinned-tarball"
@@ -811,6 +858,44 @@ selftest() {
   st_contains "8.2.7 is still in the table" "qemu-8.2.7.tar.xz"
   st_contains "8.2.7 is still in the table" "1f0604f296ab9acb4854c054764a1ba408643fc299bd54a6500cccfaaca65b55"
 
+  # --- 8c. the tested range: 11.1.3 is pinned and takes the ported series --
+  st_run "dry-run plan for 11.1.3" 0 -- env HOME="$tmp/home" "$SELF" \
+    --dry-run --version 11.1.3 --srcdir "$tmp/cache" --qemu "$tmp/bin/qemu-system-sh4"
+  st_contains "dry-run plan for 11.1.3" "qemu-11.1.3.tar.xz"
+  st_contains "dry-run plan for 11.1.3" "5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22"
+  st_contains "dry-run plan for 11.1.3" "series: $HERE/patches/11.1"
+  st_contains "dry-run plan for 11.1.3" "--disable-fdt"
+  st_contains "dry-run plan for 11.1.3" "patches/11.1/ze0-0001-hw-sh4-ze0-machine.patch"
+  st_run "dry-run plan for 8.2.10 keeps the 8.2 series" 0 -- env HOME="$tmp/home" "$SELF" \
+    --dry-run --srcdir "$tmp/cache" --qemu "$tmp/bin/qemu-system-sh4"
+  st_contains "dry-run plan for 8.2.10 keeps the 8.2 series" "series: $HERE/patches"
+  st_lacks "dry-run plan for 8.2.10 keeps the 8.2 series" "patches/11.1"
+  st_lacks "dry-run plan for 8.2.10 keeps the 8.2 series" "--disable-fdt"
+  st_run "check-version plan for 11.1.3 names the ported series" 0 -- env HOME="$tmp/home" "$SELF" \
+    --dry-run --check-version 11.1.3 --srcdir "$tmp/cache"
+  st_contains "check-version plan for 11.1.3 names the ported series" "patches/11.1/*.patch"
+  st_run "check-version plan for 8.2.7 names the 8.2 series" 0 -- env HOME="$tmp/home" "$SELF" \
+    --dry-run --check-version 8.2.7 --srcdir "$tmp/cache"
+  st_contains "check-version plan for 8.2.7 names the 8.2 series" "patches/*.patch"
+  st_lacks "check-version plan for 8.2.7 names the 8.2 series" "patches/11.1"
+  # the two series are the same patches: same names, same count
+  if [ "$(cd "$HERE/patches" && ls *.patch | LC_ALL=C sort)" = "$(cd "$HERE/patches/11.1" && ls *.patch | LC_ALL=C sort)" ]; then
+    st_ok "patches/ and patches/11.1 hold the same $(ls "$HERE/patches"/*.patch | wc -l | tr -d ' ') patch names"
+  else
+    st_fail "patches/ and patches/11.1 do not hold the same patch names"
+  fi
+  # negative control: the ported series must not carry an 8.2-only spelling
+  if grep -lE '^\+.*("exec/exec-all.h"|"sysemu/|DEFINE_PROP_END_OF_LIST|dc->reset = )' "$HERE"/patches/11.1/*.patch >/dev/null 2>&1; then
+    st_fail "patches/11.1 adds an 8.2-only API spelling"
+  else
+    st_ok "patches/11.1 adds no 8.2-only API spelling"
+  fi
+  if grep -lE '^\+.*("exec/exec-all.h"|"sysemu/|dc->reset = )' "$HERE"/patches/*.patch >/dev/null 2>&1; then
+    st_ok "control: the 8.2 series does add those spellings"
+  else
+    st_fail "control: the 8.2 series lacks the 8.2 spellings the check looks for"
+  fi
+
   # --- 9. pin sanity --------------------------------------------------------
   if printf '%s' "$QEMU_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
     st_ok "pin sha256 is 64 lowercase hex characters"
@@ -844,7 +929,7 @@ fi
 if [ "$CHECK_VERSION" -eq 1 ]; then
   if [ "$DRY_RUN" -eq 1 ]; then
     printf 'dry-run: --check-version %s\n' "$VERSION"
-    printf 'dry-run: would verify/build nothing, extract to %s/check-%s, run patch -p1 --dry-run over %s/*.patch and report per patch\n' \
+    printf 'dry-run: would verify/build nothing, extract to %s/check-%s, apply %s/*.patch in sorted order with patch -p1 and report per patch\n' \
       "$SRCDIR" "$VERSION" "$PATCH_DIR"
     exit 0
   fi
@@ -878,7 +963,8 @@ if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
   fi
 fi
 
-note "pin: QEMU $QEMU_VERSION from $QEMU_URL_BASE (sha256 $QEMU_SHA256)"
+note "pin: QEMU $VERSION from $URL_BASE (sha256 $QEMU_SHA256)"
+note "series: $PATCH_DIR"
 note "srcdir: $SRCDIR (outside the repository; QEMU is never vendored)"
 
 if [ "$FROM_GIT" -eq 1 ]; then
