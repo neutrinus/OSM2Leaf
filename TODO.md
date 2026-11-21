@@ -1150,7 +1150,7 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Claims: C-4350–C-4359
 
 - [ ] **H105 — H40's fixture has no negative control: a tree that passes but cannot fail proves nothing**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/h105-cardcheck-negative-control · Critical: yes · Pair: required
   - Depends: H103 (the builder it breaks); H40's Done-when calls it
   - Goal: retro 2026-11-18 action 3's Done-when is "`l1l2-fixtures.yml` runs `cardcheck` on a generated tree **and fails on a broken one**". H103 gives the passing tree; the broken one is the control that makes the row a test. Without it, a check that silently degraded to `return PASS` passes both the tree and CI, and H40 closes on a no-op — exactly the B2/N1 defect class M5.34's reviewer found (out-only file, section-2 flip).
   - Precheck: `grep -c 'break\|corrupt\|negative' tools/one_tile_pipeline.py` counts only the reviewer-added `out == input` and section-2 checks — there is no builder that emits a *deliberately* broken card; H40's block has no negative clause today.
