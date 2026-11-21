@@ -1462,7 +1462,7 @@ prints `missing=0 bad=0 stale=0`. The 21st-pass text of this section is in git
   - Claims: C-6630–C-6639
 
 - [ ] **H119 — Two task PRs that each add an EXP always conflict in the fn_audit snapshots**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/h119-fn-audit-snapshot-conflict · Critical: yes · Pair: required
   - Depends: — (serves the map tasks whose merges it holds up: M9.55, M3.29, M9.53 waited 21–35 merges behind `main`, retro 2026-11-20-2)
   - Goal: a task PR that adds a correct `fn` citation must not have to rewrite `docs/research/fn-audit-corpus-2026-11-16.json` or `fn-audit-l3-corpus-2026-11-20.json`. Today a `new` row is `CORPUS STALE` (exit 1), so every PR re-freezes both files; they hold one row per citation **with its line number**, so two PRs always conflict and the loser merges `main`, re-syncs and pushes again. Measured 2026-11-20 10:03Z–18:09Z: `git log 8f18cbf..13cb0cf --format=%s | grep -ciE "re-sync|re-freeze|refresh.*snapshot"` printed 25, and `git log 8f18cbf..13cb0cf --format=%h -- docs/research/fn-audit-l3-corpus-2026-11-20.json | wc -l` printed 85.
   - Precheck: in a scratch clone, two branches from one commit each add one EXP that cites a different `START` VA and run `fn_audit … --write-snapshot`; `git merge` of the second reports a conflict in a snapshot file (the defect).
