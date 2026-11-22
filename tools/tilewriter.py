@@ -1363,12 +1363,18 @@ def readback(blob: bytes, imf_path: str, cell: str, table, level: int = 1):
 def build(imf_path: str, cell: str, *, factory_path: str | None = None,
           class_table_path: str | None = None, level: int = 1, country: int = 616,
           data_version: str | None = None, output: str | None = None,
-          write_names: bool = True):
+          write_names: bool = True, transliterate: bool = False):
     """Build the tile bytes and the report; raise on any broken invariant."""
     if not 0 <= country <= 0xFFFF:
         raise WriterError("--country %d does not fit a u16" % country)
     table, table_source = load_class_table(class_table_path)
     ways, imf_stats = load_imf(imf_path, cell)
+    if transliterate:
+        from transliterate import apply, load_table
+        present, mapping, _table = load_table()
+        for way in ways:
+            if way.get("name"):
+                way["name"] = apply(way["name"], present, mapping)
     runs = ways_to_runs(ways, level, table, cell)
     if not runs:
         raise WriterError(
@@ -2230,6 +2236,8 @@ def build_parser():
                         help="header DATA VERSION (required without --factory)")
     parser.add_argument("--no-names", action="store_true",
                         help="do not write street names (M5.7); name_off stays 0xffff")
+    parser.add_argument("--transliterate", action="store_true",
+                        help="transliterate names the EU2011 font cannot draw (M5.80, M4.87)")
     parser.add_argument("--background", metavar="OSM.XML",
                         help="write water/river/forest from a small OSM XML extract into "
                              "one odd background record of a factory tile (M5.74)")
@@ -2318,6 +2326,7 @@ def main(argv=None):
             data_version=args.data_version,
             output=args.out,
             write_names=not args.no_names,
+            transliterate=args.transliterate,
         )
         report["dry_run"] = bool(args.dry_run)
         if not args.dry_run:
