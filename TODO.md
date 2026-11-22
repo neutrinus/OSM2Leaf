@@ -4488,8 +4488,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the runs differ with `-icount` on and no host-clock device in the machine.
   - Claims: C-7030–C-7039
 
-- [ ] **M8.H7 — `tools/ze0_ui.py`: a scenario runner for L4 (wait, tap, key, position, screenshot, expect)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H7 — `tools/ze0_ui.py`: a scenario runner for L4 (wait, tap, key, position, screenshot, expect)**
+  - Status: done · Owner: task/m8.h7-ui-scenario · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: L4 tests should be files, not shell history. A scenario is a list of steps (`wait-log REGEX`, `sleep-guest S`, `tap X Y`, `key NAME`, `gps LAT LON`, `shot NAME`, `expect-hash NAME SHA`), run against QMP and the peer sockets of `docs/research/qemu-connectors.md`.
@@ -4500,6 +4500,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: a scenario with a failing expectation exits 0.
   - Claims: C-7040–C-7049
+  - Result: EXP-2026-11-22-M8.H7-ui-scenario; ze0_ui selftest 20/20, wrong-hash exit 1, exit-3 paths, real boot 3 steps exit 0
 
 - [ ] **M8.H8 — Which card files does the firmware read, and where: SD block trace mapped to file and offset**
   - Status: open · Owner: — · Critical: yes · Pair: required
