@@ -290,6 +290,11 @@ kept), so the next run extracts cleanly.
   writes of the target-surface register `+0x50` log `ze0-2dg: target ADDR`.
   See
   [`EXP-2026-11-22-M8.C1g-ui-layer.md`](../../docs/experiments/EXP-2026-11-22-M8.C1g-ui-layer.md).
+- `ze0-0016` (M8.C1o): 2DG ops `0xb1` (6-word header + inline vertices) and
+  `0xb3` (pointer form `[op, N, OFF]`, vertices at `op + OFF`) are drawn as
+  polylines instead of being skipped by resync; these are the two remaining
+  variants of the map renderer's line commands. See
+  [`EXP-2026-11-22-M8.C1o-2dg-line-variants.md`](../../docs/experiments/EXP-2026-11-22-M8.C1o-2dg-line-variants.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
