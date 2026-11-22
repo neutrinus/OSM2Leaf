@@ -327,7 +327,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 
 > Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
 
-- **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards; `cardcheck --generate-fixture` builds a vendor-free tree. Open: **H40** → **H41** → **H42** (CI use), **H104** (baseline).
+- **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards; `cardcheck --generate-fixture` builds a vendor-free tree (H40 done, H105 done). Open: **H41** → **H42** (CI use), **H104** (baseline).
 - **L2 (the product path):** P0 built; P1 card **M5.61** (blocked, see its block). Open: **M5.35** (one command), **M5.66** (rendered tile as an L2 gate), **M5.76** (synthetic town so compiler tasks run without network) → **M7.1** (all Dolnośląskie).
 - **L3 (moving):** container, record read and the renderer walk are done on a generated tile. Open: **M9.68** (which header fields the map client checks), **M9.15** and **M9.18** (targets per family), routing **M4.55** → **M4.40** → **M5.57** → **M9.56** (blocked chain; **M4.72** tests a KIWI shortcut), card gate **M9.31** → **M9.12**.
 - **L4 (QEMU `-M ze0`):** F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H8** (SD trace) and **M8.H9** (coverage) turn L4 into a format oracle; inputs via **M8.H1** → GPS **M8.H27/H30/H31**, touch **M8.H36/H38/H39**. Card acceptance at L4: **M2.21**, **M2.22**.
@@ -1768,8 +1768,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
 ---
 
 
-- [ ] **H40 — L1/L2 generated-fixture contract: deterministic in-process fixture + coherent ZE0 card/tree builder (no vendor data)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **H40 — L1/L2 generated-fixture contract: deterministic in-process fixture + coherent ZE0 card/tree builder (no vendor data)**
+  - Status: done · Owner: task/h40-generated-fixture-contract · Critical: yes
   - Depends: H26; H103 (the `--generate-fixture` primitive) and H105 (its `--break` control) — the L1 CI row cannot exist before the tree can be built and made to fail
   - Note (QA 2026-11-20, cycle 18): the builder half exists — `python3 tools/cardcheck.py --generate-fixture DIR --json OUT` (H103) writes a vendor-free tree, byte-identical over two runs here, 6 checks PASS and 2 SKIP. `python3 tools/l1l2_fixtures.py --require-covered` still exits 1 because the registry row `l1.synthetic.cardcheck` says "no vendor-free synthetic ZE0 card builder". What is left of this task is that row (run the H103 tree) plus H105's broken tree as its negative.
   - Goal: close H26 gaps (`L1 synthetic`/`L2 tile` NOT COVERED where feasible) with a tiny deterministic in-process fixture representing generated content (roads/names/POIs/geometry) and a coherent ZE0 card tree/image that `cardcheck.py --root/--image` and targeted L2 round-trips can run on in CI (no network, no OSM download, no vendor data).
@@ -1778,6 +1778,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Done when: `python3 tools/<name> --selftest` builds the fixture in a temp dir, runs `cardcheck.py` and reports L1 PASS/FAIL per check (JSON), and runs >=1 coherent synthetic L2 round-trip (tile/DRSTR/POI) where supported; CI-safe/deterministic; H26 registry gains runnable entries only where truly covered, else honest NOT COVERED with updated reason. **Negative control:** the same row must fail on a broken tree — `cardcheck --generate-fixture … --break <kind>` (H105) exits 1 and names the check the good tree passed, so `l1l2-fixtures.yml` cannot go green on a checker that stopped checking.
   - Stop: if coherent MMAIN/tile/DRSTR cannot be produced without vendor bytes, deliver the smallest coherent subset with explicit NOT COVERED per uncovered file/feature and follow-up tasks naming missing writer/structure; never fake PASS.
   - Claims: C-3270–C-3279
+  - Result: EXP-2026-11-22-H40-generated-fixture-contract (C-3270–C-3276): H40's generated-fixture contract is already in place on origin/main — H103 --generate-fixture tree is vendor-free, 6 PASS/2 SKIP, byte-identical over two runs; H105 --break tile-level-in-mmain tree is rc=1 FAILing mmain (the id the good tree passed); L2 drstr/cmpind/tile/POI rows PASS; l1l2_fixtures --selftest OK (32 checks) and --require-covered rc=0 so the H26 l1.synthetic.cardcheck row is runnable; honest gaps stay NOT COVERED. Closed as the verification row it became; gate 5 pass/0 fail/0 skip.
 
 - [ ] **H41 — L1/L2 progress matrix for generated card: per file + per feature (roads,names,POIs,geometry) with regression baseline**
   - Status: open · Owner: — · Critical: yes
