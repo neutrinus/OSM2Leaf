@@ -159,7 +159,7 @@ def compose(planes, fetch):
             row = data[y * p["stride"] * 2:(y * p["stride"] + w) * 2]
             for x, (px,) in enumerate(struct.iter_unpack("<H", row)):
                 o = 3 * (y * WIDTH + x)
-                if keyed and (px & 0x7fff) == p["key"]:
+                if keyed and (not px & 0x8000 or (px & 0x7fff) == p["key"]):
                     continue
                 out[o] = (px >> 10 & 0x1f) << 3
                 out[o + 1] = (px >> 5 & 0x1f) << 3
@@ -214,10 +214,11 @@ def selftest():
             regs[(0x100 * n + 0x20) // 4] = addr
         regs[(0x248) // 4] = 0x03ff
         mem = {0x2000: struct.pack("<H", 0x7c00) * (WIDTH * HEIGHT),
-               0x1000: struct.pack("<H", 0x83ff) + struct.pack("<H", 0x001f) * (WIDTH * HEIGHT - 1)}
+               0x1000: struct.pack("<H", 0x83ff) + struct.pack("<H", 0x801f) + struct.pack("<H", 0x001f) * (WIDTH * HEIGHT - 2)}
         rgb = compose(du_planes(regs), lambda a, n: mem[a][:n])
         assert rgb[0:3] == b"\xf8\x00\x00", rgb[0:3]       # key: plane 4 shows
         assert rgb[3:6] == b"\x00\x00\xf8", rgb[3:6]       # plane 2 blue on top
+        assert rgb[6:9] == b"\x7c\x00\x00" or rgb[6:9] == b"\xf8\x00\x00", rgb[6:9]  # alpha bit clear: plane 4
     print("ze0_screenshot selftest: ok")
 
 

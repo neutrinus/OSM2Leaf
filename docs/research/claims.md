@@ -5028,3 +5028,15 @@ into three printed classes.
 | C-6934 | Surface pixels are (A)RGB1555 although the registry names "565": land `0x6f7a` is light grey only as 1555; DU plane mode bit 12 enables the colour key (`+0x48`), bit 14 marks an opaque plane, low bits equal. | VERIFIED | H | EXP-2026-11-22-M8.C1f-2dg-interpreter O3, O4 |
 | C-6935 | On the map screen DU plane 4 shows the map from a 2368-pixel-wide surface at `0x0e9f2000` (window 1376, 193) and plane 2 is the UI at `0x0e932800`, key `0x03ff`, filled with `0x83ff` (transparent). | VERIFIED | H | EXP-2026-11-22-M8.C1f-2dg-interpreter O4 |
 | C-6936 | With `ze0-0014` the EU 2011 card shows the London map (area fills, roads, shields, parks, labels) within 15 minutes of boot; 8 lists, 2669 commands drawn, 7 skipped (`0xb3007602` ×5, `0xb10038c2` ×2). | VERIFIED | H | EXP-2026-11-22-M8.C1f-2dg-interpreter O5, O6; run G12 |
+
+## M8.C1g — UI layer on ze0: AuiApp from image A (C-8200–C-8209)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8200 | SystemEXE's `CAuiMonitorCmn` waits 45 000 ms (literal at SystemEXE VA `0x1fba0`, unique) for `AUIMONI_EVT_FOR_SYS_INIT_END`; on timeout it logs an `ERR_LVL_A` entry and PowerMonitor runs the ACC-OFF shutdown and `Force PowerOff`. | VERIFIED | H | EXP-2026-11-22-M8.C1g-ui-layer O1; runs G13, G14 |
+| C-8201 | Image B carries the card updater's own `auiapp.exe`/`auirtdll.dll`/`UpdateNK.skn`; `ze0_ipl.py` kept those over image A's until `--prefer-app`. | VERIFIED | H | EXP-2026-11-22-M8.C1g-ui-layer O2 |
+| C-8202 | Image A's AuiApp needs `HKCU\Software\Microsoft\Automotive\AuiApp\SkinPath`, absent from the card's `user.hv`; empty, AUIRT stops with `82014113 Only SKN file format…`; `\windows\ReleaseMain.skn` (65 skins) loads `\SystemSD2\SkinChange\001\Substance.skn` (36 905 skins). | VERIFIED | H | EXP-2026-11-22-M8.C1g-ui-layer O3, O4; runs G15–G17 |
+| C-8203 | Image A's AUI controls are not registered in the card's `default.hv` (102 CLSID keys, none of A's); 64 A modules carry `REGISTRY` resources, and calling their `DllRegisterServer` lets the skin chain load. | VERIFIED | H | EXP-2026-11-22-M8.C1g-ui-layer O4; run G17 |
+| C-8204 | `HCXLog.dll` (ordinals 1, 2, 4–7; 45 importers) and `HCXMemory.dll` (about 20 ordinals; 58 importers) and `Cws_Apl.dll` are on no ROM image of the card; 16 controls incl. `ctl_PRCOM_System` (`80020003`) fail because of them; `AppTimerDll.dll` is in image C. | VERIFIED | H | EXP-2026-11-22-M8.C1g-ui-layer O5; runs G17, G18 |
+| C-8205 | AuiApp's surfaces: Command/Bitmap/Alphamap 800 × 2400, FontAlpha 800 × 960; DU plane 1 shows the AUI surface at window (0, 480). | VERIFIED | H | EXP-2026-11-22-M8.C1g-ui-layer O6; run G18 |
+| C-8206 | On a keyed DU plane a pixel is transparent when alpha bit 15 is clear or it equals the key; DU `+0x08` (`0xa5`/`0xa6`) is not a plane alpha. | OBSERVED | M | EXP-2026-11-22-M8.C1g-ui-layer O7 |
+| C-8207 | 2DG op `0x44 XY` adds XY to the local offset; AuiApp uses (0, 480) and (0, −480) to draw its surface page by page. | VERIFIED (by rendering) | M | EXP-2026-11-22-M8.C1g-ui-layer O8 |

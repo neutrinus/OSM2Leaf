@@ -4126,8 +4126,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6930–C-6939
   - Result: EXP-2026-11-22-M8.C1f-2dg-interpreter (C-6930–C-6936). `ze0-0014` adds `hw/sh4/ze0_2dg.c`: each 2DG display list runs on the host when SCLR = 1 is written (boxes, alpha glyphs, stencil-then-cover polygons, polylines, textured quads; pixels are (A)RGB1555, not 565). `tools/ze0_screenshot.py screen` composes the DU planes (plane 4 = map on a 2368-wide surface, plane 2 = keyed UI). Within 15 minutes the EU 2011 card shows the London map; 2669 commands drawn, 7 skipped (`0xb3007602`, `0xb10038c2`). The UI layer is still empty.
 
-- [ ] **M8.C1g — UI layer on `-M ze0`: AuiApp from image A, COM registrations, screenshot with the AUI forms**
-  - Status: in progress · Owner: Claude (task/m8.c1g-ui-layer) · Critical: no · Pair: solo
+- [x] **M8.C1g — UI layer on `-M ze0`: AuiApp from image A, COM registrations, screenshot with the AUI forms**
+  - Status: done · Owner: Claude (task/m8.c1g-ui-layer) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1f
   - Goal: Marek wants the UI layer (buttons, status bar) in the emulator screenshot (2026-11-22). After M8.C1f only the map plane is drawn; the UI plane stays keyed out.
@@ -4138,6 +4138,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the forms need processes that fail for a missing unit-flash DLL (`HCXMemory.dll`, `AppTimerDll.dll`), record which and stop.
   - Falsifier: with image A's AuiApp, the skin path and the COM registrations in place, `AUI:WRN:02034302 Failed initialize control` still appears for every control.
   - Claims: C-8200–C-8209
+  - Result: EXP-2026-11-22-M8.C1g-ui-layer (C-8200–C-8207), stopped on the Stop case. `ze0_ipl.py --prefer-app auiapp.exe,auirtdll.dll` runs image A's AuiApp instead of the updater's; `tools/ze0_aui.py` patches in the SkinPath default, `DllRegisterServer` of 64 control DLLs and (`--no-aui-timeout`) SystemEXE's 45 s AUI wait. The real skin chain loads (ReleaseMain.skn → Substance.skn, 36 905 skins) and the system no longer shuts down, but 16 controls incl. `ctl_PRCOM_System` fail: `HCXLog.dll`, `HCXMemory.dll`, `Cws_Apl.dll` are in the unit's flash, not on the card. `ze0-0015` adds 2DG op 0x44. Next: M8.C1h stubs.
+
+- [ ] **M8.C1h — UI layer on `-M ze0`: stub `HCXLog.dll`/`HCXMemory.dll`, image C's `AppTimerDll.dll`, first AUI form on screen**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1g
+  - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). M8.C1g got image A's AuiApp running with the real skins, but 16 controls (incl. `ctl_PRCOM_System`) fail because their DLLs import libraries that live in the unit's flash, not on the card.
+  - Precheck: with `ze0_ipl.py patch --prefer-app auiapp.exe,auirtdll.dll` + `ze0_aui.py --no-aui-timeout`, the serial log shows `DoImport Failed! Unable to import Library 'HCXLog.dll'` (17×), `'HCXMemory.dll'` (12×), `'Cws_Apl.dll'` (15×), `'AppTimerDll.dll'` (4×) and 16× `AUI:WRN:02034302 Failed initialize control`.
+  - Scope: (1) semantics of `HCXLog.dll` ordinals 1, 2, 4–7 and `HCXMemory.dll` ordinals 1, 3–6, 9–19, 23, 24, 29 from their call sites in the 45/58 importers (`tools/sh4xref.py --to SLOT`, `tools/callgraph.py`); (2) a stub ROM module per DLL (exports by ordinal, minimal SH-4 bodies: logger = no-op returning success, allocator = forward to coredll `LocalAlloc`/`LocalFree` or equivalent) added to the IPL TOC; (3) image C's `AppTimerDll.dll` in the merged TOC; (4) `Cws_Apl.dll` only if a non-telematics control needs it; (5) screenshot.
+  - Input: EXP-2026-11-22-M8.C1g-ui-layer, `tools/ze0_ipl.py`, `tools/ze0_aui.py`, `tools/cerom.py`.
+  - Done when: a screenshot from a running guest shows at least one AUI form element drawn by AuiApp, or the EXP names the next missing piece with serial-log evidence.
+  - Stop: if an HCX ordinal returns a structure whose layout cannot be read from the callers, record which and stop.
+  - Falsifier: with the stubs loaded, `ctl_PRCOM_System` still returns `80020003`.
+  - Claims: C-8210–C-8219
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo

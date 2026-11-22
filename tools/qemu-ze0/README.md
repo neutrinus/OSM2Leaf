@@ -285,6 +285,11 @@ kept), so the next run extracts cleanly.
   DU planes into the 800x480 screen; within 15 minutes the EU 2011
   card shows the map. See
   [`EXP-2026-11-22-M8.C1f-2dg-interpreter.md`](../../docs/experiments/EXP-2026-11-22-M8.C1f-2dg-interpreter.md).
+- `ze0-0015` (M8.C1g): 2DG op `0x44 XY` adds XY to the local offset
+  (AuiApp draws its 800x2400 surface page by page); with `gfx-trace=on`
+  writes of the target-surface register `+0x50` log `ze0-2dg: target ADDR`.
+  See
+  [`EXP-2026-11-22-M8.C1g-ui-layer.md`](../../docs/experiments/EXP-2026-11-22-M8.C1g-ui-layer.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
