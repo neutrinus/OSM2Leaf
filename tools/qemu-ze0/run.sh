@@ -70,6 +70,12 @@ Options:
   --serial SPEC       first serial port (-M ze0: the debug SCIF at 0xffe46000,
                       M8.A6): log = file:WORK/serial.log (default), none,
                       stdio, or any QEMU -serial chardev spec
+  --serial-peer N=SPEC  -M ze0: attach host chardev to SCIF N (0-8) for TX
+                      and RX (M8.H1). SPEC is unix:PATH[,opts] (a peer
+                      connects to PATH), file:PATH or stdio; it is translated
+                      to QEMU -chardev backend parameters. Repeat for several
+                      lines. The machine gets sciN=<generated chardev id>.
+                      Without this option the SCIF keeps its stub behaviour.
   --dbgmsg VA|off     -M ze0 with --image: copy the kernel debug strings to
                       the first serial port (machine option dbgmsg=VA, M8.B6;
                       needs ze0-0007). Default 0x880404f4 (EU2011 nk.exe
@@ -321,6 +327,7 @@ TIMEOUT=10
 WORK=
 LOG=
 SERIAL=log
+SERIAL_PEERS=
 DBGMSG=0x880404f4
 SD=
 VERINF=
@@ -355,8 +362,8 @@ while [ "$#" -gt 0 ]; do
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
-    --serial | --dbgmsg | --icount | --sd | --verinf | --mapdb | --ipl-patch | \
-    --card)
+    --serial | --serial-peer | --dbgmsg | --icount | --sd | --verinf | \
+    --mapdb | --ipl-patch | --card)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
         _val=$2
@@ -387,6 +394,13 @@ while [ "$#" -gt 0 ]; do
         --qemu) QEMU=$_val ;;
         --memmap) MEMMAP_SRC=$_val ;;
         --serial) SERIAL=$_val ;;
+        --serial-peer)
+          case $_val in
+            sci[0-8]=?*) ;;
+            *) usage_error "--serial-peer needs sciN=SPEC with N in 0-8" ;;
+          esac
+          SERIAL_PEERS="${SERIAL_PEERS:+${SERIAL_PEERS}|}$_val"
+          ;;
         --dbgmsg) DBGMSG=$_val ;;
         --icount) ICOUNT=$_val ;;
         --sd) SD=$_val ;;
@@ -542,6 +556,34 @@ fi
 
 set -- "$QEMU"
 
+# M8.H1: one QEMU chardev per named SCIF peer. The machine property sciN
+# points at it, so sh_serial carries both TX and RX for that line.
+PEER_MOPTS=
+if [ -n "$SERIAL_PEERS" ]; then
+  set -f
+  OLDIFS=$IFS
+  IFS='|'
+  for _peer in $SERIAL_PEERS; do
+    _n=${_peer%%=*}
+    _spec=${_peer#*=}
+    case $_spec in
+      unix:*) _backend=socket; _rest="path=${_spec#unix:}" ;;
+      file:*) _backend=file;   _rest="path=${_spec#file:}" ;;
+      stdio)  _backend=stdio;  _rest= ;;
+      *) usage_error "--serial-peer: unsupported chardev spec '$_spec'" ;;
+    esac
+    _id=ze0$_n
+    if [ -n "$_rest" ]; then
+      set -- "$@" -chardev "$_backend,id=$_id,$_rest"
+    else
+      set -- "$@" -chardev "$_backend,id=$_id"
+    fi
+    PEER_MOPTS="$PEER_MOPTS,$_n=$_id"
+  done
+  IFS=$OLDIFS
+  set +f
+fi
+
 if [ "$MACHINE" = ze0 ]; then
   if [ -n "$IMAGE" ]; then
     # Built-in loader (M8.A3): the machine reads the CE images itself.
@@ -555,9 +597,10 @@ if [ "$MACHINE" = ze0 ]; then
     [ -n "$MAPDB" ] && _mopts="$_mopts,mapdb=$MAPDB"
     # IPL patch: ROM image A joined to the kernel (M8.C1d, ze0-0012).
     [ -n "$IPL_PATCH" ] && _mopts="$_mopts,ipl-patch=$IPL_PATCH"
+    _mopts="$_mopts$PEER_MOPTS"
     set -- "$@" -M "$_mopts" -kernel "$IMAGE"
   else
-    set -- "$@" -M ze0
+    set -- "$@" -M "ze0$PEER_MOPTS"
   fi
 else
   set -- "$@" -M none -cpu sh7785 -m "${MEM}M"

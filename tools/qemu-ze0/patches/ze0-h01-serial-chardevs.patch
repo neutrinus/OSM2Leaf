@@ -1,0 +1,322 @@
+hw/sh4: ze0 SCIF channels as named host chardevs with receive (TODO M8.H1).
+
+Every SCIF 0-8 gets a machine property sciN=<chardev id>.  With a chardev,
+sh_serial carries TX to the host and RX from it into the FIFO; without one
+the old stub behaviour (TX into the void) is kept.  The HPB-DMAC channels
+armed from a SCIF FRDR drain that FIFO into the guest buffers and complete,
+so a host peer can answer the frames of EXP-2026-11-22-M8.C2a-serial-dma.
+
+run.sh --serial-peer sciN=unix:PATH creates the chardev and the property.
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -177,6 +177,7 @@
+     bool sd_pwd_tofu;
+     bool sd_start_locked;
+     bool scif_stubs;
++    char *sci_chardev[9];           /* M8.H1: chardev id per SCIF 0-8 */
+     char *verinf;
+     char *mapdb;
+     char *ipl_patch;
+@@ -575,13 +576,38 @@
+         }
+     }
+ 
++    /*
++     * M8.H1: every SCIF is a named host chardev when the machine is given
++     * sci0=... sci8=... .  Without a property the old wiring stays: the
++     * debug SCIF keeps serial port 0 and the other channels are stubs with
++     * their transmit bytes dropped.  The lookup happens here, after QEMU
++     * has created the chardevs from the command line.
++     */
++    {
++        int i;
++
++        for (i = 0; i < 9; i++) {
++            const char *id = ZE0_MACHINE(machine)->sci_chardev[i];
++
++            if (!id || !*id) {
++                continue;
++            }
++            if (!qemu_chr_find(id)) {
++                error_report("ze0: sci%d: no chardev with id '%s'", i, id);
++                exit(1);
++            }
++        }
++    }
++
+     /* Kernel debug SCIF (M8.A6) on serial port 0, over the P4 catch-all. */
+     {
+         DeviceState *scif = qdev_new(TYPE_SH_SERIAL);
++        const char *id = ZE0_MACHINE(machine)->sci_chardev[6];
+ 
+         scif->id = g_strdup("ze0-debug-scif");
+         qdev_prop_set_uint8(scif, "features", SH_SERIAL_FEAT_SCIF);
+-        qdev_prop_set_chr(scif, "chardev", serial_hd(0));
++        qdev_prop_set_chr(scif, "chardev",
++                          (id && *id) ? qemu_chr_find(id) : serial_hd(0));
+         sysbus_realize_and_unref(SYS_BUS_DEVICE(scif), &error_fatal);
+         memory_region_add_subregion(sysmem, ZE0_DEBUG_SCIF_BASE,
+                                     sysbus_mmio_get_region(SYS_BUS_DEVICE(scif), 0));
+@@ -622,9 +648,14 @@
+             if (base == ZE0_DEBUG_SCIF_BASE) {
+                 continue;
+             }
++            const char *id = i < 9 ? ZE0_MACHINE(machine)->sci_chardev[i] : NULL;
++
+             sc = qdev_new(TYPE_SH_SERIAL);
+             sc->id = g_strdup_printf("ze0-scif%d", i);
+             qdev_prop_set_uint8(sc, "features", SH_SERIAL_FEAT_SCIF);
++            if (id && *id) {
++                qdev_prop_set_chr(sc, "chardev", qemu_chr_find(id));
++            }
+             sysbus_realize_and_unref(SYS_BUS_DEVICE(sc), &error_fatal);
+             memory_region_add_subregion(sysmem, base,
+                 sysbus_mmio_get_region(SYS_BUS_DEVICE(sc), 0));
+@@ -852,6 +883,37 @@
+     ZE0_MACHINE(obj)->scif_stubs = value;
+ }
+ 
++/* M8.H1: sciN=<chardev id>, N = 0..8; N=6 is the kernel debug SCIF. */
++#define ZE0_SCI_ACCESSORS(n)                                                  \
++    static char *ze0_get_sci##n(Object *obj, Error **errp)                   \
++    {                                                                        \
++        return g_strdup(ZE0_MACHINE(obj)->sci_chardev[n] ?: "");             \
++    }                                                                        \
++    static void ze0_set_sci##n(Object *obj, const char *value, Error **errp) \
++    {                                                                        \
++        char **slot = &ZE0_MACHINE(obj)->sci_chardev[n];                     \
++        g_free(*slot);                                                       \
++        *slot = *value ? g_strdup(value) : NULL;                             \
++    }
++
++ZE0_SCI_ACCESSORS(0)
++ZE0_SCI_ACCESSORS(1)
++ZE0_SCI_ACCESSORS(2)
++ZE0_SCI_ACCESSORS(3)
++ZE0_SCI_ACCESSORS(4)
++ZE0_SCI_ACCESSORS(5)
++ZE0_SCI_ACCESSORS(6)
++ZE0_SCI_ACCESSORS(7)
++ZE0_SCI_ACCESSORS(8)
++
++#define ZE0_ADD_SCI_PROP(n)                                                  \
++    do {                                                                     \
++        object_property_add_str(obj, "sci" #n, ze0_get_sci##n,               \
++                                ze0_set_sci##n);                             \
++        object_property_set_description(obj, "sci" #n,                       \
++            "chardev id for SCIF" #n " (TX and RX); default unset = stub");  \
++    } while (0)
++
+ static bool ze0_get_sdhi_trace(Object *obj, Error **errp)
+ {
+     return ZE0_MACHINE(obj)->sdhi_trace;
+@@ -953,6 +1015,16 @@
+     object_property_set_description(obj, "sdhi-trace",
+         "log every SD host register access with -d unimp");
+ 
++    ZE0_ADD_SCI_PROP(0);
++    ZE0_ADD_SCI_PROP(1);
++    ZE0_ADD_SCI_PROP(2);
++    ZE0_ADD_SCI_PROP(3);
++    ZE0_ADD_SCI_PROP(4);
++    ZE0_ADD_SCI_PROP(5);
++    ZE0_ADD_SCI_PROP(6);
++    ZE0_ADD_SCI_PROP(7);
++    ZE0_ADD_SCI_PROP(8);
++
+     object_property_add_str(obj, "verinf", ze0_get_verinf, ze0_set_verinf);
+     object_property_set_description(obj, "verinf",
+         "unit map code at kernel image header +0x60, read by the launcher "
+--- a/hw/sh4/ze0_hpbdmac.c
++++ b/hw/sh4/ze0_hpbdmac.c
+@@ -36,6 +36,11 @@
+  * sh_serial device behind it) and completes like an SD channel.  A
+  * channel whose DSAR is a SCIF FRDR stays armed: no peer sends data.
+  *
++ * M8.H1 adds the other half: when a host chardev is attached to a SCIF, the
++ * bytes it writes enter sh_serial's RX FIFO.  An armed FRDR channel drains
++ * that FIFO into its two RAM planes (0x80 bytes each) and completes with the
++ * same interrupt as a transmit.  Without a chardev the behaviour is unchanged.
++ *
+  * Model: the two SD channels move SD data.  A channel is armed by
+  * DCMDR.DMEN.  When it is armed and the SD host of its port has data
+  * (CC_EXT_MODE.DMASDRW set by the driver), the bytes are copied between
+@@ -53,6 +58,7 @@
+ #include "qemu/log.h"
+ #include <zlib.h>
+ #include "qapi/error.h"
++#include "qemu/timer.h"
+ #include "system/address-spaces.h"
+ #include "system/memory.h"
+ #include "hw/core/sysbus.h"
+@@ -101,6 +107,8 @@
+ #define SCIF_A7_END     0x1fe48000u
+ #define SCIF_FTDR       0x0c
+ #define SCIF_FRDR       0x14
++#define SCIF_RX_CNT     0x1c    /* QEMU sh_serial: received bytes in the FIFO */
++#define RX_POLL_NS      (2 * NANOSECONDS_PER_SECOND / 1000)
+ 
+ static bool ze0_hpbdmac_is_scif(uint32_t a, unsigned reg)
+ {
+@@ -120,12 +128,21 @@
+     char hex[2 * 32 + 1] = "";
+ 
+     if (ze0_hpbdmac_is_scif(*sar, SCIF_FRDR)) {
++        /*
++         * M8.H1: a chardev peer may feed the sh_serial FIFO.  Remember the
++         * plane size and poll the FIFO; the two 0x80-byte planes are filled
++         * in turn before the channel completes (DCR 0x00052000).
++         */
++        s->rx_tcr[ch] = *tcr;
++        s->rx_plane[ch] = false;
+         if (s->trace) {
+             qemu_log_mask(LOG_UNIMP, "ze0-hpbdmac: ch%d rx armed from SCIF "
+                           "0x%08x into 0x%08x/0x%08x, %u bytes per plane "
+-                          "(no peer: stays armed)\n", ch, *sar, *dar,
++                          "(waiting for peer)\n", ch, *sar, *dar,
+                           CH(s, ch, DDAR1), *tcr);
+         }
++        timer_mod(s->rx_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
++                  RX_POLL_NS);
+         return;
+     }
+     if (!ze0_hpbdmac_is_scif(*dar, SCIF_FTDR)) {
+@@ -163,6 +180,91 @@
+     ze0_hpbdmac_update_irq(s);
+ }
+ 
++/*
++ * M8.H1: move bytes that a host chardev put in the sh_serial FIFO into the
++ * RAM plane the driver armed.  sh_serial exposes the FIFO level at +0x1c;
++ * reading that instead of FSR avoids clearing the transmit flags.  When both
++ * planes are full the channel completes and raises its DMAC interrupt, the
++ * same path M8.C2a uses for transmit completion.
++ */
++static void ze0_hpbdmac_rx_serial(Ze0HpbDmacState *s)
++{
++    int ch;
++    bool again = false;
++
++    for (ch = 0; ch < ZE0_HPBDMAC_NR_CH; ch++) {
++        uint32_t *sar = &CH(s, ch, DSAR0);
++        uint32_t *dar = &CH(s, ch, DDAR0);
++        uint32_t *tcr = &CH(s, ch, DTCR0);
++        uint32_t base, dst, i, n, crc;
++        uint16_t cnt = 0;
++        uint8_t buf[256];
++        char hex[2 * 32 + 1] = "";
++
++        if (!(CH(s, ch, DCMDR) & DCMDR_DMEN) ||
++            !ze0_hpbdmac_is_scif(*sar, SCIF_FRDR) || !*tcr) {
++            continue;
++        }
++        base = *sar & ~0xfffu;
++        dst = *dar & A7_MASK;
++        address_space_read(&address_space_memory, base + SCIF_RX_CNT,
++                           MEMTXATTRS_UNSPECIFIED, &cnt, sizeof(cnt));
++        for (n = 0; n < MIN((uint32_t)cnt, *tcr) && n < sizeof(buf); n++) {
++            address_space_read(&address_space_memory, base + SCIF_FRDR,
++                               MEMTXATTRS_UNSPECIFIED, &buf[n], 1);
++            address_space_write(&address_space_memory, *dar & A7_MASK,
++                                MEMTXATTRS_UNSPECIFIED, &buf[n], 1);
++            (*dar)++;
++            (*tcr)--;
++        }
++        if (!n) {
++            again = true;
++            continue;
++        }
++        crc = crc32(crc32(0, NULL, 0), buf, n);
++        for (i = 0; i < n && i < 32; i++) {
++            snprintf(hex + 2 * i, 3, "%02x", buf[i]);
++        }
++        if (s->trace) {
++            qemu_log_mask(LOG_UNIMP, "ze0-hpbdmac: ch%d rx %u bytes, SCIF "
++                          "0x%08x -> 0x%08x, crc32 0x%08x, data %s\n",
++                          ch, n, *sar, dst, crc, hex);
++        }
++        s->rx_bytes[ch] += n;
++        if (*tcr) {
++            again = true;
++            continue;
++        }
++        if (!s->rx_plane[ch] && CH(s, ch, DDAR1)) {
++            /* first 0x80-byte plane full: switch to the second one */
++            s->rx_plane[ch] = true;
++            CH(s, ch, DDAR0) = CH(s, ch, DDAR1);
++            CH(s, ch, DTCR0) = s->rx_tcr[ch];
++            CH(s, ch, DDASR) = *dar;
++            again = true;
++            continue;
++        }
++        CH(s, ch, DSASR) = *sar;
++        CH(s, ch, DDASR) = *dar;
++        CH(s, ch, DTCSR) = 0;
++        s->rx_transfers[ch]++;
++        CH(s, ch, DCMDR) &= ~DCMDR_DMEN;
++        CH(s, ch, DSTSR) &= ~1u;
++        COMMON(s, DINTSR0) |= 1u << ch;
++        ze0_hpbdmac_update_irq(s);
++    }
++
++    if (again) {
++        timer_mod(s->rx_timer,
++                  qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + RX_POLL_NS);
++    }
++}
++
++static void ze0_hpbdmac_rx_timer(void *opaque)
++{
++    ze0_hpbdmac_rx_serial((Ze0HpbDmacState *)opaque);
++}
++
+ static unsigned ze0_hpbdmac_unit(Ze0HpbDmacState *s, int ch)
+ {
+     /*
+@@ -359,11 +461,16 @@
+ {
+     Ze0HpbDmacState *s = ZE0_HPBDMAC(dev);
+ 
++    timer_del(s->rx_timer);
+     memset(s->regs, 0, sizeof(s->regs));
+     memset(s->bytes, 0, sizeof(s->bytes));
+     memset(s->transfers, 0, sizeof(s->transfers));
+     memset(s->tx_bytes, 0, sizeof(s->tx_bytes));
+     memset(s->tx_transfers, 0, sizeof(s->tx_transfers));
++    memset(s->rx_bytes, 0, sizeof(s->rx_bytes));
++    memset(s->rx_transfers, 0, sizeof(s->rx_transfers));
++    memset(s->rx_tcr, 0, sizeof(s->rx_tcr));
++    memset(s->rx_plane, 0, sizeof(s->rx_plane));
+     ze0_hpbdmac_update_irq(s);
+ }
+ 
+@@ -379,6 +486,7 @@
+     for (ch = 0; ch < ZE0_HPBDMAC_NR_CH; ch++) {
+         sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq[ch]);
+     }
++    s->rx_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, ze0_hpbdmac_rx_timer, s);
+ }
+ 
+ static const Property ze0_hpbdmac_props[] = {
+--- a/include/hw/sh4/ze0_hpbdmac.h
++++ b/include/hw/sh4/ze0_hpbdmac.h
+@@ -8,6 +8,7 @@
+ 
+ #include "hw/core/sysbus.h"
+ #include "hw/sh4/ze0_sdhi.h"
++#include "qemu/timer.h"
+ #include "qom/object.h"
+ 
+ #define TYPE_ZE0_HPBDMAC "ze0-hpbdmac"
+@@ -31,6 +32,11 @@
+     uint32_t transfers[2];
+     uint64_t tx_bytes[ZE0_HPBDMAC_NR_CH];  /* memory -> SCIF, per channel */
+     uint32_t tx_transfers[ZE0_HPBDMAC_NR_CH];
++    uint64_t rx_bytes[ZE0_HPBDMAC_NR_CH];  /* SCIF FIFO -> memory (M8.H1) */
++    uint32_t rx_transfers[ZE0_HPBDMAC_NR_CH];
++    uint32_t rx_tcr[ZE0_HPBDMAC_NR_CH];    /* bytes per plane, saved on arm */
++    bool rx_plane[ZE0_HPBDMAC_NR_CH];      /* true while filling plane 1 */
++    QEMUTimer *rx_timer;                   /* polls armed FRDR channels */
+ };
+ 
+ void ze0_hpbdmac_attach_sdhi(Ze0HpbDmacState *s, int port, Ze0SdhiState *h,

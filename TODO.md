@@ -4480,8 +4480,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6960–C-6969
   - Note: Marek, 2026-11-22: lead https://www.youtube.com/watch?v=BO-hEO0uR3A (not opened from the Claude sandbox, youtube.com is blocked). Russian groups once distributed modified SD card images that unlocked Android Auto on AZE0, so the feature is probably present in the AZE0 firmware and only switched off. First check: compare such an image (if Marek finds one) with the factory EU2014/2016 card: which ROM A module or registry/config byte differs. Do not commit vendor bytes.
 
-- [ ] **M8.H1 — Every serial channel of `-M ze0` is a named host chardev, RX and TX**
-  - Status: in progress · Owner: task/m8.h1-serial-chardevs · Critical: yes · Pair: required
+- [x] **M8.H1 — Every serial channel of `-M ze0` is a named host chardev, RX and TX**
+  - Status: done · Owner: task/m8.h1-serial-chardevs · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.C1e (done), M8.C2a (done)
   - Goal: Marek wants to feed GPS positions and touch input into the emulator (2026-11-22). GPS (`SCI7:`), the display unit (`SCI3:`), the audio microcontroller (`SCI1:`), Bluetooth (`SCI8:`) and the VCAN microcontroller (`UAT3:`) all sit behind serial lines (`docs/hardware/head-unit.md`), so one patch that connects each line to a host chardev lets every chip model live outside QEMU as a Python peer (`docs/research/qemu-connectors.md`). Today only channel-10 DMA TX to SCIF1 reaches the host (`ze0-0011`), and SCIF 0–9 are stubs (`ze0-0013`).
@@ -4492,6 +4492,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if RX needs a second DMA engine or an interrupt source that is not modelled, land TX for all lines, name the missing piece per line and stop.
   - Falsifier: bytes written to the socket never reach the driver's read buffer although the RX interrupt (or DMA end) is delivered.
   - Claims: C-6980–C-6989
+  - Result: EXP-2026-11-22-M8.H1-serial-chardevs; sci1+sci7 TX/RX loopback, ch7 ISR 1 hit, baseline unchanged, gate 5/5
 
 - [ ] **M8.H2 — `serial_uat.dll`: which UART chip sits at `0x19b00000`–`0x19e00000` (register map, interrupts)**
   - Status: open · Owner: — · Critical: no · Pair: solo

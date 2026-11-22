@@ -49,6 +49,16 @@ Usage:
                 [--writer 0x8804cfa4]
   ze0_serial.py banner LOG
   ze0_serial.py dbgcmp SERIAL DBGLOG [--lines 200] [--max-chars 256]
+  ze0_serial.py peer PATH [--listen] [--send-hex HEX] [--expect-hex HEX]
+                [--count N] [--timeout S] [--nowait]
+                A host peer for a --serial-peer socket (M8.H1). The line is
+                a raw byte stream: --send-hex writes to the guest,
+                --expect-hex checks what comes back. Length-prefixed frames
+                (4-byte big-endian) are used by peer control channels and
+                are covered by --selftest.
+  ze0_serial.py hmp SOCK COMMAND
+                Send one HMP command (e.g. "xp/16xb 0xa999e800") and print
+                the monitor reply, for guest-side evidence of a received fix.
   ze0_serial.py --selftest
 
 Method and results: docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md
@@ -57,6 +67,7 @@ Method and results: docs/experiments/EXP-2026-11-19-M8.A6-debug-serial.md
 import argparse
 import os
 import re
+import socket
 import struct
 import sys
 
@@ -336,6 +347,120 @@ def cmd_dbgcmp(args):
 
 
 # --------------------------------------------------------------------------
+# socket framing (M8.H1)
+# --------------------------------------------------------------------------
+
+FRAME_MAX = 0x100000       # 1 MiB: refuse a bogus length before allocating
+
+
+def frame_bytes(payload):
+    """One peer-control message: big-endian u32 length, then the bytes."""
+    if len(payload) > FRAME_MAX:
+        raise ValueError("frame too large: %d bytes" % len(payload))
+    return struct.pack(">I", len(payload)) + payload
+
+
+def frames_in(buf):
+    """(complete payloads, unconsumed tail) from a stream buffer."""
+    out = []
+    while len(buf) >= 4:
+        n = struct.unpack_from(">I", buf)[0]
+        if n > FRAME_MAX:
+            raise ValueError("frame too large: %d bytes" % n)
+        if len(buf) < 4 + n:
+            break
+        out.append(buf[4:4 + n])
+        buf = buf[4 + n:]
+    return out, buf
+
+
+def recv_exact(sock, n):
+    """Read exactly n bytes; a short peer is an error, not a partial success."""
+    out = bytearray()
+    while len(out) < n:
+        part = sock.recv(n - len(out))
+        if not part:
+            raise EOFError("socket closed after %d of %d bytes" % (len(out), n))
+        out.extend(part)
+    return bytes(out)
+
+
+def send_frame(sock, payload):
+    sock.sendall(frame_bytes(payload))
+
+
+def recv_frame(sock):
+    n = struct.unpack(">I", recv_exact(sock, 4))[0]
+    if n > FRAME_MAX:
+        raise ValueError("frame too large: %d bytes" % n)
+    return recv_exact(sock, n)
+
+
+def cmd_peer(args):
+    """Exchange raw bytes with a host socket attached to a guest SCIF."""
+    try:
+        if args.listen:
+            try:
+                os.unlink(args.path)
+            except FileNotFoundError:
+                pass
+            srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            srv.bind(args.path)
+            srv.listen(1)
+            srv.settimeout(args.timeout)
+            sock, _ = srv.accept()
+            srv.close()
+        else:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.settimeout(args.timeout)
+            sock.connect(args.path)
+        with sock:
+            sent = bytes.fromhex(args.send_hex or "")
+            if sent:
+                sock.sendall(sent)
+            if args.nowait:
+                print("peer: sent %d byte(s), no reply requested" % len(sent))
+                return 0
+            want = bytes.fromhex(args.expect_hex or "")
+            n = args.count or (len(want) or 64)
+            got = recv_exact(sock, n)
+            ok = not want or want in got
+            print("peer: sent %d byte(s), received %s" %
+                  (len(sent), got.hex()))
+            print("peer: expect %s: %s" %
+                  (want.hex() or "any", "PASS" if ok else "FAIL"))
+            return 0 if ok else 1
+    except (OSError, EOFError, ValueError) as e:
+        print("peer: %s" % e, file=sys.stderr)
+        return 2
+
+
+def cmd_hmp(args):
+    """One Human Monitor Protocol command, for guest-side evidence."""
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.settimeout(min(args.timeout, 0.5))
+            sock.connect(args.sock)
+            sock.sendall((args.command + "\n").encode())
+            data = bytearray()
+            while True:
+                try:
+                    part = sock.recv(4096)
+                except socket.timeout:
+                    break
+                if not part:
+                    break
+                data.extend(part)
+        text = data.decode("utf-8", "replace").replace("\r", "")
+        text = re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", text)
+        print("\n".join(ln for ln in text.split("\n") if ln.strip()))
+        return 0
+    except OSError as e:
+        print("hmp: %s" % e, file=sys.stderr)
+        return 2
+
+
+# --------------------------------------------------------------------------
 # selftest
 # --------------------------------------------------------------------------
 
@@ -455,6 +580,56 @@ def selftest():
         "   1.000 0x880404f4 pr=0x0 r4=0x0 x\ny\n".replace("pr=0x0 r4=0x0", "pr=0x00000000 r4=0x00000000")),
         ["x", "y"])
 
+    # Socket framing of M8.H1 peer control channels: pure encoding, stream
+    # reassembly, and two real AF_UNIX socket pairs (positive and negative).
+    check("frame bytes", frame_bytes(b"\x10\x02"), b"\x00\x00\x00\x02\x10\x02")
+    check("frame empty", frame_bytes(b""), b"\x00\x00\x00\x00")
+    stream = frame_bytes(b"ab") + frame_bytes(b"") + frame_bytes(b"xyz")[:6]
+    msgs, tail = frames_in(stream)
+    check("frames in stream", msgs, [b"ab", b""])
+    check("frames leaves partial tail", tail, frame_bytes(b"xyz")[:6])
+    try:
+        frame_bytes(b"x" * (FRAME_MAX + 1))
+        check("oversize send refused", False, True)
+    except ValueError:
+        check("oversize send refused", True, True)
+    try:
+        frames_in(struct.pack(">I", FRAME_MAX + 1))
+        check("oversize receive refused", False, True)
+    except ValueError:
+        check("oversize receive refused", True, True)
+
+    class OneByteSocket:
+        def __init__(self, data):
+            self.data = data
+
+        def recv(self, n):
+            b, self.data = self.data[:1], self.data[1:]
+            return b
+
+    check("recv_exact loops short reads",
+          recv_exact(OneByteSocket(b"abcdef"), 6), b"abcdef")
+    try:
+        recv_exact(OneByteSocket(b"ab"), 4)
+        check("truncated read is an error", False, True)
+    except EOFError:
+        check("truncated read is an error", True, True)
+
+    a, b = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        send_frame(a, b"gps 52.23 21.01")
+        check("socket frame round-trip", recv_frame(b), b"gps 52.23 21.01")
+        a.sendall(frame_bytes(b"x")[:3])
+        b.close()
+        try:
+            recv_frame(a)
+            check("short framed peer is an error", False, True)
+        except (EOFError, OSError):
+            check("short framed peer is an error", True, True)
+    finally:
+        a.close()
+        b.close()
+
     print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -493,6 +668,21 @@ def main(argv=None):
     c.add_argument("--lines", type=int, default=200)
     c.add_argument("--max-chars", type=int, default=256,
                    help="ze0_dbgmsg.py --max-len in UTF-16 units (default 512 bytes = 256)")
+    p = sub.add_parser("peer")
+    p.add_argument("path", help="AF_UNIX socket of a --serial-peer chardev")
+    p.add_argument("--listen", action="store_true",
+                   help="bind and wait for the guest instead of connecting")
+    p.add_argument("--send-hex", default="", help="raw bytes to write to the guest")
+    p.add_argument("--expect-hex", default="", help="bytes that must come back")
+    p.add_argument("--count", type=int, default=0,
+                   help="bytes to read (default: len(--expect-hex) or 64)")
+    p.add_argument("--nowait", action="store_true",
+                   help="send and return without reading a reply")
+    p.add_argument("--timeout", type=float, default=10.0)
+    m = sub.add_parser("hmp")
+    m.add_argument("sock", help="HMP unix socket of run.sh")
+    m.add_argument("command", help="one monitor command")
+    m.add_argument("--timeout", type=float, default=10.0)
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
@@ -504,6 +694,10 @@ def main(argv=None):
         return cmd_banner(args)
     if args.cmd == "dbgcmp":
         return cmd_dbgcmp(args)
+    if args.cmd == "peer":
+        return cmd_peer(args)
+    if args.cmd == "hmp":
+        return cmd_hmp(args)
     ap.print_help()
     return 2
 
