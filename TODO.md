@@ -3502,7 +3502,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-3560–C-3569
 
 - [ ] **M5.35 — One-command Poland card proof: `mkpoland` runs compiler → L1 → L2 → L3 gate and writes the evidence bundle**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.35-mkpoland · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M5.11, M5.30, M5.29 (gate report format), M9.60 (card gate, first slice; was M9.12, which waits on M9.31 → M9.41 and only adds the POI row — PO 2026-11-20)
   - Goal: every Poland milestone so far is a chain of manual commands in EXPs; a bench card needs one reproducible command that names the input OSM extract, writes the card, runs `cardcheck`/`l2check`/`l3check --card` and emits a machine-readable bundle. This is the L1→L2→L3 evidence path the PO prioritises, and it makes each L5 run one variable.
