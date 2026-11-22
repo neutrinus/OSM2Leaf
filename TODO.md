@@ -3073,7 +3073,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M4.87-polish-glyphs; C-7880-C-7889; 8/18 letters present (ĄąĆćĘęÓó), 10 absent; fallback 0x03451ede; recommendation in osm-pipeline.md; gate 5 pass/0 fail/0 skip
 
 - [ ] **M4.88 — POI categories: the category code list, its names and icons (`BICON001`), as a table the compiler can target**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.88-poi-categories · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: To place OSM POIs we need the unit's category codes: which exist, what each is called in the menu, which icon it uses. Parts are known (103 icons in `BICON001`), no table joins them.
