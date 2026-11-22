@@ -5428,7 +5428,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Note: follow-up from M8.H21 (verdict `present`). L4 integration input; needs a reviewer.
 
 - [ ] **M8.C1o — 2DG engine: decode and draw the remaining `0xb1`/`0xb3` commands**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.c1o-2dg-ops · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1f
   - Goal: Marek asked (2026-11-22) to improve the 2DG engine where we can. M8.C1f left 7 commands skipped (`0xb3007602` ×5, `0xb10038c2` ×2, C-6936). The emitters in build B `auirtdll.dll` (fn `0x03d0b408`, `0x03d0b502`) and build A `XGLDLL.dll` (fn `0x031204ac`, `0x031205a4`) give their exact header layouts; a `gfx-trace` dump gives the runtime operands.
