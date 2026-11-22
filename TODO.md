@@ -2743,7 +2743,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6040–C-6049
 
 - [ ] **M3.36 — Board truth for the blocked REFER/ADDRE chain: re-open or re-word M3.29, M3.30 and M4.23 (the tasks M3.13/14/16/49 actually wait on)**
-  - Status: in progress · Owner: task/m3.36-board-truth · Critical: no · Pair: required
+  - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: — (board audit, one session; it unblocks M3.13, M3.14, M3.16 and M4.49 indirectly by making their `Unblock` truthful, and is the fix half of H125's checker)
   - Goal: four tasks wait on three records that are not what their `Unblock` says. M3.29 is `blocked` with `Unblock: M9.53`, and **M9.53 is `done`** — has been since 2026-11-20 16:54Z — yet nobody re-opened M3.29 (rule 15). M3.13/M3.14/M3.16 are `blocked` on M3.30, and M3.30 is `open · Owner: —` with a `Depends` line that says it "cannot be taken until M3.29 merges `done`": an open door onto a locked task, so the picker sees a free task that is not takeable and misses the real one. M4.23's `Unblock` names M4.25 and M4.26, both archived `[x]` on 2026-11-09 (`docs/research/todo-history-2026-11-09.md`), so the trigger it waits for is a merge that cannot happen. This is not a claim defect (a rule-17 record fix), it is the pick path: a newcomer reading `M3.30` finds no reason it is stuck.
   - Precheck: for each pair, the two status lines print what this Goal quotes: `python3 tools/board.py show M3.29 | grep -m1 Status:` → `blocked`, `python3 tools/board.py show M9.53 | grep -m1 Status:` → `done`; `python3 tools/board.py show M3.30 | grep -m1 Status:` → `open`, its `Depends:` line names M3.29; `grep -n 'M4.25\|M4.26' docs/research/todo-history-2026-11-09.md | grep -c '\[x\]'` is non-zero. Re-run each `Done when` of M3.29/M3.30 only far enough to state *why* it is blocked (its own Result already does for M3.29).
@@ -3372,7 +3372,7 @@ text of this section is in git (`13cb0cf`).
   - Step: P4
 
 - [ ] **M4.62 — TMC `0x14f4`: the dynamic tag writer (M4.51's continuation) and M4.49's truthful Unblock**
-  - Status: in progress · Owner: task/m4.62-tag-writer-dynamic · Critical: no · Pair: required
+  - Status: open · Owner: — · Critical: no · Pair: required
   - Step: P3
   - Depends: M4.53 (done — the `0x14f4` file half: it reads `REFER001` POINT/ADDRE/INTER by its sub word, C-5680), M4.51 (blocked — the **negative static** census; read its Result first, this task does the dynamic half it could not do offline).
   - Goal: M4.49 blocks with "no link-group signature in the TMC data-layer subtree", and its `Unblock: M4.51` points at a task that has since blocked too. M4.51's Result closed the static question negatively: `0x14f4` has **no static sender** — the only send wrapper has 25 callers, each with one id literal, and none is `0x14f4`; the request is built at run time. M4.53 then closed the file half. So the whole chain M4.49 → M4.51 → M4.53 now ends in a `blocked`→`blocked`→`done` that can never re-open by rule 15, and the one open question is narrow and dynamic: which code writes the tag word of a request to `0x14f4` at run time, and what buffer it then fills. This task answers that or records it as unreachable, so M4.49 gets a `Unblock:` that names a merge that can actually happen (this task) instead of a dead token.
@@ -4150,7 +4150,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-20-M5.60-lctbl-index-l3. `tools/lctbl_lookup_l3.py` runs the whole lookup in PySh4 (EU2011): request `0x14e4` sub 1 (country code, database number, location code; table code = hex digit of the country << 8 | number) → catalog → B-tree index pages → page directory → zlib page inflated by `HDL_MapTblTask` (`0x14b8`/`0x14b9`) → answer `0x14fb`. On a `lctbl_build.py synth` file 4/4 held codes return the model's record and 3/3 absent codes are not found; factory file 4/4 agree; a flipped index key and a damaged record page both break the agreement (C-6140–C-6149). Open: the real country/database numbers for Poland; an absent table is served from the first table (observed).
 
 - [ ] **M5.64 — LCTBL: the real country/database table code for Poland, and whether the firmware actually keys LCTBL by country (the M5.60 open item)**
-  - Status: in progress · Owner: task/m5.64-lctbl-poland · Critical: no · Pair: required
+  - Status: open · Owner: — · Critical: no · Pair: required
   - Step: P3
   - Depends: M5.60 (done), M5.17 (LCTBL builder, done), M4.16d (TMC reception table codes, done)
   - Goal: M5.60 built the first LCTBL ("names of places your card has") writer that the firmware's own lookup runs, but its Result leaves two things open that decide whether a Poland card's place names are found: "the real country/database numbers for Poland" and "an absent table is served from the first table (observed)" (`EXP-2026-11-20-M5.60-lctbl-index-l3`, C-6140–C-6149). M5.17's synthetic Polish set is written with a hand-picked table code; if a real unit looks up `(country 11, database 1)` and that is not the code in the file, the card's street names are not returned even though every byte round-trips. That makes this the format decision behind M5.61 ("Poland to look at") and M7.1.
@@ -4163,7 +4163,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6610–C-6619
 
 - [ ] **M5.65 — Section 4 place-name index from OSM (M4.21's `generate` left names empty)**
-  - Status: in progress · Owner: task/m5.65-section4-place-names · Critical: no · Pair: required
+  - Status: open · Owner: — · Critical: no · Pair: required
   - Step: P3
   - Depends: — (tooling + layout are on `main`: M4.21 built `tools/section4.py` patch/`generate`/`verify`, M3.9 decoded the index; this task supplies the names `generate` refused to invent)
   - Goal: M4.21 makes `section4.py generate` produce verify-accepted payloads for a *changed parcel set*, but it refuses every name with no `payload_hex` — a generated Poland tile therefore has the factory's place names or none, not the OSM names inside its bbox. M5.7 solved the same problem one level down for street labels (`name_off` + odd partner names section); the section-4 admin/place index is the other half and is what place lookup and the place search read (M4.36). Fill it from OSM so a generated tile names the towns it draws.
@@ -4176,7 +4176,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6650–C-6659
 
 - [ ] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
-  - Status: in progress · Owner: task/m5.66-l2-render-gate · Critical: no · Pair: required
+  - Status: open · Owner: — · Critical: no · Pair: required
   - Step: P1
   - Depends: M5.61 (a generated Poland tile to render), M5.62 (section-count L2 refusal, done); reads the tile only — no writer dependency
   - Goal: every L2 check today is structural or semantic (`cardcheck`, `l2check`, `semantic-tiles`, the class golden) — none shows that the tile *looks* like a map, so a writer regression that keeps every field valid but moves the roads passes L2 and is only caught in the car (L5), which is expensive. The viewer already renders (`tools/ze0-viewer/harness.py render <tile> <out.png>`); make that a checked gate: a pinned render of a factory tile and of a generated tile, compared within a stated tolerance, so "roads in the right place" fails loudly at L2 and a human can look at a PNG before a card is cut.
@@ -5733,7 +5733,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6370–C-6379
 
 - [ ] **M9.63 — US-build map client on an EU card: record what already runs at L3, so M9.61 is one small PR**
-  - Status: in progress · Owner: task/m9.63-us-l3-survey · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M1.22b (EU→US function map, done), M9.14 (US2011 file layer, done), M9.53 (EU2011 record read, done). **Does not wait on M9.61** (it is its first slice); M9.61 then keeps the remaining layers.
   - Goal: M9.61 is the cheapest software answer to "does Marek's US unit read a Poland card" but it is one `Pair: required` session covering four runs and a `--build` flag on `datask_l3.py`. Half of that surface already runs on `main` under the US build — `vcard_l3.py boot US256 --build us2011` (C-4651) and the US POI reader `runner.py run poi_record_decode` (M9.10) — while `datask_l3.py mount` has no `--build` at all (`python3 tools/datask_l3.py mount --help | grep -c -- --build` = 0, M9.61's own Precheck). Nobody has written down which layer of the US map client is already exercised and on what input, so M9.61 starts by rediscovering it and its Done-when mixes layers that are already green with one that is not. Record that boundary once, with a run per layer.
