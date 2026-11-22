@@ -5170,7 +5170,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H45-micon-boot (negative); 19 timeouts with and without peer in 3 boots, remaining ACM waits listed; claims C-7420-C-7429
 
 - [ ] **M8.H46 — Sound out of the emulator: SSI audio output to a WAV file**
-  - Status: in progress · Owner: task/m8.h46-ssi-audio-wav · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m8.h46-ssi-audio-wav · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1b (done)
   - Goal: The SoC plays two PCM streams over SSI (`wavessi1.dll`, `wavessi2.dll`; DMA channels in `docs/hardware/head-unit.md`). Capturing them makes guidance prompts and beeps testable.
@@ -5181,6 +5181,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if playback goes through the external DSP path only (`DspDrv`), record the hand-off and stop.
   - Falsifier: the driver reports success but never starts a DMA transfer.
   - Claims: C-7430–C-7439
+  - Blocker: No guest-initiated PCM: wavessi init writes land in the SSI stub but no boot arms HPB-DMAC 11/12/13; audio-network link still unanswered
+  - Unblock: M8.H47
+  - Result: EXP-2026-11-22-M8.H46-ssi-audio (negative for guest playback; model positive control 1024/1024 bytes)
 
 - [ ] **M8.H47 — `Speech.exe` does not start on `-M ze0`: who provides `AppTimerDll`**
   - Status: open · Owner: — · Critical: no · Pair: solo
