@@ -3893,7 +3893,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-3570–C-3579
 
 - [ ] **M6.18 — Back up the unit's flash with LeafSDTools (before any card test)**
-  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+  - Status: in progress · Owner: task/m6.18-unit-flash-backup · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: — (do it before M6.2 S0; C-1128: unit-side state has no backup)
   - Goal: a full copy of the unit's 8 MiB flash and its user data, so a failed card test can be undone and M6.19 can tell where the OS runs from.
   - Input: LeafSDTools card (update mode, README "GUIDE FOR QY7XXX"), menu `Read NAND`, `SRAM → DUMP TO SD`, `PRODUCT INF`.
