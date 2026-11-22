@@ -4228,7 +4228,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6800–C-6809
 
 - [ ] **M5.70 — level 2: the writer can create an even slot (1,313 `B50R050R` parcels have none)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.70-l2-even-slot · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
   - Goal: M5.61's level-2 run on `B50R050R` reports `l2_unwritable_parcels: 1313`, drops 2,624 ways for that reason (2,847 in total) and then fails with `tilewriter: check failed: no record at dir y=80 x=944 slot 5 pair 6` (`tools/tilewriter.py:1291`): the factory has no even slot for that parcel and the writer cannot create one. Without this, the second half of M5.61's Done-when (every level-1 **and level-2** directory) cannot be reached by any tile.
