@@ -79,10 +79,15 @@ STUBS = {
 }
 
 
-# name -> [(module, image start of the ROM that holds it)]
+# name -> [(module, source)]; source is the image start of a ROM in the card
+# image, or "nk1": the unit-flash kernel image (firmware/unit-flash/, M8.C1k)
 COPIES = {
     "apptimer": [("AppTimerDll.dll", 0x5200200)],
+    "unitflash": [("HCXLog.dll", "nk1"), ("HCXMemory.dll", "nk1"),
+                  ("AppTimerDll.dll", "nk1")],
 }
+NK1_DEFAULT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                           "firmware", "unit-flash", "nk1-QY7200ND.bin")
 DATA_SPACE = (0x01000000, 0x02000000)
 
 
@@ -232,10 +237,30 @@ def relocate(blob, base, moves):
     return bytes(out), done
 
 
-def copy_module(src, name, vbase, rw_va, pages, timestamp=None):
+def section_bytes(src, s, unpack=None):
+    """Stored bytes of section ``s``, decompressed through ``unpack`` when the
+    section is compressed (``IMAGE_SCN_COMPRESSED``)."""
+    if s["flags"] & 0x2000:
+        if unpack is None:
+            raise SystemExit("ze0_stubdll: compressed section and no decompressor")
+        return unpack(src, s)
+    return bytes(src.d[src.va2file(s["dataptr"]):][:s["psize"]])
+
+
+def copy_pages(src, name):
+    """ROM pages ``copy_module`` needs for module ``name`` of ``src``."""
+    mod = next((m for m in src.modules() if m["name"].lower() == name.lower()), None)
+    if mod is None:
+        raise SystemExit("ze0_stubdll: %s not in the ROM at 0x%x" % (name, src.start))
+    return sum((max(s["vsize"], s["psize"]) + PAGE - 1) // PAGE or 1 for s in src.o32(mod))
+
+
+def copy_module(src, name, vbase, rw_va, pages, timestamp=None, unpack=None):
     """Move module ``name`` of ROM ``src`` to code VA ``vbase`` and RW VA ``rw_va``.
 
-    ``pages`` yields the ROM VAs of free pages.  Returns (lines, e32, o32s,
+    ``pages`` yields the ROM VAs of free, consecutive pages; a section takes
+    as many as it needs.  Compressed sections are stored decompressed
+    (``unpack(src, o32)`` returns the bytes).  Returns (lines, e32, o32s,
     toc_fields, notes); e32/o32 are bytes, the o32 dataptrs already set."""
     mod = next((m for m in src.modules() if m["name"].lower() == name.lower()), None)
     if mod is None:
@@ -252,13 +277,12 @@ def copy_module(src, name, vbase, rw_va, pages, timestamp=None):
         plan.append((s, new))
     lines, o32s, notes, all_done = [], b"", [], []
     for s, new in plan:
-        if s["flags"] & 0x2000:
-            raise SystemExit("ze0_stubdll: %s has a compressed section" % name)
-        raw = bytes(src.d[src.va2file(s["dataptr"]):][:s["psize"]])
         size = max(s["vsize"], s["psize"])
+        raw = section_bytes(src, s, unpack)[:size]
+        raw, done = relocate(raw + bytes(size - len(raw)), new, moves)
         if s["flags"] & 0x80000000:
-            # import table: start from the lookup table (the loader resolves it)
-            body = bytearray(size)
+            # import address table: the lookup table again (the loader binds it)
+            body = bytearray(raw)
             imp_off = src.rva2file(mod, e["imp"][0])
             while True:
                 oft, _t, _f, _n, ft = struct.unpack_from("<5I", src.d, imp_off)
@@ -272,16 +296,19 @@ def copy_module(src, name, vbase, rw_va, pages, timestamp=None):
                         break
                     k += 1
                 imp_off += 20
-            raw, done = bytes(body), []
-        else:
-            raw, done = relocate(raw + bytes(size - len(raw)), new, moves)
+            done = [d for d in done if struct.unpack_from("<I", body, d[0] - new)[0] == d[2]]
+            raw = bytes(body)
         all_done += done
-        dataptr = next(pages)
-        if len(raw) > PAGE:
-            raise SystemExit("ze0_stubdll: %s section larger than a page" % name)
-        lines.append((dataptr, raw, "%s rva 0x%x -> 0x%08x (%d words moved, M8.C1i)"
-                      % (name, s["rva"], new, len(done))))
-        o32s += struct.pack("<6I", s["vsize"], s["rva"], len(raw), dataptr, new, s["flags"])
+        n = (len(raw) + PAGE - 1) // PAGE or 1
+        run = [next(pages) for _ in range(n)]
+        if run != list(range(run[0], run[0] + n * PAGE, PAGE)):
+            raise SystemExit("ze0_stubdll: %s needs %d consecutive pages" % (name, n))
+        dataptr = run[0]
+        lines.append((dataptr, raw, "%s rva 0x%x -> 0x%08x (%d words moved%s)"
+                      % (name, s["rva"], new, len(done),
+                         ", stored decompressed" if s["flags"] & 0x2000 else "")))
+        o32s += struct.pack("<6I", s["vsize"], s["rva"], len(raw), dataptr, new,
+                            s["flags"] & ~0x2000)
     e32 = bytearray(src.d[src.va2file(mod["e32"]):][:112])
     struct.pack_into("<I", e32, 8, vbase)
     if timestamp is not None:
@@ -292,19 +319,51 @@ def copy_module(src, name, vbase, rw_va, pages, timestamp=None):
     return lines, bytes(e32), o32s, (mod["attrib"], mod["ft"], mod["size"]), notes
 
 
-def build(kern, app, keep_k, keep_a, which="hcx", timestamp=0x4e363910, copies=None):
-    """IPL lines and TOC entries for the stub set ``which``.
+def kernel_unpack(kern):
+    """Decompressor for ``copy_module``: the card kernel's own routine
+    (``nk_decomp.py``, PySh4) run on the source section's stored bytes."""
+    import nk_decomp
+    regions = nk_decomp.nk_regions(kern.d, kern.start)
 
-    Returns (lines, toc_entries, notes); lines are (rom_va, bytes, why)."""
+    def unpack(src, s):
+        off = src.va2file(s["dataptr"])
+        r0, out = nk_decomp.decompress(src.d, off, s["psize"], s["vsize"], regions=regions)
+        if r0 > s["vsize"]:
+            raise SystemExit("ze0_stubdll: section at 0x%08x does not decompress (r0 0x%x)"
+                             % (s["realaddr"], r0))
+        return out
+    return unpack
+
+
+def build(kern, app, keep_k, keep_a, which="hcx", timestamp=0x4e363910, copies=None,
+          nk1=None):
+    """IPL lines and TOC entries for the stub set ``which`` and copy set ``copies``.
+
+    ``nk1`` is the path of the unit-flash kernel image (default
+    ``NK1_DEFAULT``).  Returns (lines, toc_entries, notes); lines are
+    (rom_va, bytes, why)."""
     specs = STUBS[which] if which else []
     cspecs = COPIES[copies] if copies else []
+    if {n.lower() for n, _f, _s in specs} & {n.lower() for n, _src in cspecs}:
+        raise SystemExit("ze0_stubdll: a module is both stubbed and copied")
+    roms = {}
+    for _n, where in cspecs:
+        if where == "nk1" and where not in roms:
+            path = nk1 or NK1_DEFAULT
+            if not os.path.exists(path):
+                raise SystemExit("ze0_stubdll: unit-flash image %s missing" % path)
+            with open(path, "rb") as f:
+                roms[where] = CERom(f.read(), 0)
+        elif where not in roms:
+            roms[where] = CERom(app.d, where)
+    need = sum(copy_pages(roms[w], n) for n, w in cspecs)
     kept_a = {m["index"] for m in keep_a}
     dropped = {m["name"].lower() for m in app.modules() if m["index"] not in kept_a}
     have = {m["name"].lower() for m in list(keep_k) + list(keep_a)}
     for n in [x[0] for x in specs] + [x[0] for x in cspecs]:
         if n.lower() in have:
             raise SystemExit("ze0_stubdll: %s already in a TOC" % n)
-    donor, page0 = donor_pages(app, dropped, len(specs) + 1 + 3 * len(cspecs))
+    donor, page0 = donor_pages(app, dropped, len(specs) + 1 + need)
     used = used_ranges([(kern, keep_k), (app, keep_a)])
     lo = min(r[0] for r in used if CODE_SPACE[0] <= r[0] < CODE_SPACE[1])
     vbases = free_windows(used, len(specs) + len(cspecs), space=(lo, CODE_SPACE[1]))
@@ -336,13 +395,14 @@ def build(kern, app, keep_k, keep_a, which="hcx", timestamp=0x4e363910, copies=N
         # data window (dllfirst high word .. 0x02000000); 0x01a7c000, inside
         # image A's own window, fails with ERROR_OUTOFMEMORY (M8.C1i run H9)
         data_lo = max(app.hdr["dllfirst"], kern.hdr["dllfirst"]) & 0xffff0000
-        pages = iter(range(meta_va + PAGE, meta_va + PAGE * (1 + 3 * len(cspecs)), PAGE))
-        for j, (name, start) in enumerate(cspecs):
-            src = CERom(app.d, start)
+        pages = iter(range(meta_va + PAGE, meta_va + PAGE * (1 + need), PAGE))
+        unpack = kernel_unpack(kern)
+        for j, (name, where) in enumerate(cspecs):
+            src = roms[where]
             rw_va = free_page(every, data_lo, DATA_SPACE[1])
             every.append((rw_va, rw_va + PAGE))
             c_lines, e32, o32s, (attrib, ft, size), c_notes = copy_module(
-                src, name, vbases[len(specs) + j], rw_va, pages)
+                src, name, vbases[len(specs) + j], rw_va, pages, unpack=unpack)
             lines += c_lines
             notes += c_notes
             e32_va = meta_va + len(meta)

@@ -5166,3 +5166,15 @@ into three printed classes.
 | C-8237 | With `--copy-dlls apptimer` Audio.exe starts, but its thread 1 waits 60 s for ACM module 6 and fails while the audio microcontroller link is silent; no `SYS_NOTIFY_ACTIVATE_COMPLETE` follows and AuiApp still draws nothing. | VERIFIED | H | EXP-2026-11-22-M8.C1i-aui-paint-gate O8, O4; runs H9, H10 |
 | C-8238 | The first form after `frm_PRCOM_StartUp` waits for the audio-source activation chain (SystemCC → Audio.exe OFF source), which waits for the audio microcontroller. | HYPOTHESIS | L | EXP-2026-11-22-M8.C1i-aui-paint-gate Interpretation |
 | C-8239 | The QEMU SH-4 gdbstub stops again at the same breakpoint on `c`; a client must remove it, single-step and reinsert, otherwise per-hit counts are repeats of one hit. | VERIFIED | M | EXP-2026-11-22-M8.C1i-aui-paint-gate Method 3 |
+
+## M8.C1k — Real unit-flash DLLs from NK1 on ze0 (C-8290–C-8299)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8290 | The 8 MiB unit NAND (LeafSDTools dump, unit QY7200ND) holds four 1-module boot images at 0x0–0x3ffff, the CE image NK1 at 0x40000 (VA `0x88000000`, 2 939 624 bytes, 51 modules, 10 files) and a 1-module image at 0x3a0000. | OBSERVED | H | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O1 |
+| C-8291 | NK1 contains `HCXLog.dll` (vbase `0x03c30000`), `HCXMemory.dll` (`0x03c20000`) and `AppTimerDll.dll` (`0x03c10000`) but not `Cws_Apl.dll`; image A's unit-flash imports are therefore NK1's modules, except `Cws_Apl.dll`. | OBSERVED | H | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O1 |
+| C-8292 | NK1's three module windows overlap modules of the card kernel image B (e.g. `0x03c20000`–`0x03c52000`), so the modules cannot be placed at their own addresses next to image B; they are moved. | OBSERVED | H | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O2 |
+| C-8293 | `HCXMemory.dll`'s compressed RW and RO sections decompress with image B's own kernel routine (fn `0x88037464`), although the image comes from NK1. | OBSERVED | M | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O2 |
+| C-8294 | NK1 contains none of: the unit serial from PROD, the 4-byte unit key, the card-lock password tail, a real VIN. | OBSERVED | H | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O1 |
+| C-8295 | With the real modules (run K1), `MemoryManager::CreateSharedBuffer` lines from HCXMemory appear (10, e.g. `tagDRVCOM_SHARED_DATA`, 72 bytes) and the set of import failures (16) and failed controls (6) is the same as with stubs (H10). | VERIFIED | H | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O3 |
+| C-8296 | With the real modules, ScreenState reports that CC window id 16 (and once id 8) is not registered and `SendNotifyMessage` of message 6525 (`0x197d`) to it fails; with stubs those lines were absent because the handle table was never read. | OBSERVED | M | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O4 |
+| C-8297 | The real unit-flash modules do not change the paint gate: after 1 000 s the screen is still the map alone and Audio.exe still waits for ACM module 6. | VERIFIED | H | EXP-2026-11-22-M8.C1k-unit-flash-nk1 O5 |
