@@ -4826,7 +4826,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H26-card-derive; describe EU QSD-302-100/16-16/EU2011/0x6400400 vs US QSD-301-100/US2011; full-card --card boot byte-identical serial.log to hand-built (1576 lines, applch_error 0, failsafe_start 0), card SHA unchanged; 16/16 synthetic selftest; claims_check/todo_check OK
 
 - [ ] **M8.H27 — `navdrv.dll`: what the GPS receiver says on `SCI7:` (frame format, rate, set-up commands)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m8.h27-navdrv-gps-protocol · Critical: yes · Pair: required
   - Step: reader
   - Depends: —
   - Goal: To inject a position we must speak the receiver's protocol. Read the driver: line settings, the set-up bytes it sends, the frame grammar it parses (NMEA sentences or a binary protocol), and which fields it extracts (time, latitude, longitude, height, speed, heading, satellites, fix quality).
