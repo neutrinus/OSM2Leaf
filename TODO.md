@@ -3628,8 +3628,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a generated file with the "right" table code whose Polish records are not found by the firmware, or the absent-table fallback proven not to be the first table (then M5.60's "observed" line is retracted).
   - Claims: C-6610–C-6619
 
-- [ ] **M5.65 — Section 4 place-name index from OSM (M4.21's `generate` left names empty)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.65 — Section 4 place-name index from OSM (M4.21's `generate` left names empty)**
+  - Status: done · Owner: task/m5.65-section4-place-names · Critical: no · Pair: required
   - Step: P3
   - Depends: — (tooling + layout are on `main`: M4.21 built `tools/section4.py` patch/`generate`/`verify`, M3.9 decoded the index; this task supplies the names `generate` refused to invent)
   - Goal: M4.21 makes `section4.py generate` produce verify-accepted payloads for a *changed parcel set*, but it refuses every name with no `payload_hex` — a generated Poland tile therefore has the factory's place names or none, not the OSM names inside its bbox. M5.7 solved the same problem one level down for street labels (`name_off` + odd partner names section); the section-4 admin/place index is the other half and is what place lookup and the place search read (M4.36). Fill it from OSM so a generated tile names the towns it draws.
@@ -3640,6 +3640,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session. If a generated place record cannot be verified against the M3.9 model after two payload shapes, record the shapes and the model mismatch and set `blocked` with the exact field that has no source — do not loosen `verify`.
   - Falsifier: a generated tile whose `section4.py verify` passes but whose viewer `info` shows a place name from the neighbouring tile's bbox (then the record indexes the wrong parcel and the writer, not the test, is wrong).
   - Claims: C-6650–C-6659
+  - Result: EXP-2026-11-22-M5.65-osm-section4-places; 37/37 OSM names, section4 verify OK, l2check PASS, C-6650-C-6659
 
 - [ ] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
   - Status: open · Owner: — · Critical: no · Pair: required
