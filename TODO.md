@@ -2929,7 +2929,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7850–C-7859
 
 - [ ] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.85-refer002-census · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: `REFER002` holds the Leaf-specific data (charging stations with plug type and parking information). The matrix says 'EV schema xy/plug/parking undecoded'. For a Polish card this is the layer owners care about most after roads: chargers.
