@@ -4,8 +4,9 @@ These are not map data, but they matter for POI icons and voice prompts.
 
 > **Evidence status:** `BICON001` layout and the 34-row category/brand →
 > icon table are `VERIFIED`/`OBSERVED` (EXP-2026-11-06-M4.10-poi-icons);
-> `OPNG`/`SPEECH` are `OBSERVED` and not needed for the first compiler
-> milestone.
+> `OPNG` container framing and byte-identical round trip are `VERIFIED`
+> (EXP-2026-11-22-M4.91-opening-picture), its pixel grammar is `UNKNOWN`;
+> `SPEECH` is `OBSERVED`. None is needed for the first compiler milestone.
 
 ## `BICON001/BICON001.DAT` — POI icons
 
@@ -103,11 +104,67 @@ extract`. The join is by logo identity; the runtime's static lookup table is
 not stored in the map data (C-988). Full method and evidence:
 `docs/experiments/EXP-2026-11-06-M4.10-poi-icons.md`.
 
-## `OPNG/` — images
+## `OPNG/` — opening-image animation
 
-`OPNG/MKR_OPNG/NISSAN/OIXXEVNI.001` starts with the `BASSW7C` container magic,
-then a filename/part number and an 800×480 descriptor. It contains tiled image
-data; the tile grammar is **not decoded**. Not needed for map correctness.
+One file per card: `OPNG/MKR_OPNG/NISSAN/OIXXEVNI.001` (EU2011/US2011) or
+`OIXXNVNI.001` (US path spelling), 1,606,224 B. It is the animation the
+launcher loads before `Navi.exe` (L4 log `Load Opening Image Data to
+0x8c6e0000 (Size=4198400 Bytes)`, C-6875/C-6915). `tools/opng.py` reads it;
+no decoded picture is committed. Evidence:
+EXP-2026-11-22-M4.91-opening-picture.
+
+### Container layout (all integers little-endian)
+
+```
+0x000  8  magic 'BASS' + 4 bytes (EU 57 37 43 d8; US 60 37 43 d2)
+0x008  8  ASCII '00000000'
+0x010  4  ASCII '0002'
+0x014  u32 declared file size = 1606224 (0x188250)
+0x018  u32 ffffffff
+0x01c  36 ASCII identity, e.g. 'OIXXEVNI.001470-2827-00 '
+0x040  u32 frame count = 35
+0x044  u32 2
+0x050  first of 35 frames, each:
+         u32 prefix (0 on both cards)
+         u16 width  = 800
+         u16 height = 480
+         u32 payload_len
+         u32 duration_ms
+         payload_len bytes of coded frame data
+0x18824e  2-byte EOF trailer
+```
+
+- Frame 0: payload 1,504 B, duration 400 ms. Frames 1–33: payload
+  22,212–37,948 B, duration 70 ms each. Frame 34: payload 34,632 B,
+  duration 2,290 ms. **Durations sum to exactly 5,000 ms** (a 5-second
+  animation). Total payload = 1,605,582 B.
+- EU and US payloads are **byte-identical**. The files differ in only four
+  header bytes: `0x04` (`57`→`60`), `0x07` (`d8`→`d2`), `0x20` (`E`→`N`)
+  and `0x2f` (`7`→`1`). The bytes at `0x04`/`0x07` change by the same deltas
+  (+9/−6) as the identity-string bytes at `0x20`/`0x2f`; they are
+  checksum-like, but the algorithm is **UNKNOWN**.
+- Each payload ends with a `u32` that is a multiple of `0x20` (frame 0
+  `0x00005de0`, frame 34 `0x0000ca60`) followed by `u32 0`; its meaning is
+  unknown and simple sum/xor/CRC-32 checks do not reproduce it.
+
+### Pixel data is NOT decoded
+
+The frame payload is **not** raw 800×480 pixels. Under RGB565 (LE/BE), RGBA,
+BGRA, 8-bit gray and 1/4-bpp views the result is noise: payload entropy
+5.2559 bit/byte, top `u16` values `0x00a0`/`0x0041`, no zlib/PNG/JPEG
+signature, and horizontal-adjacency correlation −0.12…−0.03. The grammar is a
+proprietary coded/display-list format (**UNKNOWN**), so a self-made opening
+picture cannot yet be encoded. `tools/opng.py decode` therefore writes a PNG
+carrier (byte-map view + verbatim bytes in a `zTXt` chunk) and `encode`
+restores the file byte-identically — a **container** round trip, not a pixel
+decode.
+
+```bash
+python3 tools/opng.py info OPNG/MKR_OPNG/NISSAN/OIXXEVNI.001
+python3 tools/opng.py decode OPNG/MKR_OPNG/NISSAN/OIXXEVNI.001 -o /tmp/opng.png
+python3 tools/opng.py encode /tmp/opng.png -o /tmp/opng-back.001
+# cmp original and /tmp/opng-back.001 -> byte-identical on EU2011 and US2011
+```
 
 ## `SPEECH/` — voice prompts
 
