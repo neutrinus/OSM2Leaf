@@ -1162,8 +1162,8 @@ text of this section is in git (`13cb0cf`).
   - Stop: if a per-EXP edit of the window's six files would touch claims, ship the template/prompt/stamp half and record the EXP backfill as a one-line follow-up (never retype a tool version).
   - Claims: C-4050–C-4059
 
-- [ ] **H83 — A board-ref lint: every `TASK#ref` resolves, and a task's normative text never re-states its priority**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H83 — A board-ref lint: every `TASK#ref` resolves, and a task's normative text never re-states its priority**
+  - Status: done · Owner: task/h83-board-ref-lint · Critical: no · Pair: required
   - Depends: H77 (fence-aware scanners, same tool family); coordinates H53 (`todo_check --strict`)
   - Goal: the board's priority prose has rotted repeatedly in ways no gate sees: the header said "next batch: M1.31 → M1.26 → M1.22b" after all three merged, "Take first" listed H74/H75/H71 as ready after they merged, Q1 listed M9.12 "only after M9.31" while M9.12 is blocked *on* M9.31, and H53's block described a `--strict` that had existed for 11 cycles. Each of those cost a cycle of re-derivation, and the mechanics exist already (`todo_check` parses every block). Make the two mechanical classes fail loudly, so a stale sentence is a red gate, not prose archaeology.
   - Precheck: `grep -c 'next batch' TODO.md` and `grep -c 'Take first' TODO.md` show the prose is hand-maintained; `python3 tools/todo_check.py` exits 0 today, so no gate sees it. Print the current count of task-ID mentions in the Priorities section (`python3 - <<'EOF'` probe in the Scope) as the baseline.
@@ -1173,6 +1173,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: a fixture Priorities line naming a done task as "next" fails under `--strict` and warns without it; a sentence naming a done task as history passes; `python3 tools/todo_check.py` exits 0 on today's board and prints the board-ref warning count; `python3 tools/selftest.py` stays green; the EXP records the before/after stale-ref count on the real board.
   - Stop: if distinguishing "history" from "next/before" needs natural-language judgement beyond a fixed verb list (`next`, `then`, `Take first`, `ready`, `blocked on`, `only after`), ship the `#ref`-resolves half (pure mechanics) and record the prose half as `NOT SHIPPED: <reason>`.
   - Claims: C-4060–C-4069
+  - Result: EXP-2026-11-22-H83-board-ref-lint; C-4060–C-4066. tools/todo_check.py --board-refs lints the first Priorities section: unresolved bold IDs, done IDs under next/then/Take first/in flight, and done IDs as a current blocker (drift, warning-only). Warnings by default, ERRORs under --strict; findings are structural and never baselined (H128). At bd92ec6a on origin/main 17b22eaf: unresolved 0 / not-next 4 (H105, M9.58/M9.60/M9.61) / drift 0 / sections 1, exit 0; --strict adds 4 board-ref ERRORs (22 total); gate 5 pass; selftest 184/0/21; todo_check selftest 80 checks. Prose half shipped; the four stale sentences are the PO's (EXP Follow-ups).
 
 - [ ] **H84 — The QA-prompt manual/weekly IMG256 regression has no workflow: add the `workflow_dispatch` + scheduled job**
   - Status: open · Owner: — · Critical: no · Pair: required

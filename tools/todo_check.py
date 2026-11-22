@@ -29,6 +29,14 @@ Checks reported as errors (exit 1):
   already ``done`` or is archived (the rule-15 hole: that re-open can never
   fire) — H125. In default mode the same reference is a warning, so
   ``tools/gate.py`` (non-strict) stays green while the board is repaired.
+- with ``--strict``: board-ref lint in the *first* ``## Priorities`` section
+  (H83) — a bold ``**ID**`` that resolves to no live, archived or parent/child
+  block, and a bold ID governed by a ``next``/``then``/``Take first``/
+  ``in flight`` verb whose task is ``done``/archived. Both are warnings by
+  default so the standing gate stays green; a *done* ID named as a current
+  blocker (``blocked on``/``only after``/``cannot be taken until``) is a drift
+  report and stays a warning even under ``--strict``. None of these carry an
+  ``_error_key``: they are structural and are never baselined.
 
 Warnings (printed, do not fail by default): ``Depends`` references to a
 *ghost* ID (in neither the board nor an archive), missing
@@ -91,6 +99,24 @@ HISTORY_GLOB = "todo-history-*.md"
 # so an archived ID must have the board's task-ID shape, not any word.
 HISTORY_HEADER_RE = re.compile(
     r"^- \[x\] \*\*((?:H|M)\d+(?:\.[A-Za-z]?\d+[A-Za-z]?)*)\b")
+
+# H83: board-ref lint in the live Priorities section. Only the *first*
+# ``## Priorities`` is linted; a second copy is one ``sections`` warning, not a
+# flood of stale refs (TODO.md has carried a stale 21st-pass copy beside the
+# 22nd-pass one).
+PRIORITIES_RE = re.compile(r"^## Priorities\b")
+SECTION_BREAK_RE = re.compile(r"^## ")
+BOLD_ID_RE = re.compile(r"\*\*((?:H|M)\d+(?:\.[A-Za-z]?\d+[A-Za-z]?)*)\*\*")
+# Class 2: verbs that claim a task is next / in flight. Deliberately excludes
+# ``ready`` and ``blocked on`` — they name a state, not a queue position (L342
+# "L1 (ready …)" names the done H105 as context; L345 "M8.D1 is blocked on
+# Marek" is about a person). ``in flight`` is included: L344 lists three done
+# tasks as still in flight.
+NEXT_VERB_RE = re.compile(r"\b(next|then|take first|in flight)\b", re.IGNORECASE)
+# Class 3: a done task named as a *current* blocker. Warning only (the PO may
+# keep the history), never an error even under --strict.
+BLOCKER_VERB_RE = re.compile(
+    r"\b(blocked on|only after|cannot be taken until)\b", re.IGNORECASE)
 
 
 def _archived_ids(history_dir: Path | None = None) -> set[str]:
@@ -333,6 +359,136 @@ def _classify_refs(t, field, known_ids, archived_ids, status_of, counters,
             warnings.append(f"{where} references ghost task ID {ref!r}")
 
 
+def _ref_resolves(ref, known_ids, archived_ids):
+    """True if *ref* is a live block, an archived one, or a live block's parent.
+
+    ``M8.C1`` is not a block header on today's board (``M8.C1b``/``M8.C1c``
+    are), but it is the range name the board uses, so a dotted prefix of a live
+    ID resolves. Without this the Priorities section would report every range
+    name as unresolved (the H53 hint: resolve ranges to their base).
+    """
+    if ref in known_ids or ref in archived_ids:
+        return True
+    # A dotted prefix, or a range base whose live children share the prefix and
+    # then a letter (``M8.C1`` -> ``M8.C1b``/``M8.C1c``), resolves. A trailing
+    # digit is a different ID (``M8.C1`` must not swallow ``M8.C10``).
+    for k in known_ids:
+        if not k.startswith(ref):
+            continue
+        rem = k[len(ref):]
+        if not rem or (not rem[0].isdigit()):
+            return True
+    return False
+
+
+def _board_refs(text, known_ids, status_of, archived_ids):
+    """Lint the first ``## Priorities`` section (H83). Returns (findings, counters).
+
+    Three mechanical classes, all warnings by default:
+
+    1. ``unresolved`` — a bold ``**ID**`` that is no live block, archive entry
+       or live block's parent.
+    2. ``not_next`` — a bold ID governed on the same bullet by a
+       ``next``/``then``/``Take first``/``in flight`` verb whose task is
+       ``done``/archived (the "next batch: M1.31 …" rot).
+    3. ``drift`` — a ``done``/archived ID named as a *current* blocker
+       (``blocked on``/``only after``/``cannot be taken until``). The PO may
+       keep that history on purpose, so it is never an error.
+
+    A historical sentence ("Cycle 8 merged **M1.31**") carries no verb and is
+    clean. The lint reads the board's own ``parse_tasks`` output; there is no
+    second markdown reader. A second ``## Priorities`` heading is counted in
+    ``sections`` and not scanned (a stale copy would flood the report).
+    """
+    findings = []  # (kind, lineno, ref, status)
+    counters = {"unresolved": 0, "not_next": 0, "drift": 0, "sections": 0}
+    lines = text.splitlines()
+
+    heads = []
+    in_fence = False
+    for idx, line in enumerate(lines):
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if PRIORITIES_RE.match(line):
+            heads.append(idx)
+    if not heads:
+        return findings, counters
+    counters["sections"] = max(0, len(heads) - 1)
+    start = heads[0]
+    end = len(lines)
+    in_fence = False
+    for idx in range(start + 1, len(lines)):
+        line = lines[idx]
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if SECTION_BREAK_RE.match(line):
+            end = idx
+            break
+
+    seen_unresolved = set()
+    in_fence = False
+    for idx in range(start, end):
+        line = lines[idx]
+        if line.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        lineno = idx + 1
+        ids = [(m.start(), m.group(1)) for m in BOLD_ID_RE.finditer(line)]
+
+        for _pos, ref in ids:
+            if not _ref_resolves(ref, known_ids, archived_ids):
+                if (lineno, ref) not in seen_unresolved:
+                    seen_unresolved.add((lineno, ref))
+                    findings.append(("unresolved", lineno, ref, "missing"))
+
+        verbs = [(m.start(), m.group(1).lower()) for m in NEXT_VERB_RE.finditer(line)]
+        blockers = [(m.start(), m.group(1).lower())
+                    for m in BLOCKER_VERB_RE.finditer(line)]
+        flagged = set()
+
+        def governed(marks):
+            # An ID belongs to the nearest mark at or before it; a later mark
+            # ends the span. Returns [(ref, verb)].
+            out = []
+            if not marks:
+                return out
+            for pos, ref in ids:
+                before = [m for m in marks if m[0] < pos]
+                if not before:
+                    continue
+                vpos, _verb = max(before, key=lambda m: m[0])
+                after_v = [m for m in marks if vpos < m[0] < pos]
+                if after_v:
+                    continue
+                out.append((ref, _verb))
+            return out
+
+        for ref, _verb in governed(verbs):
+            st = status_of.get(ref)
+            if st == "done" or (ref not in status_of and ref in archived_ids):
+                findings.append(("not_next", lineno, ref, st or "archived"))
+                flagged.add(ref)
+
+        for ref, _verb in governed(blockers):
+            if ref in flagged:
+                continue
+            st = status_of.get(ref)
+            if st == "done" or (ref not in status_of and ref in archived_ids):
+                findings.append(("drift", lineno, ref, st or "archived"))
+
+    for kind, _lineno, _ref, _st in findings:
+        counters[kind] += 1
+    return findings, counters
+
+
 def _find_dep_cycles(tasks, known_ids):
     """Return a list of cycle descriptions (lists of task IDs)."""
     graph = {}
@@ -370,7 +526,8 @@ def _find_dep_cycles(tasks, known_ids):
 
 
 def check(text: str, *, strict_firmware: bool = False,
-          strict_unblock: bool = False, history_dir: Path | None = None):
+          strict_unblock: bool = False, history_dir: Path | None = None,
+          strict_board_refs: bool = False):
     tasks = parse_tasks(text)
     errors = []
     warnings = []
@@ -406,6 +563,22 @@ def check(text: str, *, strict_firmware: bool = False,
     dep_classes = {"archived": 0, "ghost": 0, "blocked": 0}
     # H125: (task, field, id, target-status) rows for --fix-list.
     fix_list = []
+
+    # H83: board-ref lint (first Priorities section). Findings carry no task
+    # field and no `_error_key`, so they are structural and never baselined.
+    board_findings, board_refs = _board_refs(
+        text, known_ids, status_of, archived_ids)
+    for kind, lineno, ref, st in board_findings:
+        msg = (f"TODO.md:{lineno} Priorities: {kind} reference to "
+               f"{st} task ID {ref!r}")
+        if kind == "drift" or not strict_board_refs:
+            warnings.append(msg)
+        else:
+            errors.append(msg)
+    if board_refs["sections"]:
+        warnings.append(
+            "TODO.md Priorities: found 2+ '## Priorities' sections; only the "
+            "first is linted (a stale copy is a board defect for the PO)")
 
     # claim ranges
     ranges = []
@@ -532,6 +705,8 @@ def check(text: str, *, strict_firmware: bool = False,
         "dep_classes": dep_classes,
         "archived_ids": len(archived_ids),
         "fix_list": fix_list,
+        "board_refs": board_refs,
+        "board_ref_findings": board_findings,
     }
 
 
@@ -597,6 +772,12 @@ def main(argv=None):
         "reference to a done/archived task (H125; the rows the board repair "
         "M3.36 acts on)",
     )
+    p.add_argument(
+        "--board-refs",
+        action="store_true",
+        help="print one 'TODO.md:<line> / Priorities / <kind> / <id> / <status>' "
+        "row per board-ref finding (H83: unresolved, not-next, drift, sections)",
+    )
     p.add_argument("--baseline", metavar="PATH",
                    help="with --strict: fail only on ERRORs whose (task ID, field) "
                         "is not in this baseline; a baselined ERROR that cleared is "
@@ -621,12 +802,25 @@ def main(argv=None):
         result = check(text, strict_firmware=True)
     else:
         result = check(text, strict_firmware=args.strict,
-                       strict_unblock=args.strict)
+                       strict_unblock=args.strict,
+                       strict_board_refs=args.strict)
     if args.fix_list:
         result = check(text, strict_firmware=args.strict,
-                       strict_unblock=True)
+                       strict_unblock=True,
+                       strict_board_refs=args.strict)
         for task, field, ref, target in result["fix_list"]:
             print(f"{task} / {field} / {ref} / {target}")
+        return 0 if result["ok"] else 1
+
+    # H83: a board-ref finding is structural — printed with its own `BOARD`
+    # tag in --board-refs and never given a `_error_key`.
+    if args.board_refs:
+        for kind, lineno, ref, st in result["board_ref_findings"]:
+            print(f"TODO.md:{lineno} / Priorities / {kind} / {ref} / {st}")
+        br = result["board_refs"]
+        print(f"board-refs: unresolved {br['unresolved']} / not-next "
+              f"{br['not_next']} / drift {br['drift']} / sections "
+              f"{br['sections']}")
         return 0 if result["ok"] else 1
 
     # Baseline (H128): the debt ledger for --strict rule-14 errors.
@@ -662,13 +856,16 @@ def main(argv=None):
         for tid, field in cleared:
             print(f"  cleared: {tid}")
         dc = result["dep_classes"]
+        br = result["board_refs"]
         print(
             f"todo_check [strict+baseline]: {result['tasks']} tasks, "
             f"{len(result['errors'])} error(s) over "
             f"{len({k[0] for k in current_keys})} task(s) "
             f"(baseline {len(base_keys)}, new {len(new_keys)}), "
             f"{len(result['warnings'])} warning(s); refs archived "
-            f"{dc['archived']} / ghost {dc['ghost']} / blocked {dc['blocked']}"
+            f"{dc['archived']} / ghost {dc['ghost']} / blocked {dc['blocked']}; "
+            f"board-refs unresolved {br['unresolved']} / not-next "
+            f"{br['not_next']} / drift {br['drift']} / sections {br['sections']}"
         )
         for e in structural:
             print(f"  ERROR {e}")
@@ -680,11 +877,14 @@ def main(argv=None):
     else:
         mode = " [strict]" if args.strict else ""
         dc = result["dep_classes"]
+        br = result["board_refs"]
         print(
             f"todo_check{mode}: {result['tasks']} tasks, {len(result['errors'])} error(s), "
             f"{len(result['warnings'])} warning(s); refs archived {dc['archived']} / "
             f"ghost {dc['ghost']} / blocked {dc['blocked']} "
-            f"({result['archived_ids']} archived IDs)"
+            f"({result['archived_ids']} archived IDs); board-refs unresolved "
+            f"{br['unresolved']} / not-next {br['not_next']} / drift "
+            f"{br['drift']} / sections {br['sections']}"
         )
         for e in result["errors"]:
             print(f"  ERROR {e}")
@@ -1092,6 +1292,120 @@ def run_selftest():
     assert r["tasks"] > 100, r["tasks"]
     assert r["dep_classes"]["ghost"] == 0, r["dep_classes"]
     real_tasks = r["tasks"]
+    # H83: today's board has exactly the stale sentences the lint must catch
+    # (L342 names the done H105 as "next"; L344 lists three done tasks "in
+    # flight") and none unresolved once M8.C1 resolves through M8.C1b/M8.C1c.
+    # Pinned to a command output: `todo_check --board-refs`.
+    assert r["board_refs"]["unresolved"] == 0, r["board_refs"]
+    assert r["board_refs"]["not_next"] == 4, r["board_refs"]
+    assert r["board_refs"]["sections"] == 1, r["board_refs"]
+
+    # --- H83: board-ref lint (first Priorities section) --------------------
+    # A done ID under ``next``/``in flight`` is a WARNING by default and an
+    # ERROR under --strict; a history sentence, a parent/unresolved split, the
+    # range-base parent and the drift clause are the guard rails.
+    import tempfile as _tf0
+    br_doc = """# TODO
+
+## Priorities
+
+**Queue:** next **H2** then **H3**.
+**Flight:** in flight **H2**.
+**History:** Cycle 8 merged **H2**.
+**State:** L1 (ready for real cards) names **H2**; M8.D1 is blocked on Marek.
+**Range:** see **M8.C1** (a base with live children).
+**Ghost:** **H9999** is gone.
+**Drift:** the chain waits, only after **H2**.
+
+## H — Housekeeping
+
+- [x] **H2 — done one**
+  - Status: done · Owner: b · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Result: r
+  - Claims: C-300–C-309
+
+- [ ] **H3 — open one**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-310–C-319
+
+- [ ] **M8.C1b — range child**
+  - Status: open · Owner: — · Critical: no
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-320–C-329
+"""
+    with _tf0.TemporaryDirectory(prefix="todo-h83-") as td:
+        hist = Path(td)
+        (hist / "todo-history-2026-01-01.md").write_text(
+            "# history\n- [x] **H9000 — old**\n", encoding="utf-8")
+        r = check(br_doc, history_dir=hist)
+        # Default: green, findings are warnings only (the standing gate).
+        assert r["ok"], r["errors"]
+        # next/then -> both H2 occurrences; in-flight -> the second one.
+        assert r["board_refs"]["not_next"] == 2, r["board_refs"]
+        assert r["board_refs"]["unresolved"] == 1, r["board_refs"]  # H9999
+        assert r["board_refs"]["drift"] == 1, r["board_refs"]
+        assert r["board_refs"]["sections"] == 0, r["board_refs"]
+        assert any("not_next reference to done task ID 'H2'" in w
+                   for w in r["warnings"]), r["warnings"]
+        assert any("unresolved reference to missing task ID 'H9999'" in w
+                   for w in r["warnings"]), r["warnings"]
+        # History sentence and the (ready …) context are clean; the range base
+        # resolves through its live child.
+        assert not any("H2' " in w and "merged" in w
+                       for w in r["warnings"]), r["warnings"]
+
+        # Strict: not_next and unresolved are ERRORs; drift stays a warning.
+        rs = check(br_doc, strict_board_refs=True, history_dir=hist)
+        assert not rs["ok"], rs
+        assert any("Priorities: not_next reference to done task ID 'H2'" in e
+                   for e in rs["errors"]), rs["errors"]
+        assert any("Priorities: unresolved reference to missing task ID 'H9999'"
+                   in e for e in rs["errors"]), rs["errors"]
+        assert not any("Drift" in e for e in rs["errors"]), rs["errors"]
+        assert any("drift reference to done task ID 'H2'" in w
+                   for w in rs["warnings"]), rs["warnings"]
+        # The H83 ERROR is structural: no `_error_key`, so a --baseline can
+        # never silently absorb it (H128).
+        board_err = next(e for e in rs["errors"] if "Priorities:" in e)
+        assert _error_key(board_err) is None, board_err
+        # The parent resolves: M8.C1 is not reported as unresolved.
+        assert not any("M8.C1'" in e for e in rs["errors"]), rs["errors"]
+
+        # A second `## Priorities` is one `sections` warning, and the stale
+        # copy's own sentences are not scanned (they would flood the report).
+        two = br_doc.replace("## H — Housekeeping",
+                             "## Priorities\n\nStale: next **H2** gone.\n\n"
+                             "## H — Housekeeping", 1)
+        r2s = check(two, history_dir=hist)
+        assert r2s["board_refs"]["sections"] == 1, r2s["board_refs"]
+        assert r2s["board_refs"]["not_next"] == 2, r2s["board_refs"]
+
+        # Archived IDs resolve in prose; a done ID named ``only after`` is the
+        # drift class, still warning-only under --strict.
+        arch = br_doc.replace("**Ghost:** **H9999** is gone.",
+                              "**Old:** next **H9000** (archived).")
+        ra = check(arch, strict_board_refs=True, history_dir=hist)
+        assert ra["board_refs"]["unresolved"] == 0, ra["board_refs"]
+        assert any("not_next reference to archived task ID 'H9000'" in e
+                   for e in ra["errors"]), ra["errors"]
+
+        # A live ID beats its archive row: a task re-opened after its old block
+        # was archived (M1.27 at 6504090b) must use the live status, not the
+        # archive's `done`, or `next **M1.27**` is a false positive.
+        both = br_doc.replace("- [ ] **H3 — open one**", "- [ ] **H9000 — live one**") \
+                      .replace("**Ghost:** **H9999** is gone.",
+                               "**Queue2:** next **H9000**.")
+        rb = check(both, history_dir=hist)
+        assert not any("H9000" in f[2] for f in rb["board_ref_findings"]), \
+            rb["board_ref_findings"]
 
     # --- H128: the --strict baseline (debt ledger) -------------------------
     # A baseline keyed by (task ID, missing field): a new firmware task
