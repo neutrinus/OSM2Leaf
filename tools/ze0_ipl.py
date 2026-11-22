@@ -46,8 +46,17 @@ What the patch holds (each line is ``PHYS HEXBYTES  # why``):
    NK1 (``firmware/unit-flash/``, ``--nk1 PATH``) instead of stubs.
    Compressed sections are stored decompressed (card kernel's routine).
 
+10. ``--nk FILE`` (M8.C1r) takes the kernel image from its own file, the
+   unit's NK1 (``-M ze0,nk=FILE``).  NK1 and image A were built as a pair:
+   NK1's chain pointer already holds ``0x882e0000`` (just past NK1), NK1's
+   DLL window starts where A's ends, and no module overlaps.  The patch is
+   then only the XIPCHAIN block at that address and ``ulRAMEnd`` below the
+   opening-image buffer.  NK1 reads image A from the card itself at boot,
+   so lines that poke into image A are overwritten on ``-M ze0``.
+
 Usage::
 
+    ze0_ipl.py patch archive/head256.img -o ipl.txt --nk firmware/unit-flash/nk1-QY7200ND.bin
     ze0_ipl.py patch archive/head256.img -o ipl.txt [--kernel-off 0x3e00200]
                      [--prefer-app auiapp.exe,auirtdll.dll] [--stub-dlls hcx]
                      [--copy-dlls apptimer|unitflash] [--nk1 PATH]
@@ -206,8 +215,12 @@ def xip_entry(addr, length, order, name):
     return e.ljust(XIP_ENTRY_LEN, b"\0")
 
 
-def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=None, nk1=None):
-    kern = CERom(data, kernel_off)
+def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=None, nk1=None,
+          kernel_data=None):
+    """``kernel_data`` (M8.C1r): the kernel image comes from its own file (NK1
+    from the unit flash, ``-M ze0,nk=FILE``) instead of ``data`` at
+    ``kernel_off``."""
+    kern = CERom(kernel_data, 0) if kernel_data is not None else CERom(data, kernel_off)
     app = CERom(data, app_off)
     kh, ah = kern.hdr, app.hdr
     lines = []
@@ -218,9 +231,15 @@ def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=Non
     var, msg_va = find_chain_var(kern)
     tva = template_va(kern, var)
     cur = u32_at_va(kern, tva)
-    if cur != 0xffffffff:
-        raise SystemExit("ze0_ipl: chain pointer template 0x%08x holds 0x%08x, expected "
-                         "0xffffffff" % (tva, cur))
+    # The card's kernel B leaves the pointer at 0xffffffff.  The unit's NK1
+    # (M8.C1r) is built with it set: the IPL writes the chain there, right
+    # after NK1's own image, and the kernel takes it as it is.
+    unit_chain = cur != 0xffffffff
+    if unit_chain:
+        if not kh["physlast"] <= cur < ah["physfirst"]:
+            raise SystemExit("ze0_ipl: chain pointer template 0x%08x holds 0x%08x, neither "
+                             "0xffffffff nor between the kernel and image A" % (tva, cur))
+        chain_at = phys(cur)
     # opening-image buffer: the fixup pair two words after the chain pointer
     buf_addr = u32_at_va(kern, tva + 8)
     buf_len = u32_at_va(kern, tva + 12)
@@ -231,14 +250,19 @@ def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=Non
              xip_entry(ah["physfirst"], ah["physlast"] - ah["physfirst"], 1, "NK2")]
     poke(chain_at, struct.pack("<I", len(chain)) + b"".join(chain),
          "XIPCHAIN_INFO: kernel image, then image A")
-    poke(tva, struct.pack("<I", 0x80000000 | chain_at),
-         "kernel .data template: XIP chain pointer (var 0x%08x)" % var)
+    if not unit_chain:
+        poke(tva, struct.pack("<I", 0x80000000 | chain_at),
+             "kernel .data template: XIP chain pointer (var 0x%08x)" % var)
     if kh["ulRAMEnd"] > ram_end:
         poke(kern.ptoc + 0x1c, struct.pack("<I", ram_end),
              "kernel ROMHDR ulRAMEnd 0x%08x -> 0x%08x (below image A)" % (kh["ulRAMEnd"], ram_end))
-    a_dllfirst = (ah["dllfirst"] & 0xffff0000) | (ah["dlllast"] >> 16)
-    poke(app.ptoc, struct.pack("<I", a_dllfirst),
-         "image A ROMHDR dllfirst 0x%08x -> 0x%08x (no DLL data reservation)" % (ah["dllfirst"], a_dllfirst))
+    # rule 4 only where the two DLL windows overlap (B + A); NK1 + A were
+    # built as a pair, A's window ends where NK1's starts
+    if (ah["dlllast"] >> 16) > (kh["dllfirst"] & 0xffff):
+        a_dllfirst = (ah["dllfirst"] & 0xffff0000) | (ah["dlllast"] >> 16)
+        poke(app.ptoc, struct.pack("<I", a_dllfirst),
+             "image A ROMHDR dllfirst 0x%08x -> 0x%08x (no DLL data reservation)"
+             % (ah["dllfirst"], a_dllfirst))
     keep_k, keep_a, notes = plan(kern, app, prefer)
     extra = []
     if stubs or copies:
@@ -254,11 +278,14 @@ def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=Non
         poke(kern.ptoc + 0x54, toc_bytes(kern, keep_k), "kernel TOC, %d of %d modules + FILES"
              % (len(keep_k), kh["nummods"]))
         poke(kern.ptoc + 0x10, struct.pack("<I", len(keep_k)), "kernel ROMHDR nummods")
-    poke(app.ptoc + 0x54, toc_bytes(app, keep_a, extra),
-         "image A TOC, %d of %d modules%s + FILES"
-         % (len(keep_a), ah["nummods"], " + %d stubs" % len(extra) if extra else ""))
-    poke(app.ptoc + 0x10, struct.pack("<I", len(keep_a) + len(extra)), "image A ROMHDR nummods")
+    if len(keep_a) != ah["nummods"] or extra:
+        poke(app.ptoc + 0x54, toc_bytes(app, keep_a, extra),
+             "image A TOC, %d of %d modules%s + FILES"
+             % (len(keep_a), ah["nummods"], " + %d stubs" % len(extra) if extra else ""))
+        poke(app.ptoc + 0x10, struct.pack("<I", len(keep_a) + len(extra)),
+             "image A ROMHDR nummods")
     info = dict(chain_var=var, template=tva, ram_end=ram_end, chain_at=chain_at,
+                unit_chain=unit_chain,
                 kernel_mods=(len(keep_k), kh["nummods"]), app_mods=(len(keep_a), ah["nummods"]))
     return lines, notes, info
 
@@ -322,6 +349,9 @@ def main():
                        help="copy and move modules into image A: apptimer = from ROM image C "
                             "(M8.C1i); unitflash = HCXLog/HCXMemory/AppTimerDll from the "
                             "unit-flash kernel image NK1 (M8.C1k)")
+        p.add_argument("--nk", default=None, metavar="FILE",
+                       help="kernel image from its own file (NK1, -M ze0,nk=FILE; M8.C1r) "
+                            "instead of the SD image at --kernel-off")
         p.add_argument("--nk1", default=None,
                        help="unit-flash kernel image (default firmware/unit-flash/nk1-QY7200ND.bin)")
         if name == "patch":
@@ -335,9 +365,12 @@ def main():
     data = open_image(a.image)
     prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
     lines, notes, info = build(data, a.kernel_off, a.app_off, a.chain_at, prefer,
-                              a.stub_dlls or None, a.copy_dlls or None, a.nk1)
-    print("chain pointer var 0x%08x (template 0x%08x), XIPCHAIN at phys 0x%08x, RAM end 0x%08x"
-          % (info["chain_var"], info["template"], info["chain_at"], info["ram_end"]))
+                              a.stub_dlls or None, a.copy_dlls or None, a.nk1,
+                              open_image(a.nk) if a.nk else None)
+    print("chain pointer var 0x%08x (template 0x%08x%s), XIPCHAIN at phys 0x%08x, RAM end 0x%08x"
+          % (info["chain_var"], info["template"],
+             ", set in the image" if info["unit_chain"] else "",
+             info["chain_at"], info["ram_end"]))
     print("kernel modules kept %d/%d, image A modules kept %d/%d"
           % (info["kernel_mods"] + info["app_mods"]))
     if a.cmd == "plan":

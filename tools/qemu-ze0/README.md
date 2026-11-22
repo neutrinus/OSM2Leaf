@@ -302,6 +302,14 @@ kept), so the next run extracts cleanly.
   instead of `Area:FFFFFFFF >> Euro`. The dump is the owner's: keep it
   outside the repository. See
   [`EXP-2026-11-22-M8.C1m-unit-flash-region.md`](../../docs/experiments/EXP-2026-11-22-M8.C1m-unit-flash-region.md).
+- `ze0-0018` (M8.C1r): `nk=FILE` loads the kernel image from its own file
+  (NK1 from the unit flash, `firmware/unit-flash/nk1-QY7200ND.bin`) instead
+  of image B from the SD image. Pair it with `flash=` and
+  `tools/ze0_ipl.py patch --nk FILE`: NK1 and image A were built as a pair,
+  so no module is dropped. NK1 reads image A from the card itself and checks
+  its build name. **NK1's serial log prints the card's lock password: never
+  commit or share it.** See
+  [`EXP-2026-11-22-M8.C1r-nk1-boot.md`](../../docs/experiments/EXP-2026-11-22-M8.C1r-nk1-boot.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
