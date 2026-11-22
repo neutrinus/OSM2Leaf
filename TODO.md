@@ -4997,6 +4997,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: no flashing or card change; if public sources say the AZE0 solution is an external box (video over a separate input), record that and stop the codec search.
   - Falsifier: an H.264 decoder module or VPU driver is found in the ZE0 2011 ROMs too (then the decoder is not the reason).
   - Claims: C-6960–C-6969
+  - Note: Marek, 2026-11-22: lead https://www.youtube.com/watch?v=BO-hEO0uR3A (not opened from the Claude sandbox, youtube.com is blocked). Russian groups once distributed modified SD card images that unlocked Android Auto on AZE0, so the feature is probably present in the AZE0 firmware and only switched off. First check: compare such an image (if Marek finds one) with the factory EU2014/2016 card: which ROM A module or registry/config byte differs. Do not commit vendor bytes.
 
 ---
 
