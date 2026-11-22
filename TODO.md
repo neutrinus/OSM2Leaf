@@ -4315,7 +4315,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: an EXP states which launcher gate the EU card hits with the US unit's data (or that it boots), with the serial lines and the dump offsets that decide it.
   - Stop: one session; vendor bytes, PIN, PROD content and screenshots stay out of the repository.
   - Falsifier: the launcher reads the area only from the card (no read from the dumps changes the outcome).
-  - Claims: C-8330–C-8339
+  - Claims: C-8350–C-8359
 
 - [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
   - Status: open · Owner: — · Critical: no · Pair: solo
