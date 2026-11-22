@@ -295,6 +295,13 @@ kept), so the next run extracts cleanly.
   polylines instead of being skipped by resync; these are the two remaining
   variants of the map renderer's line commands. See
   [`EXP-2026-11-22-M8.C1o-2dg-line-variants.md`](../../docs/experiments/EXP-2026-11-22-M8.C1o-2dg-line-variants.md).
+- `ze0-0017` (M8.C1m): `flash=FILE` maps a dump of the unit's NOR flash
+  (LeafSDTools "NAND", 8 MiB) read-only at phys 0. The kernel's OAL then
+  reads the PROD block at `0xa000a000`, so `Target ID Code` and the
+  launcher's area come from the unit (`Area:20 >> USA` on Marek's unit)
+  instead of `Area:FFFFFFFF >> Euro`. The dump is the owner's: keep it
+  outside the repository. See
+  [`EXP-2026-11-22-M8.C1m-unit-flash-region.md`](../../docs/experiments/EXP-2026-11-22-M8.C1m-unit-flash-region.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

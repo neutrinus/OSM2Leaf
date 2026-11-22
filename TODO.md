@@ -4328,8 +4328,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8320–C-8329
   - Result: EXP-2026-11-22-M8.C1l-object-store-registry (C-8320–C-8327). Control registration stopped after ~52 DLLs because kernel B fixes the object store (RAM registry hive) at 80 pages in OEMCalcFSPages. New `ze0_aui.py --object-store` (hook returns the TOC value, ulFSRamPercent 0x00808028, 592 pages): every DLL registers. ScreenStateCC = CC window 16 now runs (also `--register-first`), CC window ids mapped from code; the screen state stays in `INI_STARTUP`, windows 40/41/46 (UnitMainte, EvNotice, InfoBar) are missing, 29 controls fail init, screen still the map. Next: M8.C1n; M8.C1m (unit data) added.
 
-- [ ] **M8.C1m — `-M ze0` with the unit's own NAND/VFlash/SRAM: does the EU card boot against US unit data?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1m — `-M ze0` with the unit's own NAND/VFlash/SRAM: does the EU card boot against US unit data?**
+  - Status: done · Owner: Claude (thread Zamontuj kartę SD w QEMU) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1k
   - Goal: Marek (2026-11-22, relayed by the coordinator) wants the EU card run in `-M ze0` with the data of his US unit (NAND, VFlash, SRAM dumps from M6.18) instead of the hand-set `verinf=`/`mapdb=` values and stand-ins. His hypothesis: the region (Product ID `10 20 02 12`, area USA) lives in the unit's NAND/flash and the EU card will not start. This also tests the launcher's gates (`DIFFERENT MAP CODE`, `MAP DATA BASE UNMATCH`) on real data.
@@ -4340,6 +4340,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; vendor bytes, PIN, PROD content and screenshots stay out of the repository.
   - Falsifier: the launcher reads the area only from the card (no read from the dumps changes the outcome).
   - Claims: C-8350–C-8359
+  - Result: EXP-2026-11-22-M8.C1m-unit-flash-region (C-8350–C-8358). New QEMU `-M ze0,flash=FILE` (ze0-0017) maps the unit flash dump at phys 0: the kernel reads PROD itself (`Target ID Code >> 10200212`, `Area:20 >> USA`). The unit map code is NK1 header +0x60 `QSD-301-100` (mapdb 16-16); with it the EU card stops at `Error Proc<00000050>` (map code). Changing the EU card's `HDD_INFO.TXT` (FAT file, not the raw copy) to `QSD-301-100` lets it start and draw its map on the US data. LeafSDTools Companion GPS time fix read and dry-run on NK1. Next: M8.C1r (boot NK1 + A, Marek).
+
+- [ ] **M8.C1r — `-M ze0` boots NK1 from the unit flash next to image A, instead of image B**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1m
+  - Goal: Marek (2026-11-22): the emulator start patches image A, image B and image C and drops overlapping modules, because the unit's own kernel was missing. With the flash dump (`-M ze0,flash=`) and NK1 (`firmware/unit-flash/`), run the pair the unit runs, NK1 + A. `VerInf`/`MapDBVer` then come from NK1's header, the B-versus-A module overlaps and the HCX/AppTimer copies go away.
+  - Precheck: `-M ze0,flash=DUMP` prints `Target ID Code >> 10200212` (M8.C1m run U1). `nk1_extract.py --sha256` matches `firmware/unit-flash/README.md`.
+  - Scope: (1) a `ze0_ipl.py` mode that takes NK1 as the kernel image (`-kernel` or a blob at its VA `0x88000000`), with no module dropping between NK1 and A; (2) the IPL side (XIP chain, RAM end) for the NK1 + A pair; (3) NK1's drivers that touch the flash, VFlash and SRAM (`flash.dll`, `VSram.dll`): what they read, and machine options that serve the VFlash/SRAM dumps from files outside the repository; (4) boot the EU and US cards and compare with the B + A runs (launcher lines, failed imports, failed controls, screenshot).
+  - Input: EXP-2026-11-22-M8.C1m-unit-flash-region, EXP-2026-11-22-M8.C1k-unit-flash-nk1, `tools/ze0_ipl.py`, `tools/nk1_extract.py`, `tools/qemu-ze0/`.
+  - Done when: NK1 + A boots to `AppLch >> Finish Launch Threads!` with no `--copy-dlls` or module dropping. Otherwise, the EXP names the first NK1 driver or IPL step that fails, and what it needs.
+  - Stop: one session. The dumps (NAND, VFlash, SRAM, PROD) and screenshots stay outside the repository.
+  - Falsifier: NK1 + A needs the same module drops as B + A, i.e. their windows overlap too.
+  - Claims: C-8400–C-8409
 
 - [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -4353,6 +4367,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the event is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
   - Falsifier: the three CCs create their windows, and the state still does not change.
   - Claims: C-8340–C-8349
+
+- [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1m
+  - Goal: Marek (2026-11-22): the start-up consent screen and the GPS time fix are "two important and needed things". Companion's consent patch only knows the AZE0 states (`SRT_COLD_I_AGREE_TELEMA…`) and stops on the 2011 card (C-8359). Find the ZE0 equivalents and build a patch for card ROM A that skips the consent screen, in our own tool, without copying Companion code.
+  - Precheck: the companion dry run on the EU card still fails with "cannot find SRT_COLD_I_AGREE_TELEMA"; the state tables give `SRT_COLD_I_AGREE` 611, `SRT_COLD_I_AGREE_NAM` 612, `SK_SCT_AGREE_CLICK` 2212.
+  - Scope: (1) in `ScreenStateCC.dll` of card ROM A, find the classes, event handlers and timers of `SRT_COLD_I_AGREE` (EU) and `SRT_COLD_I_AGREE_NAM` (US) and the transitions into them; (2) choose the smallest change (redirect the transition past the state, or turn `SK_SCT_AGREE_CLICK` into a timer event); (3) a tool that patches A in both copies (NB00 `0x200000`, NB01 `0x2000000`) with SUM2/SUM4 fixed, with `--dry-run` and verify; (4) on `-M ze0`, show the state machine passes the consent state with no touch (ScreenState log), for the EU and the US card.
+  - Input: docs/research/leafsdtools-companion-patches.md, EXP-2026-11-22-M8.C1l-object-store-registry, upstream `patch/agree_qy7` (GPL-2, read only).
+  - Done when: the patched EU card on `-M ze0` logs the transition out of `SRT_COLD_I_AGREE` without `SK_SCT_AGREE_CLICK`, and the tool's selftest passes. Otherwise, the EXP names the sites found and what blocks the patch.
+  - Stop: one session. No vendor bytes and no patched ROM in the repository.
+  - Falsifier: the ZE0 consent state has no timer or transition site that a small patch can redirect.
+  - Claims: C-8370–C-8379
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
