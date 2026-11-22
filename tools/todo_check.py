@@ -976,9 +976,9 @@ def run_selftest():
     # unknown depends (warning). H60 renames the default wording to "ghost"
     # whenever an archive exists (as here); a checkout without one says
     # "unknown", so the test accepts either wording and never an error.
-    unk = ok_doc.replace("Depends: T1", "Depends: H99")
+    unk = ok_doc.replace("Depends: T1", "Depends: H9999")
     r = check(unk)
-    assert r["ok"] and any(("ghost task ID 'H99'" in w) or ("unknown task ID 'H99'" in w)
+    assert r["ok"] and any(("ghost task ID 'H9999'" in w) or ("unknown task ID 'H9999'" in w)
                            for w in r["warnings"]), r
 
     # cyclic depends
@@ -1292,13 +1292,14 @@ def run_selftest():
     assert r["tasks"] > 100, r["tasks"]
     assert r["dep_classes"]["ghost"] == 0, r["dep_classes"]
     real_tasks = r["tasks"]
-    # H83: today's board has exactly the stale sentences the lint must catch
-    # (L342 names the done H105 as "next"; L344 lists three done tasks "in
-    # flight") and none unresolved once M8.C1 resolves through M8.C1b/M8.C1c.
+    # H83: the 23rd PO pass (2026-11-22) removed the stale sentences and the
+    # second Priorities copy this used to pin (4 not-next, 1 extra section), so
+    # the live board must now be clean; the synthetic cases below keep the lint
+    # itself tested.
     # Pinned to a command output: `todo_check --board-refs`.
     assert r["board_refs"]["unresolved"] == 0, r["board_refs"]
-    assert r["board_refs"]["not_next"] == 4, r["board_refs"]
-    assert r["board_refs"]["sections"] == 1, r["board_refs"]
+    assert r["board_refs"]["not_next"] == 0, r["board_refs"]
+    assert r["board_refs"]["sections"] == 0, r["board_refs"]
 
     # --- H83: board-ref lint (first Priorities section) --------------------
     # A done ID under ``next``/``in flight`` is a WARNING by default and an
