@@ -3914,8 +3914,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: an EXP lists the strings from the screens and, per string, found / not found in US256 (offset, module), with the conclusion `same build` / `different build` / `cannot tell`.
   - Claims: C-3570–C-3579
 
-- [ ] **M6.18 — Back up the unit's flash with LeafSDTools (before any card test)**
-  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+- [x] **M6.18 — Back up the unit's flash with LeafSDTools (before any card test)**
+  - Status: done · Owner: task/m6.18-unit-flash-backup · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: — (do it before M6.2 S0; C-1128: unit-side state has no backup)
   - Goal: a full copy of the unit's 8 MiB flash and its user data, so a failed card test can be undone and M6.19 can tell where the OS runs from.
   - Input: LeafSDTools card (update mode, README "GUIDE FOR QY7XXX"), menu `Read NAND`, `SRAM → DUMP TO SD`, `PRODUCT INF`.
@@ -3924,9 +3924,10 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: if a size differs from the expectation, record it and stop; do not retry writes.
   - Note (2026-11-20): the start screen photo is recorded (EXP-2026-11-20-M6.18-prod-screen: `QY7200ND`, Product ID `10 20 02 12`); the files are still owed.
   - Claims: C-5200–C-5209
+  - Result: EXP-2026-11-22-M6.18-unit-flash-backup (C-5203–C-5206): nand 8,388,608 B, sram 1,048,576 B, vflash 3,014,656 B, prod 722 B with SHA-256; partial files equal the ranges of the full dump; files stay outside Git
 
 - [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
-  - Status: blocked · Owner: — · Critical: no
+  - Status: open · Owner: — · Critical: no
   - Depends: M6.18
   - Unblock: M6.18 (the dump exists and its SHA-256 is recorded)
   - Goal: settle C-5192 (normal mode runs A/B from the card) with bytes, and name each flash region.
@@ -3935,6 +3936,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: an EXP gives a table region → content → evidence, and C-5192 becomes VERIFIED or REFUTED (negative control: the same search on a random 8 MiB of the card finds what is expected there).
   - Stop: if the dump has no recognisable structure, record the entropy map and stop.
   - Claims: C-5210–C-5219
+  - Note: (2026-11-22) re-opened by M6.18 (rule 15): the dump exists, SHA-256 `dc2b30df…2cbb8b` (EXP-2026-11-22-M6.18-unit-flash-backup).
 
 - [ ] **M2.20 — Does a region change in PROD keep the unit recoverable? (static, before anyone writes flash)**
   - Status: open · Owner: — · Critical: no · Pair: solo
