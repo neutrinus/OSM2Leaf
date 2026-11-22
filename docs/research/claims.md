@@ -5250,3 +5250,12 @@ into three printed classes.
 | C-8303 | All 8 nibbles of the 4 unit bytes are decimal digits (packed BCD, like the serial and the default `99999999`). | OBSERVED | M | EXP-2026-11-22-M2.25-sd-pin-source; one unit |
 | C-8304 | The 4 unit bytes are assigned at the factory with the PROD record (`PRODUCT.INF` path of the loader); whether at random or from the serial is not known. | HYPOTHESIS | L | EXP-2026-11-22-M2.25-sd-pin-source; needs (serial, PIN) pairs of other units |
 | C-8305 | A unit with a blank or invalid PROD block locks and unlocks the card with `99 99 99 99` + the tail. | VERIFIED | M | EXP-2026-11-22-M2.25-sd-pin-source; static, routine `0x8b0232ac` |
+
+## M8.H71 — OSM roads on the emulated screen (C-8310–C-8319)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8310 | Level-1 road records written by `tilewriter` from OSM (London parcel `(77,923; 8,27)` of `B48R068R`, EU 2011) are drawn by the real `Navi.exe` under `-M ze0`: the start screen shows the OSM street network, aligned with the untouched area fills. | VERIFIED | H | EXP-2026-11-22-M8.H71-osm-roads-l4 O4 |
+| C-8311 | The generated card (tile +1 851 662 B, `DRSTR001.DAT` rebuilt, patched with `imgpatch`) passes `cardcheck --image` and `imgpatch --check-diff --allow-metadata` (outside 0) and produces the same set of serial error lines as the factory card. | VERIFIED | H | EXP-2026-11-22-M8.H71-osm-roads-l4 O3, O5 |
+| C-8312 | With `--no-names` the generated parcel shows no street labels and no road shields; place labels (`SOHO`, `PICCADILLY CIRCUS`) stay, so they come from data outside the regenerated road records. | VERIFIED | M | EXP-2026-11-22-M8.H71-osm-roads-l4 O4 |
+| C-8313 | `one_tile_pipeline.py` passed `--osm-bbox` to `osm_ingest.py` as two arguments, so a box with a negative longitude failed with `argument --bbox: expected one argument`; fixed by passing `--bbox=…`. | VERIFIED | H | EXP-2026-11-22-M8.H71-osm-roads-l4 O1 |
+| C-8314 | The whole `-M ze0` start screen (EU 2011) lies inside level-1 parcel row 8, col 27 of directory `(77,923)` (lon −0.15625…−0.125, lat 51.5…51.5208). | VERIFIED | H | EXP-2026-11-22-M8.H71-osm-roads-l4 Method 1; `tilewriter.parcel_of` |

@@ -1871,7 +1871,7 @@ def build_factory_out(out: Path, factory_root: Path, cell: str = "B48R058R",
         imf = td / "syn.imf.jsonl"
         argv = [osm_src, "-o", str(imf), "--source-name", "m5.34-parcel"]
         if osm_bbox is not None:
-            argv += ["--bbox", ",".join("%.9f" % v for v in osm_bbox)]
+            argv += ["--bbox=" + ",".join("%.9f" % v for v in osm_bbox)]
         rc, so, se = run_cmd_json("osm_ingest.py", argv)
         report["counts"]["osm_ingest_rc"] = rc
         if rc != 0 or not imf.exists():

@@ -5335,8 +5335,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8220–C-8229
   - Result: EXP-2026-11-22-M8.H70-street-rename-l4; AIR STREET -> ARI/TIR STREET drawn by Navi.exe at L4, OSM STREET dropped (label wider than segment); tile_rename.py selftest 14/14
 
-- [ ] **M8.H71 — OSM roads on the emulated screen: one level-1 London parcel generated from OSM, factory vs generated card at L4**
-  - Status: in progress · Owner: claude/project-thread-66ezlk · Critical: yes · Pair: solo
+- [x] **M8.H71 — OSM roads on the emulated screen: one level-1 London parcel generated from OSM, factory vs generated card at L4**
+  - Status: done · Owner: claude/project-thread-66ezlk · Critical: yes · Pair: solo
   - Step: tooling
   - Depends: M8.H70 (done)
   - Goal: Marek (2026-11-22): "jak byśmy sobie wygenerowali mapę z OSM, to moglibyśmy ją testować w Qemu - na obszarze londynu ... tak, ruszaj". The `-M ze0` start position is central London; until a GPS connector moves it, a generated London parcel is the only way to put our own geometry on the real `Navi.exe` screen.
@@ -5347,6 +5347,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the map stops drawing, record the last serial line and stop.
   - Falsifier: the screen shows the factory roads (the renderer does not read the changed parcel) or no roads in the parcel (records rejected).
   - Claims: C-8310–C-8319
+  - Result: EXP-2026-11-22-M8.H71-osm-roads-l4; OSM London parcel drawn by Navi.exe at L4 (no names: --no-names); L1 PASS; pipeline negative-lon bbox fix
 
 ---
 
