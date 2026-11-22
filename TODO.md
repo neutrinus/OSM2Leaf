@@ -2992,8 +2992,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7830–C-7839
 
-- [ ] **M4.83 — `ICADM0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.83 — `ICADM0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
+  - Status: done · Owner: task/m4.83-icadm-decode · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: Row 14 of `docs/research/reader-coverage.md` says the `ICADM0nn` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
@@ -3003,7 +3003,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Done when: `python3 tools/icadm_decode.py census ROOT` prints records and bytes explained for every shard on both cards; `--selftest` is in `tools/selftest.py`; the matrix row's Offline cell changes from `claim` to `tool`; EXP + claims with one negative control (a mutated byte detected).
   - Stop: one session; unexplained fields are listed with their value histogram, not guessed.
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
-  - Claims: C-7840–C-7849
+  - Claims: C-8360–C-8369 (C-7840–C-7849 taken by M4.84)
+  - Result: EXP-2026-11-22-M4.83-icadm-decode; EU 88.98% / US 98.06% explained; claims C-8360-C-8369 (C-7840-C-7849 taken by M4.84)
 
 - [x] **M4.84 — `ZIPFR001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
   - Status: done · Owner: task/m4.84-zipfr-decode · Critical: no · Pair: solo

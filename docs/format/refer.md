@@ -536,11 +536,19 @@ path and corrected record layout confirmed, C-2210–C-2219).
 
 ## `ICADM0nn` — administrative country data
 
-- 33 blocks, **462-byte stride**, 7 slots × 64 bytes.
-- Slot: `u16 tag (0x00e7)`, `u16 ISO-3166-1 numeric` (big-endian),
-  `char[60]` admin terminology.
+- The 4096-byte common CLARION header is followed by an ISO/tier-label table at
+  `0x1000`: `u16 size_halfwords, u16 count`, then `count` 462-byte entries.
+- Each entry is `u16 stride (0x00e7 = 231 halfwords)`, `u16 ISO-3166-1 numeric`
+  (big-endian), 7 × 64-byte tier-label slots (`char`, Latin-1, NUL-padded), and
+  10 × `0xff` pad.  EU2011: `count=33`, 15,250 B, `table_end=0x4b92`; US2011:
+  `count=2`, 928 B, `table_end=0x13a0`.
+- The stride histogram is `{0x00e7: 33}` (EU2011 ICADM001) and `{0x00e7: 2}`
+  (US2011 ICADM001); no firmware reader for the 462-byte stride / `0x00e7` tag
+  has been located (M3.18 r3, negative), so the value is reported as a
+  histogram and **not** attributed to a VA (C-8363).
 - All 33 ISO codes match the country whose terminology follows (020 Andorra →
-  `PARROQUIA`; 826 UK → `POSTAL COUNTY`).
+  `2=PARROÒUIA`; 056 Belgium → `2=GEWEST`; 826 UK → `POSTAL COUNTY`).  US uses
+  `3=`-prefixed labels (124 → `3=PROVINCE`, 840 → `3=STATE`).
 - Open path (EU2011, M3.18 r3): the name is built by `fn 0x003f1640(n)` →
   `ICADM0<n+1>.DAT` (C-4669); the data-block reads complete through the shared
   `REFER001` handler `0x003f72cc` and are loaded by `0x003eff20`, `0x003f17a4`,
@@ -548,6 +556,38 @@ path and corrected record layout confirmed, C-2210–C-2219).
   stride / `0x00e7` tag) is located; the term blob is a `u16 code, u16 len,
   u32 ffffffff, u8 0, text\0` record run with no discrete indexed reader in
   decodable code (EXP-2026-11-20-M3.18, negative).
+
+### Reproducible field decode (M4.83, C-8360–C-8369)
+
+`tools/icadm_decode.py census ROOT` decodes every shard on both cards and
+prints per-shard header, ISO table, record count, field ranges, decoded terms
+and bytes explained / total.  Its `--selftest` builds a synthetic shard and a
+mutated-byte negative control; `tools/selftest.py` discovers it
+(`tool:icadm_decode PASS`).  Full census:
+
+| card | shards | bytes | records | explained |
+| --- | --- | --- | --- | --- |
+| EU2011 (`m4.8b-eu/REFER001`) | 33 | 113,561,600 | 4,664,115 | 101,042,820 B = 88.98 % (per shard 74.964–99.752 %) |
+| US2011 (`m5.12-us/root-factory/REFER001`) | 11 | 6,274,816 | 275,863 | 6,153,178 B = 98.06 % (per shard 84.589–99.933 %) |
+
+The `m5.12c/decoded` tree named in the task input is a generated card whose
+ICADM shards are byte-identical to the US factory shards (ICADM001 SHA-256
+`91f6b0cc…`); the real EU2011 factory shards are in `m4.8b-eu/REFER001`
+(ICADM001 SHA-256 `be791e96…`, 75,776 B).  The census uses the factory roots.
+
+The term blob starts at a fixed offset (`0x4e00` EU2011, `0x1500` US2011).
+Its dominant record is `u16 code, u16 len, u32 flags, u32 value` + a
+`2*len`-byte Latin-1 text field (NUL-padded to a whole word); a `u16 value`
+trailer follows in 174/10,819 US2011 ICADM001 records (10,582 have no trailer,
+and `code=0x0006, len=0` is a 14-byte section marker).  On the
+`flags=0xffffffff` family `code` is `0x0006..0x8019` and `len` is `1..18`.
+Neither the second record family nor the small pre-blob index region is
+guessed: their bytes are reported as a per-shard histogram (EU2011 ICADM001:
+1,388 B in 84 runs — zero 828, `0xff` 303, `0x10` 50, `0x41` 36).  The
+negative control flips one bit of the first stride tag (`0x1005`, `0xe7→0x18`)
+and the stride histogram changes `{0xe7:33}→{0x18:1, 0xe7:32}`.  Evidence:
+EXP-2026-11-22-M4.83-icadm-decode; matrix row 14 Offline cell is now `tool`,
+the reader cell stays `partial`.
 
 ## `ZIPFR001` — postal/freeway masks
 
