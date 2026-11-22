@@ -330,7 +330,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 - **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards; `cardcheck --generate-fixture` builds a vendor-free tree (H40 done, H105 done). Open: **H41** → **H42** (CI use), **H104** (baseline).
 - **L2 (the product path):** P0 built; P1 card **M5.61** (blocked, see its block). Open: **M5.35** (one command), **M5.66** (rendered tile as an L2 gate), **M5.76** (synthetic town so compiler tasks run without network) → **M7.1** (all Dolnośląskie).
 - **L3 (moving):** container, record read and the renderer walk are done on a generated tile. Open: **M9.68** (which header fields the map client checks), **M9.15** and **M9.18** (targets per family), routing **M4.55** → **M4.40** → **M5.57** → **M9.56** (blocked chain; **M4.72** tests a KIWI shortcut), card gate **M9.31** → **M9.12**.
-- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX) is done. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H8** (SD trace) and **M8.H9** (coverage) turn L4 into a format oracle; GPS **M8.H27/H30/H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
+- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX) and **M8.H27** (GPS frame grammar) are done. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H8** (SD trace) and **M8.H9** (coverage) turn L4 into a format oracle; GPS **M8.H30/H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
 - **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
 
 ### Map signal (read first)
@@ -4825,8 +4825,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7230–C-7239
   - Result: EXP-2026-11-22-M8.H26-card-derive; describe EU QSD-302-100/16-16/EU2011/0x6400400 vs US QSD-301-100/US2011; full-card --card boot byte-identical serial.log to hand-built (1576 lines, applch_error 0, failsafe_start 0), card SHA unchanged; 16/16 synthetic selftest; claims_check/todo_check OK
 
-- [ ] **M8.H27 — `navdrv.dll`: what the GPS receiver says on `SCI7:` (frame format, rate, set-up commands)**
-  - Status: in progress · Owner: task/m8.h27-navdrv-gps-protocol · Critical: yes · Pair: required
+- [x] **M8.H27 — `navdrv.dll`: what the GPS receiver says on `SCI7:` (frame format, rate, set-up commands)**
+  - Status: done · Owner: task/m8.h27-navdrv-gps-protocol · Critical: yes · Pair: required
   - Step: reader
   - Depends: —
   - Goal: To inject a position we must speak the receiver's protocol. Read the driver: line settings, the set-up bytes it sends, the frame grammar it parses (NMEA sentences or a binary protocol), and which fields it extracts (time, latitude, longitude, height, speed, heading, satellites, fix quality).
@@ -4837,6 +4837,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the receiver protocol is a chip vendor's binary format with a public name, identify it by its sync bytes and cite the public spec instead of deriving every field.
   - Falsifier: the driver reads no serial data at all (position arrives pre-computed from another processor).
   - Claims: C-7240–C-7249
+  - Result: EXP-2026-11-22-M8.H27-navdrv-gps-protocol; 7-bit sum + F0 frame, 4800 DCB, EU/US identical, fn_audit clean
 
 - [x] **M8.H28 — `kepdrv.dll`: speed pulse, reverse signal and gyro — the dead-reckoning inputs**
   - Status: done · Owner: task/m8.h28-kepdrv · Critical: no · Pair: solo
