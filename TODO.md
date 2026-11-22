@@ -6214,8 +6214,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a `l3-running` matrix row with no manifest entry after this task.
   - Claims: C-6370–C-6379
 
-- [ ] **M9.63 — US-build map client on an EU card: record what already runs at L3, so M9.61 is one small PR**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M9.63 — US-build map client on an EU card: record what already runs at L3, so M9.61 is one small PR**
+  - Status: done · Owner: task/m9.63-us-client-boundary · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M1.22b (EU→US function map, done), M9.14 (US2011 file layer, done), M9.53 (EU2011 record read, done). **Does not wait on M9.61** (it is its first slice); M9.61 then keeps the remaining layers.
   - Goal: M9.61 is the cheapest software answer to "does Marek's US unit read a Poland card" but it is one `Pair: required` session covering four runs and a `--build` flag on `datask_l3.py`. Half of that surface already runs on `main` under the US build — `vcard_l3.py boot US256 --build us2011` (C-4651) and the US POI reader `runner.py run poi_record_decode` (M9.10) — while `datask_l3.py mount` has no `--build` at all (`python3 tools/datask_l3.py mount --help | grep -c -- --build` = 0, M9.61's own Precheck). Nobody has written down which layer of the US map client is already exercised and on what input, so M9.61 starts by rediscovering it and its Done-when mixes layers that are already green with one that is not. Record that boundary once, with a run per layer.
@@ -6225,7 +6225,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: an EXP has a four-row table `layer / tool / US2011 input / verdict / missing entry point`, every RUNNABLE row has a positive control on the EU build and one negative control (wrong build or wrong card) recorded, the `(c)` and `(d)` rows are `NOT RUNNABLE` with the exact absent flag/VA named, and `reader-coverage.md` gains one sentence per layer saying whether its current verdict holds on US2011. M9.61's Scope is then edited (by its owner) to drop the layers this row proves green.
   - Stop: one session; if a US layer needs a VA that `fn_match` has no `UNIQUE` pair for, name it and leave it `NOT RUNNABLE (no pair)` — that is a result for M9.61.
   - Falsifier: a layer this EXP marks `NOT RUNNABLE` that turns out to have a runnable tool on `main` (M9.61 is then smaller than believed), or a `RUNNABLE` row whose US run disagrees with its EU control (then the layer is the answer, not M9.61).
-  - Claims: C-6600–C-6609
+  - Claims: none — reuses C-4651, C-2140–C-2147, C-6362–C-6368
+  - Result: EXP-2026-11-22-M9.63-us-client-layer-survey; 4 rows; Precheck/Scope expectation overtaken by M9.61 (PR #426); M9.58 shape walk NOT RUNNABLE
 
 - [ ] **M9.64 — `main_watch` counts a green `L1/L2 synthetic fixtures` run as shadowing a red gate run: the two workflows test different things**
   - Status: open · Owner: — · Critical: no · Pair: required
