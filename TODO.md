@@ -6164,7 +6164,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6840–C-6849
 
 - [ ] **M9.68 — Mutation sweep of the tile header at L3: which fields does the map client check**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m9.68-tile-header-sweep · Critical: no · Pair: required
   - Step: P1
   - Depends: M3.25 (done), M9.13 (done)
   - Goal: We know a generated tile 'reads the same as factory' and a fresh-container tile fails (M9.52/M9.53). Map the acceptance envelope: flip each header and table field of a factory tile in turn and record whether the mount/read path still completes.
