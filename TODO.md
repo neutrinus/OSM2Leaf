@@ -1260,6 +1260,20 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-6760–C-6769
   - Result: EXP-2026-11-22-H129-board-claim-set-supersedes-cell; claim-set inserts missing keys into body cell 2, selftest pins cell placement; C-6750 normalized via claim-set.
 
+- [ ] **H130 — `board.py claim-body`/`claim-set` split a row on a raw `|` inside the claim text, corrupting the row and injecting the tail into the next one**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: tooling
+  - Depends: — (found by the M4.61 driver 2026-11-22 while widening C-6564; H129 fixed which cell a key lands in, not the cell splitting)
+  - Goal: `_claim_row` splits a row with `re.split(r"(?<!\\|)\\|", line)` and `op_claim_body` / `op_claim_set` re-join with `"|".join(parts)`. A claim body that contains a raw `|` (e.g. the POINT pair written as `(0x800|flon, flat)`, a natural way to write a bitwise OR) is therefore split into extra cells; `claim-body` then writes the new text into cell 2 and keeps the old tail, so the row ends with `... |flon, flat)` pair at ... | VERIFIED | ...` and the next row's leading cells are lost or duplicated. The tool reports success (`board: C-6564 body replaced`) and `claims_check` still exits 0, so the corruption is silent. This is the same class as H129 (a write that passes checks but is wrong) and needs an escaped-pipe convention plus a row-shape guard.
+  - Precheck: `python3 tools/board.py --claims /tmp/opencode/h130-claims.md claim-body C-6564 "a (0x800|flon, flat) pair"` on a copy of the ledger prints `body replaced` and leaves a row with more than 7 pipe-split cells; `python3 tools/claims_check.py --claims /tmp/opencode/h130-claims.md` still exits 0.
+  - Scope: `tools/board.py` `_claim_row`, `op_claim_body`, `op_claim_set`, `op_claim_row` and their selftests. No ledger row is rewritten by hand; the fix must refuse or escape, not guess.
+  - Input: `tools/board.py` (`_claim_row`, `op_claim_body`, `op_claim_set`, `op_claim_row`), the H129 block and `EXP-2026-11-22-H129-board-claim-set-supersedes-cell`, the M4.61 round where C-6564 was corrupted by `claim-body` and repaired with `claim-row`.
+  - Done when: a claim text containing `|` is either escaped (`\\|`) on write and unescaped on read, or refused with a clear error, and a row with more than the 7 expected cells (or fewer) is refused before any write; `python3 tools/board.py --selftest` has a case that writes a body containing `|` and asserts the row still has exactly 7 pipe-split cells and the neighbouring rows are unchanged; `python3 tools/claims_check.py --strict --count-check` OK; `python3 tools/gate.py` = 5 pass / 0 fail / 0 skip.
+  - Stop: if the ledger convention is "claim text never contains a raw pipe", make the tools refuse it and record that rule in `AGENTS.md` instead of adding escaping.
+  - Falsifier: a `|`-containing body that round-trips through `claim-body` and leaves the row at 7 cells and the next row intact — then the split is not the defect and this task is closed negative.
+  - Claims: C-6980–C-6989
+  - Pair: required
+
 
 ## M2 — Map code, activation, updater
 
