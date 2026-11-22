@@ -4945,7 +4945,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H30-gps-peer; 27 selftests, doc frame byte-exact, GPX 5 samples; gate parts PASS except pre-existing C-6728 count
 
 - [ ] **M8.H31 — A GPS fix reaches the map: inject a position on `-M ze0` and read it back from the guest**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m8.h31-gps-fix-l4 · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H30, M8.H29
   - Goal: The first end-to-end sensor test: the peer sends a fix, the firmware accepts it, the position variable follows.
