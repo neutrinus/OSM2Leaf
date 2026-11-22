@@ -3099,8 +3099,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the shield type is derived from the road class alone (no separate field) — then say so with the class table.
   - Claims: C-7910–C-7919
 
-- [ ] **M4.91 — The opening picture: format of the image the launcher shows at start, decoded and re-encoded**
-  - Status: in progress · Owner: task/m4.91-opening-picture · Critical: no · Pair: solo
+- [x] **M4.91 — The opening picture: format of the image the launcher shows at start, decoded and re-encoded**
+  - Status: done · Owner: task/m4.91-opening-picture · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The launcher loads an opening image from the card before anything else (seen at L4 in EXP-2026-11-21-M8.C1b-hpb-dmac-model). It is the cheapest visible proof that a self-made card runs: a changed picture at power-on, in the emulator and in the car. M4.59 (skins) is blocked; this file is simpler.
@@ -3111,6 +3111,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: the decoded image is noise under every plausible pixel format (compressed or encrypted — record the entropy and stop).
   - Claims: C-8170–C-8179
+  - Result: EXP-2026-11-22-M4.91-opening-picture (C-8170-C-8179); tools/opng.py --selftest 10/10, decode->encode byte-identical on EU+US factory files (sha256 + cmp); BASS container decoded; raw-pixel hypothesis refuted (entropy 5.2559, pixel grammar UNKNOWN)
 
 - [ ] **M4.92 — Traffic for Poland: which countries and location tables does the EU 2011 `TMC/reception.dat` cover**
   - Status: open · Owner: — · Critical: no · Pair: solo
