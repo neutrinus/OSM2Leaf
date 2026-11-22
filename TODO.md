@@ -3659,7 +3659,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7940–C-7949
 
 - [ ] **M5.76 — A synthetic OSM town for tests without network: deterministic generator with roads, names, one-ways, POIs, water**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.76-osm-synth · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The Claude sandbox cannot fetch OSM data (rule 12), so compiler tasks stall or test on three hand-made ways. A deterministic generator gives every compiler task the same realistic input.
