@@ -922,7 +922,8 @@ bits `0x3c`) needs two.
 **No bound on the level-table walk.** With the byte at `0x1ac` changed to
 `0xff`, `0x0040aa50` loads 402 bytes up to `0x805` instead of 34. **Not
 reproduced on `B48R058R.DAT`** by the M9.68 sweep: flipping `0x1ac` or `0x1ad`
-to `0xff` left the `0x0040aa50` ranges at 38/40/12 bytes (see below).
+to `0xff` left the tile's `0x0040aa50` range at 40 bytes, unchanged (filtered
+probe quoted in EXP-2026-11-22-M9.68-tile-header-sweep).
 
 For M9.13: the runnable target is the whole run (`datask_l3.py mount` with a
 card whose tile is replaced), not a call of one entry on a bare buffer: the
