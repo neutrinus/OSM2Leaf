@@ -4805,8 +4805,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6900–C-6909
   - Result: EXP-2026-11-22-M8.C2a-serial-dma (C-6900–C-6905). `serial_scif.dll` sends through HPB-DMAC channel 10 (RAM `0xa999a000` → SCIF1 FTDR) and receives through 1/3/7 (SCIF1/3/7 FRDR → two RAM planes); their ISRs (INTEVT `0xb80`/`0xbc0`/`0xc40`/`0xca0`) return SYSINTR `0x13`. Patch `ze0-0011` (`hpbdmac-serial`, default on): channel 10 moves each frame to SCIF1 and completes, the driver takes each interrupt (9 675 frames `10 02 02 08 00 10 03 19` in 330 s). The protocol still fails at `GetWriteResult … failed wait response`, with and without the transmit (control `hpbdmac-serial=off`): it waits for the audio unit at the other end — stop condition, F4 (M8.D2). Next: receive path + SCIF1 chardev so a host script can answer.
 
-- [ ] **M8.C1d — Multi-XIP on `-M ze0`: join ROM A (the applications) to the running kernel, then dump the screen**
-  - Status: in progress · Owner: Claude (task/m8.c1d-multi-xip) · Critical: no · Pair: solo
+- [x] **M8.C1d — Multi-XIP on `-M ze0`: join ROM A (the applications) to the running kernel, then dump the screen**
+  - Status: done · Owner: Claude (task/m8.c1d-multi-xip) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C2a
   - Goal: Marek (2026-11-22, "Tak, go"): with M8.C1c/M8.C2a every application `CreateProcessW` (Navi.exe, AuiApp, SystemExe, DrawOi, …) fails; make the kernel see ROM A (image at file `0x200200`, 149 modules, no `nk.exe`) the way the unit's IPL would, so the applications start; add a host script that turns the VRAM into a PNG (Marek: "odpalić maszynę i po jakimś czasie zrobić screenshot").
@@ -4817,6 +4817,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the kernel cannot run with both images at once (overlapping module addresses), record which modules collide and what a real unit must hold instead (NK1 in flash), and stop at the smallest working subset.
   - Falsifier: with the chain in place, `CreateProcessW` for `\windows\Navi.exe` still fails with LastError 2.
   - Claims: C-6910–C-6919
+  - Result: EXP-2026-11-22-M8.C1d-multi-xip (C-6910–C-6917). The audio unit is not the blocker (27 ACM 30 s timeouts, then `Finish Launch Threads!`); every application `CreateProcessW` failed with LastError 2 because ROM image A (Navi.exe etc.) was never joined: nk.exe reads an XIP-chain pointer from a `.data` fixup (var `0x89e43c90`) that the card leaves at -1. `tools/ze0_ipl.py` + `ze0-0012` (`ipl-patch=FILE`) write the chain, RAM end `0x8c6e0000` and compacted TOCs (A and B overlap in the DLL space, C-6913): `Rom chain found`, 0 `Not Create` (was 19), Navi.exe's OSMDLL/OBJDLL run. `tools/ze0_screenshot.py` saves the VRAM as PNG; it stays black because the display engine (phys `0x1ff80000`/`0x1fe80000`) is not modelled → M8.C1e.
+
+- [ ] **M8.C1e — Display engine on `-M ze0`: trace, then a minimal DU/2D model so the VRAM fills**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1d
+  - Goal: Marek wants to boot the emulator and take a screenshot after a while (2026-11-22). With M8.C1d the applications run but the VRAM (phys `0x0e700000`) stays zero; `gdisubdrv.dll` drives two register blocks that `-M ze0` does not model (C-6916).
+  - Precheck: run P of EXP-2026-11-22-M8.C1d-multi-xip with `-d invalid_mem` shows `Invalid read/write at addr 0x1FF80…` and `0x1FE80…`; `tools/ze0_screenshot.py grab` prints `no non-zero pixel`.
+  - Scope: a trace device at phys `0x1ff80000` and `0x1fe80000` (log every access with PC); `gdisubdrv.dll` code around `IntrThread_DU`/`IntrThread_2DG` and the `VirtualCopy` sites (`0x3af31b6`, `0x3af3224`); then the smallest model (register file, vsync/DU interrupt, 2D command completion) that lets drawing reach the VRAM. Alternative to evaluate: registry `System\Automotive\Graphic\Engine` = 0 (software renderer).
+  - Input: EXP-2026-11-22-M8.C1d-multi-xip, `tools/ze0_ipl.py`, `tools/ze0_screenshot.py`, `tools/sh4dis.py`.
+  - Done when: `tools/ze0_screenshot.py grab` writes a PNG with non-zero pixels from a running guest, or the access trace and the reason no pixel arrives are recorded.
+  - Stop: if the 2D engine needs a command-list interpreter larger than a register model, record the command format and stop (F5 boundary, M8.C19).
+  - Falsifier: with both blocks answering, the VRAM stays zero for the whole run.
+  - Claims: C-6920–C-6929
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo

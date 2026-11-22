@@ -255,6 +255,16 @@ kept), so the next run extracts cleanly.
   stay armed (no peer). Interrupt sources for channels 1, 3, 7, 10
   (INTEVT `0xb80`/`0xbc0`/`0xc40`/`0xca0`, INT2 bit 19). Option
   `hpbdmac-serial=off` is the control. `hpbdmac-trace=on` logs each frame.
+- `ze0-0012` (M8.C1d): `ipl-patch=FILE` writes the bytes an IPL would leave
+  in RAM ("PHYS HEXBYTES" lines) into the loaded images, or as extra ROM
+  blobs; `run.sh --ipl-patch`. `tools/ze0_ipl.py patch IMG -o FILE` makes
+  the file that joins ROM image A (Navi.exe and the other applications) to
+  the kernel: XIP chain, RAM end below A, compacted TOCs. Without it every
+  application `CreateProcessW` fails with LastError 2.
+  `tools/ze0_screenshot.py grab --monitor SOCK -o PREFIX` saves the VRAM
+  (phys `0x0e700000`) as RGB565 800x480 PNGs; the display engine is not
+  modelled yet, so it stays black. See
+  [`EXP-2026-11-22-M8.C1d-multi-xip.md`](../../docs/experiments/EXP-2026-11-22-M8.C1d-multi-xip.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

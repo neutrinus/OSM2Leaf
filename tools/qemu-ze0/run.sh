@@ -75,6 +75,9 @@ Options:
                       ze0-0010, M8.C1c)
   --mapdb LO-HI       -M ze0 with --image: unit map-DB window at header
                       +0x70/+0x72 (EU card value: 16; ze0-0010, M8.C1c)
+  --ipl-patch FILE    -M ze0 with --image: bytes the IPL leaves in RAM, from
+                      tools/ze0_ipl.py patch (joins ROM image A, the
+                      applications, to the kernel; ze0-0012, M8.C1d)
   --sd FILE           -M ze0: SD card image on SD host port 0 (-drive
                       if=sd,index=0, M8.C10; needs ze0-0008; data transfers
                       need ze0-0009, M8.C1b). The size must
@@ -317,6 +320,7 @@ DBGMSG=0x880404f4
 SD=
 VERINF=
 MAPDB=
+IPL_PATCH=
 ICOUNT=
 QEMU=qemu-system-sh4
 SUMMARY=1
@@ -341,7 +345,7 @@ while [ "$#" -gt 0 ]; do
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
-    --serial | --dbgmsg | --icount | --sd | --verinf | --mapdb)
+    --serial | --dbgmsg | --icount | --sd | --verinf | --mapdb | --ipl-patch)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
         _val=$2
@@ -377,6 +381,7 @@ while [ "$#" -gt 0 ]; do
         --sd) SD=$_val ;;
         --verinf) VERINF=$_val ;;
         --mapdb) MAPDB=$_val ;;
+        --ipl-patch) IPL_PATCH=$_val ;;
       esac
       ;;
     --gdb)
@@ -497,6 +502,8 @@ if [ "$MACHINE" = ze0 ]; then
     # Unit record in the kernel image header (M8.C1c, ze0-0010).
     [ -n "$VERINF" ] && _mopts="$_mopts,verinf=$VERINF"
     [ -n "$MAPDB" ] && _mopts="$_mopts,mapdb=$MAPDB"
+    # IPL patch: ROM image A joined to the kernel (M8.C1d, ze0-0012).
+    [ -n "$IPL_PATCH" ] && _mopts="$_mopts,ipl-patch=$IPL_PATCH"
     set -- "$@" -M "$_mopts" -kernel "$IMAGE"
   else
     set -- "$@" -M ze0
