@@ -1924,7 +1924,7 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-21-H128-h128-todo-strict-debt (C-6700): tools/todo_check.py gains --baseline/--update-baseline; committed tools/fixtures/todo_strict_baseline.json keys 8 ERRORs over 4 tasks (M1.38, M3.13, M3.29, M8.C) by (task ID, missing field). --strict --baseline exits 0 on main (8 over 4, baseline 8, new 0), a new firmware task missing Stop exits 1 (NEW M9.99|Stop), a cleared task prints cleared: M3.13 and stays 0; structural errors (no key) always fail. selftest 31 checks, default mode still 0. No WARN suppressed, firmware rule unchanged, no open task edited.
 
 - [ ] **H129 — `board.py claim-set` writes `Supersedes:` to the evidence cell, and its selftest does not check the target cell**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/h129-claim-set-cell · Critical: no · Pair: required
   - Step: tooling
   - Depends: — (found by the M1.44 round-3 reviewer after #433 merged; it is a tool bug, not a record defect)
   - Goal: `python3 tools/board.py claim-set C-XXXX Supersedes C-YYYY` must put `Supersedes: C-YYYY` in the claim **body** (cell 2) when the body has no such key, matching every other ledger row's body form (C-6460's body itself says "Supersedes: C-6460"); it must not silently append `; Supersedes: …` to the evidence cell (cell 5). Evidence: M1.44 #433 merged as `47400e9b`; C-6750's `Supersedes` landed in the evidence tail (`| … status | … evidence …; Supersedes C-6460, whose scope… |`) and `claim-set` is a no-op on a second call.
