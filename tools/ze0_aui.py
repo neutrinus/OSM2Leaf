@@ -239,15 +239,11 @@ def control_dlls(app, kept, skins=()):
 
 
 # --------------------------------------------------------------------- build
-def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False):
-    kern, app = CERom(data, kernel_off), CERom(data, app_off)
-    keep_k, keep_a, _ = ze0_ipl.plan(kern, app, prefer)
-    kept = {m["name"].lower() for m in keep_a}
-    lines = []
-    aui = app.module("auiapp.exe")
+def reg_call(app, aui, value):
+    """AuiApp's registry read of ``value``: (jsr_va, pool_va).
 
-    # SkinPath read: mov.l @(pool),r4 (pool = &"SkinPath") then jsr @r10
-    sp_va, _ = find_wstr(app, aui, "SkinPath")
+    The call is ``mov.l @(pool),r4`` (pool = &L"value") then ``jsr @r10``."""
+    sp_va, _ = find_wstr(app, aui, value)
     cands = []
     for pva, pptr in pools(app, aui, sp_va):
         tsec = text_section(app, aui)
@@ -263,8 +259,26 @@ def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False):
                         cands.append((iva + k, pva))
                         break
     if len(cands) != 1:
-        raise SystemExit("ze0_aui: SkinPath call site not unique (%d)" % len(cands))
-    jsr_va, pool_va = cands[0]
+        raise SystemExit("ze0_aui: %s call site not unique (%d)" % (value, len(cands)))
+    return cands[0]
+
+
+def copy_routine(base, text):
+    """Registry-read replacement: copy L"text" to r7, return 0 (ERROR_SUCCESS)."""
+    prog = [("LDL", 4, "s"),
+            ("L", "cp"), (0x6045,), (0x2701,), (0x7702,), (0x2008,), ("BF", "cp"),
+            (0x000b,), (0xe000,)]
+    return asm(prog, base, [("s", (text + "\0").encode("utf-16-le"))])[0]
+
+
+def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False, start_form=""):
+    kern, app = CERom(data, kernel_off), CERom(data, app_off)
+    keep_k, keep_a, _ = ze0_ipl.plan(kern, app, prefer)
+    kept = {m["name"].lower() for m in keep_a}
+    lines = []
+    aui = app.module("auiapp.exe")
+
+    jsr_va, pool_va = reg_call(app, aui, "SkinPath")
 
     code_va, _ = find_wstr(app, aui, "Usage: auiapp [<skin file>", prefix=True)
     code_va = (code_va + 3) & ~3
@@ -290,6 +304,15 @@ def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False):
     lines.append((ph(names_va), blob, "auiapp: %d control DLLs to register" % len(dlls)))
     lines.append((ph(jsr_va), struct.pack("<H", 0x440b), "auiapp: SkinPath read -> jsr @r4"))
     lines.append((ph(pool_va), struct.pack("<I", code_va), "auiapp: r4 = routine"))
+    if start_form:
+        sf_va = (code_va + len(code) + 3) & ~3
+        sf = copy_routine(sf_va, start_form)
+        if sf_va + len(sf) > code_end:
+            raise SystemExit("ze0_aui: StartForm routine does not fit")
+        sf_jsr, sf_pool = reg_call(app, aui, "StartForm")
+        lines.append((ph(sf_va), sf, "auiapp: StartForm default %s (M8.C1h)" % start_form))
+        lines.append((ph(sf_jsr), struct.pack("<H", 0x440b), "auiapp: StartForm read -> jsr @r4"))
+        lines.append((ph(sf_pool), struct.pack("<I", sf_va), "auiapp: r4 = StartForm routine"))
 
     if no_timeout:
         se = app.module("SystemEXE.exe")
@@ -313,6 +336,8 @@ def selftest():
     assert struct.unpack_from("<H", r, 0)[0] == 0x4f22 and len(r) < 0x194
     assert SKIN.encode("utf-16-le") in r and "DllRegisterServer".encode("utf-16-le") in r
     assert name_list(["SystemCC.dll", "multiskin"]) == b"SystemCC\0multiskin\0\0"
+    c = copy_routine(0x2000, "frm_X")
+    assert struct.unpack_from("<H", c, 0)[0] >> 8 == 0xd4 and "frm_X\0".encode("utf-16-le") in c
     print("ze0_aui selftest: ok")
 
 
@@ -327,6 +352,8 @@ def main():
     ap.add_argument("--skins", default="", help="comma list of .skn files: register only "
                     "the DLLs whose CLSIDs they name")
     ap.add_argument("--no-aui-timeout", action="store_true")
+    ap.add_argument("--start-form", default="", help="AuiApp StartForm value (M8.C1h), "
+                    "e.g. frm_PRAGR_AgreeCaution")
     a = ap.parse_args()
     if a.selftest:
         selftest()
@@ -337,7 +364,8 @@ def main():
     data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
     skins = [open(p, "rb").read() for p in a.skins.split(",") if p]
     prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
-    lines, dlls = build(data, a.kernel_off, a.app_off, prefer, skins, a.no_aui_timeout)
+    lines, dlls = build(data, a.kernel_off, a.app_off, prefer, skins, a.no_aui_timeout,
+                        a.start_form)
     with open(a.out, "w") as fo:
         for p, blob, why in lines:
             fo.write("0x%08x %s  # %s\n" % (p, blob.hex(), why))

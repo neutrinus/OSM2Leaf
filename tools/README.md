@@ -1577,6 +1577,24 @@ INFINITE. Every address is found in the image, and the tool refuses a
 pattern that is not unique. The lines change RAM only, never the card.
 Record: EXP-2026-11-22-M8.C1g-ui-layer.
 
+`--start-form NAME` (M8.C1h) also gives AuiApp a `StartForm` value, e.g.
+`frm_PRAGR_AgreeCaution`.
+
+## `ze0_stubdll.py` — stub modules for unit-flash DLLs on `-M ze0` (M8.C1h)
+
+```bash
+python3 tools/ze0_ipl.py patch archive/head256.img --prefer-app auiapp.exe,auirtdll.dll \
+        --stub-dlls hcx -o ipl.txt
+python3 tools/ze0_stubdll.py --selftest
+```
+
+`HCXLog.dll` and `HCXMemory.dll` are in the unit's flash, not on the card.
+`--stub-dlls hcx` appends one ROM module for each to image A's TOC. Every
+export returns `this`, and `HCXMemory` #23 returns a named file mapping (a
+shared block per class name). The code lives in the ROM pages of a module
+the TOC compaction dropped, at a free VA window in the ROM DLL code space.
+Record: EXP-2026-11-22-M8.C1h-hcx-stubs.
+
 ## `board.py` — edit `TODO.md` and `claims.md` by line operations (H123)
 
 Every change to the board files is one splice; a guard refuses a write that
