@@ -106,6 +106,7 @@ import math
 import re
 import struct
 import sys
+import xml.etree.ElementTree as ET
 import zlib
 from pathlib import Path
 from typing import Any
@@ -2211,7 +2212,7 @@ def selftest():
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        description="Write a roads-only ZE0 map tile from mesh-split IMF v1.",
+        description="Write a ZE0 map tile from mesh-split IMF v1 (roads, or --background from OSM XML).",
     )
     parser.add_argument("imf", nargs="?", help="mesh-split IMF v1 JSON Lines")
     parser.add_argument("--out", metavar="TILE.DAT", help="output tile path")
@@ -2229,6 +2230,9 @@ def build_parser():
                         help="header DATA VERSION (required without --factory)")
     parser.add_argument("--no-names", action="store_true",
                         help="do not write street names (M5.7); name_off stays 0xffff")
+    parser.add_argument("--background", metavar="OSM.XML",
+                        help="write water/river/forest from a small OSM XML extract into "
+                             "one odd background record of a factory tile (M5.74)")
     parser.add_argument("--json", action="store_true", help="write the report as JSON")
     parser.add_argument("--dry-run", action="store_true", help="build and check, write nothing")
     parser.add_argument("--readback", metavar="TILE.DAT",
@@ -2250,6 +2254,31 @@ def main(argv=None):
             stem = Path(source).name.split(".")[0]
             if CELL_RE.match(stem):
                 cell = stem
+    if args.background:
+        if not (args.factory and args.out):
+            parser.error("--background needs --factory TILE and --out TILE.DAT")
+        if cell is None or not CELL_RE.match(cell):
+            parser.error("--background needs --cell BxxRyyR (or a factory tile named BxxRyyR.DAT)")
+        try:
+            from bg_writer import write_background
+            report, blob = write_background(args.factory, args.background, cell)
+        except (ValueError, OSError, ET.ParseError) as exc:
+            print("tilewriter: background write failed: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        if not report["roundtrip"]:
+            print("tilewriter: background geometry did not read back", file=sys.stderr)
+            return EXIT_CHECK_FAILED
+        if not args.dry_run:
+            _write_bytes(args.out, blob)
+        if args.json:
+            json.dump(report, sys.stdout, indent=2, sort_keys=True)
+            sys.stdout.write("\n")
+        else:
+            print("background: cell %s parcel %s kinds %d shapes %d roundtrip OK" %
+                  (cell, report["parcel"], report["kinds"],
+                   report["readback"]["total"]))
+        return EXIT_OK
+
     if args.readback:
         if not args.imf:
             parser.error("--readback needs the split IMF as the positional argument")
