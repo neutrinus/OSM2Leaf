@@ -4590,7 +4590,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H7-ui-scenario; ze0_ui selftest 20/20, wrong-hash exit 1, exit-3 paths, real boot 3 steps exit 0
 
 - [ ] **M8.H8 — Which card files does the firmware read, and where: SD block trace mapped to file and offset**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m8.h8-sd-trace · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M8.C1b (done)
   - Goal: Rule 13 wants every generated format confirmed by the firmware. At L4 the cheapest witness is the SD read stream: map every block the guest reads to (file, offset) through the FAT of the card, so one boot tells which map files and which byte ranges `Navi.exe` actually consumes.
