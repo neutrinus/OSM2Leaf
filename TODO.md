@@ -4913,8 +4913,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7250–C-7259
   - Result: EXP-2026-11-22-M8.H28-kepdrv; C-7250–C-7259; 10 claims, register/sample/unit doc + hardware row
 
-- [ ] **M8.H29 — From driver to map: how a position fix travels inside `Navi.exe`**
-  - Status: in progress · Owner: task/m8.h29-fix-to-map · Critical: no · Pair: required
+- [x] **M8.H29 — From driver to map: how a position fix travels inside `Navi.exe`**
+  - Status: done · Owner: task/m8.h29-fix-to-map · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: Find the consumer side: which module receives `navdrv` data, the message or shared structure that carries a fix, the coordinate units at each hop, and where the fix becomes the map centre (`LOC_*` code; `LOC_map` is already known from M9.67).
@@ -4925,6 +4925,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if more than one process is involved, document the first two hops and the final variable.
   - Falsifier: the position word of `tools/datask_l3.py` is never written after start (then it is a request parameter, not the vehicle position).
   - Claims: C-7260–C-7269
+  - Result: EXP-2026-11-22-M8.H29-fix-to-map; fix chain + writers of 0x00d940e4, ze0_position.py 13/13, gate 5/5
 
 - [x] **M8.H30 — `tools/ze0_peers/gps.py`: a GPS receiver peer (fixed fix, NMEA/GPX replay)**
   - Status: done · Owner: — · Critical: no · Pair: solo
