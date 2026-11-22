@@ -3929,9 +3929,6 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5204 | On a real QY7200ND the LeafSDTools partial files are byte-identical to ranges of the full flash dump: SRAM = `0x400000–0x4FFFFF`, VFlash = `0x500000–0x7DFFFF`, PROD = `0xA000–0xA2D1` (shifted control differs). Confirms the block map of C-5193. | VERIFIED | H | EXP-2026-11-22-M6.18-unit-flash-backup; C-5193 |
 | C-5205 | The PROD checksum is the 16-bit sum of bytes `+0x000..+0x2CF`, stored little-endian at `+0x2D0` (computed `0x9CBE` = stored on Marek's unit). | VERIFIED | H | EXP-2026-11-22-M6.18-unit-flash-backup |
 | C-5206 | The dump holds the values of the LeafSDTools screen at the stated PROD offsets: `+0x20` = `10 20 02 12`, `+0x40` = `QY7200ND`, `+0xA0` = `FF FF FF FF`, `+0x193` = `00`. | OBSERVED | H | EXP-2026-11-22-M6.18-unit-flash-backup; C-5200, C-5202 |
-| C-5207 | RESERVED (M6.18). | — | — | — |
-| C-5208 | RESERVED (M6.18). | — | — | — |
-| C-5209 | RESERVED (M6.18). | — | — | — |
 
 ## M5.49 — P1 verbatim-tile display-only card (C-5380–C-5389)
 
