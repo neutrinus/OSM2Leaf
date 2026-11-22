@@ -4126,6 +4126,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6930–C-6939
   - Result: EXP-2026-11-22-M8.C1f-2dg-interpreter (C-6930–C-6936). `ze0-0014` adds `hw/sh4/ze0_2dg.c`: each 2DG display list runs on the host when SCLR = 1 is written (boxes, alpha glyphs, stencil-then-cover polygons, polylines, textured quads; pixels are (A)RGB1555, not 565). `tools/ze0_screenshot.py screen` composes the DU planes (plane 4 = map on a 2368-wide surface, plane 2 = keyed UI). Within 15 minutes the EU 2011 card shows the London map; 2669 commands drawn, 7 skipped (`0xb3007602`, `0xb10038c2`). The UI layer is still empty.
 
+- [ ] **M8.C1g — UI layer on `-M ze0`: AuiApp from image A, COM registrations, screenshot with the AUI forms**
+  - Status: in progress · Owner: Claude (task/m8.c1g-ui-layer) · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1f
+  - Goal: Marek wants the UI layer (buttons, status bar) in the emulator screenshot (2026-11-22). After M8.C1f only the map plane is drawn; the UI plane stays keyed out.
+  - Precheck: with `ze0-0014` and the M8.C1d IPL patch, `serial` shows `CAuiMonitorCmn::ThreadProc::TIMEOUT!!!!!` and `Pow >> Pow Off 1st Detect!!!` (SystemEXE shuts the system down 45 s after start because no AUI form loaded); DU plane 2 holds only `0x83ff`.
+  - Scope: (1) why AuiApp never loads a form: the kernel image's updater `auiapp.exe`/`auirtdll.dll` win over image A's in `ze0_ipl.py`; (2) `ze0_ipl.py --prefer-app` to keep image A's copies; (3) the skin path the unit's registry would give (`SkinPath`); (4) COM registrations of image A's `*CC.dll` controls, which live in the unit's own registry, not on the card (from each DLL's `REGISTRY` resource); (5) plane alpha (`+0x08`) in `ze0_screenshot.py`; (6) screenshot.
+  - Input: EXP-2026-11-22-M8.C1f-2dg-interpreter, `tools/ze0_ipl.py`, `tools/cehive.py`, `tools/cerom.py`, `docs/format/skins.md`.
+  - Done when: a screenshot from a running guest shows at least one AUI form element drawn by AuiApp (not by Navi.exe), or the EXP names the missing piece with the serial-log evidence.
+  - Stop: if the forms need processes that fail for a missing unit-flash DLL (`HCXMemory.dll`, `AppTimerDll.dll`), record which and stop.
+  - Falsifier: with image A's AuiApp, the skin path and the COM registrations in place, `AUI:WRN:02034302 Failed initialize control` still appears for every control.
+  - Claims: C-8200–C-8209
+
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F1 stable kernel; see `todo-history-2026-11-05.md` §M8.D)
