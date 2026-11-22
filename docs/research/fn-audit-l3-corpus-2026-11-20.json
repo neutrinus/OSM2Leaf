@@ -535,6 +535,7 @@
   "docs/experiments/EXP-2026-11-22-M4.86-tile-unknown-ranking.md",
   "docs/experiments/EXP-2026-11-22-M4.87-polish-glyphs.md",
   "docs/experiments/EXP-2026-11-22-M4.91-opening-picture.md",
+  "docs/experiments/EXP-2026-11-22-M5.65-osm-section4-places.md",
   "docs/experiments/EXP-2026-11-22-M5.75-geom-budget.md",
   "docs/experiments/EXP-2026-11-22-M5.76-osm-synth-town.md",
   "docs/experiments/EXP-2026-11-22-M6.18-unit-flash-backup.md",
@@ -585,7 +586,7 @@
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json",
  ],
- "summary": {"files": 579, "citations": 1687, "unique_va": 509, "start": 1505, "inside": 76, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 16, "unmapped": 2},
+ "summary": {"files": 580, "citations": 1687, "unique_va": 509, "start": 1505, "inside": 76, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 16, "unmapped": 2},
  "rows": [
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
