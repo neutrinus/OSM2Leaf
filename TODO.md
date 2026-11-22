@@ -4810,8 +4810,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: host time is dominated by one phase that no option changes (then the cut is a model, and the EXP names it).
   - Claims: C-7220–C-7229
 
-- [ ] **M8.H26 — `run.sh --card IMG`: derive `verinf`, `mapdb`, the overlay and the `ipl-patch` from the card**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H26 — `run.sh --card IMG`: derive `verinf`, `mapdb`, the overlay and the `ipl-patch` from the card**
+  - Status: done · Owner: task/m8.h26-card-derive · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: A run needs four hand-made inputs. All four are functions of the card image; a wrong `verinf` makes the launcher reject the card for a reason that has nothing to do with the test.
@@ -4822,6 +4822,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the derived values differ from the ones used in EXP-2026-11-22-M8.C1c-launcher-verinf for the same card.
   - Claims: C-7230–C-7239
+  - Result: EXP-2026-11-22-M8.H26-card-derive; describe EU QSD-302-100/16-16/EU2011/0x6400400 vs US QSD-301-100/US2011; full-card --card boot byte-identical serial.log to hand-built (1576 lines, applch_error 0, failsafe_start 0), card SHA unchanged; 16/16 synthetic selftest; claims_check/todo_check OK
 
 - [ ] **M8.H27 — `navdrv.dll`: what the GPS receiver says on `SCI7:` (frame format, rate, set-up commands)**
   - Status: open · Owner: — · Critical: yes · Pair: required
