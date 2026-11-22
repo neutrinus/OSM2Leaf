@@ -330,7 +330,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 - **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards; `cardcheck --generate-fixture` builds a vendor-free tree (H40 done, H105 done). Open: **H41** → **H42** (CI use), **H104** (baseline).
 - **L2 (the product path):** P0 built; P1 card **M5.61** (blocked, see its block). Open: **M5.35** (one command), **M5.66** (rendered tile as an L2 gate), **M5.76** (synthetic town so compiler tasks run without network) → **M7.1** (all Dolnośląskie).
 - **L3 (moving):** container, record read and the renderer walk are done on a generated tile. Open: **M9.68** (which header fields the map client checks), **M9.15** and **M9.18** (targets per family), routing **M4.55** → **M4.40** → **M5.57** → **M9.56** (blocked chain; **M4.72** tests a KIWI shortcut), card gate **M9.31** → **M9.12**.
-- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX) and **M8.H27** (GPS frame grammar) are done; **M8.H8** (SD block reads mapped to card files) completed. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H9** (coverage) completes the format oracle; GPS **M8.H30/H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
+- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX), **M8.H27** (GPS frame grammar) and **M8.H30** (GPS peer) are done; **M8.H8** (SD block reads mapped to card files) completed. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H9** (coverage) completes the format oracle; GPS **M8.H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
 - **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
 
 ### Map signal (read first)
@@ -4884,8 +4884,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the position word of `tools/datask_l3.py` is never written after start (then it is a request parameter, not the vehicle position).
   - Claims: C-7260–C-7269
 
-- [ ] **M8.H30 — `tools/ze0_peers/gps.py`: a GPS receiver peer (fixed fix, NMEA/GPX replay)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H30 — `tools/ze0_peers/gps.py`: a GPS receiver peer (fixed fix, NMEA/GPX replay)**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H27
   - Goal: The receiver model as a host program on the `sci7` chardev: sends frames in the format of `docs/firmware/navdrv.md` at the real rate, answers the driver's set-up commands.
@@ -4896,6 +4896,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the selftest passes with a wrong checksum routine (no negative control).
   - Claims: C-7270–C-7279
+  - Result: EXP-2026-11-22-M8.H30-gps-peer; 27 selftests, doc frame byte-exact, GPX 5 samples; gate parts PASS except pre-existing C-6728 count
 
 - [ ] **M8.H31 — A GPS fix reaches the map: inject a position on `-M ze0` and read it back from the guest**
   - Status: open · Owner: — · Critical: yes · Pair: required

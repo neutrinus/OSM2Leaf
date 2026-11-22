@@ -519,7 +519,11 @@ def discover_tools(directories: list[Path]) -> list[Suite]:
     """
     found: dict[str, Path] = {}
     for directory in directories:
-        for path in sorted(directory.glob("*.py")):
+        # M8.H30: host peers live in tools/ze0_peers/ and are ordinary tools
+        # with --selftest, so discover them under a namespaced suite id.
+        candidates = sorted(directory.glob("*.py"))
+        candidates += sorted((directory / "ze0_peers").glob("*.py"))
+        for path in candidates:
             if not path.is_file() or path.name.startswith("_"):
                 continue
             try:
@@ -527,16 +531,17 @@ def discover_tools(directories: list[Path]) -> list[Suite]:
                     continue
             except OSError:
                 continue
-            found[path.stem] = path
+            key = ("ze0_peers." if path.parent.name == "ze0_peers" else "") + path.stem
+            found[key] = path
 
     suites: list[Suite] = []
-    for stem in sorted(found):
-        path = found[stem]
+    for key in sorted(found):
+        path = found[key]
         has = exposes_selftest(path)
         rel = _display_path(path)
         description = f"{rel} {SELFTEST_FLAG}" if has else f"{rel} (no selftest)"
         suites.append(
-            Suite(f"tool:{stem}", "tool", description, path=path, has_selftest=has)
+            Suite(f"tool:{key}", "tool", description, path=path, has_selftest=has)
         )
     return suites
 
