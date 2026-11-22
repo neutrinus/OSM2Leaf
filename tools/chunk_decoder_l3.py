@@ -63,6 +63,7 @@ sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
 import build_targets  # noqa: E402
 import cerom  # noqa: E402
+import ce_module  # noqa: E402
 import cmpind  # noqa: E402
 import point_walk_l3 as pw  # noqa: E402
 from engine import EngineError, PySh4, StubReturn  # noqa: E402
@@ -205,25 +206,21 @@ def read_mask(image: bytes, va: int, dump: Path | None = None) -> dict:
     """
     import hashlib
     import nk_decomp
-    rom = cerom.CERom(image, IMAGE_START)
-    sec = None
-    for s in rom.o32(rom.module(MODULE)):
-        if s["realaddr"] <= va < s["realaddr"] + s["vsize"]:
-            sec = s
-            break
-    if sec is None:
+    hit = ce_module.find_section(image, MODULE, va, IMAGE_START)
+    if hit is None:
         raise MaskMismatch("no %s section covers %#010x" % (MODULE, va))
+    _, sec, file_off = hit
     if dump is not None:
         blob = Path(dump).read_bytes()
         source = "dump %s" % dump
         digest_len = len(blob)
     else:
         if not sec["flags"] & cerom.IMAGE_SCN_COMPRESSED:
-            blob = bytes(image[rom.va2file(sec["dataptr"]):][:sec["psize"]])
+            blob = bytes(image[file_off:][:sec["psize"]])
             source = "plain section"
             digest_len = len(blob)
         else:
-            r0, blob = nk_decomp.decompress(image, rom.va2file(sec["dataptr"]),
+            r0, blob = nk_decomp.decompress(image, file_off,
                                             sec["psize"], sec["vsize"])
             if r0 == MINUS_ONE:
                 raise MaskMismatch("nk_decomp failed on the section at %#010x"
@@ -247,15 +244,12 @@ def image_init_sections(image: bytes, module: str = MODULE,
 
     Each value is what the CE loader maps there: the stored bytes decoded by
     the kernel's own routine (``nk_decomp.section_bytes``, cached), then zero
-    BSS up to ``vsize``.
+    BSS up to ``vsize``.  M1.47: the section walk is :mod:`ce_module`.
     """
-    import nk_decomp
-    rom = cerom.CERom(image, image_start)
-    out = {}
-    for index, sec in enumerate(rom.o32(rom.module(module))):
-        if sec["flags"] & cerom.IMAGE_SCN_COMPRESSED:
-            out[sec["realaddr"]] = nk_decomp.section_bytes(image, module, index, image_start)
-    return out
+    return {va: blob
+            for _i, va, _vs, _ps, comp, _ex, _il, blob
+            in ce_module.module_sections(image, image_start, module, decode=True)
+            if comp}
 
 
 def run_firmware(image: bytes, cmp_bytes: bytes, rows, offset: int, length: int,

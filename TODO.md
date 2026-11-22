@@ -1106,8 +1106,20 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the strings are compiled into code sections of many modules rather than one resource.
   - Claims: C-8090–C-8099
 
-- [ ] **M1.47 — `tools/ce_module.py`: one CE module/section reader for the L3 tools (they each carry their own copy of the ROMHDR → section → bytes path)**
+- [ ] **M1.53 — move `point_tree_l3`'s STDDLL section walk onto `ce_module` (with a byte-identical capture first)**
   - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (M1.47 left this as its own falsifier: extend, do not fork)
+  - Goal: M1.47's falsifier ("a fifth `_l3.py` that reads ROM sections through `cerom` directly and would have been wrong under the new helper") is `tools/point_tree_l3.py:161` in `Firmware.__init__`: it walks `STDDLL.dll` with its own `rom.o32` loop and calls `nk_decomp.decompress` directly (`IMAGE_SCN_COMPRESSED` at :163), which is the same decode `ce_module.module_sections(..., "STDDLL.dll")` already does (eager, since image start is `0x200200`). M1.47 deferred the move because it had no byte-identical capture of this tool on the factory image; do that capture first, then move the walk and delete the direct `nk_decomp` call (`import nk_decomp` in that method becomes unnecessary).
+  - Precheck: `grep -n 'nk_decomp\|IMAGE_SCN_COMPRESSED' tools/point_tree_l3.py` prints the `:161`-`:165` loop and `grep -rln 'IMAGE_SCN_COMPRESSED' tools/*_l3.py | wc -l` prints 3; `python3 tools/point_tree_l3.py --selftest` is green before you start.
+  - Scope: `tools/point_tree_l3.py` only (the `Firmware.__init__` STDDLL loop). Do not touch `vcard_l3.py` / `va_class.py` (loader/classifier shapes) or `ce_strfind.py` (a `cecompress` status reader, not this path).
+  - Input: `tools/ce_module.py` (`module_sections`, rich 8-tuple, eager at `0x200200`), `tools/point_tree_l3.py` (`Firmware.__init__` :150–175), `tools/nk_decomp.py` (`decompress`, `section_bytes`), EXP-2026-11-22-M1.47-ce-module.
+  - Done when: `python3 tools/point_tree_l3.py --selftest` green; `python3 tools/point_tree_l3.py run archive/head256.img --dir <PAIRS> --file POINT010 --json OUT` produces a byte-identical `OUT` before and after (capture both on the same tree, say so in the EXP); `grep -c 'nk_decomp' tools/point_tree_l3.py` drops to 0 in `Firmware.__init__`; `python3 tools/selftest.py` green; the duplicate count `grep -rln 'IMAGE_SCN_COMPRESSED' tools/*_l3.py | wc -l` drops from 3.
+  - Stop: if the tool's output differs on the factory image, keep the direct decode and record the differing bytes — do not change the tool's logic.
+  - Falsifier: another `_l3.py` that still decodes a section itself after this (`vcard_l3.py:324`, out of scope by shape) — if the helper cannot express its loader-total shape, say so in the EXP rather than special-casing it.
+  - Claims: C-8270–C-8279
+
+- [x] **M1.47 — `tools/ce_module.py`: one CE module/section reader for the L3 tools (they each carry their own copy of the ROMHDR → section → bytes path)**
+  - Status: done · Owner: task/m1.47-ce-module · Critical: no · Pair: solo
   - Depends: — (tooling; rule 17 allows it because every map L3 task in the window pays the duplication tax — M3.34 and M9.10 both touched the same three helpers)
   - Goal: the same ROM-to-code step is written at least four times, and they drift. `tools/point_walk_l3.py:140 module_sections(data, image_start, module)` returns `(sec, compressed, blob)` only for uncompressed sections; `tools/mapcode_l3.py:136 module_layout(image)` does the same for `AppLaunch.dll` build B with its own `cerom.CERom(image, IMAGE_START)`; `tools/chunk_decoder_l3.py:244 image_init_sections(...)` is the third copy, and the only one that calls `nk_decomp.section_bytes` for compressed sections (H51's rule) — of the 19 `tools/*_l3.py`, 3 import `nk_decomp`; the other L3 tools either silently skip a compressed section or re-implement the decode. When M3.34 added `tools/sh4fpu.py` and M9.10 added a US target, both had to reach into `cerom` by hand again. One owner removes the per-tool choice of "skip compressed" repeated, and makes the H51 rule (a compressed section is decoded by the kernel's own routine, never skipped) atomic.
   - Precheck: `grep -rln 'cerom.CERom(' tools/*_l3.py tools/l3_harness/*.py | wc -l` and `grep -rln 'IMAGE_SCN_COMPRESSED' tools/*_l3.py | wc -l` print the duplicate count on `main` (quote both); `python3 tools/selftest.py --only point_walk_l3 --only mapcode_l3 --only chunk_decoder` is green before you start.
@@ -1117,6 +1129,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session. If moving one call site changes its output on the factory image, stop moving that site, keep the shim, and record the differing bytes — do not "fix" the tool's logic in a refactor.
   - Falsifier: a fifth `_l3.py` that reads ROM sections through `cerom` directly and would have been wrong under the new helper (then the helper's API is too narrow; extend it, do not fork it again).
   - Claims: C-6630–C-6639
+  - Result: EXP-2026-11-22-M1.47-ce-module; C-6630–C-6639. ce_module.py owns the CE section walk; point_walk/mapcode/chunk_decoder/poi delegate, seven head256 outputs cmp-identical, selftest 183/0, l3check 3/13 unchanged. point_tree_l3 section walk deferred (falsifier, follow-up)
 
 - [x] **M1.50 — Why the US unit in Poland shows a position in Kentucky (map screen and OpenCARWINGS): GPS receiver, `navdrv` or `Navi.exe`**
   - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
