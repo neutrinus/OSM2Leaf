@@ -1269,8 +1269,8 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-4190–C-4199
   - Result: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` § Corrections after navigator review now quotes the TL log's two flags and where `4e7ea5d` applied each: (1) 12 consecutive red pushes `1889340`…`2b3d1b4`, last green `3f9c0b2` (Question, Inputs, Interpretation, C-4130, H90 Goal); (2) the depth-1 recipe pinned to the pre-fix tree. `4e7ea5d` had pinned only C-4131, so the Reproduction block is corrected in place to a depth-1 fetch of `3d79bcc`. Re-run 2026-11-20: shallow (1 commit) `count mismatches: 9`, exit 1; `--unshallow` (809 commits) `0`, exit 0. The placeholder is gone; no claim rows (C-4190–C-4199 unused). The Method's "five `main` pushes" line and the step-2 clone stay for H94.
 
-- [ ] **H94 — H90's EXP sat "done" with hand-typed counts and a broken commands section**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H94 — H90's EXP sat "done" with hand-typed counts and a broken commands section**
+  - Status: done · Owner: task/h94-h94-exp-counts-commands · Critical: no · Pair: required
   - Depends: H90 (the EXP it repairs is on `main`; H93 owns the navigator section only)
   - Goal: make H90's EXP re-runnable as written — every count quoted from a command that prints it, the clone recipe one copy-pasteable block that still demonstrates the defect, and the failed-run count consistent with C-4130.
   - Note (SE 2026-11-17): the SE re-ran H90's Done-when (b)-(e) and all pass, but three EXP defects survived the pair: the Record `809 commits, pack 3.2 MiB` and `Tools: git 2.5x, python3 3.15` are typed, not from a command (AGENTS "every number is quoted"); the Method command block lists `git clone … /tmp/x && cd /tmp/x` then a second `git fetch --unshallow` line that would run in the wrong cwd; and "the five `main` pushes whose run failed" contradicts the nine `COUNT` lines and the twelve red pushes the same EXP states. The recipe also now fails as written: on today's `main` a depth-1 clone prints `count check: skipped`, not `9` (C-4131 covers this, the Reproduction block does not).
@@ -1283,6 +1283,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the count really cannot be shown from a command at `3d79bcc`, delete the number and point at C-4135 instead of retyping it.
   - Falsifier: the typed `809 commits`/`3.15` strings remain.
   - Claims: C-4200–C-4209
+  - Result: EXP-2026-11-21-H94-exp-counts-commands (C-4200): H90's EXP numbers now cite commands (git rev-list --count=108, git count-objects=19.74 MiB, git --version=2.56.0, python3 -V=3.15.0; 809/2.5x/3.15 labelled H90's, pinned by C-4135), clone recipe collapsed to one ( cd "$X" && ... ) block, failed-run count now 12 (1889340..2b3d1b4) matching C-4130; H90 Done-when (b)-(d) still pass (claims_check --selftest OK 51, gate.py 4 pass/0 fail/0 skip, --strict --count-check OK, todo_check OK)
 
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
   - Status: done · Owner: task/h90-ci-shallow-count · Critical: yes · Pair: required
