@@ -4805,6 +4805,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6900–C-6909
   - Result: EXP-2026-11-22-M8.C2a-serial-dma (C-6900–C-6905). `serial_scif.dll` sends through HPB-DMAC channel 10 (RAM `0xa999a000` → SCIF1 FTDR) and receives through 1/3/7 (SCIF1/3/7 FRDR → two RAM planes); their ISRs (INTEVT `0xb80`/`0xbc0`/`0xc40`/`0xca0`) return SYSINTR `0x13`. Patch `ze0-0011` (`hpbdmac-serial`, default on): channel 10 moves each frame to SCIF1 and completes, the driver takes each interrupt (9 675 frames `10 02 02 08 00 10 03 19` in 330 s). The protocol still fails at `GetWriteResult … failed wait response`, with and without the transmit (control `hpbdmac-serial=off`): it waits for the audio unit at the other end — stop condition, F4 (M8.D2). Next: receive path + SCIF1 chardev so a host script can answer.
 
+- [ ] **M8.C1d — Multi-XIP on `-M ze0`: join ROM A (the applications) to the running kernel, then dump the screen**
+  - Status: in progress · Owner: Claude (task/m8.c1d-multi-xip) · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C2a
+  - Goal: Marek (2026-11-22, "Tak, go"): with M8.C1c/M8.C2a every application `CreateProcessW` (Navi.exe, AuiApp, SystemExe, DrawOi, …) fails; make the kernel see ROM A (image at file `0x200200`, 149 modules, no `nk.exe`) the way the unit's IPL would, so the applications start; add a host script that turns the VRAM into a PNG (Marek: "odpalić maszynę i po jakimś czasie zrobić screenshot").
+  - Precheck: run L (`-M ze0,verinf=QSD-302-100,mapdb=16-16`, 1000 s) logs `Rom chain NOT found`, `AppLch >> Single NK Image` and `Launch Process Not Create!!! -> \windows\Navi.exe`.
+  - Scope: kernel `.data` fixups read by OEMInit (XIP-chain pointer, boot type, NK2 base), ROMHDR fields, TOC layout of images A/B; a host tool that writes the IPL patch; a `ze0` option that applies it; a VRAM → PNG tool. No guest byte on the card changes.
+  - Input: EXP-2026-11-22-M8.C1c-launcher-verinf, EXP-2026-11-22-M8.C2a-serial-dma, `tools/cerom.py`, `tools/sh4dis.py`, gdb remote stub of QEMU.
+  - Done when: a boot with the patch logs `Rom chain found`, has no `Launch Process Not Create`, and shows code of a ROM-A-only DLL running (a log line from it); the screenshot tool writes a PNG from a running guest; the next blocker recorded.
+  - Stop: if the kernel cannot run with both images at once (overlapping module addresses), record which modules collide and what a real unit must hold instead (NK1 in flash), and stop at the smallest working subset.
+  - Falsifier: with the chain in place, `CreateProcessW` for `\windows\Navi.exe` still fails with LastError 2.
+  - Claims: C-6910–C-6919
+
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F1 stable kernel; see `todo-history-2026-11-05.md` §M8.D)
