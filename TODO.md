@@ -3837,8 +3837,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the census reads the new record but an index still points to the old record count.
   - Claims: C-7980–C-7989
 
-- [ ] **M5.80 — Names the unit cannot draw: transliteration fallback in the compiler**
-  - Status: in progress · Owner: task/m5.80-transliteration · Critical: no · Pair: solo
+- [x] **M5.80 — Names the unit cannot draw: transliteration fallback in the compiler**
+  - Status: done · Owner: task/m5.80-transliteration · Critical: no · Pair: solo
   - Step: P2
   - Depends: M4.87
   - Goal: If M4.87 finds missing glyphs, names must be transliterated (`Łódź` → `Lodz`) at compile time, in one place, with a test.
@@ -3849,6 +3849,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session; if every glyph exists, close as 'not needed' with the M4.87 evidence.
   - Falsifier: a transliterated name collides with a different existing name in the same index and changes search order (record, do not solve).
   - Claims: C-7990–C-7999
+  - Result: EXP-2026-11-22-M5.80-transliteration; 18-letter selftest, tile names 4/0, 5 claims C-7990-C-7994
 
 ## M6 — L5 bench/car: hardware and safety
 

@@ -1,0 +1,12 @@
+{
+  "source": "EXP-2026-11-22-M4.87-polish-glyphs (C-7880-C-7889)",
+  "note": "EU2011 FDL font cmap covers U+0001..U+011F; 8 of 18 Polish letters are drawable. Keep those, transliterate the other 10.",
+  "present": ["Ą", "ą", "Ć", "ć", "Ę", "ę", "Ó", "ó"],
+  "transliterate": {
+    "Ł": "L", "ł": "l",
+    "Ń": "N", "ń": "n",
+    "Ś": "S", "ś": "s",
+    "Ź": "Z", "ź": "z",
+    "Ż": "Z", "ż": "z"
+  }
+}
