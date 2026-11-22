@@ -362,6 +362,12 @@ Known limits:
 - streaming mode does not attach road names yet;
 - `RDSTM001`/`LCTBL001` cross-reference is still unresolved — use
   [`rdstm.md`](rdstm.md), not the viewer's incomplete negative.
+- The KIWI 7.3 Background Data Frame does **not** describe these odd records
+  (M4.70, C-7690–C-7697, `EXP-2026-11-22-M4.70-kiwi-bg-frame`): 0 of 17,659
+  odd records on three EU/US 2011 tiles fit; `u16@0` of the geometry block is
+  a ZE0 layer-table pair (0 or 26), not a KIWI `SWS` header word. A ZE0 shape
+  is also one word shorter than `mingr_t`. Use the ZE0 grammar above, not a
+  KIWI layout, in writers.
 
 ## `LEV3456R.DAT`: coarse levels 3–5
 
