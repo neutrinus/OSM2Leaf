@@ -1271,7 +1271,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Done when: a claim text containing `|` is either escaped (`\\|`) on write and unescaped on read, or refused with a clear error, and a row with more than the 7 expected cells (or fewer) is refused before any write; `python3 tools/board.py --selftest` has a case that writes a body containing `|` and asserts the row still has exactly 7 pipe-split cells and the neighbouring rows are unchanged; `python3 tools/claims_check.py --strict --count-check` OK; `python3 tools/gate.py` = 5 pass / 0 fail / 0 skip.
   - Stop: if the ledger convention is "claim text never contains a raw pipe", make the tools refuse it and record that rule in `AGENTS.md` instead of adding escaping.
   - Falsifier: a `|`-containing body that round-trips through `claim-body` and leaves the row at 7 cells and the next row intact — then the split is not the defect and this task is closed negative.
-  - Claims: C-8240–C-8249
+  - Claims: C-8260–C-8269
   - Pair: required
 
 
