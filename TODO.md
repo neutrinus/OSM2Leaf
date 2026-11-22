@@ -5180,8 +5180,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: audio appears with no read from `SPEECH/` (TTS from ROM data).
   - Claims: C-7450–C-7459
 
-- [ ] **M8.H49 — `CAN.dll`: the UART protocol with the VCAN microcontroller and the list of vehicle signals**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H49 — `CAN.dll`: the UART protocol with the VCAN microcontroller and the list of vehicle signals**
+  - Status: done · Owner: task/m8.h49-can-uart-protocol · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The SH-4 gets vehicle data as frames over `UAT3:`. List the frame grammar and every signal the applications read: speed, reverse, ignition/ACC, illumination, parking brake, and the EV data the Leaf screens show (state of charge, range, charging state).
@@ -5192,6 +5192,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; the full signal list may stay partial if the five named signals are done.
   - Falsifier: signal names exist as strings but no decode function references them.
   - Claims: C-7460–C-7469
+  - Result: EXP-2026-11-22-M8.H49-can-uart; 10/10 claims, wire grammar honestly UNKNOWN
 
 - [ ] **M8.H50 — `tools/ze0_peers/vcan.py`: vehicle peer (ignition, speed, reverse, lights, state of charge)**
   - Status: open · Owner: — · Critical: no · Pair: solo
