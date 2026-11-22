@@ -1164,7 +1164,7 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-22-H82-zlib-stamp; zlibinfo --stamp warns on non-1.3.1, silent on stock 1.3.1; selftest 182/0/21 green
 
 - [x] **H83 — A board-ref lint: every `TASK#ref` resolves, and a task's normative text never re-states its priority**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: done · Owner: task/h83-board-ref-lint · Critical: no · Pair: required
   - Depends: H77 (fence-aware scanners, same tool family); coordinates H53 (`todo_check --strict`)
   - Goal: the board's priority prose has rotted repeatedly in ways no gate sees: the header said "next batch: M1.31 → M1.26 → M1.22b" after all three merged, "Take first" listed H74/H75/H71 as ready after they merged, Q1 listed M9.12 "only after M9.31" while M9.12 is blocked *on* M9.31, and H53's block described a `--strict` that had existed for 11 cycles. Each of those cost a cycle of re-derivation, and the mechanics exist already (`todo_check` parses every block). Make the two mechanical classes fail loudly, so a stale sentence is a red gate, not prose archaeology.
   - Precheck: `grep -c 'next batch' TODO.md` and `grep -c 'Take first' TODO.md` show the prose is hand-maintained; `python3 tools/todo_check.py` exits 0 today, so no gate sees it. Print the current count of task-ID mentions in the Priorities section (`python3 - <<'EOF'` probe in the Scope) as the baseline.
