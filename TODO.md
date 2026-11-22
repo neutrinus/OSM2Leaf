@@ -1146,8 +1146,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8240–C-8249
   - Result: EXP-2026-11-22-M1.50-us-unit-position-kentucky; position to OpenCARWINGS = head unit OBJ_CarPos via Vehicle.exe→DCM_API!SetVehicleData; coordinate not a firmware constant; held last position most likely; follow-ups M1.51, M1.52
 
-- [ ] **M1.51 — `Navi.exe`: does it accept a GPS fix far from the current car position?**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M1.51 — `Navi.exe`: does it accept a GPS fix far from the current car position?**
+  - Status: done · Owner: task/m1.51-gps-distance-rule · Critical: yes · Pair: solo
   - Depends: —
   - Goal: side track for Marek's car (EXP-2026-11-22-M1.50 update): the receiver has a valid fix in Wrocław but a 2007 date (1024-week rollover), while the navigation car position stays in Kentucky. Find the check between OBJ_GpsInfo and OBJ_CarPos that drops the fix: a date comparison (H2a), a distance/jump limit (H2b) or map matching (H2c).
   - Precheck: `python3 tools/sh4xref.py archive/us256.img OBJDLL.dll --image-start 0x200200 --to 0x0346dd7c` names the user of the `LAST` string.
@@ -1157,6 +1157,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; if the rule sits in another process, name the message and stop.
   - Falsifier: the car position is written from the fix unconditionally.
   - Claims: C-8250–C-8254
+  - Result: EXP-2026-11-22-M1.51-gps-distance-rule; no distance rule found (falsifier fires); C-8250-C-8254
 
 - [ ] **M1.52 — TestMode GPS initialisation: how to seed the receiver with a Polish position and the date**
   - Status: open · Owner: — · Critical: no · Pair: solo
