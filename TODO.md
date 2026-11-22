@@ -2876,7 +2876,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7810–C-7819
 
 - [ ] **M4.81 — `INTER0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.81-inter-decode · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: Row 12 of `docs/research/reader-coverage.md` says the `INTER0nn` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
