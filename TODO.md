@@ -3501,8 +3501,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-17-M5.34-parcel. `tools/parcel_census.py` (new, `--selftest` 16/16) lists all 64 section-1 level-1 directories: 30 `0x2046` + 13 `0x2146` + 6 `0x2246` + 6 `0x2346` + 3 `0x2446` + 2 `0x2546` + 1 `0x2646` + 2 `0x2746` + 1 `0x2946`. `one_tile_pipeline.py` gained `--parcel` (directory bbox via `clarion_bg.parcel_geo`), real `--osm` in factory mode, a pre-write preserve-only refusal naming the kind, `--clip`, and tile/tree diff proofs (`--selftest` prints `selftest: OK (0 failure(s))`, 87 `ok` lines). Factory run into `(76,940)` `0x2046`: `cardcheck` PASS, targeted `l2check` PASS (`tiles=1`), exactly `MAPAL001/B48R058R.DAT` + `DRSTR001.DAT` differ (478 of 480 files compared are identical, no out-only or missing file), only section 1 / directory `(76,940)` changed. Negative control `(76,941)` `0x2146` refused before any write. C-3560–C-3569. PR #215.
   - Claims: C-3560–C-3569
 
-- [ ] **M5.35 — One-command Poland card proof: `mkpoland` runs compiler → L1 → L2 → L3 gate and writes the evidence bundle**
-  - Status: in progress · Owner: task/m5.35-mkpoland · Critical: yes · Pair: required
+- [x] **M5.35 — One-command Poland card proof: `mkpoland` runs compiler → L1 → L2 → L3 gate and writes the evidence bundle**
+  - Status: done · Owner: task/m5.35-mkpoland · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M5.11, M5.30, M5.29 (gate report format), M9.60 (card gate, first slice; was M9.12, which waits on M9.31 → M9.41 and only adds the POI row — PO 2026-11-20)
   - Goal: every Poland milestone so far is a chain of manual commands in EXPs; a bench card needs one reproducible command that names the input OSM extract, writes the card, runs `cardcheck`/`l2check`/`l3check --card` and emits a machine-readable bundle. This is the L1→L2→L3 evidence path the PO prioritises, and it makes each L5 run one variable.
@@ -3513,6 +3513,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: one command produces a bundle on the committed synthetic fixture; on the factory EU image it produces a bundle whose L1/L2 stages pass and whose L3 stage names runnable/blocked targets; a selftest proves a forced L2 failure makes the command exit non-zero and the manifest records `FAIL`.
   - Stop: if M5.11's CLI is not yet callable as a library or command, deliver the stage runner + manifest with the compiler stage `NOT_IMPLEMENTED` and block on M5.11 naming its entry point.
   - Claims: C-3680–C-3689
+  - Result: EXP-2026-11-22-M5.35-mkpoland-bundle; selftest 25/25; synthetic NOT_RUNNABLE (L3 rows NOT RUN); EU all 6 stages PASS, OUT 0bd4a980…f79ac5, 480 files/4415 clusters; forced L2 FAIL exit 1
 
 - [x] **M5.37 — L2 golden for the route graph: tile section 2 must decode to the same node/link graph the writer emitted**
   - Status: done · Owner: task/m5.37-route-graph-golden · Critical: yes · Pair: required
