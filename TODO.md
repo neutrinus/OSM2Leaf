@@ -3500,7 +3500,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Step: tooling
 
 - [ ] **M5.68 — `tilewriter.read_jsonl` streams a way at a time: a 1.6 M-way split fits in RAM**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.68-stream-jsonl · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
   - Goal: M5.61 built `B50R050R` level 1 but could not build `B48R050R`: `tilewriter.read_jsonl` calls `_read_text(path).splitlines()`, so a 1,837,383,144 B split (1,641,585 single-cell ways) is one Python string plus a list of lines plus the parsed records. `/usr/bin/time -v` records `Maximum resident set size (kbytes): 5224528` and `Command terminated by signal 9` on a 7,735 MB host; a gzipped split peaks at `5,226,136` kB and is killed too. This is a tool limit, not a card or format limit, and it gates the other three Poland tiles.
