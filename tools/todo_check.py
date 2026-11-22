@@ -473,7 +473,7 @@ def _board_refs(text, known_ids, status_of, archived_ids):
 
         for ref, _verb in governed(verbs):
             st = status_of.get(ref)
-            if st == "done" or ref in archived_ids:
+            if st == "done" or (ref not in status_of and ref in archived_ids):
                 findings.append(("not_next", lineno, ref, st or "archived"))
                 flagged.add(ref)
 
@@ -481,7 +481,7 @@ def _board_refs(text, known_ids, status_of, archived_ids):
             if ref in flagged:
                 continue
             st = status_of.get(ref)
-            if st == "done" or ref in archived_ids:
+            if st == "done" or (ref not in status_of and ref in archived_ids):
                 findings.append(("drift", lineno, ref, st or "archived"))
 
     for kind, _lineno, _ref, _st in findings:
@@ -1396,6 +1396,16 @@ def run_selftest():
         assert ra["board_refs"]["unresolved"] == 0, ra["board_refs"]
         assert any("not_next reference to archived task ID 'H9000'" in e
                    for e in ra["errors"]), ra["errors"]
+
+        # A live ID beats its archive row: a task re-opened after its old block
+        # was archived (M1.27 at 6504090b) must use the live status, not the
+        # archive's `done`, or `next **M1.27**` is a false positive.
+        both = br_doc.replace("- [ ] **H3 — open one**", "- [ ] **H9000 — live one**") \
+                      .replace("**Ghost:** **H9999** is gone.",
+                               "**Queue2:** next **H9000**.")
+        rb = check(both, history_dir=hist)
+        assert not any("H9000" in f[2] for f in rb["board_ref_findings"]), \
+            rb["board_ref_findings"]
 
     # --- H128: the --strict baseline (debt ledger) -------------------------
     # A baseline keyed by (task ID, missing field): a new firmware task
