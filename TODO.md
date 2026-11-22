@@ -4356,8 +4356,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8400–C-8409
   - Result: EXP-2026-11-22-M8.C1r-nk1-boot (C-8400–C-8406). QEMU `-M ze0,nk=FILE` (ze0-0018) + `ze0_ipl.py --nk`: NK1 + A boot with a 2-line IPL patch, 51/51 + 149/149 modules, no ze0_aui patches, to `Finish Launch Threads`. NK1 loads A from the card and checks its build name (`NBNI.147` vs EU `ECNI.158` → `NK Version Error`, Error Proc 0x42): a second region check before the map code. `card_mapcode.py --from-nk1` now sets both; guide updated. Navi.exe CreateProcess fails on EU and US cards → M8.C1q.
 
-- [ ] **M8.C1q — NK1 + A on `-M ze0`: why `CreateProcessW` fails for Navi.exe and Telema.exe**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1q — NK1 + A on `-M ze0`: why `CreateProcessW` fails for Navi.exe and Telema.exe**
+  - Status: done · Owner: Claude (Marek, 2026-11-22) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1r
   - Goal: Marek (2026-11-22): "kontynuuj odpalanie obrazu na zrzuconych danych". NK1 + A (`-M ze0,nk=,flash=`) boots to `Finish Launch Threads`, but the launcher prints `Launch Process Not Create` for Navi.exe and Telema.exe on both the EU and the US card (C-8385). With kernel B they start. Find why, and get Navi to draw the map on NK1.
@@ -4368,6 +4368,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session. Serial logs of NK1 runs print the card password: never commit them.
   - Falsifier: CreateProcessW succeeds and the process exits at once (then the cause is in Navi.exe, not the loader).
   - Claims: C-8410–C-8419
+  - Result: Navi.exe and Telema.exe start on NK1 + A with the unit flash (US card: Los Angeles; EU card with the M8.C1r overlay: London). Cause: NK1 defers all RAM at memory init when the boot type is 0, and AppLaunch MemClearThread frees it only after the creates (the earlier 'not a timing race' reading in Precheck measured after the release; C-8416). ze0_ipl.py --nk now patches the boot-type test so RAM is freed at init. EXP-2026-11-22-M8.C1q-navi-on-nk1, C-8410–C-8416; debugging guide docs/emulator/debugging.md, tools/ze0_gdb.py.
 
 - [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
   - Status: open · Owner: — · Critical: no · Pair: solo

@@ -1480,6 +1480,22 @@ Exit codes: 0 PASS, 1 FAIL, 3 BLOCKED (boot rejected or the loop never ran),
 2 usage. The head offsets are start-relative, so the tool spells no mid-function
 VA. Results: `docs/experiments/EXP-2026-11-20-M3.11b-point-byteorder-2.md`.
 
+## `ze0_gdb.py` — gdb-remote client and HMP reads for `-M ze0` (M8.C1q)
+
+```bash
+python3 tools/ze0_gdb.py regs [--port 1240]
+python3 tools/ze0_gdb.py break 0x03e4bef4 --name-reg 4 --seconds 300
+python3 tools/ze0_gdb.py watch 0x89e41b10 --min-delta 100
+python3 tools/ze0_gdb.py xp --monitor mon.sock 0x89e41b00 32
+python3 tools/ze0_gdb.py --selftest
+```
+
+Stdlib-only client of QEMU's gdbstub for hosts without an SH-4 gdb; `break`
+steps over each hit (the sh4 stub re-stops otherwise); `xp` reads physical
+memory through the HMP socket (P1 reads through the stub fail in user mode).
+How it fits with gdb, the monitor and the debug serial:
+[docs/emulator/debugging.md](../docs/emulator/debugging.md).
+
 ## `card_mapcode.py` — show or change the card's map code (M8.C1m)
 
 ```bash

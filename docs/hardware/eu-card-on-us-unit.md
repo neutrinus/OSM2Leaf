@@ -12,8 +12,10 @@ the unit changes. To undo it, put the original card back.
   both changes passes both checks and the launcher finishes
   (EXP-2026-11-22-M8.C1r-nk1-boot). With the map code alone it stops at
   `NK Version Error`.
-- Navi.exe does not start in that emulator run, and it does not start with
-  the US card either, so that is an emulator gap, not the region.
+- With the `ze0_ipl.py --nk` line added in M8.C1q, Navi.exe starts on NK1
+  and draws the EU card's map (London), and the US card's map (Los Angeles)
+  in the same setup (EXP-2026-11-22-M8.C1q-navi-on-nk1). Before that fix it
+  failed on both cards: an emulator timing gap (deferred RAM), not the region.
 - With the card's kernel B instead (M8.C1m), Navi drew the EU map.
 
 **It has not been tested in a car yet.** The emulator has no GPS, no radio and no

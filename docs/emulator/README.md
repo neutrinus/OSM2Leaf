@@ -261,3 +261,5 @@ names the record.
   reached the map, with commands and numbers.
 - `docs/experiments/EXP-2026-11-22-M8.H24-emulator-quickstart.md` — this
   page's own validation: each command above with its exit code.
+- [`debugging.md`](debugging.md) — how to debug the firmware: gdbstub, HMP
+  monitor, debug serial, `tools/ze0_gdb.py`, key kernel addresses, traps.
