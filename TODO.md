@@ -6193,8 +6193,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-8010–C-8019
   - Result: EXP-2026-11-22-M9.69-reader-trace; C-8010–C-8013; reader_trace selftest 54/54, both adapted tools validate (6+1+9 records), selftests and l3check unchanged (pass=3 fail=0 runnable=3/13)
 
-- [ ] **M9.70 — A Polish POI name through the firmware: `Łódź Żabieniec` at L3**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.70 — A Polish POI name through the firmware: `Łódź Żabieniec` at L3**
+  - Status: done · Owner: task/m9.70-polish-poi · Critical: no · Pair: solo
   - Step: P4
   - Depends: M9.10 (done)
   - Goal: M9.10 showed the firmware returning a renamed POI. Repeat with a name using Polish letters, stored as M4.13 says, and see what the firmware's name accessor returns byte for byte.
@@ -6205,6 +6205,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: one session.
   - Falsifier: the returned name equals the stored one only for the ASCII part.
   - Claims: C-8020–C-8029
+  - Result: EXP-2026-11-22-M9.70-polish-poi-l3; record 0 a3f3bcaf and record 1 b3f3bcaf returned byte-identical; walker 8/8, accessor 1000/1000, gate 5 pass/0 fail/0 skip
 
 ## Retired leads
 
