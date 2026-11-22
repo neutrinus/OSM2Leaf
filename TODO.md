@@ -4342,8 +4342,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8350–C-8359
   - Result: EXP-2026-11-22-M8.C1m-unit-flash-region (C-8350–C-8358). New QEMU `-M ze0,flash=FILE` (ze0-0017) maps the unit flash dump at phys 0: the kernel reads PROD itself (`Target ID Code >> 10200212`, `Area:20 >> USA`). The unit map code is NK1 header +0x60 `QSD-301-100` (mapdb 16-16); with it the EU card stops at `Error Proc<00000050>` (map code). Changing the EU card's `HDD_INFO.TXT` (FAT file, not the raw copy) to `QSD-301-100` lets it start and draw its map on the US data. LeafSDTools Companion GPS time fix read and dry-run on NK1. Next: M8.C1r (boot NK1 + A, Marek).
 
-- [ ] **M8.C1r — `-M ze0` boots NK1 from the unit flash next to image A, instead of image B**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1r — `-M ze0` boots NK1 from the unit flash next to image A, instead of image B**
+  - Status: done · Owner: task/m8.c1o-nk1-boot · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1m
   - Goal: Marek (2026-11-22): the emulator start patches image A, image B and image C and drops overlapping modules, because the unit's own kernel was missing. With the flash dump (`-M ze0,flash=`) and NK1 (`firmware/unit-flash/`), run the pair the unit runs, NK1 + A. `VerInf`/`MapDBVer` then come from NK1's header, the B-versus-A module overlaps and the HCX/AppTimer copies go away.
@@ -4354,6 +4354,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session. The dumps (NAND, VFlash, SRAM, PROD) and screenshots stay outside the repository.
   - Falsifier: NK1 + A needs the same module drops as B + A, i.e. their windows overlap too.
   - Claims: C-8400–C-8409
+  - Result: EXP-2026-11-22-M8.C1r-nk1-boot (C-8400–C-8406). QEMU `-M ze0,nk=FILE` (ze0-0018) + `ze0_ipl.py --nk`: NK1 + A boot with a 2-line IPL patch, 51/51 + 149/149 modules, no ze0_aui patches, to `Finish Launch Threads`. NK1 loads A from the card and checks its build name (`NBNI.147` vs EU `ECNI.158` → `NK Version Error`, Error Proc 0x42): a second region check before the map code. `card_mapcode.py --from-nk1` now sets both; guide updated. Navi.exe CreateProcess fails on EU and US cards → M8.C1q.
+
+- [ ] **M8.C1q — NK1 + A on `-M ze0`: why `CreateProcessW` fails for Navi.exe and Telema.exe**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1r
+  - Goal: Marek (2026-11-22): "kontynuuj odpalanie obrazu na zrzuconych danych". NK1 + A (`-M ze0,nk=,flash=`) boots to `Finish Launch Threads`, but the launcher prints `Launch Process Not Create` for Navi.exe and Telema.exe on both the EU and the US card (C-8385). With kernel B they start. Find why, and get Navi to draw the map on NK1.
+  - Precheck: the M8.C1r run N2 or US1 reproduces `Launch Process Not Create!!! -> \windows\Navi.exe`. Found so far (2026-11-22, gdb on the US card): `CreateProcessW` returns 0 for Telema.exe and Navi.exe only, and the caller thread's LastError (THREAD +0x38) is 14 (ERROR_OUTOFMEMORY). It is not a timing race: 160 retries over 60 s fail too, while the kernel's aInfo page-free count is about 28–40 thousand pages. Navi.exe has a 16 MB compressed .data, Telema.exe 6.6 MB; with kernel B Navi.exe starts and Telema.exe also fails. The 10 `mov #14` + store-to-+0x38 sites in nk.exe are not hit; next is a watchpoint on the thread's +0x38 (thread 0x8a554a34 in that run). A watchpoint (gdb Z2 on 0x8a554a6c, launcher thread) shows the 14 arriving on the API-return path of nk.exe (the store follows the nk.exe routine whose epilogue ends at 0x880133f4; return site 0x880101c4), i.e. it is set inside the called API/server context, not by the launcher; next: watch the caller's callstack / break in SC_CreateProc's helpers before that return.
+  - Scope: (1) break after the `CreateProcessW` call in AppLaunch.dll fn `0x03e4be74` (NK1) and read the thread's LastError; (2) compare the kernel's loader path for Navi.exe with kernel B's (memory, slot, compressed sections, `ulRAMEnd`, object store 80 pages); (3) fix in the emulator or the IPL patch, not on the card; (4) boot the EU card patched by `card_mapcode.py --from-nk1` and the US card, screenshot.
+  - Input: EXP-2026-11-22-M8.C1r-nk1-boot, EXP-2026-11-22-M8.C1l-object-store-registry, `tools/ze0_ipl.py`, `tools/qemu-ze0/gdb-ze0.py`.
+  - Done when: Navi.exe is created on NK1 + A and the EXP names the cause. Otherwise, the EXP gives the LastError and the kernel step that fails.
+  - Stop: one session. Serial logs of NK1 runs print the card password: never commit them.
+  - Falsifier: CreateProcessW succeeds and the process exits at once (then the cause is in Navi.exe, not the loader).
+  - Claims: C-8410–C-8419
 
 - [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
   - Status: open · Owner: — · Critical: no · Pair: solo

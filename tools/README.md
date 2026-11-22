@@ -1492,7 +1492,10 @@ python3 tools/card_mapcode.py --selftest
 The launcher compares the unit's map code (NK1 header `+0x60`) with line 1
 of the card's `VER_INFO/HDD_INFO.TXT`. `set` rewrites that line through
 `imgpatch.py` (same length, no FAT rebuild) and by default also updates the
-raw copy at `0x06000000`. Then it verifies through `cardcheck`. How to use
+raw copy at `0x06000000`. With `--from-nk1` it also writes NK1's build-name
+tail into the two `NKOK` headers of image A (`X210ECNI.158` → `X210NBNI.147`
+on Marek's unit), which NK1 checks first (M8.C1r, `--nk-name`,
+`--map-code-only`). Then it verifies through `cardcheck`. How to use
 it for an EU card on a US unit:
 [docs/hardware/eu-card-on-us-unit.md](../docs/hardware/eu-card-on-us-unit.md).
 Record: EXP-2026-11-22-M8.C1m-unit-flash-region.

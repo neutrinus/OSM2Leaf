@@ -1,0 +1,83 @@
+hw/sh4: ze0 kernel image from its own file: nk= (TODO M8.C1r).
+
+On the unit the kernel is NK1 in the unit's NOR flash, not image B on the
+card; NK1 then reads image A from the card itself.  nk=FILE loads the
+kernel CE image from FILE at offset 0 (tools/nk1_extract.py output, or
+firmware/unit-flash/nk1-QY7200ND.bin) instead of the -kernel SD image at
+kernel-off.  The -kernel SD image still gives image A (app-off).
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 95d98fcc9..681473c8e 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -181,6 +181,7 @@ struct Ze0MachineState {
+     char *mapdb;
+     char *ipl_patch;
+     char *flash;
++    char *nk;
+ };
+ 
+ #define ZE0_FLASH_MAX          (64 * MiB)
+@@ -463,8 +464,26 @@ static void ze0_load_images(Ze0MachineState *s, SuperHCPU *cpu)
+     r->cpu = cpu;
+     have_rec = ze0_unit_record(s, rec);
+     pokes = s->ipl_patch ? ze0_read_ipl_patch(s->ipl_patch) : NULL;
+-    r->entry = ze0_load_ce(fd, s->kernel_off, "kernel", true,
+-                           machine->ram_size, have_rec ? rec : NULL, pokes);
++    if (s->nk) {
++        /*
++         * nk=FILE (M8.C1r): the kernel image comes from its own file (NK1
++         * cut from the unit flash, offset 0), as the unit's IPL copies it
++         * from NOR flash; the -kernel SD image then gives only image A.
++         */
++        int nfd = qemu_open_old(s->nk, O_RDONLY | O_BINARY);
++
++        if (nfd < 0) {
++            error_report("ze0: cannot open nk=%s", s->nk);
++            exit(1);
++        }
++        r->entry = ze0_load_ce(nfd, 0, "kernel", true, machine->ram_size,
++                               have_rec ? rec : NULL, pokes);
++        close(nfd);
++    } else {
++        r->entry = ze0_load_ce(fd, s->kernel_off, "kernel", true,
++                               machine->ram_size, have_rec ? rec : NULL,
++                               pokes);
++    }
+     if (s->app_off) {
+         ze0_load_ce(fd, s->app_off, "app", false, machine->ram_size, NULL,
+                     pokes);
+@@ -936,6 +955,19 @@ static void ze0_set_flash(Object *obj, const char *value, Error **errp)
+     s->flash = *value ? g_strdup(value) : NULL;
+ }
+ 
++static char *ze0_get_nk(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->nk ?: "");
++}
++
++static void ze0_set_nk(Object *obj, const char *value, Error **errp)
++{
++    Ze0MachineState *s = ZE0_MACHINE(obj);
++
++    g_free(s->nk);
++    s->nk = *value ? g_strdup(value) : NULL;
++}
++
+ static char *ze0_get_mapdb(Object *obj, Error **errp)
+ {
+     return g_strdup(ZE0_MACHINE(obj)->mapdb ?: "");
+@@ -1014,6 +1046,10 @@ static void ze0_machine_instance_init(Object *obj)
+     object_property_set_description(obj, "flash",
+         "dump of the unit's NOR flash mapped read-only at phys 0 (PROD "
+         "block at +0xa000; default none, as without a unit; M8.C1m)");
++    object_property_add_str(obj, "nk", ze0_get_nk, ze0_set_nk);
++    object_property_set_description(obj, "nk",
++        "kernel CE image file loaded instead of the SD image's kernel-off "
++        "image (NK1 from the unit flash; default none; M8.C1r)");
+     object_property_add_str(obj, "mapdb", ze0_get_mapdb, ze0_set_mapdb);
+     object_property_set_description(obj, "mapdb",
+         "unit map-DB window MIN-MAX at kernel image header +0x70/+0x72 "

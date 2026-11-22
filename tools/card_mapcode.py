@@ -18,7 +18,19 @@ Commands::
     card_mapcode.py unit --nk1 NAND_DUMP.bin            # NK1 at +0x40000
     card_mapcode.py set  --image CARD.img --code QSD-301-100 -o OUT.img
     card_mapcode.py set  --image CARD.img --from-nk1 NK1_OR_NAND --in-place
+    card_mapcode.py set  --image CARD.img --code QSD-301-100 --nk-name X210NBNI.147 -o OUT.img
     card_mapcode.py --selftest
+
+The unit checks a second thing before it reads the map code (M8.C1r): NK1's
+loader reads image A ("NK2") from the card and compares its build name in
+the card's 512-byte ``NKOK`` header (``+0x16``, e.g. ``X210ECNI.158``, at
+both copies ``0x200000`` and ``0x2000000``) with NK1's own (header
+``+0x20``, ``X110NBNI.147``), from the third character on.  A mismatch is
+``NK Version Error``, ``Error Proc<00000042>`` and FailSafe
+(EXP-2026-11-22-M8.C1r-nk1-boot).  The name is outside the image checksum.
+With ``--from-nk1``, ``set`` therefore also gives both headers NK1's name
+tail (``X210NBNI.147``); ``--nk-name NAME`` sets it by hand and
+``--map-code-only`` leaves it.
 
 ``set`` writes either a full copy (``-o``; about 7.5 GB for a factory card)
 or the given image itself (``--in-place``; work on a copy you made with
@@ -44,6 +56,12 @@ NK1_IN_NAND = 0x40000
 HDR_MAPCODE = 0x60
 HDR_MAPDB = 0x70
 CODE_RE = re.compile(rb"^[A-Z0-9]{3}-[0-9]{3}-[0-9]{3}$")
+HDR_BUILD = 0x20            # NK1 header: build name, e.g. X110NBNI.147
+NKOK_COPIES = (0x200000, 0x2000000)   # card: NB00 / NB01 headers of image A
+NKOK_NAME = 0x16
+NAME_LEN = 12
+NAME_CMP = 2                # the loader compares from the third character on
+NAME_RE = re.compile(rb"^[A-Z0-9]{8}\.[0-9]{3}$")
 
 
 def read_card(image: str) -> tuple[bytes, bytes]:
@@ -62,6 +80,39 @@ def card_code(data: bytes) -> bytes:
     return data.split(b"\r\n", 1)[0]
 
 
+def nk2_names(image: str) -> list[bytes]:
+    """Build name of image A in each NKOK header on the card."""
+    out = []
+    with open(image, "rb") as f:
+        for off in NKOK_COPIES:
+            f.seek(off)
+            h = f.read(0x40)
+            if len(h) < 0x40 or h[0x30:0x34] != b"SUM4":
+                raise SystemExit("card_mapcode: %s: no NKOK header (SUM4 at +0x30) at 0x%x"
+                                 % (image, off))
+            out.append(h[NKOK_NAME:NKOK_NAME + NAME_LEN])
+    return out
+
+
+def new_nk2_name(card: bytes, unit_build: str) -> bytes:
+    """The card's name with NK1's tail: X210ECNI.158 + X110NBNI.147 -> X210NBNI.147."""
+    return card[:NAME_CMP] + unit_build.encode("ascii")[NAME_CMP:NAME_LEN]
+
+
+def check_name(name: bytes) -> bytes:
+    if not NAME_RE.match(name):
+        raise SystemExit("card_mapcode: %r does not look like a build name (X210NBNI.147)"
+                         % name.decode("ascii", "replace"))
+    return name
+
+
+def write_nk2_name(image: str, name: bytes) -> None:
+    with open(image, "r+b") as f:
+        for off in NKOK_COPIES:
+            f.seek(off + NKOK_NAME)
+            f.write(name)
+
+
 def unit_record(path: str) -> dict:
     """Map code and map-DB window from NK1's header (NK1 file or NAND dump)."""
     with open(path, "rb") as f:
@@ -73,8 +124,9 @@ def unit_record(path: str) -> dict:
             code = hdr[HDR_MAPCODE:HDR_MAPCODE + 16].split(b"\0", 1)[0]
             lo = int.from_bytes(hdr[HDR_MAPDB:HDR_MAPDB + 2], "big")
             hi = int.from_bytes(hdr[HDR_MAPDB + 2:HDR_MAPDB + 4], "big")
+            build = hdr[HDR_BUILD:HDR_BUILD + NAME_LEN]
             return {"nk1_offset": base, "code": code.decode("ascii", "replace"),
-                    "mapdb": (lo, hi)}
+                    "mapdb": (lo, hi), "build": build.decode("ascii", "replace")}
     raise SystemExit("card_mapcode: %s: no NK1 header (ECEC at +0x40 or +0x40040)" % path)
 
 
@@ -98,24 +150,46 @@ def cmd_show(a) -> int:
     print("raw copy at 0x%08x: %s" % (imgpatch.HDD_COPY_OFFSET,
                                       "same as the file" if same else
                                       "differs: " + card_code(raw).decode("ascii", "replace")))
+    names = nk2_names(a.image)
+    print("image A build name (NKOK +0x16, NB00 / NB01): %s"
+          % " / ".join(n.decode("ascii", "replace") for n in names))
     return 0
 
 
 def cmd_unit(a) -> int:
     r = unit_record(a.nk1)
-    print("NK1 at +0x%x: map code (VerInf) %s, map DB window %d-%d"
-          % (r["nk1_offset"], r["code"], r["mapdb"][0], r["mapdb"][1]))
+    print("NK1 at +0x%x: map code (VerInf) %s, map DB window %d-%d, build %s"
+          % (r["nk1_offset"], r["code"], r["mapdb"][0], r["mapdb"][1], r["build"]))
     return 0
 
 
 def cmd_set(a) -> int:
     if bool(a.out) == bool(a.in_place) and not a.dry_run:
         raise SystemExit("card_mapcode: give -o OUT.img or --in-place")
-    code = a.code or unit_record(a.from_nk1)["code"]
+    unit = unit_record(a.from_nk1) if a.from_nk1 else None
+    code = a.code or unit["code"]
     data, raw = read_card(a.image)
     old = card_code(data).decode()
+    names = nk2_names(a.image)
+    name = None
+    if a.nk_name:
+        name = check_name(a.nk_name.encode("ascii"))
+    elif unit and not a.map_code_only:
+        name = check_name(new_nk2_name(names[0], unit["build"]))
+    name_todo = name is not None and any(n != name for n in names)
+    if name_todo:
+        print("%s image A build name %s -> %s (both NKOK headers)" % (
+            "planned:" if a.dry_run else "setting:",
+            " / ".join(n.decode("ascii", "replace") for n in names), name.decode()))
     if old == code:
-        print("card already has map code %s; nothing to do" % code)
+        print("card already has map code %s" % code)
+        if name_todo and not a.dry_run:
+            target = a.image if a.in_place else None
+            if target is None:
+                raise SystemExit("card_mapcode: only the build name changes; use --in-place")
+            write_nk2_name(target, name)
+            print("verify: %s" % ("ok" if nk2_names(target) == [name] * len(NKOK_COPIES)
+                                  else "MISMATCH"))
         return 0
     newdata = new_file(data, code)
     copy = not a.file_only
@@ -134,9 +208,12 @@ def cmd_set(a) -> int:
             "planned" if a.dry_run else "patched", target, old, code,
             "file and raw copy" if copy else "file only"))
         if not a.dry_run:
+            if name_todo:
+                write_nk2_name(target, name)
             v = imgpatch.verify_image(target, VERSION_FILE, src, update_version_copy=copy)
-            print("verify: %s" % ("ok" if v["ok"] else "MISMATCH"))
-            if not v["ok"]:
+            ok = v["ok"] and (not name_todo or nk2_names(target) == [name] * len(NKOK_COPIES))
+            print("verify: %s" % ("ok" if ok else "MISMATCH"))
+            if not ok:
                 return 1
     except imgpatch.PatchError as e:
         print("card_mapcode: refused (%s): %s" % (e.reason, e.message), file=sys.stderr)
@@ -150,17 +227,26 @@ def selftest() -> int:
     with tempfile.TemporaryDirectory() as d:
         img = Path(d) / "card.img"
         imgpatch.make_selftest_image(img)
+        with open(img, "r+b") as f:     # synthetic NKOK headers of image A
+            for off in NKOK_COPIES:
+                f.seek(off + NKOK_NAME)
+                f.write(b"X210ECNI.158")
+                f.seek(off + 0x30)
+                f.write(b"SUM4")
         data, _raw = read_card(str(img))
         assert card_code(data) == b"QSD-302-100", data[:16]
         # NK1-shaped header for the unit side
         nk1 = Path(d) / "nk1.bin"
         hdr = bytearray(0x80)
         hdr[0x40:0x44] = b"ECEC"
+        hdr[0x20:0x2c] = b"X110NBNI.147"
         hdr[0x60:0x6b] = b"QSD-301-100"
         hdr[0x70:0x74] = b"\x00\x10\x00\x10"
         nk1.write_bytes(bytes(hdr))
         r = unit_record(str(nk1))
         assert r["code"] == "QSD-301-100" and r["mapdb"] == (16, 16), r
+        assert r["build"] == "X110NBNI.147", r
+        assert new_nk2_name(b"X210ECNI.158", r["build"]) == b"X210NBNI.147"
         nand = Path(d) / "nand.bin"
         nand.write_bytes(bytes(NK1_IN_NAND) + bytes(hdr))
         assert unit_record(str(nand))["nk1_offset"] == NK1_IN_NAND
@@ -173,13 +259,19 @@ def selftest() -> int:
             else:
                 raise AssertionError("accepted %r" % bad)
         p = argparse.Namespace(image=str(img), code=None, from_nk1=str(nk1), out=None,
-                               in_place=True, dry_run=False, file_only=False)
+                               in_place=True, dry_run=False, file_only=False,
+                               nk_name=None, map_code_only=False)
         assert cmd_set(p) == 0
         data2, raw2 = read_card(str(img))
         assert card_code(data2) == b"QSD-301-100", data2[:16]
         assert data2[11:] == data[11:]
         assert raw2 == data2, raw2[:16]
+        assert nk2_names(str(img)) == [b"X210NBNI.147"] * 2
         assert cmd_set(p) == 0          # second run: nothing to do
+        p2 = argparse.Namespace(**{**vars(p), "from_nk1": None, "code": "QSD-301-100",
+                                   "nk_name": "X210ECNI.158"})
+        assert cmd_set(p2) == 0         # name only, by hand
+        assert nk2_names(str(img)) == [b"X210ECNI.158"] * 2
     print("card_mapcode selftest: ok")
     return 0
 
@@ -201,6 +293,10 @@ def main(argv=None) -> int:
     t.add_argument("--in-place", action="store_true", help="patch IMAGE itself")
     t.add_argument("--file-only", action="store_true",
                    help="leave the raw copy at 0x06000000 unchanged")
+    t.add_argument("--nk-name", metavar="NAME",
+                   help="image A build name for both NKOK headers, e.g. X210NBNI.147")
+    t.add_argument("--map-code-only", action="store_true",
+                   help="with --from-nk1: leave the image A build name alone")
     t.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
