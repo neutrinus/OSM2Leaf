@@ -1,0 +1,211 @@
+hw/sh4: ze0 IPL patch file: join ROM image A to the kernel (TODO M8.C1d).
+
+On the card the kernel (image B, file 0x3e00200) and the applications
+(image A, file 0x200200: Navi.exe, AuiApp.exe, the *CC.dll screens, no
+nk.exe) are separate Windows CE images.  The built-in loader puts both in
+RAM, but nk.exe's OEMInit prints "Rom chain NOT found": its XIP-chain
+pointer (a .data fixup, 0xffffffff on the card) is left for the IPL to
+fill, and the IPL is not on the card.  Every application CreateProcessW
+then fails with LastError 2.
+
+New machine option ipl-patch=FILE: lines "PHYS HEXBYTES" ('#' comments)
+that the IPL would leave in RAM.  A line inside a loaded image is written
+into that image before it becomes a ROM blob; any other line becomes its
+own ROM blob.  tools/ze0_ipl.py writes the file (XIPCHAIN block, chain
+pointer in the kernel's .data template, ROMHDR ulRAMEnd below image A,
+image A's DLL data reservation off, both TOCs compacted).  Nothing on the
+-kernel file changes.
+
+
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 24e76440d..9d252b427 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -176,6 +176,7 @@ struct Ze0MachineState {
+     bool scif_stubs;
+     char *verinf;
+     char *mapdb;
++    char *ipl_patch;
+ };
+ 
+ #define ZE0_DEFAULT_KERNEL_OFF 0x3e00200u
+@@ -228,10 +229,99 @@ static void ze0_pread(int fd, void *buf, size_t len, uint64_t off,
+     }
+ }
+ 
++/*
++ * IPL patch (TODO M8.C1d): ipl-patch=FILE lists bytes the unit's IPL would
++ * leave in RAM before the kernel starts (tools/ze0_ipl.py writes it: an
++ * XIPCHAIN block, the kernel's chain-pointer fixup, ROMHDR fields, TOCs).
++ * Lines are "PHYS HEXBYTES", '#' starts a comment.  A line inside a loaded
++ * image is written into that image's buffer; any other line becomes its
++ * own ROM blob.  No byte of the -kernel file changes.
++ */
++typedef struct Ze0Poke {
++    uint32_t phys;
++    GByteArray *bytes;
++    bool applied;
++} Ze0Poke;
++
++static GPtrArray *ze0_read_ipl_patch(const char *path)
++{
++    g_autofree char *text = NULL;
++    g_auto(GStrv) lines = NULL;
++    GPtrArray *pokes = g_ptr_array_new();
++    GError *err = NULL;
++    int i;
++
++    if (!g_file_get_contents(path, &text, NULL, &err)) {
++        error_report("ze0: ipl-patch: %s", err->message);
++        exit(1);
++    }
++    lines = g_strsplit(text, "\n", -1);
++    for (i = 0; lines[i]; i++) {
++        char *l = lines[i], *hash = strchr(l, '#'), *end;
++        g_auto(GStrv) tok = NULL;
++        Ze0Poke *pk;
++        unsigned long v;
++        size_t n, j;
++
++        if (hash) {
++            *hash = 0;
++        }
++        g_strstrip(l);
++        if (!*l) {
++            continue;
++        }
++        tok = g_strsplit_set(l, " \t", -1);
++        v = strtoul(tok[0], &end, 0);
++        if (*end || !tok[1] || (n = strlen(tok[1])) == 0 || (n & 1)) {
++            error_report("ze0: ipl-patch line %d: want 'PHYS HEXBYTES'", i + 1);
++            exit(1);
++        }
++        pk = g_new0(Ze0Poke, 1);
++        pk->phys = v;
++        pk->bytes = g_byte_array_sized_new(n / 2);
++        for (j = 0; j < n; j += 2) {
++            char hx[3] = { tok[1][j], tok[1][j + 1], 0 };
++            uint8_t b = strtoul(hx, &end, 16);
++
++            if (*end) {
++                error_report("ze0: ipl-patch line %d: bad hex", i + 1);
++                exit(1);
++            }
++            g_byte_array_append(pk->bytes, &b, 1);
++        }
++        g_ptr_array_add(pokes, pk);
++    }
++    return pokes;
++}
++
++static void ze0_apply_pokes(GPtrArray *pokes, uint8_t *buf, uint32_t phys,
++                            uint32_t len, const char *what)
++{
++    unsigned i, n = 0;
++
++    for (i = 0; pokes && i < pokes->len; i++) {
++        Ze0Poke *pk = g_ptr_array_index(pokes, i);
++        uint64_t end = (uint64_t)pk->phys + pk->bytes->len;
++
++        if (pk->phys >= phys && end <= (uint64_t)phys + len) {
++            memcpy(buf + (pk->phys - phys), pk->bytes->data, pk->bytes->len);
++            pk->applied = true;
++            n++;
++        } else if (pk->phys < (uint64_t)phys + len && end > phys) {
++            error_report("ze0: ipl-patch 0x%08x+%u crosses the %s image",
++                         pk->phys, pk->bytes->len, what);
++            exit(1);
++        }
++    }
++    if (n) {
++        info_report("ze0: %s image: %u ipl-patch line(s) applied", what, n);
++    }
++}
++
+ /* Load one CE image; returns the nk.exe entry VA when want_entry. */
+ static uint32_t ze0_load_ce(int fd, uint64_t off, const char *what,
+                             bool want_entry, uint64_t ram_size,
+-                            const uint8_t *unit_rec)
++                            const uint8_t *unit_rec, GPtrArray *pokes)
+ {
+     uint8_t hdr[0x4c], rh[ZE0_ROMHDR_LEN];
+     uint32_t ptoc, roff, physfirst, physlast, nummods, len, phys, entry = 0;
+@@ -303,6 +393,7 @@ static uint32_t ze0_load_ce(int fd, uint64_t off, const char *what,
+         info_report("ze0: %s image: unit record written at header +0x%x "
+                     "(verinf/mapdb)", what, ZE0_UNIT_REC_OFF);
+     }
++    ze0_apply_pokes(pokes, buf, phys, len, what);
+     rom_add_blob_fixed(name, buf, len, phys);
+     g_free(buf);
+     info_report("ze0: %s image at file 0x%" PRIx64 ": VA 0x%08x..0x%08x "
+@@ -350,7 +441,9 @@ static void ze0_load_images(Ze0MachineState *s, SuperHCPU *cpu)
+     MachineState *machine = MACHINE(s);
+     uint8_t rec[ZE0_UNIT_REC_LEN];
+     bool have_rec;
++    GPtrArray *pokes;
+     Ze0Reset *r;
++    unsigned i;
+     int fd;
+ 
+     if (!machine->kernel_filename) {
+@@ -364,12 +457,26 @@ static void ze0_load_images(Ze0MachineState *s, SuperHCPU *cpu)
+     r = g_new0(Ze0Reset, 1);
+     r->cpu = cpu;
+     have_rec = ze0_unit_record(s, rec);
++    pokes = s->ipl_patch ? ze0_read_ipl_patch(s->ipl_patch) : NULL;
+     r->entry = ze0_load_ce(fd, s->kernel_off, "kernel", true,
+-                           machine->ram_size, have_rec ? rec : NULL);
++                           machine->ram_size, have_rec ? rec : NULL, pokes);
+     if (s->app_off) {
+-        ze0_load_ce(fd, s->app_off, "app", false, machine->ram_size, NULL);
++        ze0_load_ce(fd, s->app_off, "app", false, machine->ram_size, NULL,
++                    pokes);
+     }
+     close(fd);
++    for (i = 0; pokes && i < pokes->len; i++) {
++        Ze0Poke *pk = g_ptr_array_index(pokes, i);
++        g_autofree char *bn = NULL;
++
++        if (pk->applied) {
++            continue;
++        }
++        bn = g_strdup_printf("ze0.ipl@%08x", pk->phys);
++        rom_add_blob_fixed(bn, pk->bytes->data, pk->bytes->len, pk->phys);
++        info_report("ze0: ipl-patch blob at phys 0x%08x (%u bytes)",
++                    pk->phys, pk->bytes->len);
++    }
+     qemu_register_reset(ze0_cpu_reset, r);
+ }
+ 
+@@ -716,6 +823,19 @@ static void ze0_set_verinf(Object *obj, const char *value, Error **errp)
+     s->verinf = *value ? g_strdup(value) : NULL;
+ }
+ 
++static char *ze0_get_ipl_patch(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->ipl_patch ?: "");
++}
++
++static void ze0_set_ipl_patch(Object *obj, const char *value, Error **errp)
++{
++    Ze0MachineState *s = ZE0_MACHINE(obj);
++
++    g_free(s->ipl_patch);
++    s->ipl_patch = *value ? g_strdup(value) : NULL;
++}
++
+ static char *ze0_get_mapdb(Object *obj, Error **errp)
+ {
+     return g_strdup(ZE0_MACHINE(obj)->mapdb ?: "");
+@@ -776,6 +896,11 @@ static void ze0_machine_instance_init(Object *obj)
+     object_property_set_description(obj, "verinf",
+         "unit map code at kernel image header +0x60, read by the launcher "
+         "as VerInf (e.g. QSD-302-100; default empty, as on the card)");
++    object_property_add_str(obj, "ipl-patch", ze0_get_ipl_patch,
++                            ze0_set_ipl_patch);
++    object_property_set_description(obj, "ipl-patch",
++        "file of 'PHYS HEXBYTES' lines the IPL would leave in RAM "
++        "(tools/ze0_ipl.py: join ROM image A to the kernel)");
+     object_property_add_str(obj, "mapdb", ze0_get_mapdb, ze0_set_mapdb);
+     object_property_set_description(obj, "mapdb",
+         "unit map-DB window MIN-MAX at kernel image header +0x70/+0x72 "
