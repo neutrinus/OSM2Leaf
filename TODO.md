@@ -3758,7 +3758,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7930–C-7939
 
 - [ ] **M5.75 — Geometry budget per level: simplification tolerance against the slot budget, measured on a synthetic town**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.75-geom-budget · Critical: no · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: A parcel has a fixed slot budget (`tools/slot_budget.py`); dense OSM geometry overflows it. Measure the trade: Douglas–Peucker tolerance per level against bytes used and against visible error, and pick defaults.
