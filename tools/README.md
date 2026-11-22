@@ -1542,6 +1542,25 @@ back to stock `-M none -cpu sh7785`. Stages F0–F5 and their gates are in
 [`docs/research/full-system-emulation.md`](../docs/research/full-system-emulation.md)
 and TODO M8.
 
+## `ze0_aui.py` — start image A's AUI screens on `-M ze0` (M8.C1g)
+
+```bash
+python3 tools/ze0_ipl.py patch archive/head256.img --prefer-app auiapp.exe,auirtdll.dll -o ipl.txt
+python3 tools/ze0_aui.py archive/head256.img --no-aui-timeout -o aui.txt
+cat ipl.txt aui.txt > ipl_ui.txt     # then -M ze0,ipl-patch=ipl_ui.txt
+python3 tools/ze0_aui.py --selftest
+```
+
+`--prefer-app` keeps image A's copy of a module that the kernel image also
+carries (image B holds the card updater's own AuiApp). `ze0_aui.py` writes
+IPL lines that give AuiApp what the unit's flash would: the `SkinPath`
+default `\windows\ReleaseMain.skn` and `DllRegisterServer` of every control
+DLL with a `REGISTRY` resource (a small SH-4 routine placed in AuiApp's help
+text); `--no-aui-timeout` sets SystemEXE's 45 s wait for the first form to
+INFINITE. Every address is found in the image, and the tool refuses a
+pattern that is not unique. The lines change RAM only, never the card.
+Record: EXP-2026-11-22-M8.C1g-ui-layer.
+
 ## `board.py` — edit `TODO.md` and `claims.md` by line operations (H123)
 
 Every change to the board files is one splice; a guard refuses a write that

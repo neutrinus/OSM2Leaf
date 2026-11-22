@@ -29,10 +29,17 @@ What the patch holds (each line is ``PHYS HEXBYTES  # why``):
    kernel copy wins) and the modules whose sections overlap a kernel module;
    the kernel loses its updater-only modules (``BT_FW.dll``, ``*UpdateCC.dll``)
    that overlap A's application DLLs.
+6. ``--prefer-app NAMES`` (M8.C1g) reverses rule 5 for the named modules:
+   the kernel copy is dropped and A's copy kept even where A's DLL data
+   window overlaps kernel drivers (each process maps DLL data on its own;
+   the drivers live in device.exe, the AUI DLLs in AuiApp.exe).  The kernel
+   image B is the updater build, so its ``auiapp.exe``/``auirtdll.dll`` do
+   not know A's screens; ``--prefer-app auiapp.exe,auirtdll.dll`` runs A's.
 
 Usage::
 
     ze0_ipl.py patch archive/head256.img -o ipl.txt [--kernel-off 0x3e00200]
+                     [--prefer-app auiapp.exe,auirtdll.dll]
     ze0_ipl.py plan  archive/head256.img            # what would be dropped
     ze0_ipl.py --selftest
 """
@@ -79,19 +86,26 @@ def overlaps(ra, rb):
     return any(a0 < b1 and b0 < a1 for a0, a1 in ra for b0, b1 in rb)
 
 
-def plan(kern, app):
-    """Decide which TOC entries stay.  Returns (keep_kernel, keep_app, notes)."""
-    kmods = list(kern.modules())
+def plan(kern, app, prefer=()):
+    """Decide which TOC entries stay.  Returns (keep_kernel, keep_app, notes).
+
+    ``prefer``: lower-case module names whose image A copy replaces the
+    kernel's (rule 6 of the module docstring)."""
+    prefer = {n.lower() for n in prefer}
+    allk = list(kern.modules())
     amods = list(app.modules())
+    drop_k = {m["index"]: "replaced by image A's copy (--prefer-app)" for m in allk
+              if m["name"].lower() in prefer}
+    kmods = [m for m in allk if m["index"] not in drop_k]
     knames = {m["name"].lower() for m in kmods}
     kr = {m["index"]: dll_ranges(kern, m) for m in kmods}
-    drop_k, drop_a = {}, {}
+    drop_a = {}
     for m in amods:
         if m["name"].lower() in knames:
             drop_a[m["index"]] = "duplicate of the kernel image's module"
             continue
         ar = dll_ranges(app, m)
-        if not ar:
+        if not ar or m["name"].lower() in prefer:
             continue
         for k in kmods:
             if not overlaps(ar, kr[k["index"]]):
@@ -101,9 +115,9 @@ def plan(kern, app):
             else:
                 drop_a[m["index"]] = "overlaps kernel module " + k["name"]
                 break
-    keep_k = [m for m in kmods if m["index"] not in drop_k]
+    keep_k = [m for m in allk if m["index"] not in drop_k]
     keep_a = [m for m in amods if m["index"] not in drop_a]
-    notes = ([("kernel", kmods[i]["name"], why) for i, why in sorted(drop_k.items())] +
+    notes = ([("kernel", allk[i]["name"], why) for i, why in sorted(drop_k.items())] +
              [("app", amods[i]["name"], why) for i, why in sorted(drop_a.items())])
     return keep_k, keep_a, notes
 
@@ -180,7 +194,7 @@ def xip_entry(addr, length, order, name):
     return e.ljust(XIP_ENTRY_LEN, b"\0")
 
 
-def build(data, kernel_off, app_off, chain_at):
+def build(data, kernel_off, app_off, chain_at, prefer=()):
     kern = CERom(data, kernel_off)
     app = CERom(data, app_off)
     kh, ah = kern.hdr, app.hdr
@@ -213,7 +227,7 @@ def build(data, kernel_off, app_off, chain_at):
     a_dllfirst = (ah["dllfirst"] & 0xffff0000) | (ah["dlllast"] >> 16)
     poke(app.ptoc, struct.pack("<I", a_dllfirst),
          "image A ROMHDR dllfirst 0x%08x -> 0x%08x (no DLL data reservation)" % (ah["dllfirst"], a_dllfirst))
-    keep_k, keep_a, notes = plan(kern, app)
+    keep_k, keep_a, notes = plan(kern, app, prefer)
     if len(keep_k) != kh["nummods"]:
         poke(kern.ptoc + 0x54, toc_bytes(kern, keep_k), "kernel TOC, %d of %d modules + FILES"
              % (len(keep_k), kh["nummods"]))
@@ -245,6 +259,23 @@ def selftest():
     assert not kernel_droppable("gdisubdrv.dll")
     assert overlaps([(0, 10)], [(9, 20)]) and not overlaps([(0, 10)], [(10, 20)])
     assert phys(0x8e6f0000) == 0x0e6f0000
+
+    class Fake:
+        def __init__(self, mods):
+            self.mods = mods
+
+        def modules(self):
+            return [dict(index=i, name=n) for i, (n, _) in enumerate(self.mods)]
+
+        def o32(self, m):
+            return [dict(realaddr=a, vsize=b - a) for a, b in self.mods[m["index"]][1]]
+    k = Fake([("auiapp.exe", []), ("GPIO.dll", [(0x01f46000, 0x01f46158)])])
+    a = Fake([("auiapp.exe", []), ("auirtdll.dll", [(0x01eb3000, 0x01f493b0)])])
+    kk, ka, _ = plan(k, a)
+    assert [m["name"] for m in kk] == ["auiapp.exe", "GPIO.dll"] and ka == []
+    kk, ka, _ = plan(k, a, ["auiapp.exe", "auirtdll.dll"])
+    assert [m["name"] for m in kk] == ["GPIO.dll"]
+    assert [m["name"] for m in ka] == ["auiapp.exe", "auirtdll.dll"]
     txt = render([(0x100, b"\x01\x02", "x")])
     assert "0x00000100 0102  # x" in txt
     print("ze0_ipl selftest: ok")
@@ -260,6 +291,8 @@ def main():
         p.add_argument("--kernel-off", type=lambda s: int(s, 0), default=0x3e00200)
         p.add_argument("--app-off", type=lambda s: int(s, 0), default=0x200200)
         p.add_argument("--chain-at", type=lambda s: int(s, 0), default=DEFAULT_CHAIN_AT)
+        p.add_argument("--prefer-app", default="",
+                       help="comma list: keep image A's copy of these modules (M8.C1g)")
         if name == "patch":
             p.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
@@ -269,7 +302,8 @@ def main():
     if not a.cmd:
         ap.error("command required")
     data = open_image(a.image)
-    lines, notes, info = build(data, a.kernel_off, a.app_off, a.chain_at)
+    prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
+    lines, notes, info = build(data, a.kernel_off, a.app_off, a.chain_at, prefer)
     print("chain pointer var 0x%08x (template 0x%08x), XIPCHAIN at phys 0x%08x, RAM end 0x%08x"
           % (info["chain_var"], info["template"], info["chain_at"], info["ram_end"]))
     print("kernel modules kept %d/%d, image A modules kept %d/%d"

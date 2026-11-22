@@ -1,0 +1,56 @@
+hw/sh4: ze0 2DG op 0x44 adds to the local offset (TODO M8.C1g).
+
+Once the AuiApp shell runs (M8.C1g) its lists use op 0x44 XY, which
+ze0-0014 skipped as unknown: 44000000 000001e0 moves the local offset
+down by one 480-line page and 44000000 0000fe20 moves it back, so the
+two-page AUI surface (800x2400) is drawn page by page.  The op adds XY
+to the offset set by 0x40.  With gfx-trace=on every write of the
+target-surface register (+0x50) is logged as `ze0-2dg: target ADDR`.
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+
+diff --git a/hw/sh4/ze0_2dg.c b/hw/sh4/ze0_2dg.c
+index dc305bf0d..44a0517c0 100644
+--- a/hw/sh4/ze0_2dg.c
++++ b/hw/sh4/ze0_2dg.c
+@@ -10,6 +10,7 @@
+  *   0x30xxxxxx OFF        call: push return, pc = op address + OFF
+  *   0x38xxxxxx 0          return
+  *   0x40xxxxxx XY         local coordinate offset
++ *   0x44xxxxxx XY         add XY to the local offset (AuiApp page flips)
+  *   0x18000600 N<<16|R OFF  write N+1 registers from R, data at op + OFF
+  *   0x18xxxxxx N<<16|R V0..VN  write N+1 registers from R
+  *   0x28xxxxxx LEN        skip LEN bytes (inline data)
+@@ -69,6 +70,9 @@ static void reg_set(Dl *d, uint32_t off, uint32_t v)
+     if (off < ZE0_GFX_SIZE - 4) {
+         stl_le_p((uint8_t *)d->r + off, v);
+     }
++    if (off == 0x50 && d->s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-2dg: target 0x%08x\n", v);
++    }
+ }
+ 
+ /*
+@@ -81,7 +85,7 @@ static bool is_op(uint32_t w)
+     switch (w >> 24) {
+     case 0x08:
+         return w == 0x08000000;
+-    case 0x12: case 0x18: case 0x28: case 0x30: case 0x38: case 0x40:
++    case 0x12: case 0x18: case 0x28: case 0x30: case 0x38: case 0x40: case 0x44:
+     case 0x80: case 0x82: case 0xa0: case 0xa8: case 0xd0: case 0xe0:
+     case 0xb0: case 0xb1: case 0xb2: case 0xb3:
+     case 0xb4: case 0xb5: case 0xb6: case 0xb7:
+@@ -390,6 +394,12 @@ void ze0_2dg_run(Ze0GfxState *s, uint32_t list)
+             d->ly = (int16_t)w1;
+             pc += 8;
+             continue;
++        case 0x44:
++            /* AuiApp: 44000000 000001e0 ... 44000000 0000fe20 (page 2) */
++            d->lx += (int16_t)(w1 >> 16);
++            d->ly += (int16_t)w1;
++            pc += 8;
++            continue;
+         case 0x18: {
+             uint32_t n = (w1 >> 16) + 1, r = w1 & 0xffff;
+ 
