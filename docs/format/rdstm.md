@@ -409,6 +409,31 @@ On a `lctbl_build.py synth` file the record equals the writer's model for
 4/4 held codes; absent codes are not found. Observed, not explained: a table
 code missing from the catalog is served from the file's first table.
 
+### Generator table code (M5.64, EU2011 L3)
+
+**Rule: `generator table code = (ord("%X" % (CC & 0xF)) << 8) | (LTN & 0xFF)`.**
+
+`lctbl_build.py synth SPEC.json -o OUT --table-code CC,DB` applies it (table i
+gets `DB + i`); `lctbl_build.py catalog FILE` reads codes back as `(CC, LTN)`
+with per-country counts. The two 2011 catalogs have **no** CC 3 (Poland) table
+(EU2011: 30 tables / 11 countries; US2011: 34 tables / 2 countries), so a
+Poland build must write its own `0x33nn` code; `nn` is the LTN, not recoverable
+from either catalog (C-2323 gives CC 3 for Poland, ISO 616).
+
+The L3 run behind the rule
+(`python3 tools/lctbl_lookup_l3.py run archive/head256.img --card-image …eu.img
+--file POL.DAT --lookup 3,0x11,1234 --lookup 3,0x12,1234 --json …`,
+EXP-2026-11-22-M5.64-lctbl-poland-code.md, C-6610–C-6617): with a generated
+two-table file (`0x3310`/`0x3311`, both CC 3) the `0x14e4` sub-1 request
+`country 3 database 17 code 1234 (table 0x3311)` gets `0x14fb` `status 1` and
+the catalog table's 76-byte record; `country 3 database 18 code 1234
+(table 0x3312)` (absent from the catalog) also gets `status 1` but reads the
+**first** table's index/directory/page and returns its record. On the
+untouched EU card the same fallback happens for `3,1,1` (`0x3301` absent →
+first table `0x3219`): the answer reflects the first table, so a generated
+Poland table must be present under the code the unit asks for. The selftest
+negative control (a wrong CC 4) misses the record (C-6618).
+
 ### Code-side reader (M3.15, located)
 
 The record walk and the name decode are named (EXP-2026-11-20-M3.15-lctbl-reader;

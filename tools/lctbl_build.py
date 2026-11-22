@@ -50,7 +50,9 @@ Usage::
 
     lctbl_build.py rebuild LCTBL001.DAT [-o OUT]   # parse + build, byte compare
     lctbl_build.py check FILE                      # structural walk (L1)
+    lctbl_build.py catalog FILE                    # codes as (CC, LTN) + per-country counts (M5.64)
     lctbl_build.py synth SPEC.json -o OUT [--header-from LCTBL001.DAT]
+                                  [--table-code CC,DB]   # M5.64 generator rule
     lctbl_build.py example-spec -o SPEC.json         # synthetic Polish name set
     lctbl_build.py extract SD.img -o LCTBL001.DAT    # from a full card image
     lctbl_build.py tree ROOT FILE -o TREE           # card tree for cardcheck/l2check
@@ -63,6 +65,7 @@ Stdlib only.  No vendor bytes are written into the repository.
 from __future__ import annotations
 
 import argparse
+import collections
 import hashlib
 import json
 import math
@@ -183,6 +186,22 @@ def unbcd4(b: bytes) -> int:
 def lname(name: bytes) -> bytes:
     """u16 LE length, then the name padded with one NUL to an even length."""
     return len(name).to_bytes(2, "little") + name + b"\x00" * (len(name) % 2)
+
+
+def generator_table_code(cc: int, ltn: int) -> int:
+    """M5.64 rule: table code = ASCII hex digit of the RDS CC << 8 | LTN.
+
+    This is the inverse of the firmware's request-side derivation
+    (`lctbl_lookup_l3.table_code`): the generator must write the code into the
+    catalog descriptor or the lookup cannot select the table at all.
+    """
+    return (ord("%X" % (cc & 0xF)) << 8) | (ltn & 0xFF)
+
+
+def apply_table_code(spec: dict, cc: int, db: int) -> None:
+    """Apply the rule to a synth spec: table i gets CC/DB+i (M5.64)."""
+    for i, t in enumerate(spec["tables"]):
+        t["code"] = generator_table_code(cc, db + i)
 
 
 # --------------------------------------------------------------------------
@@ -586,6 +605,31 @@ def summary(model: dict) -> str:
             f"pages {sum(math.ceil(len(x['records']) / RECORDS_PER_PAGE) for x in t)}")
 
 
+def cmd_catalog(a) -> int:
+    """List every catalog table code, decoded to (CC, LTN), with per-country counts."""
+    import tmc_reception
+
+    data = Path(a.file).read_bytes()
+    model = parse(data)
+    tables_cc, records_cc = collections.Counter(), collections.Counter()
+    print(f"file    {len(data)} B sha256 {sha(data)}")
+    print(f"walk    {summary(model)}")
+    print("row   code  CC LTN  records  codes")
+    for i, t in enumerate(model["tables"]):
+        pair = tmc_reception.code_cc_ltn(t["code"])
+        cc, ltn = pair if pair else (None, None)
+        if cc is not None:
+            tables_cc[cc] += 1
+            records_cc[cc] += len(t["records"])
+        print(f"{i:3d}  {t['code']:04x}  {str(cc):>2} {str(ltn):>3}  "
+              f"{len(t['records']):7d}  {t['codes'][0]}..{t['codes'][-1]}")
+    print("per country (CC: tables, records):")
+    for cc in sorted(tables_cc):
+        print(f"  CC {cc:x}: {tables_cc[cc]:2d} tables, {records_cc[cc]:7d} records")
+    print(f"Poland CC 3: {tables_cc.get(3, 0)} tables, {records_cc.get(3, 0)} records")
+    return 0
+
+
 def cmd_rebuild(a) -> int:
     data = Path(a.file).read_bytes()
     model = parse(data)
@@ -616,6 +660,13 @@ def cmd_check(a) -> int:
 
 def cmd_synth(a) -> int:
     spec = json.loads(Path(a.spec).read_text(encoding="utf-8"))
+    if a.table_code:
+        parts = [int(x, 0) for x in a.table_code.split(",")]
+        if len(parts) != 2:
+            raise LctblError("--table-code needs CC,DB, got %r" % a.table_code)
+        apply_table_code(spec, *parts)
+        print(f"table code rule: CC {parts[0]}, DB {parts[1]} -> " +
+              ", ".join("%#06x" % t["code"] for t in spec["tables"]))
     header = Path(a.header_from).read_bytes()[:0x200] if a.header_from else None
     model = model_from_spec(spec, header)
     out = build(model)
@@ -847,6 +898,25 @@ def _selftest() -> int:
         check("unsorted codes rejected", False)
     except LctblError:
         pass
+    # M5.64: the generator rule and its lctbl_lookup_l3 negative control.
+    import lctbl_lookup_l3 as LL
+    check("poland code 3/16 is 0x3310", generator_table_code(3, 0x10) == 0x3310)
+    check("poland code 3/25 is 0x3319", generator_table_code(3, 25) == 0x3319)
+    spec_code = {"tables": [
+        {"records": [{"location": 1234, "fields": [100] + [None] * 11}]},
+        {"records": [{"location": 1234, "fields": [20111] + [None] * 11}]},
+    ]}
+    apply_table_code(spec_code, 3, 0x10)
+    check("flag assigns 0x3310/0x3311",
+          [t["code"] for t in spec_code["tables"]] == [0x3310, 0x3311])
+    model_code = parse(build(model_from_spec(spec_code)))
+    present, expected = LL.model_record(model_code, 3, 0x11, 1234)
+    check("catalog code holds the expected record", present and expected is not None)
+    wrong_present, _ = LL.model_record(model_code, 4, 0x11, 1234)
+    check("wrong code is not in the lookup model", not wrong_present)
+    check("wrong code makes the lookup miss", not LL.judge(True, expected, LL.NOT_FOUND, None)[1])
+    print(f"negative: a wrong country (4 instead of 3) misses the record "
+          f"the 0x3311 catalog holds: {not wrong_present}")
     print(f"selftest: {'OK' if not fails else 'FAIL ' + ', '.join(fails)}")
     return 0 if not fails else 1
 
@@ -869,10 +939,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("file")
     p.add_argument("-v", "--verbose", action="store_true")
     p.set_defaults(func=cmd_check)
+    p = sub.add_parser("catalog", help="list catalog codes as (CC, LTN) with per-country counts")
+    p.add_argument("file")
+    p.set_defaults(func=cmd_catalog)
     p = sub.add_parser("synth", help="build a file from a JSON name-set spec")
     p.add_argument("spec")
     p.add_argument("-o", "--output", required=True)
     p.add_argument("--header-from", help="copy the 512-byte header from this file")
+    p.add_argument("--table-code", metavar="CC,DB",
+                   help="write table codes as ord(hex digit of CC) << 8 | DB+i (M5.64 rule)")
     p.set_defaults(func=cmd_synth)
     p = sub.add_parser("tree", help="symlinked card tree with FILE as LCTBL001.DAT (for cardcheck/l2check)")
     p.add_argument("root", help="extracted card root")
