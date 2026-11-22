@@ -2811,7 +2811,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7670–C-7679
 
 - [ ] **M4.69 — KIWI Road Data Frame (chapter 7.2) against tile section 1: distribution header, display classes, multilink header**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m4.69-kiwi-road-frame · Critical: yes · Pair: required
   - Step: P1
   - Depends: —
   - Goal: Section 1 of a tile carries the drawn roads; our writer uses 'provisional classes' because the class field is fitted. KIWI's road frame has a distribution header, display-class management records and multilinks with typed attributes. Test the layout on real section-1 bytes; a match names the road class codes and the attribute bits.
