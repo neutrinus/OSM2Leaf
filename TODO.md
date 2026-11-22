@@ -4504,7 +4504,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7150–C-7159
 
 - [ ] **M8.H19 — Where does `Navi.exe` keep the last vehicle position, and who reads it at start**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h19-position-store · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: The quickest way to show a chosen place in the emulator is the way the car does it after a restart: the saved last position. `tools/datask_l3.py` already knows a position word and a default-position function per build. Find the persistent record (flash user area / `VSram`), its encoding and its reader.
