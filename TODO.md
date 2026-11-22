@@ -3728,8 +3728,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: bytes do not fall as tolerance rises (the cost is elsewhere — record where).
   - Claims: C-7940–C-7949
 
-- [ ] **M5.76 — A synthetic OSM town for tests without network: deterministic generator with roads, names, one-ways, POIs, water**
-  - Status: in progress · Owner: task/m5.76-osm-synth · Critical: no · Pair: solo
+- [x] **M5.76 — A synthetic OSM town for tests without network: deterministic generator with roads, names, one-ways, POIs, water**
+  - Status: done · Owner: task/m5.76-osm-synth · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The Claude sandbox cannot fetch OSM data (rule 12), so compiler tasks stall or test on three hand-made ways. A deterministic generator gives every compiler task the same realistic input.
@@ -3740,6 +3740,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Falsifier: two runs with the same seed differ.
   - Claims: C-7950–C-7959
+  - Result: EXP-2026-11-22-M5.76-osm-synth-town; osm_synth selftest 24/24, deterministic seed, one-tile pipeline L1/L2
 
 - [ ] **M5.77 — Dolnośląskie in numbers: per-tile feature counts and slot-budget overflow from the real extract**
   - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
