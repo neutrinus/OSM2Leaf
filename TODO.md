@@ -6225,8 +6225,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: an EXP has a four-row table `layer / tool / US2011 input / verdict / missing entry point`, every RUNNABLE row has a positive control on the EU build and one negative control (wrong build or wrong card) recorded, the `(c)` and `(d)` rows are `NOT RUNNABLE` with the exact absent flag/VA named, and `reader-coverage.md` gains one sentence per layer saying whether its current verdict holds on US2011. M9.61's Scope is then edited (by its owner) to drop the layers this row proves green.
   - Stop: one session; if a US layer needs a VA that `fn_match` has no `UNIQUE` pair for, name it and leave it `NOT RUNNABLE (no pair)` — that is a result for M9.61.
   - Falsifier: a layer this EXP marks `NOT RUNNABLE` that turns out to have a runnable tool on `main` (M9.61 is then smaller than believed), or a `RUNNABLE` row whose US run disagrees with its EU control (then the layer is the answer, not M9.61).
-  - Claims: C-6600–C-6609
-  - Result: EXP-2026-11-22-M9.63-us-client-layer-survey; 4 rows; falsifier fired: (c)/(d) runnable via M9.61; M9.58 shape walk NOT RUNNABLE
+  - Claims: none — reuses C-4651, C-2140–C-2147, C-6362–C-6368
+  - Result: EXP-2026-11-22-M9.63-us-client-layer-survey; 4 rows; Precheck/Scope expectation overtaken by M9.61 (PR #426); M9.58 shape walk NOT RUNNABLE
 
 - [ ] **M9.64 — `main_watch` counts a green `L1/L2 synthetic fixtures` run as shadowing a red gate run: the two workflows test different things**
   - Status: open · Owner: — · Critical: no · Pair: required
