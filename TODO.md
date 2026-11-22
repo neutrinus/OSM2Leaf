@@ -330,7 +330,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 - **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards; `cardcheck --generate-fixture` builds a vendor-free tree (H40 done, H105 done). Open: **H41** → **H42** (CI use), **H104** (baseline).
 - **L2 (the product path):** P0 built; P1 card **M5.61** (blocked, see its block). Open: **M5.35** (one command), **M5.66** (rendered tile as an L2 gate), **M5.76** (synthetic town so compiler tasks run without network) → **M7.1** (all Dolnośląskie).
 - **L3 (moving):** container, record read and the renderer walk are done on a generated tile. Open: **M9.68** (which header fields the map client checks), **M9.15** and **M9.18** (targets per family), routing **M4.55** → **M4.40** → **M5.57** → **M9.56** (blocked chain; **M4.72** tests a KIWI shortcut), card gate **M9.31** → **M9.12**.
-- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX) and **M8.H27** (GPS frame grammar) are done. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H8** (SD trace) and **M8.H9** (coverage) turn L4 into a format oracle; GPS **M8.H30/H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
+- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX) and **M8.H27** (GPS frame grammar) are done; **M8.H8** (SD block reads mapped to card files) completed. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H9** (coverage) completes the format oracle; GPS **M8.H30/H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
 - **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
 
 ### Map signal (read first)
@@ -4589,8 +4589,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7040–C-7049
   - Result: EXP-2026-11-22-M8.H7-ui-scenario; ze0_ui selftest 20/20, wrong-hash exit 1, exit-3 paths, real boot 3 steps exit 0
 
-- [ ] **M8.H8 — Which card files does the firmware read, and where: SD block trace mapped to file and offset**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M8.H8 — Which card files does the firmware read, and where: SD block trace mapped to file and offset**
+  - Status: done · Owner: task/m8.h8-sd-trace · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M8.C1b (done)
   - Goal: Rule 13 wants every generated format confirmed by the firmware. At L4 the cheapest witness is the SD read stream: map every block the guest reads to (file, offset) through the FAT of the card, so one boot tells which map files and which byte ranges `Navi.exe` actually consumes.
@@ -4601,6 +4601,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if block reads cannot be attributed (cache layer reads whole clusters ahead), report cluster-level ranges and say so.
   - Falsifier: the trace shows no read of any map file although the UI reaches idle (then the map loads lazily and the scenario needs a position: M8.H31).
   - Claims: C-7050–C-7059
+  - Result: EXP-2026-11-22-M8.H8-sd-block-trace; 14 files, 10523 reads / 7174 mapped, selftest 17/17, L3 overlap 6/7
 
 - [ ] **M8.H9 — Function coverage at L4 with a TCG plugin (no QEMU patch): which `Navi.exe` functions ran**
   - Status: open · Owner: — · Critical: no · Pair: required
