@@ -443,30 +443,45 @@ def _class_mapping(table):
 # --------------------------------------------------------------------------
 
 
-def _read_text(path: str) -> str:
+def _open_text(path: str):
+    """Open a UTF-8 text stream for ``path``.  A ``.gz`` suffix is streamed
+    through ``gzip.open``; nothing here reads the whole file into memory."""
     try:
         if path.endswith(".gz"):
-            with gzip.open(path, "rt", encoding="utf-8") as handle:
-                return handle.read()
-        with open(path, "r", encoding="utf-8") as handle:
-            return handle.read()
+            return gzip.open(path, "rt", encoding="utf-8")
+        return open(path, "r", encoding="utf-8")
     except OSError as exc:
         raise WriterError("cannot read %s: %s" % (path, exc)) from exc
 
 
 def read_jsonl(path: str):
-    records = []
-    for number, line in enumerate(_read_text(path).splitlines(), start=1):
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            records.append(json.loads(line))
-        except json.JSONDecodeError as exc:
-            raise WriterError("%s:%d is not JSON: %s" % (path, number, exc)) from exc
-    if not records:
+    """Yield one IMF record per non-blank line, streaming the file.
+
+    A cell split is gigabytes of text, and holding it (plus its lines and the
+    parsed records) is what killed the ``B48R050R`` build (C-6255).  Parsing is
+    lazy: a malformed line raises when the iterator reaches it, never before.
+    ``.gz`` input streams through the decompressor.  An empty file is still an
+    error, raised only once the stream is exhausted.
+    """
+    handle = _open_text(path)
+    seen = False
+    try:
+        for number, line in enumerate(handle, start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise WriterError("%s:%d is not JSON: %s" % (path, number, exc)) from exc
+            seen = True
+            yield record
+    except OSError as exc:
+        raise WriterError("cannot read %s: %s" % (path, exc)) from exc
+    finally:
+        handle.close()
+    if not seen:
         raise WriterError("%s: no IMF records" % path)
-    return records
 
 
 def _name_label(tags: dict, record: dict) -> str:
@@ -489,9 +504,11 @@ def load_imf(path: str, cell: str):
     one cell means the input was not mesh-split; that is an input error, not
     something to guess around.
     """
-    records = read_jsonl(path)
+    # Two streaming passes over the file, not one list of every record: the
+    # split can be tens of millions of lines, so only the nodes dict and the
+    # kept ways are held (C-6255).  The pass is O(nodes + ways), one copy each.
     nodes = {}
-    for record in records:
+    for record in read_jsonl(path):
         if record.get("type") != "node":
             continue
         try:
@@ -504,7 +521,7 @@ def load_imf(path: str, cell: str):
     multi = []
     missing = []
     ways = []
-    for record in records:
+    for record in read_jsonl(path):
         if record.get("type") != "way":
             continue
         stats["ways"] += 1
@@ -2721,6 +2738,53 @@ def selftest():
 
         # M5.70: a level-2 parcel with no even slot must be creatable.
         _m570_created_slot(check, root, cell)
+
+        # M5.68: read_jsonl streams. The old path read the whole file into one
+        # string and splitlines() it, which is what the B48R050R build could not
+        # hold (C-6255). This checks the reader is lazy, streams .gz, keeps the
+        # records identical to per-line json.loads, and still rejects an empty
+        # file. The negative control is a list reader: it cannot pass laziness.
+        import inspect
+        check("read_jsonl is a generator",
+              inspect.isgeneratorfunction(read_jsonl), read_jsonl)
+
+        lazy = root / "lazy.jsonl"
+        lazy.write_text('{"type": "node", "id": "n1"}\nnot json\n',
+                        encoding="utf-8")
+        first = next(read_jsonl(str(lazy)))
+        check("read_jsonl yields the first record before a later bad line",
+              first == {"type": "node", "id": "n1"}, first)
+        eager_failed = False
+        try:
+            list(read_jsonl(str(lazy)))  # a list reader parses line 2 up front
+        except WriterError as exc:
+            eager_failed = "is not JSON" in str(exc)
+        check("negative control: a list reader fails the laziness check",
+              eager_failed, "list() did not raise")
+
+        big = root / "big.jsonl"
+        big_lines = [json.dumps({"type": "node", "id": "n%d" % i,
+                                 "lat": 48.0 + i * 1e-7, "lon": 12.0,
+                                 "pad": "x" * 96})
+                     for i in range(50000)]
+        big.write_text("\n".join(big_lines) + "\n", encoding="utf-8")
+        got = list(read_jsonl(str(big)))
+        check("streamed records equal per-line json.loads",
+              got == [json.loads(line) for line in big_lines], len(got))
+        big_gz = root / "big.jsonl.gz"
+        with gzip.open(big_gz, "wt", encoding="utf-8") as gzh:
+            gzh.write("\n".join(big_lines) + "\n")
+        check(".gz streams to the same records",
+              list(read_jsonl(str(big_gz))) == got, len(got))
+        empty_failed = ""
+        empty = root / "empty.jsonl"
+        empty.write_text("\n\n", encoding="utf-8")
+        try:
+            list(read_jsonl(str(empty)))
+        except WriterError as exc:
+            empty_failed = str(exc)
+        check("empty input still raises the no-records error",
+              "no IMF records" in empty_failed, empty_failed)
 
     failed = [name for name, ok, _detail in checks if not ok]
     print("tilewriter selftest: %s (%d/%d checks)"
