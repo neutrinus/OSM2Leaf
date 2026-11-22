@@ -340,6 +340,37 @@ counted with the viewer's `0=` splitter. The record counts (20/24/24) are
 the stable part; a stricter name decoder may change the 68/126/129 name
 counts. It is not a claim that every year parses identically.
 
+#### Section 4 directory rows (M4.93)
+
+> **Status:** the row grammar below is `OBSERVED` on EU2011 `B48R058R` section 4
+> (64 level-1 directories: 30 `0x1046`, 13 `0x1146`, 6 `0x1246`, 6 `0x1346`,
+> 3 `0x1446`, 2 `0x1546`, 1 `0x1646`, 2 `0x1746`, 1 `0x1946`). It is the
+> section-4 member of the `0x2046` wide-row family (`tools/s1_wide_dir.py`),
+> with a different base and body sizes — not a new payload format.
+
+A section-4 level-1 directory is six big-endian `u16` words
+`kind, a, b, y, x, typ` (12 bytes; `b = 32` on this tile), then 32 rows of a
+4-byte tag plus a body. `kind` is the directory size in `u16` words and follows
+`kind = 0x1046 + 0x100 × n_wide`: a wide row adds 512 bytes over a narrow one
+(256 → 768). Bit 31 of a row's first body word marks it wide; the bit is masked
+before the word is used as a record size.
+
+| Row | Body | Per column (32 columns) | Field |
+| -- | --: | -- | -- |
+| narrow | 256 B | 8 B | `u32 ln` (compressed words), `u32 X` (inflated words); `0x7fffffff`/`0xffffffff` = empty |
+| wide | 768 B | 24 B | the `(ln, X)` pair, then four `u16` compressed and four `u16` inflated sub-record sizes (`0xffff` = none) |
+
+The row's record block is at `addr_of(tag)` and holds the records column by
+column — `rec` then `sub0..sub3`, each `2 × ln` bytes, a zlib stream padded with
+zero bytes to a word — the same block order as section 1. `tools/section4_wide.py`
+parses all 64 directories with `size == 2·kind`, `n_wide = (kind-0x1046)/0x100`,
+`encode(parse)` byte identity and every record an `X`-word zlib stream
+(94 wide rows, 3,091 records, 0 bad, 1,044 disjoint row blocks). The relation of
+a section-4 sub-record's parcel code to its parent is **UNKNOWN** (not asserted
+here). Reading every row as 256 bytes (`clarion_tile.read_dir`) shifts every slot
+after the first wide row and leaves its record blocks unexplained — the
+366,814 B in 36 gaps of EXP-2026-11-22-M4.86, now owned by `section4_wide.py`.
+
 **Verbatim-preservation rule.** An unchanged tile copies the original
 section-4 zlib streams byte-for-byte. An edited tile must also preserve the
 whole section-4 payload verbatim, because only the documented fields above can
