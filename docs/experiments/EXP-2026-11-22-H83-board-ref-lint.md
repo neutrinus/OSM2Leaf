@@ -41,7 +41,7 @@ unresolved/stale; or `tools/gate.py` goes red on the default board.
 
 | Item | Value |
 | --- | --- |
-| Board | `TODO.md` at this branch (`d2dc9c0a`), 321 parsed blocks |
+| Board | `TODO.md` at this branch (`bd92ec6a`, rebased on `origin/main` `17b22eaf`), 323 parsed blocks |
 | Frozen retro | `TODO.md` at `6504090b` (2026-11-16), `6803705a` (2026-11-16) |
 | Tool | `tools/todo_check.py` (`_board_refs`, `_ref_resolves`, `check(... strict_board_refs=...)`) |
 | Standing gate | `tools/gate.py` (default `todo_check`) |
@@ -49,7 +49,8 @@ unresolved/stale; or `tools/gate.py` goes red on the default board.
 ## Method
 
 1. **Sample and hash.** `TODO.md` is a versioned file; its identity is the
-   revision `d2dc9c0a` (this branch). No hash is pinned because the board moves
+   revision `bd92ec6a` (this branch, rebased on `origin/main` `17b22eaf`). No
+   hash is pinned because the board moves
    on every merge; every count below names the revision it was measured at.
 2. **Commands.** Runnable as written:
 
@@ -89,13 +90,15 @@ python3 tools/todo_check.py /tmp/opencode/h83-6803705a.md --board-refs
 
 ## Observations
 
-Measured at `d2dc9c0a` unless a revision is named.
+Measured at `bd92ec6a` (rebased on `origin/main` `17b22eaf`) unless a revision is named.
 
-- **Today, default:** `todo_check: 321 tasks, 0 error(s), 207 warning(s)`;
+- **Today, default:** `todo_check: 323 tasks, 0 error(s), 207 warning(s)`;
   summary tail `board-refs unresolved 0 / not-next 4 / drift 0 / sections 1`,
-  exit 0. Before H83 the same board produced **0** reported stale refs (no gate
-  saw the prose); the contribution is **5** warnings (4 `not_next` + 1
-  `sections`).
+  exit 0 — measured at `bd92ec6a` (rebased on `origin/main` `17b22eaf`). Before
+  H83 the same board produced **0** reported stale refs (no gate saw the
+  prose); the contribution is **5** warnings (4 `not_next` + 1 `sections`). The
+  pre-rebase head `d2dc9c0a` had 321 blocks and the same `0/4/0/1` split; the
+  merge that rebased this branch (M8.C1d/M8.C1e) added two blocks, not refs.
 - **Today, `--board-refs` rows:**
 
 ```text
@@ -108,7 +111,7 @@ board-refs: unresolved 0 / not-next 4 / drift 0 / sections 1
 
 - **Today, `--strict`:** exit 1, `22` ERROR lines total (H53's rule-14
   backlog), of which **4** are the board-ref `not_next` rows above; the
-  `sections` warning stays a warning.
+  `sections` warning stays a warning (measured at `bd92ec6a`).
 - **Baseline (H128):** `--baseline tools/fixtures/todo_strict_baseline.json`
   prints `8 error(s) over 4 task(s) (baseline 8, new 0)`, `todo_check: OK`; the
   board-ref refs are in the summary but never in the ledger (`_error_key` is
@@ -120,9 +123,9 @@ board-refs: unresolved 0 / not-next 4 / drift 0 / sections 1
   `todo-history-2026-11-17.md`.
 - **Frozen `6803705a` (2026-11-16):** `TODO.md:247 / Priorities / not_next /
   M1.23 / done` — a real stale `next` the old board carried.
-- **Selftest:** `todo_check selftest: OK (80 checks, 321 real tasks)`.
+- **Selftest:** `todo_check selftest: OK (80 checks, 323 real tasks)`.
 - **Standing gate:** `gate: 5 pass, 0 fail, 0 skip` (`todo_check PASS`).
-- **`selftest.py`:** `passed=182 failed=0 skipped=21 total=203`, `selftest: OK`.
+- **`selftest.py`:** `passed=184 failed=0 skipped=21 total=205`, `selftest: OK`.
 
 ## Interpretation
 
@@ -159,7 +162,7 @@ none (record written at the task's own merge).
 
 ```bash
 python3 tools/todo_check.py --board-refs    # expected: unresolved 0 / not-next 4 / drift 0 / sections 1
-python3 tools/todo_check.py --selftest      # expected: OK (80 checks, 321 real tasks)
+python3 tools/todo_check.py --selftest      # expected: OK (80 checks, 323 real tasks)
 python3 tools/gate.py                       # expected: 5 pass, 0 fail, 0 skip
 ```
 
