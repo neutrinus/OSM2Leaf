@@ -1906,8 +1906,8 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: a red claims_check run whose gate log contains no line naming the failing claim/path/rule after this task.
   - Claims: C-6680–C-6689
 
-- [ ] **H128 — `todo_check --strict` has no ledger of its own debt: 8 ERROR held by open PRs, and no baseline says whether the count grew**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H128 — `todo_check --strict` has no ledger of its own debt: 8 ERROR held by open PRs, and no baseline says whether the count grew**
+  - Status: done · Owner: task/h128-h128-todo-strict-debt · Critical: no · Pair: required
   - Depends: — (H53 lowered its own Done-when to "no ERROR for tasks this cycle can own"; this task makes the remainder measurable)
   - Goal: the QA prompt says report the `--strict` count and "do not treat it as a new regression until H53 cleans it" — but nothing records what the count was, so each pass re-derives "8 ERROR / is it new?" by memory. At `b67d1519` `python3 tools/todo_check.py --strict` exits 1 with **8 ERROR** over **4** tasks (`M1.38`, `M3.13`, `M3.29`, `M8.C`; two of them also `WARN … references blocked task`) and **181 WARN**. H53's Result recorded 17 ERROR over 7 tasks at `ea15563` and said they "clear when those land `done`" — 3 of those 7 are still open (`M3.13 #351`, `M3.29 #341`, `M8.C #355`), so the debt is a set of PRs, not a number to eyeball. A baseline keyed by task ID turns "it grew" into a command.
   - Precheck: `python3 tools/todo_check.py --strict >/tmp/opencode/tc.txt 2>&1; echo $?` prints `1`; `grep -cE '^  ERROR' /tmp/opencode/tc.txt` prints `8`; `grep -E '^  ERROR' /tmp/opencode/tc.txt | sed -E 's/.*TODO.md:[0-9]+ ([A-Z0-9.]+):.*/\1/' | sort -u` prints the four IDs above; `python3 tools/todo_check.py; echo $?` prints `0` (default stays green).
@@ -1918,6 +1918,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the strict ERROR set changes with every PR-held merge (it will, as #351/#341/#355 land), the baseline is still correct — those merges clear entries, and the task says so; do not pin the count as a constant in prose, pin the IDs.
   - Falsifier: after this task a new firmware task with a missing `Precheck`/`Scope`/`Stop` still exits 0 under `--strict --baseline`.
   - Claims: C-6700–C-6709
+  - Result: EXP-2026-11-21-H128-h128-todo-strict-debt (C-6700): tools/todo_check.py gains --baseline/--update-baseline; committed tools/fixtures/todo_strict_baseline.json keys 8 ERRORs over 4 tasks (M1.38, M3.13, M3.29, M8.C) by (task ID, missing field). --strict --baseline exits 0 on main (8 over 4, baseline 8, new 0), a new firmware task missing Stop exits 1 (NEW M9.99|Stop), a cleared task prints cleared: M3.13 and stays 0; structural errors (no key) always fail. selftest 31 checks, default mode still 0. No WARN suppressed, firmware rule unchanged, no open task edited.
 
 - [ ] **H129 — `board.py claim-set` writes `Supersedes:` to the evidence cell, and its selftest does not check the target cell**
   - Status: open · Owner: — · Critical: no · Pair: required

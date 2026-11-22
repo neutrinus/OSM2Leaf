@@ -1,0 +1,14 @@
+{
+  "note": "A debt ledger for todo_check --strict (rule-14 firmware four-field errors), keyed by (task ID, missing field), never by line number (H71/H80).  Not a waiver: a new task missing a field still fails on the first PR that adds it.",
+  "revision": "ba503549a5287e58440c3e6034e4ecdb51e752d3",
+  "entries": {
+    "M1.38|Stop": true,
+    "M3.13|Precheck": true,
+    "M3.13|Scope": true,
+    "M3.13|Stop": true,
+    "M3.29|Precheck": true,
+    "M8.C|Precheck": true,
+    "M8.C|Scope": true,
+    "M8.C|Stop": true
+  }
+}

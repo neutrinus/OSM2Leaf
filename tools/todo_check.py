@@ -378,7 +378,6 @@ def check(text: str, *, strict_firmware: bool = False,
     def err(msg, task=None):
         where = f"TODO.md:{task['lineno']} {task['id']}" if task else "TODO.md"
         errors.append(f"{where}: {msg}")
-
     # Unparsed block headers are errors (H68). A header-shaped line that
     # TASK_RE rejects is not counted as a task, so without this guard it is
     # absorbed into the previous block and vanishes silently. Dual-ID forms
@@ -536,6 +535,52 @@ def check(text: str, *, strict_firmware: bool = False,
     }
 
 
+def _git_revision() -> str:
+    """The current HEAD SHA, or ``unknown`` when git is unavailable."""
+    try:
+        import subprocess
+        p = subprocess.run(["git", "rev-parse", "HEAD"],
+                           cwd=str(REPO_ROOT), capture_output=True, text=True,
+                           timeout=30)
+        return p.stdout.strip() or "unknown"
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+
+
+def _error_key(err_msg: str) -> tuple[str, str] | None:
+    """Parse ``(task ID, missing field)`` from an error string, or None.
+
+    Only rule-14 firmware errors carry a task and a field name; a structural
+    error (duplicate ID, cyclic Depends, …) has no such key and is never
+    baselined — a new structural error must always fail.
+    """
+    m = re.search(r"TODO\.md:\d+ ([A-Z][A-Za-z0-9./]*): "
+                  r"firmware/search task missing (\w+)$", err_msg)
+    if m:
+        return (m.group(1), m.group(2))
+    return None
+
+
+def _load_baseline(path: Path) -> dict:
+    """Read a committed baseline JSON; ``{}`` for a missing/empty file."""
+    if not path.exists():
+        return {}
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    return doc.get("entries", {})
+
+
+def _write_baseline(path: Path, entries: dict, revision: str) -> None:
+    doc = {
+        "note": ("A debt ledger for todo_check --strict (rule-14 firmware "
+                 "four-field errors), keyed by (task ID, missing field), "
+                 "never by line number (H71/H80).  Not a waiver: a new task "
+                 "missing a field still fails on the first PR that adds it."),
+        "revision": revision,
+        "entries": {f"{tid}|{field}": True for (tid, field) in sorted(entries)},
+    }
+    path.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("todo", nargs="?", default=str(TODO_PATH), help="TODO.md path")
@@ -552,6 +597,13 @@ def main(argv=None):
         "reference to a done/archived task (H125; the rows the board repair "
         "M3.36 acts on)",
     )
+    p.add_argument("--baseline", metavar="PATH",
+                   help="with --strict: fail only on ERRORs whose (task ID, field) "
+                        "is not in this baseline; a baselined ERROR that cleared is "
+                        "printed as 'cleared:' and does not fail")
+    p.add_argument("--update-baseline", metavar="PATH",
+                   help="write the current strict ERROR keys to PATH as the new "
+                        "baseline (prints the + / - rows); the file must be staged")
     p.add_argument("--selftest", action="store_true")
     args = p.parse_args(argv)
 
@@ -559,12 +611,70 @@ def main(argv=None):
         return run_selftest()
 
     text = Path(args.todo).read_text(encoding="utf-8")
-    result = check(text, strict_firmware=args.strict,
-                   strict_unblock=args.strict)
+    # The baseline is a ledger of the *strict* ERROR set, so --update-baseline
+    # and --baseline imply --strict (H128).
+    strict = args.strict or bool(args.baseline) or bool(args.update_baseline)
+    if args.baseline or args.update_baseline:
+        # The baseline is a ledger of the *rule-14 firmware* ERROR set only;
+        # H125's Unblock rows are a separate board repair (M3.36) and must not
+        # turn the baseline red (H128 Done-when).
+        result = check(text, strict_firmware=True)
+    else:
+        result = check(text, strict_firmware=args.strict,
+                       strict_unblock=args.strict)
     if args.fix_list:
+        result = check(text, strict_firmware=args.strict,
+                       strict_unblock=True)
         for task, field, ref, target in result["fix_list"]:
             print(f"{task} / {field} / {ref} / {target}")
         return 0 if result["ok"] else 1
+
+    # Baseline (H128): the debt ledger for --strict rule-14 errors.
+    current_keys = set()
+    for e in result["errors"]:
+        k = _error_key(e)
+        if k:
+            current_keys.add(k)
+    if args.update_baseline:
+        rev = _git_revision()
+        old = set(_load_baseline(Path(args.update_baseline)))
+        _write_baseline(Path(args.update_baseline), current_keys, rev)
+        added = sorted(current_keys - old)
+        removed = sorted(old - current_keys)
+        for tid, field in added:
+            print(f"  + {tid}|{field}")
+        for tid, field in removed:
+            print(f"  - {tid}|{field} (cleared)")
+        print(f"baseline updated: {len(current_keys)} entries "
+              f"({len(added)} added, {len(removed)} cleared) at {rev}")
+        return 0
+    if args.baseline:
+        base = _load_baseline(Path(args.baseline))
+        base_keys = {tuple(k.split("|", 1)) for k in base}
+        new_keys = sorted(current_keys - base_keys)
+        cleared = sorted(base_keys - current_keys)
+        # An ERROR is real only if its (task, field) is new; structural errors
+        # (no key) are never baselined and always fail.
+        structural = [e for e in result["errors"] if _error_key(e) is None]
+        failed = bool(new_keys) or bool(structural)
+        for tid, field in new_keys:
+            print(f"  NEW {tid}|{field}")
+        for tid, field in cleared:
+            print(f"  cleared: {tid}")
+        dc = result["dep_classes"]
+        print(
+            f"todo_check [strict+baseline]: {result['tasks']} tasks, "
+            f"{len(result['errors'])} error(s) over "
+            f"{len({k[0] for k in current_keys})} task(s) "
+            f"(baseline {len(base_keys)}, new {len(new_keys)}), "
+            f"{len(result['warnings'])} warning(s); refs archived "
+            f"{dc['archived']} / ghost {dc['ghost']} / blocked {dc['blocked']}"
+        )
+        for e in structural:
+            print(f"  ERROR {e}")
+        print("todo_check: FAILED" if failed else "todo_check: OK")
+        return 1 if failed else 0
+
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     else:
@@ -981,8 +1091,63 @@ def run_selftest():
     assert r["ok"], "real TODO.md:\n" + "\n".join(r["errors"])
     assert r["tasks"] > 100, r["tasks"]
     assert r["dep_classes"]["ghost"] == 0, r["dep_classes"]
+    real_tasks = r["tasks"]
 
-    print(f"todo_check selftest: OK (43 checks, {r['tasks']} real tasks)")
+    # --- H128: the --strict baseline (debt ledger) -------------------------
+    # A baseline keyed by (task ID, missing field): a new firmware task
+    # missing a field fails, a baselined one that clears does not, and a
+    # structural error is never baselined.
+    import tempfile as _tf
+    fw = """# TODO
+- [ ] **M1.1 — b**
+  - Status: open · Owner: — · Critical: yes
+  - Depends: —
+  - Goal: g
+  - Done when: d
+  - Claims: C-550–C-559
+"""
+    r = check(fw, strict_firmware=True)
+    keys = {k for e in r["errors"] if (k := _error_key(e))}
+    assert keys == {("M1.1", "Precheck"), ("M1.1", "Scope"), ("M1.1", "Stop")}, keys
+
+    with _tf.TemporaryDirectory(prefix="todo-h128-") as td:
+        bp = Path(td) / "base.json"
+        _write_baseline(bp, keys, "rev0")
+        base = _load_baseline(bp)
+        assert set(base) == {"M1.1|Precheck", "M1.1|Scope", "M1.1|Stop"}, base
+
+        # All errors baselined -> no new key.
+        new = keys - {tuple(k.split("|", 1)) for k in base}
+        assert new == set(), new
+
+        # A NEW firmware task (M9.99) missing Stop is not in the baseline.
+        fw2 = fw + ("\n- [ ] **M9.99 — new**\n  - Status: open · Owner: — · "
+                    "Critical: no\n  - Depends: —\n  - Goal: g\n  - Precheck: p\n"
+                    "  - Scope: s\n  - Done when: d\n  - Claims: C-560–C-569\n")
+        r2 = check(fw2, strict_firmware=True)
+        keys2 = {k for e in r2["errors"] if (k := _error_key(e))}
+        new2 = keys2 - {tuple(k.split("|", 1)) for k in base}
+        assert new2 == {("M9.99", "Stop")}, new2
+
+        # M1.1 made done -> its 3 keys clear (baseline entry that cleared).
+        fw_done = fw.replace("- Status: open", "- Status: done", 1).replace(
+            "  - Claims: C-550–C-559", "  - Claims: C-550–C-559\n  - Result: r", 1)
+        r3 = check(fw_done, strict_firmware=True)
+        keys3 = {k for e in r3["errors"] if (k := _error_key(e))}
+        cleared = {tuple(k.split("|", 1)) for k in base} - keys3
+        assert cleared == {("M1.1", "Precheck"), ("M1.1", "Scope"),
+                           ("M1.1", "Stop")}, cleared
+
+        # A structural error has no key and is never baselined.
+        dup = fw.replace("**M1.1 — b**", "**M1.1 — dup**") + fw
+        rd = check(dup, strict_firmware=True)
+        assert any(_error_key(e) is None and "duplicate task ID" in e
+                   for e in rd["errors"]), rd["errors"]
+
+    import ast as _ast, inspect as _inspect
+    _n = sum(isinstance(n, _ast.Assert) for n in _ast.walk(
+        _ast.parse(_inspect.getsource(run_selftest))))
+    print(f"todo_check selftest: OK ({_n} checks, {real_tasks} real tasks)")
     return 0
 
 
