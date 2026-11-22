@@ -3086,8 +3086,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7890–C-7899
   - Result: EXP-2026-11-22-M4.88-poi-categories; 276 codes / 531,199 coded records; 34 verified icons stable (0 collisions); place control 53/10; selftest 11/11 and verify PASS
 
-- [ ] **M4.89 — Poland on the later cards as an oracle: do the 2014/2016 Poland tiles decode with the 2011 tools**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M4.89 — Poland on the later cards as an oracle: do the 2014/2016 Poland tiles decode with the 2011 tools**
+  - Status: done · Owner: task/m4.89-poland-cross-year · Critical: yes · Pair: required
   - Step: P2
   - Depends: —
   - Goal: The EU 2014 and 2016 cards belong to another unit generation, but if their map files keep the 2011 format, their Polish coverage is a factory-made answer sheet: Polish names, the country code in `LCTBL` (M5.64), road classes on Polish roads, POI categories.
@@ -3098,6 +3098,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; a family whose container differs is listed as such, not converted.
   - Falsifier: the 2014 card has no more Polish detail than the 2011 card (same tile sizes for the Poland tiles).
   - Claims: C-7900–C-7909
+  - Result: EXP-2026-11-22-M4.89-poland-cross-year-oracle; C-7900-C-7909; 4/4 families decode on EU2014; LCTBL 247089->329296, Polish-named 2139->6174; tile sec4 2640->7897; no Poland 33xx table; falsifier refuted
 
 - [x] **M4.90 — Road numbers and shields: how the factory map stores `A4`, `E40`, `B6` and which shield the renderer draws**
   - Status: done · Owner: task/m4.90-road-shields · Critical: no · Pair: solo
