@@ -4552,8 +4552,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6980–C-6989
   - Result: EXP-2026-11-22-M8.H1-serial-chardevs; sci1+sci7 TX/RX loopback, ch7 ISR 1 hit, baseline unchanged, gate 5/5
 
-- [ ] **M8.H2 — `serial_uat.dll`: which UART chip sits at `0x19b00000`–`0x19e00000` (register map, interrupts)**
-  - Status: in progress · Owner: task/m8.h2-serial-uat-map · Critical: no · Pair: solo
+- [x] **M8.H2 — `serial_uat.dll`: which UART chip sits at `0x19b00000`–`0x19e00000` (register map, interrupts)**
+  - Status: done · Owner: task/m8.h2-serial-uat-map · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: `UAT3:` carries the vehicle CAN microcontroller (`CAN.dll`), `UAT4:` has no known user. Nothing models the external UARTs, so no CAN frame can enter the emulator. Read the driver and write the register model a QEMU device needs.
@@ -4564,6 +4564,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the driver is a thin wrapper over a kernel IOCTL, name the kernel routine and stop.
   - Falsifier: the driver touches no address in `0x19b00000`–`0x19e00000` (then the address range in the hardware map is wrong).
   - Claims: C-6990–C-6999
+  - Result: EXP-2026-11-22-M8.H2-serial-uat; 10/10 claims, fn_audit clean
 
 - [ ] **M8.H3 — External UART model on `-M ze0`: `UAT3:` and `UAT4:` as host chardevs**
   - Status: open · Owner: — · Critical: no · Pair: required
