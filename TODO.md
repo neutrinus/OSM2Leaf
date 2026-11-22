@@ -2699,7 +2699,7 @@ text of this section is in git (`13cb0cf`).
   - Result: the tree is read by the nearest-POI search of EU2011 `Navi.exe`: child loader `fn 0x0040f944`, step `fn 0x004110dc`, node walker `fn 0x004114dc`, distance `fn 0x00408ea4`. New `tools/point_tree_l3.py` runs them on factory trees: 5 files, 237/237 trees ACCEPT, 8,475/8,475 cells return the ordinals `point_census` reads (16,616 leaves), controls moved/cut/flag 237/237, code 33/33. A leaf needs flag `0x0800`, code 63 (or 0), ordinal, two 11-bit fine values and a `0005` terminator; leaves with other codes are skipped unless `*0x005638ec` holds the code. EXP-2026-11-21-M3.35-point-spatial-tree-reader, C-6830–C-6839; follow-up M3.37
 
 - [ ] **M3.37 — POI search set-up: upper-level drivers, the leaf code and `*0x005638ec` (EU2011, then US2011)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m3.37-poi-setup · Critical: no · Pair: solo
   - Depends: M3.35 (done)
   - Goal: M3.35 runs the child loader, step, node walker and distance function of the nearest-POI search on factory trees, with the search state written by the tool. Three things are not known: who writes that state (root loader `fn 0x0040f674`, drivers `fn 0x00411fd4`/`fn 0x0041235c`, caller `0x003f383c`), what the leaf's 6-bit code means (a leaf with a code other than 0/63 is kept only when `*0x005638ec` holds it, C-6836), and whether the category filter (`0x00d5d7dc`) reads a field a writer must set.
   - Precheck: `python3 tools/point_tree_l3.py --selftest` prints `selftest OK (14 checks)`.
