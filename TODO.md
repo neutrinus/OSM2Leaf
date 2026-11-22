@@ -1710,7 +1710,7 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6410–C-6419
 
 - [ ] **M1.40 — Hardware map II: I2C slaves, GPIO pin roles, baud rates, the users of `SCI0:` and `UAT4:`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.40-hw-map-ii · Critical: no · Pair: solo
   - Depends: M1.39 (done)
   - Goal: fill the rows `docs/hardware/head-unit.md` leaves open, still from the firmware: which I2C slave addresses each driver uses on which bus (and what chip that suggests), which GPIO bits `GPIO.dll` clients set or read and for what (mute, SD power, card detect, LCD power, reverse, illumination), the baud rate and framing each port user sets (`SetCommState` DCB), and who opens `SCI0:` / `UAT4:` (compressed sections were not searched in M1.39).
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports I2C.dll` and `… exports GPIO.dll` print the driver entry points; `python3 tools/nk_decomp.py` decompresses a `.data` section of `SDHC.dll`.
