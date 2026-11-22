@@ -67,6 +67,10 @@ Editing TODO.md concurrently (~15 agents write to it):
   an earlier record. If the branch itself moves the number (a `moved` count, a
   line offset, a selftest size), cite the command and the stable part
   (`0 new / 0 gone`), or say at which revision the number was measured.
+- For any recompression or byte-identical claim, record the interpreter that
+  produced the bytes with `python3 tools/zlibinfo.py` (or `--stamp`); a
+  `--stamp` WARNING means the runtime is not stock zlib 1.3.1 and the claim is
+  `UNVERIFIABLE` on that host unless rerun with stock zlib 1.3.1.
 - Before pushing: `git fetch && git rebase origin/main`, resolve conflicts by
   keeping both sides' content (`python3 tools/board.py resolve TODO.md`, same
   for `docs/research/claims.md`), then run `python3 tools/board.py lost --base

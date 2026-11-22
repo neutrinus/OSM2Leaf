@@ -549,6 +549,47 @@ def tree_report(fw: Firmware, opened, args, tree: int) -> dict:
             "rows": rows[:100], "reads_by_pc": {"%#010x" % k: v for k, v in sorted(table.items())}}
 
 
+def cmd_root_load(args) -> int:
+    """Run root loader fn 0x0040f674 on one tree and verify it sets the tree base.
+
+    The root loader is driven by the POI search setup; this harness seeds the
+    request/state the static callers pass (r4=request/context pointer) and
+    checks that *0x00d5b858 is set to the tree base block and that STEP can
+    descend from the returned root context. If the loader needs unavailable
+    search state, return BLOCKED with the missing precondition.
+    """
+    fw = Firmware(pw.load_image(args.image))
+    blob, ref, names, ntrees = open_tree(Path(args.dir), args.file, int(args.tree))
+    walk = Walk(fw, blob, ref)
+    # Seed globals observed in callers: mode/format/filter already set by Walk.
+    # Provide request pointer as r4; many callers pass r9=request struct.
+    req = walk.request
+    walk.eng.write_mem(req, bytes(80))
+    # Common fields seen in setup: store origin/id placeholders harmlessly.
+    sp = STACK + 0xF000
+    walk.eng.set_regs(r15=sp)
+    try:
+        r0 = walk.eng.call(0x0040f674, [req])
+    except (EngineError, Blocked) as exc:
+        print("BLOCKED: root-load engine stop: %s" % str(exc)[:300])
+        return 3
+    base = struct.unpack("<I", walk.eng.read_mem(G_TREE_BASE, 4))[0]
+    ok_base = base == walk.base_block
+    # Try stepping root entry 0 if loader produced/returned a context-like state.
+    step_status = None
+    try:
+        # best-effort: use request as ctx if it was filled; else report base only
+        ctx = req
+        step_status = walk._call_step(LEVEL_ROOT, 0, ctx)
+    except Exception as exc:
+        step_status = f"err:{type(exc).__name__}"
+    print("%s tree %d: root_load r0=%s tree_base=%#x expected=%#x step0=%s" % (
+        args.file, int(args.tree), hex(r0 & 0xFFFFFFFF), base, walk.base_block, step_status))
+    ok = ok_base and step_status == 1
+    print("RESULT: %s" % ("ACCEPT" if ok else "BLOCKED"))
+    return 0 if ok else 3
+
+
 def cmd_run(args) -> int:
     fw = Firmware(pw.load_image(args.image))
     if args.tree == "all":
@@ -665,12 +706,19 @@ def main(argv=None) -> int:
     r.add_argument("--cells", type=int, default=50)
     r.add_argument("--tol", type=float, default=3.0, help="distance tolerance in metres (plus 0.2 %%)")
     r.add_argument("--json")
+    rl = sub.add_parser("root-load", help="run root loader fn 0x0040f674 on one tree")
+    rl.add_argument("image")
+    rl.add_argument("--dir", required=True)
+    rl.add_argument("--file", default="POINT010")
+    rl.add_argument("--tree", default="0")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
     if not args.cmd:
         ap.error("need a command or --selftest")
     try:
+        if args.cmd == "root-load":
+            return cmd_root_load(args)
         return cmd_run(args)
     except Blocked as exc:
         print("BLOCKED: %s" % exc)

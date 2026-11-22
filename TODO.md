@@ -1150,8 +1150,8 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-16-H81-close-superseded; C-4040–C-4044. Five of the seven H51-superseded blocks were `open`; they are now `done` with `Result: superseded by H51/M1.19` (history note kept, no block deleted), so the probe prints no `open` row among the seven and the board moves `open 108→103`, `done 59→64` (`blocked` unchanged at `28`). The two `blocked` ones (M1.2f, M8.E1) keep their own `Unblock:` chain, not M1.19, which would be a false unblock. `todo_check` OK; `--strict` 69→66 (M1.2e's three firmware fields drop out, nothing new). H81's own stale `grep -c` count is corrected: `10`, not `11`.
   - Claims: C-4040–C-4049
 
-- [ ] **H82 — Stamp the zlib interpreter into recompression evidence (this host's default `python3` is zlib-ng)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H82 — Stamp the zlib interpreter into recompression evidence (this host's default `python3` is zlib-ng)**
+  - Status: done · Owner: task/h82-zlib-stamp · Critical: no · Pair: solo
   - Depends: — (`tools/zlibinfo.py` exists); coordinates H58/H66 (evidence form) and every `*.cmp`/`LEV3456R` writer claim
   - Goal: on this host `python3 --version` prints `Python 3.15.0` and `python3 tools/zlibinfo.py` prints `zlib: zlib 1.3.1.zlib-ng, runtime 1.3.1.zlib-ng (zlib-ng: not the reference compressor)`, yet several EXPs in the window write `python3 3.13.1` (H76/H75/H71) or `python3 3.15.0` (M1.31/M1.26/H74) without saying which interpreter has stock zlib 1.3.1. AGENTS.md makes a byte-identical recompression claim unverifiable on zlib-ng, so the field must name the interpreter that produced the bytes, not the one that printed a log line: `python3.13` here is 1.3.2 and `python3` is zlib-ng, so neither default is the 1.3.1 the writer claims assume.
   - Precheck: `python3 tools/zlibinfo.py` exits 0 and names `zlib-ng`; `python3 tools/zlibinfo.py --require-stock-zlib` exits 3 with `needs stock zlib` (so the tool already knows, the EXPs do not use it).
@@ -1161,6 +1161,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: `python3 tools/zlibinfo.py --stamp` prints nothing on a stock 1.3.1 runtime and one `WARNING` line on any other (a `--selftest` case, both injected); TEMPLATE's Tools row and `prompt_common.txt` require the `zlibinfo.py` line for any recompression claim; `python3 tools/selftest.py` stays green.
   - Stop: if a per-EXP edit of the window's six files would touch claims, ship the template/prompt/stamp half and record the EXP backfill as a one-line follow-up (never retype a tool version).
   - Claims: C-4050–C-4059
+  - Result: EXP-2026-11-22-H82-zlib-stamp; zlibinfo --stamp warns on non-1.3.1, silent on stock 1.3.1; selftest 182/0/21 green
 
 - [x] **H83 — A board-ref lint: every `TASK#ref` resolves, and a task's normative text never re-states its priority**
   - Status: done · Owner: task/h83-board-ref-lint · Critical: no · Pair: required
@@ -1708,8 +1709,8 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-20-M1.39-hardware-map (C-6410–C-6416), page [`docs/hardware/head-unit.md`](docs/hardware/head-unit.md): SH-4A (SH-NaviJ family, part unproven), DRAM from `0x08000000`, at least 102 MiB (128 MiB guessed), 44.6 MiB for applications; 8 MiB NOR flash; 800 × 480 × 16 bpp; port users from device-name strings — `SCI1:` audio microcontroller, `SCI3:` display, `SCI6:` debug console (= kernel debug SCIF `0xffe46000`), `SCI7:` GPS, `SCI8:` Bluetooth, `UAT3:` CAN sub-microcontroller; `0xffe70000` is the USB host block (OHCI at `+0x400`).
   - Claims: C-6410–C-6419
 
-- [ ] **M1.40 — Hardware map II: I2C slaves, GPIO pin roles, baud rates, the users of `SCI0:` and `UAT4:`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.40 — Hardware map II: I2C slaves, GPIO pin roles, baud rates, the users of `SCI0:` and `UAT4:`**
+  - Status: done · Owner: task/m1.40-hw-map-ii · Critical: no · Pair: solo
   - Depends: M1.39 (done)
   - Goal: fill the rows `docs/hardware/head-unit.md` leaves open, still from the firmware: which I2C slave addresses each driver uses on which bus (and what chip that suggests), which GPIO bits `GPIO.dll` clients set or read and for what (mute, SD power, card detect, LCD power, reverse, illumination), the baud rate and framing each port user sets (`SetCommState` DCB), and who opens `SCI0:` / `UAT4:` (compressed sections were not searched in M1.39).
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports I2C.dll` and `… exports GPIO.dll` print the driver entry points; `python3 tools/nk_decomp.py` decompresses a `.data` section of `SDHC.dll`.
@@ -1718,6 +1719,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: the page has ≥ 5 I2C (bus, address, driver) rows or the reason they cannot be read statically, a GPIO table with ≥ 8 named bits, and baud rates for `SCI1:`, `SCI6:`, `SCI7:`, `SCI8:`, `UAT3:`.
   - Stop: chip names stay HYPOTHESIS without a board photo; do not guess a part from an address alone.
   - Claims: C-6420–C-6429
+  - Result: EXP-2026-11-22-M1.40-hw-map-ii; head-unit.md updated with I2C/GPIO/baud/SCI0/UAT4 static map; C-6420-C-6429
 
 - [ ] **M1.41 — Decompile map of the Bluetooth stack, and why two phones work badly**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -1924,8 +1926,8 @@ text of this section is in git (`13cb0cf`).
   - Claims: C-6700–C-6709
   - Result: EXP-2026-11-21-H128-h128-todo-strict-debt (C-6700): tools/todo_check.py gains --baseline/--update-baseline; committed tools/fixtures/todo_strict_baseline.json keys 8 ERRORs over 4 tasks (M1.38, M3.13, M3.29, M8.C) by (task ID, missing field). --strict --baseline exits 0 on main (8 over 4, baseline 8, new 0), a new firmware task missing Stop exits 1 (NEW M9.99|Stop), a cleared task prints cleared: M3.13 and stays 0; structural errors (no key) always fail. selftest 31 checks, default mode still 0. No WARN suppressed, firmware rule unchanged, no open task edited.
 
-- [ ] **H129 — `board.py claim-set` writes `Supersedes:` to the evidence cell, and its selftest does not check the target cell**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H129 — `board.py claim-set` writes `Supersedes:` to the evidence cell, and its selftest does not check the target cell**
+  - Status: done · Owner: task/h129-claim-set-supersedes · Critical: no · Pair: required
   - Step: tooling
   - Depends: — (found by the M1.44 round-3 reviewer after #433 merged; it is a tool bug, not a record defect)
   - Goal: `python3 tools/board.py claim-set C-XXXX Supersedes C-YYYY` must put `Supersedes: C-YYYY` in the claim **body** (cell 2) when the body has no such key, matching every other ledger row's body form (C-6460's body itself says "Supersedes: C-6460"); it must not silently append `; Supersedes: …` to the evidence cell (cell 5). Evidence: M1.44 #433 merged as `47400e9b`; C-6750's `Supersedes` landed in the evidence tail (`| … status | … evidence …; Supersedes C-6460, whose scope… |`) and `claim-set` is a no-op on a second call.
@@ -1933,6 +1935,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: `python3 tools/board.py claim-set C-6750 Supersedes C-6460` on the current ledger leaves one `C-6750` row with `Supersedes: C-6460` inside cell 2 and the evidence cell unchanged (print the row before/after, split on unescaped `|`); `python3 tools/board.py --selftest` has a case that fails if the field lands in cell 5 instead of cell 2; `python3 tools/claims_check.py --strict --count-check` OK; `python3 tools/gate.py` = 5 pass / 0 fail / 0 skip (`board_check` PASS, `fn_audit` not SKIP).
   - Stop: if a real ledger convention turns out to be "Supersedes lives in evidence", record that with a counted corpus and close this task with a negative result rather than moving 199 rows.
   - Claims: C-6760–C-6769
+  - Result: EXP-2026-11-22-H129-board-claim-set-supersedes-cell; claim-set inserts missing keys into body cell 2, selftest pins cell placement; C-6750 normalized via claim-set.
 
 
 ## M2 — Map code, activation, updater
@@ -2696,7 +2699,7 @@ text of this section is in git (`13cb0cf`).
   - Result: the tree is read by the nearest-POI search of EU2011 `Navi.exe`: child loader `fn 0x0040f944`, step `fn 0x004110dc`, node walker `fn 0x004114dc`, distance `fn 0x00408ea4`. New `tools/point_tree_l3.py` runs them on factory trees: 5 files, 237/237 trees ACCEPT, 8,475/8,475 cells return the ordinals `point_census` reads (16,616 leaves), controls moved/cut/flag 237/237, code 33/33. A leaf needs flag `0x0800`, code 63 (or 0), ordinal, two 11-bit fine values and a `0005` terminator; leaves with other codes are skipped unless `*0x005638ec` holds the code. EXP-2026-11-21-M3.35-point-spatial-tree-reader, C-6830–C-6839; follow-up M3.37
 
 - [ ] **M3.37 — POI search set-up: upper-level drivers, the leaf code and `*0x005638ec` (EU2011, then US2011)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: — · Critical: no · Pair: solo
   - Depends: M3.35 (done)
   - Goal: M3.35 runs the child loader, step, node walker and distance function of the nearest-POI search on factory trees, with the search state written by the tool. Three things are not known: who writes that state (root loader `fn 0x0040f674`, drivers `fn 0x00411fd4`/`fn 0x0041235c`, caller `0x003f383c`), what the leaf's 6-bit code means (a leaf with a code other than 0/63 is kept only when `*0x005638ec` holds it, C-6836), and whether the category filter (`0x00d5d7dc`) reads a field a writer must set.
   - Precheck: `python3 tools/point_tree_l3.py --selftest` prints `selftest OK (14 checks)`.
@@ -2706,6 +2709,9 @@ text of this section is in git (`13cb0cf`).
   - Stop: one session.
   - Falsifier: no code writes `*0x005638ec` (then coded leaves are dead data for this build).
   - Claims: C-6860–C-6869
+  - Blocker: root loader fn 0x0040f674 executes in L3 and sets *0x00d5b858 on POINT010 tree 0, but full root descent/upper driver L3 needs seeded request state (UnmappedAccess on STEP from minimal ctx); leaf-code meaning remains HYPOTHESIS
+  - Unblock: M3.38
+  - Result: EXP-2026-11-22-M3.37-poi-search-setup; C-6970-C-6979; writer fn 0x003f2f98 named, census {63:2631890,6:3414,4:3356,5:3064,10:3061,7:2866,2:2803,8:2761} 4945 same-pos multi-code, US twins listed, root-load sets base block 0xd77 but step BLOCKED
 
 - [x] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
   - Status: done · Owner: task/m5.62-l2-tile-section-list · Critical: no · Pair: solo
@@ -4956,6 +4962,49 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Scope: one QEMU `-M ze0` boot per card image (factory US2011 card, S2 card) to the map state, with the `Navi.exe` file-open log; the logs and screenshots stay in `archive/work/` (vendor-derived). Not: F5 (screen) beyond detecting an error screen, the car.
   - Stop: if a boot stops short of the map state twice with the same log, record the last opened file and the stage in an EXP and set `blocked` on the M8.C row or M9.16 step that stops it.
   - Claims: C-2270–C-2279
+
+- [ ] **M8.G1 — Hardware of the three generations: ZE0 (2011–12, `X210`) vs AZE0 (2013–17, `X212`) vs ZE1 / Leaf 2 (2018+), from our images**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: map
+  - Priority: low (Marek, 2026-11-22: the ZE0 2011 unit stays the focus; the other generations are the long-term goal "run any of them in QEMU").
+  - Depends: M1.36 (done), M1.39 (done); M1.38 and M1.37 help
+  - Goal: Marek asks how the later units differ in hardware. Fill a per-generation table: CPU/SoC (BSP and platform strings), RAM size and map (ROMHDR RAM windows), NOR/NAND flash and flash driver (`fmmdrv` vs `fmmdrv_05`/`_07`, `FlashManager2`), display (resolution, DU/2DG vs DirectDraw), audio, Bluetooth, CAN sub-microcontroller, USB host (`UsbConMngCC.dll`), telematics (`Telema*`), camera, Wi-Fi if any, OS (CE version/build).
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 <EU2014 head> romhdr` prints a ROMHDR; note which ZE1 images exist: the only post-2016 image we hold is `ENV200_2019_25920-6WX1C-EUR.img` (e-NV200, QY8x, `CLA-NAVI06-01`, C-123), which is **not** a Leaf 2 unit; say whether it is the same board family or record "no ZE1 image" and what image would be needed.
+  - Scope: static only, from the EU2011, US2011, EU2014, EU2016 and 2019 images plus `docs/hardware/head-unit.md`. For each row give the evidence (string, module, VA) or `unknown`. First step for the 2019 image: is it still WinCE on SH-4 at all (`cerom.py` / file magic / ELF or Linux kernel strings)?
+  - Input: EXP-2026-11-20-M1.36-module-census-4-images, `docs/hardware/head-unit.md`, `docs/research/image-versions.md`, `tools/cerom.py`, `tools/rom_atlas.py` if merged.
+  - Done when: `docs/hardware/generations.md` has the table with one column per generation (ZE0 / AZE0 / ZE1-or-QY8x), every cell with evidence or `unknown`, and an EXP lists the three biggest differences that matter for emulation.
+  - Stop: do not open or change any card; if the 2019 image is not CE/SH-4, record the architecture and stop that column there.
+  - Falsifier: the EU2014 kernel ROM names the same BSP string and RAM window as EU2011 (then AZE0 is a board revision, not a new platform).
+  - Claims: C-6940–C-6949
+
+- [ ] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: plan
+  - Priority: low (after the ZE0 F5 screen, M8.C1f).
+  - Depends: M8.G1
+  - Goal: Marek expects separate machine types for the different card images (2026-11-22). Decide which devices of `-M ze0` are reused (SH-4A CCN/INTC/TMU, HPB-DMAC, SDHC, SCIF, loader, `ipl-patch`) and which need a new model per generation, so that `-M aze0` (X212 cards 2014/2016) and later `-M ze1` are added as machines in the same out-of-tree patch series. **Constraint: we keep a patch series on QEMU 11.1.3 (M8.A11), not a fork; the plan must not change that.**
+  - Precheck: `ls tools/qemu-ze0/patches/` lists the `ze0-00NN` series; M8.G1 table exists.
+  - Scope: a design doc only, no QEMU code. For each device: shared / parameterised (property on one machine class) / new; the machine-class layout (one `TYPE_ZE0_MACHINE` base with per-generation subclasses vs separate files); what the X212 kernel needs first to reach F0 (boot log) on `-M aze0` with today's devices.
+  - Input: M8.G1 output, `tools/qemu-ze0/patches/README.md`, `docs/research/full-system-emulation.md`, EXPs of M8.A3/A9/A11/C1b–C1e.
+  - Done when: `docs/research/qemu-machine-types.md` has the device × generation table and an ordered list of follow-up tasks (one per new device model, each with a Done when), and the first of them (`-M aze0` F0 on the EU2014 kernel) is added to this board with `board.py add-task`.
+  - Stop: if M8.G1 shows ZE1 is not SH-4/CE, plan `aze0` only and mark `ze1` as a separate emulator decision for Marek.
+  - Falsifier: an F0 try of the EU2014 kernel on unmodified `-M ze0` prints the same boot log as EU2011 (then no new machine is needed for AZE0, only properties).
+  - Claims: C-6950–C-6959
+
+- [ ] **M8.G3 — Why does Android Auto run on AZE0 units and not on ZE0? (H.264 decode, USB host, CPU, OS)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: research
+  - Priority: low (curiosity of Marek, 2026-11-22; also tells whether the ZE0 unit could ever do phone projection).
+  - Depends: M8.G1 (helps; can start in parallel)
+  - Goal: people get Android Auto working on AZE0 head units but not on ZE0. Find out what the ZE0 unit lacks. Marek's hypothesis: the phone stream is H.264 and needs a hardware video decoder. Check also: USB host mode and Android Open Accessory support, CPU headroom for software decode at 800 × 480, Wi-Fi, OS/CE version and codec libraries, the existing projection-like modules on X212 (`UsbConMngCC.dll`, `Celavi*`, `Telema*`, DirectDraw).
+  - Precheck: `python3 tools/cerom.py` lists modules of EU2011 and EU2014 ROM A/B/C.
+  - Scope: (1) public sources on how AZE0 owners run Android Auto (which unit, which firmware, aftermarket box or native app); record URLs in `docs/research/sources.md`. (2) Static search of all four images for H.264/AVC/VPU/codec/DirectShow/AOAP/`accessory` strings and drivers, per generation. (3) USB: the ZE0 OHCI block at `0xffe70400` (C-6415, HYPOTHESIS) vs an EHCI/OTG controller on X212. (4) A verdict per hypothesis: confirmed / refuted / unknown, with evidence.
+  - Input: EXP-2026-11-20-M1.36-module-census-4-images, `docs/hardware/head-unit.md`, M8.G1 table.
+  - Done when: an EXP `EXP-…-M8.G3-android-auto-ze0-vs-aze0` with the per-hypothesis verdict table and the answer to "what does the ZE0 unit lack", each row citing a source URL or an image string/module.
+  - Stop: no flashing or card change; if public sources say the AZE0 solution is an external box (video over a separate input), record that and stop the codec search.
+  - Falsifier: an H.264 decoder module or VPU driver is found in the ZE0 2011 ROMs too (then the decoder is not the reason).
+  - Claims: C-6960–C-6969
+  - Note: Marek, 2026-11-22: lead https://www.youtube.com/watch?v=BO-hEO0uR3A (not opened from the Claude sandbox, youtube.com is blocked). Russian groups once distributed modified SD card images that unlocked Android Auto on AZE0, so the feature is probably present in the AZE0 firmware and only switched off. First check: compare such an image (if Marek finds one) with the factory EU2014/2016 card: which ROM A module or registry/config byte differs. Do not commit vendor bytes.
 
 ---
 
