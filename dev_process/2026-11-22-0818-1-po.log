@@ -1,0 +1,66 @@
+role: PO (product owner), 23rd pass
+model: Claude (cloud project thread; requested by Marek)
+start: 2026-11-22 08:18 UTC
+origin/main at start: af2e40f (advanced under me to af469580 — #468 #469 #470 #471; restarted on it)
+branch: claude/project-thread-iulrlw
+
+request (Marek, 2026-11-22): tasks are running out; plan further ahead so about
+  100 tasks are takeable in parallel; add GPS and touch input to QEMU and consider
+  other connectors; follow the KIWI lead (Clarion probably used KIWI structures);
+  then clean TODO.md (archive).
+
+inputs read: prompt_common.txt, prompt_po.txt, TODO.md rules 1-17 + Priorities,
+  docs/retro/2026-11-21.md, dev_process/2026-11-21-0740-4-po.log, open PR list,
+  docs/hardware/head-unit.md (incl. M1.40 update), tools/qemu-ze0/README.md,
+  docs/research/reader-coverage.md, M4.63 block, kiwiread source (names only).
+
+actions, in order:
+  - counted takeable tasks by script (open, no owner, no open PR, Depends done): 21.
+  - archive: 81 done blocks (>24 h by blame of the Status line, named by no live
+    Depends/Unblock/Re-opens, no `fn 0x` line) -> docs/research/todo-history-2026-11-22.md
+    with board.py archive. 32 further candidates kept: they hold fn_audit-pinned lines.
+  - removed a stale second copy of the preamble + 21st-pass Priorities (328 lines
+    between two "## H — Housekeeping" headings, introduced by d0f7ba8). Prose only,
+    no task block inside (checked with board.TASK_RE). TODO.md 5910 -> 4351 lines.
+  - added 120 tasks with board.py add-task (one call each, generated from a spec
+    file): M8.H1-H69, M4.64-M4.92, M3.38-M3.41, M5.73-M5.80, M9.68-M9.70,
+    M2.21-M2.24, M6.22, M6.23, M1.49. Claims C-6980-C-8189.
+  - wrote docs/research/qemu-connectors.md: the peer architecture and the
+    connector table the M8.H tasks cite.
+  - fixed a claim-block collision that the archive made visible to todo_check:
+    M4.63 and M8.C1b both held C-6870-C-6879; M8.C1b's rows exist, so M4.63 got
+    C-8100-C-8109 (board.py field).
+  - Step tags on M4.63, M5.67, M9.64 (card_ladder steps --check missing=0).
+  - rewrote Priorities prose, the L4 line of the critical path, the Map-signal block.
+
+decisions / rejected:
+  - "at most ~8 new tasks per pass" overridden: Marek asked for >=100 takeable.
+  - serial-line chips are host-side Python peers on chardev sockets; QEMU patches
+    only for SoC blocks; patch files named ze0-hNN-slug. Rejected: one QEMU device
+    per chip (every agent would edit the machine file and renumber patches).
+  - M8.H as one ID family (no M8 letter was free of meaning: F = milestones).
+  - KIWI split per structure with a byte test each, independent of M4.63, so they
+    can run in parallel; M4.78 collects the verdict. Evidence checked before
+    planning: `grep -a` on IMG256 finds Xanavi and MDP_*RcvParcel strings.
+  - network tasks (M4.65, M4.77, M5.77, M5.78) carry Runner: non-Claude.
+  - did not translate M4.63 to English (its block is Polish — a rule breach left
+    for the task owner or the next SE pass; only Claims and Step were touched).
+  - rule 15 re-open audit not repeated this pass.
+
+problems:
+  - shallow clone: git blame gave one date for all lines until `git fetch --unshallow`.
+  - main moved during the pass; redone on the new tip instead of resolving.
+  - there is no "## M1" section: add-task for M1.49 needed --after M1.48.
+  - todo_check reads "M8.C10" as a ghost ID; M8.H17 names "M8.C (row C10)".
+
+numbers: takeable 21 -> 102 (same script); open 205 / blocked 27 / done 134 blocks.
+  map_signals on this host: readers 18/1/1, l3-running 8, tile_bytes and card_step
+  NOT RUN (no factory tree here) — the map did not move this pass.
+
+handoff:
+  - TL: critical first — M8.H1, M8.H27, M8.H36, M8.H43, M8.H8, M8.H13; M4.69, M4.72,
+    M4.89; M2.21, M2.22. Keep the rule-17 ratio (Priorities).
+  - SE: sanity-read the M8.H static-read tasks against the drivers; split any that
+    is more than one session. M4.63 should be rewritten in English.
+  - QA: after merges, check the patch naming rule (M8.H14 adds the lint).
+end: 2026-11-22 09:20 UTC
