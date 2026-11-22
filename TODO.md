@@ -4953,8 +4953,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7330–C-7339
   - Result: EXP-2026-11-22-M8.H36-touch-path; C-7330–C-7339; touch.md §1–7
 
-- [ ] **M8.H37 — Hard keys and the rotary knob: source, key codes, and the table of names**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H37 — Hard keys and the rotary knob: source, key codes, and the table of names**
+  - Status: done · Owner: task/m8.h37-keys · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: The unit has hard keys (map, menu, destination, zoom, day/night, audio keys, steering-wheel keys). Find where each arrives (display unit, audio microcontroller on `SCI1:`, GPIO matrix) and build the key-code table the injection tool needs.
@@ -4965,6 +4965,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session per source; stop after the two sources that carry the navigation keys.
   - Falsifier: the same raw code maps to two functions depending on a mode the table does not show.
   - Claims: C-7340–C-7349
+  - Result: EXP-2026-11-22-M8.H37-keys; 4 sources, 15 tables/174 pairs decoded, C-7340-C-7349; falsifier negative
 
 - [ ] **M8.H38 — `tools/ze0_peers/panel.py`: touch and key injection peer (`tap`, `drag`, `key`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
