@@ -1,0 +1,55 @@
+---
+role: TL
+model: deepseek-v4.1-flash-free (opencode)
+start: 2026-11-22 06:41Z
+origin/main at start: 9ee75013
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md rules+Priorities 22nd pass, dev_process/2026-11-22-0631-1-tl.log, gh pr list (all states), board task blocks
+---
+
+Goal of this run: take the 30 simplest qualifying tasks and run each as a
+pair (driver + navigator) in its own worktree, per the user's request.
+Queue clearance first: the previous TL run (0631-1) claimed 10 but launched
+only 3 (H82 #468, M1.40 #469, M3.37 #470, all still claim-only); 5 others
+(M1.47/M9.62/M9.64/M9.65/H66/H83) were released as ghost claims by #467
+and are open again; M9.63/M5.65/M3.36/M9.18 were merged before this run but
+the board still says open/blocked (board truth, see below).
+
+Key board findings at start:
+- No open non-draft PRs; 3 draft claim-only PRs (#468/#469/#470) from the
+  interrupted batch.
+- Board truth drift: M9.63 (#450), M5.65 (#452), M3.36 (#447), M9.18 (#352)
+  show as merged but TODO lines were not updated; M9.63/M5.65/M3.36 merged
+  in a 15 s triple that looks transactional (only claim commits, body says
+  "Claim PR ... TL merges") — do not trust them as done without re-checking
+  the task's own Done-when.
+- M1.46/M1.48/M2.20/H120 claim "done" by PRs whose files=1/claim-only
+  (#396/#437/#390/#393). Treat as unverified; do not re-use.
+
+actions taken, in order:
+- git fetch + primary stays on main 9ee75013.
+- H98 (branch protection): admin=true, main not protected, CI contexts are
+  `quality (py3.11|py3.13|py3.14, informational)` and
+  `l1l2 (py3.11|py3.13|py3.14, informational)`. Applying protection as a
+  with-TL claim (repo settings only; Precheck already printed
+  "Branch not protected").
+
+decisions:
+- Run the user's 30-task batch, pairs by default; solo only for the tasks
+  that say `Pair: solo` and are covered by their own selftest.
+- Do not re-launch M4.63/M5.64/M9.63/M9.18/M3.36/M5.65 as fresh work until
+  their board lines are reconciled; verify the merged PRs first.
+- M6.* (Marek/hardware) and M4.2 (needs live OSM correlation against blocked
+  M4.17) are not runnable here; note them in the summary.
+
+problems:
+- (running)
+---
+
+launched wave 1 (driver round-1 plans only):
+- M1.47 #479 (pair, ce_module.py refactor, solo-flagged but I run as pair)
+- H129 #480 (pair, board.py claim-set cell)
+- H66  #478 (pair, claims_check --flag-audit)
+- H83  #474 (pair, todo_check --board-refs)
+- M9.64 #472 (pair, main_watch shadowing semantics)
+Wave 2 queued: M9.65, M9.62, M4.61, M5.72, M9.67, M5.68, M5.69, M5.70,
+M5.71, M1.37 (+H98 done by TL). Remaining 15 of the 30 planned after wave 2.
