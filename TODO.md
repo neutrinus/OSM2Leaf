@@ -2729,8 +2729,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: a static `0x14f4` literal that M4.51's census missed (then M4.51's negative is retracted, not this task built on it), or `+8` proven equal to a value `0x14e4` also writes with no branch on it (then `0x14f4` is a dead alias and M4.49 is retired, not unblocked).
   - Claims: C-6620–C-6629
 
-- [ ] **M4.63 — KIWI (`kiwiread`) jako wzorzec: zmapować struktury KIWI/KWI na rekordy naszej karty**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.63 — KIWI (`kiwiread`) jako wzorzec: zmapować struktury KIWI/KWI na rekordy naszej karty**
+  - Status: done · Owner: task/m4.63-kiwi-map · Critical: no · Pair: solo
   - Depends: — (źródło zewnętrzne; host `github.com/jharg/kiwiread` dozwolony, klonuje się z sandboxa)
   - Goal: `jharg/kiwiread` (GPL-3, C, 2014) czyta format KIWI (`ALLDATA.KWI`/`LOADING.KWI` z samochodowych DVD nawigacji, np. Audi) i nazywa pola po numerach rozdziałów specyfikacji KIWI (np. „6.1.1 Level Management Record”, „7.2.1 Road Distribution Header”). Nasze rekordy (parcela, katalog poziomu 1, linki RDSTM, POINT, LCTBL) używają tych samych pojęć bez nazw. Zadanie sprawdza, które struktury KIWI mają odpowiednik w bajtach karty ZE0 i w czytnikach firmware, tak żeby nazwy i układ pól ze specyfikacji KIWI mogły trafić do `docs/format/` — albo żeby zamknąć ten trop jako „tylko wspólne pojęcia, inny format”.
   - Precheck: `git clone --depth 1 https://github.com/jharg/kiwiread` działa (commit `74741c5b`); `python3 tools/parcel_census.py --help` i `python3 tools/rdstm_record.py --help` działają; obraz US/EU z rule 11 pobrany. Jeśli pierwsza struktura z listy niżej (nagłówek wolumenu `datavol_t` / katalog z 4-znakowymi magikami i `offset*2+0x800`) nie ma żadnego kandydata w karcie, to jest wynik (negatywny), nie porażka.
@@ -2741,6 +2741,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: pole oznaczone „pasuje”, którego wartość na drugiej karcie (US vs EU) lub w drugim kaflu nie zachowuje się jak pole KIWI (np. liczba poziomów, ramka lat/lng parceli) — wtedy dopasowanie jest przypadkowe.
   - Claims: C-8100–C-8109
   - Step: tooling
+  - Result: EXP-2026-11-22-M4.63-kiwi-map; 0/4 header fits on 3 files, 8 structures mapped, negative verdict; gate 5/5
 
 - [ ] **M4.64 — KIWI lineage in the firmware: every string and symbol that names a KIWI concept (parcel, level, block, Xanavi)**
   - Status: open · Owner: — · Critical: no · Pair: solo
