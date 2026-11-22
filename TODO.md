@@ -4141,7 +4141,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.C1g-ui-layer (C-8200–C-8207), stopped on the Stop case. `ze0_ipl.py --prefer-app auiapp.exe,auirtdll.dll` runs image A's AuiApp instead of the updater's; `tools/ze0_aui.py` patches in the SkinPath default, `DllRegisterServer` of 64 control DLLs and (`--no-aui-timeout`) SystemEXE's 45 s AUI wait. The real skin chain loads (ReleaseMain.skn → Substance.skn, 36 905 skins) and the system no longer shuts down, but 16 controls incl. `ctl_PRCOM_System` fail: `HCXLog.dll`, `HCXMemory.dll`, `Cws_Apl.dll` are in the unit's flash, not on the card. `ze0-0015` adds 2DG op 0x44. Next: M8.C1h stubs.
 
 - [ ] **M8.C1h — UI layer on `-M ze0`: stub `HCXLog.dll`/`HCXMemory.dll`, image C's `AppTimerDll.dll`, first AUI form on screen**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.c1h-hcx-stubs · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1g
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). M8.C1g got image A's AuiApp running with the real skins, but 16 controls (incl. `ctl_PRCOM_System`) fail because their DLLs import libraries that live in the unit's flash, not on the card.
