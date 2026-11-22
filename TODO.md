@@ -581,8 +581,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: if the table needs >~20 rows to stay honest, keep the per-level rows and record the rest in §7 prose with `NOT TRACKED: <reason>`; do not build a second issue tracker.
   - Claims: C-3780–C-3789
 
-- [ ] **H66 — H64's `--json` parity rule: a follow-up to the parsed-then-unused flag class**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H66 — H64's `--json` parity rule: a follow-up to the parsed-then-unused flag class**
+  - Status: done · Owner: task/h66-json-parity-flag · Critical: no · Pair: required
   - Depends: — (`tools/claims_check.py` is on `main`); coordinates H58 (the *command* form of evidence) and H61 (the *name*)
   - Goal: H64's navigator caught `--json` parsed then unused — the third such flag this week (SM retro-5 `Watch`). `claims_check` proves a command exists (H58) and the EXP file exists (H61), but nothing proves an evidence command actually *wrote* the file it names, and nothing scans for a flag the tool accepts but never reads. The four claims this pass (`C-3493`, `C-3494`, `C-3840`, `C-3843`) already show the weak spots: `…` in the command span and "same command as C-3840" (prose reference, no invocation). Make "the evidence command writes the named path" a check, not a reviewer's memory.
   - Precheck: `grep -nE "'…'|same command as" docs/research/claims.md | grep -E 'C-349|C-384'` prints the four rows above; a flag-audit script today (`for f in tools/*.py`: collect `add_argument("--x")`, count `args.x`) lists ≥10 flags with zero `args.<dest>` uses (e.g. `sh4dis --check-real`, `l3check --build-corpus`, `one_tile_pipeline --factory-tile`) — the same class H64's `--json` was, not all bugs but all unproven.
@@ -592,6 +592,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Done when: `python3 tools/claims_check.py --selftest` covers a `…`-in-command row, a `same command as C-x` row, and a clean `--json PATH` row (first two fail under `--strict`, third passes); `python3 tools/claims_check.py --flag-audit` lists the unused flags and names the four window claim IDs; `--strict` exits 1 on the current ledger naming `C-3493`, `C-3494`, `C-3840`, `C-3843`; default stays exit 0; `selftest.py --only claims_check` passes.
   - Stop: if the flag sweep has too many false positives (forwarded args), ship only the `bad_evidence()` prose/`…` rule (the H58 extension) and record the flag sweep as `NOT SHIPPED: <reason>` for a later task; do not suppress a real claim-evidence flag.
   - Claims: C-3870–C-3879
+  - Result: EXP-2026-11-22-H66-json-parity (C-3870–C-3876): claims_check gains a same-command evidence reason, a four-row --window-strict error (C-3493/3494/3840/3843; default and bare --strict stay 0 so the gate is not turned red for 60 unrelated ellipsis rows), and an ast-based --flag-audit (4 real parsed-but-unread flags, named; warning-only). selftest 59 checks; tool/claims_check selftest PASS; strict+count rc=0. libd: fn_audit/selftest red on the base is pre-existing (M1.40 overlay + M3.37 ghost ref), not H66.
 
 - [x] **H77 — `fn_audit`/`claims_check` do not skip fenced code blocks, so an EXP that quotes a citation becomes a live citation**
   - Status: done · Owner: task/h77-skip-fenced-code · Critical: no · Pair: required
