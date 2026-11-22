@@ -5388,7 +5388,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7610–C-7619
 
 - [ ] **M8.H65 — `DebugShell.dll` on `SCI6:`: the command list, and typing commands into the running emulator**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h65-debugshell · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: The firmware carries a debug shell on the console line. If it accepts commands in the retail build, the emulator gets a control channel inside the guest (process list, memory, perhaps file and map commands) once serial RX works (M8.H1).
