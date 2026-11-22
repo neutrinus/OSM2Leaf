@@ -2932,7 +2932,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M4.79-zcode-decode; 33/33 EU shards censused (Form A 2, Form B 31), 96.45% of bytes explained, min 67.7% (ZCODE015); US has 0 ZCODE; Form-B header at 0x1100 + base 0x1204+off*2 verified
 
 - [ ] **M4.80 — `ICODE001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.80-icode-decode · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: Row 9 of `docs/research/reader-coverage.md` says the `ICODE001` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
