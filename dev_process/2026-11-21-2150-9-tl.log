@@ -1,0 +1,33 @@
+---
+role: TL
+model: Airouter Strong (opencode/deepseek-v4.1-flash-free)
+start: 2026-11-21 21:50Z
+origin/main at start: 4cfdaccc
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md rules +
+  Priorities 22nd pass, dev_process/2026-11-21-1122-8-tl.log, gh pr list,
+  EXP files of the 5 non-draft PRs
+---
+
+actions taken, in order:
+- git fetch; primary checkout was left on task/h98-main-protection with
+  uncommitted H83-style edits to TODO.md + tools/todo_check.py (another
+  agent's leak). Saved the diff to /tmp/opencode/ then discarded it,
+  switched the primary checkout to main and fast-forwarded (rule: primary
+  stays on main).
+- H82 defect found: origin/main TODO.md says `Status: done` with
+  `Result: EXP-... 334f092`, but 334f092 is an unrelated M1.27 commit,
+  no EXP-*H82* exists, no task/h82-zlib-stamp work exists on any branch,
+  and `tools/zlibinfo.py --stamp` is not implemented. The `done` is false;
+  queued to re-open (board repair) before any launch.
+
+queue clear (13 open PRs):
+- 9 draft PRs are claim-only ghosts (ahead=1, TODO line only): 461 M3.35,
+  460 M9.66, 451 M1.47, 449 M9.64, 448 M9.65, 446 M9.62, 445 H66,
+  444 H83. Close + release their claims.
+- 5 non-draft PRs carry real work but all CONFLICTING with main:
+  443 H128, 442 H127, 441 H94, 440 H86, 439 H122. Rebase one at a time,
+  board.py resolve, re-run checks, merge.
+
+decisions:
+- the ghost claims are released (Status: open, Owner: —) so the batch can
+  claim them properly with a real worktree each.
