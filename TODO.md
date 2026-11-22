@@ -4956,6 +4956,49 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if a boot stops short of the map state twice with the same log, record the last opened file and the stage in an EXP and set `blocked` on the M8.C row or M9.16 step that stops it.
   - Claims: C-2270–C-2279
 
+- [ ] **M8.G1 — Hardware of the three generations: ZE0 (2011–12, `X210`) vs AZE0 (2013–17, `X212`) vs ZE1 / Leaf 2 (2018+), from our images**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: map
+  - Priority: low (Marek, 2026-11-22: the ZE0 2011 unit stays the focus; the other generations are the long-term goal "run any of them in QEMU").
+  - Depends: M1.36 (done), M1.39 (done); M1.38 and M1.37 help
+  - Goal: Marek asks how the later units differ in hardware. Fill a per-generation table: CPU/SoC (BSP and platform strings), RAM size and map (ROMHDR RAM windows), NOR/NAND flash and flash driver (`fmmdrv` vs `fmmdrv_05`/`_07`, `FlashManager2`), display (resolution, DU/2DG vs DirectDraw), audio, Bluetooth, CAN sub-microcontroller, USB host (`UsbConMngCC.dll`), telematics (`Telema*`), camera, Wi-Fi if any, OS (CE version/build).
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 <EU2014 head> romhdr` prints a ROMHDR; note which ZE1 images exist: the only post-2016 image we hold is `ENV200_2019_25920-6WX1C-EUR.img` (e-NV200, QY8x, `CLA-NAVI06-01`, C-123), which is **not** a Leaf 2 unit; say whether it is the same board family or record "no ZE1 image" and what image would be needed.
+  - Scope: static only, from the EU2011, US2011, EU2014, EU2016 and 2019 images plus `docs/hardware/head-unit.md`. For each row give the evidence (string, module, VA) or `unknown`. First step for the 2019 image: is it still WinCE on SH-4 at all (`cerom.py` / file magic / ELF or Linux kernel strings)?
+  - Input: EXP-2026-11-20-M1.36-module-census-4-images, `docs/hardware/head-unit.md`, `docs/research/image-versions.md`, `tools/cerom.py`, `tools/rom_atlas.py` if merged.
+  - Done when: `docs/hardware/generations.md` has the table with one column per generation (ZE0 / AZE0 / ZE1-or-QY8x), every cell with evidence or `unknown`, and an EXP lists the three biggest differences that matter for emulation.
+  - Stop: do not open or change any card; if the 2019 image is not CE/SH-4, record the architecture and stop that column there.
+  - Falsifier: the EU2014 kernel ROM names the same BSP string and RAM window as EU2011 (then AZE0 is a board revision, not a new platform).
+  - Claims: C-6940–C-6949
+
+- [ ] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: plan
+  - Priority: low (after the ZE0 F5 screen, M8.C1f).
+  - Depends: M8.G1
+  - Goal: Marek expects separate machine types for the different card images (2026-11-22). Decide which devices of `-M ze0` are reused (SH-4A CCN/INTC/TMU, HPB-DMAC, SDHC, SCIF, loader, `ipl-patch`) and which need a new model per generation, so that `-M aze0` (X212 cards 2014/2016) and later `-M ze1` are added as machines in the same out-of-tree patch series. **Constraint: we keep a patch series on QEMU 11.1.3 (M8.A11), not a fork; the plan must not change that.**
+  - Precheck: `ls tools/qemu-ze0/patches/` lists the `ze0-00NN` series; M8.G1 table exists.
+  - Scope: a design doc only, no QEMU code. For each device: shared / parameterised (property on one machine class) / new; the machine-class layout (one `TYPE_ZE0_MACHINE` base with per-generation subclasses vs separate files); what the X212 kernel needs first to reach F0 (boot log) on `-M aze0` with today's devices.
+  - Input: M8.G1 output, `tools/qemu-ze0/patches/README.md`, `docs/research/full-system-emulation.md`, EXPs of M8.A3/A9/A11/C1b–C1e.
+  - Done when: `docs/research/qemu-machine-types.md` has the device × generation table and an ordered list of follow-up tasks (one per new device model, each with a Done when), and the first of them (`-M aze0` F0 on the EU2014 kernel) is added to this board with `board.py add-task`.
+  - Stop: if M8.G1 shows ZE1 is not SH-4/CE, plan `aze0` only and mark `ze1` as a separate emulator decision for Marek.
+  - Falsifier: an F0 try of the EU2014 kernel on unmodified `-M ze0` prints the same boot log as EU2011 (then no new machine is needed for AZE0, only properties).
+  - Claims: C-6950–C-6959
+
+- [ ] **M8.G3 — Why does Android Auto run on AZE0 units and not on ZE0? (H.264 decode, USB host, CPU, OS)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: research
+  - Priority: low (curiosity of Marek, 2026-11-22; also tells whether the ZE0 unit could ever do phone projection).
+  - Depends: M8.G1 (helps; can start in parallel)
+  - Goal: people get Android Auto working on AZE0 head units but not on ZE0. Find out what the ZE0 unit lacks. Marek's hypothesis: the phone stream is H.264 and needs a hardware video decoder. Check also: USB host mode and Android Open Accessory support, CPU headroom for software decode at 800 × 480, Wi-Fi, OS/CE version and codec libraries, the existing projection-like modules on X212 (`UsbConMngCC.dll`, `Celavi*`, `Telema*`, DirectDraw).
+  - Precheck: `python3 tools/cerom.py` lists modules of EU2011 and EU2014 ROM A/B/C.
+  - Scope: (1) public sources on how AZE0 owners run Android Auto (which unit, which firmware, aftermarket box or native app); record URLs in `docs/research/sources.md`. (2) Static search of all four images for H.264/AVC/VPU/codec/DirectShow/AOAP/`accessory` strings and drivers, per generation. (3) USB: the ZE0 OHCI block at `0xffe70400` (C-6415, HYPOTHESIS) vs an EHCI/OTG controller on X212. (4) A verdict per hypothesis: confirmed / refuted / unknown, with evidence.
+  - Input: EXP-2026-11-20-M1.36-module-census-4-images, `docs/hardware/head-unit.md`, M8.G1 table.
+  - Done when: an EXP `EXP-…-M8.G3-android-auto-ze0-vs-aze0` with the per-hypothesis verdict table and the answer to "what does the ZE0 unit lack", each row citing a source URL or an image string/module.
+  - Stop: no flashing or card change; if public sources say the AZE0 solution is an external box (video over a separate input), record that and stop the codec search.
+  - Falsifier: an H.264 decoder module or VPU driver is found in the ZE0 2011 ROMs too (then the decoder is not the reason).
+  - Claims: C-6960–C-6969
+  - Note: Marek, 2026-11-22: lead https://www.youtube.com/watch?v=BO-hEO0uR3A (not opened from the Claude sandbox, youtube.com is blocked). Russian groups once distributed modified SD card images that unlocked Android Auto on AZE0, so the feature is probably present in the AZE0 firmware and only switched off. First check: compare such an image (if Marek finds one) with the factory EU2014/2016 card: which ROM A module or registry/config byte differs. Do not commit vendor bytes.
+
 ---
 
 ## M9 — L3 toolkit: run firmware functions against our data
