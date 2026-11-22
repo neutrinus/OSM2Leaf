@@ -3829,7 +3829,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Result: EXP-2026-11-22-M6.18-unit-flash-backup (C-5203–C-5206): nand 8,388,608 B, sram 1,048,576 B, vflash 3,014,656 B, prod 722 B with SHA-256; partial files equal the ranges of the full dump; files stay outside Git
 
 - [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m6.19-unit-flash-map · Critical: no
   - Depends: M6.18
   - Unblock: M6.18 (the dump exists and its SHA-256 is recorded)
   - Goal: settle C-5192 (normal mode runs A/B from the card) with bytes, and name each flash region.
