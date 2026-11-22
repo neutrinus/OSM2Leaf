@@ -5170,7 +5170,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H45-micon-boot (negative); 19 timeouts with and without peer in 3 boots, remaining ACM waits listed; claims C-7420-C-7429
 
 - [ ] **M8.H46 — Sound out of the emulator: SSI audio output to a WAV file**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h46-ssi-audio-wav · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1b (done)
   - Goal: The SoC plays two PCM streams over SSI (`wavessi1.dll`, `wavessi2.dll`; DMA channels in `docs/hardware/head-unit.md`). Capturing them makes guidance prompts and beeps testable.
