@@ -2810,8 +2810,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the KIWI parcel sizes are not an integer multiple or divisor of ours at any level.
   - Claims: C-7670–C-7679
 
-- [ ] **M4.69 — KIWI Road Data Frame (chapter 7.2) against tile section 1: distribution header, display classes, multilink header**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M4.69 — KIWI Road Data Frame (chapter 7.2) against tile section 1: distribution header, display classes, multilink header**
+  - Status: done · Owner: task/m4.69-kiwi-road-frame · Critical: yes · Pair: required
   - Step: P1
   - Depends: —
   - Goal: Section 1 of a tile carries the drawn roads; our writer uses 'provisional classes' because the class field is fitted. KIWI's road frame has a distribution header, display-class management records and multilinks with typed attributes. Test the layout on real section-1 bytes; a match names the road class codes and the attribute bits.
@@ -2822,6 +2822,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; stop after the multilink header if the display-class level already fails.
   - Falsifier: the KIWI field widths cannot tile our record without leftover bits.
   - Claims: C-7680–C-7689
+  - Result: EXP-2026-11-22-M4.69-kiwi-road-frame; 0/6000 KIWI road fits, positive control PASS, 5 claims C-7680-C-7684
 
 - [x] **M4.70 — KIWI Background Data Frame (chapter 7.3) against the odd-partner background records: polygons, shape classes, minimum graphics records**
   - Status: done · Owner: task/m4.70-kiwi-bg-frame · Critical: no · Pair: required
