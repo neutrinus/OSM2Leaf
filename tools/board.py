@@ -749,6 +749,25 @@ def op_claim_status(bf: BoardFile, cid: str, status: str) -> tuple[str, int]:
     return bf.splice(i, i + 1, ["|".join(parts)])
 
 
+def _check_cells(cid: str, line: str) -> list[str]:
+    """Split a claim row on *unescaped* pipes and require exactly five cells.
+
+    A well-formed row splits into ``['', id, body, status, confidence,
+    evidence, '']``: the outer entries are the leading and trailing ``|``.
+    More parts mean a raw ``|`` in the text; fewer mean a missing cell.  Both
+    are corrupt and must be refused before any write (H130).
+    """
+    parts = re.split(r"(?<!\\)\|", line)
+    if len(parts) != 7:
+        raise BoardError(f"{cid}: row has {len(parts) - 2} cells (need exactly 5)")
+    return parts
+
+
+def _escape_pipes(text: str) -> str:
+    """Store a literal pipe in a cell as ``\\|`` so the reader keeps it."""
+    return re.sub(r"(?<!\\)\|", lambda m: "\\|", text)
+
+
 def op_claim_row(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
     """Replace the whole line of claim row *cid* (one splice, like every op).
 
@@ -756,7 +775,8 @@ def op_claim_row(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
     asks about (evidence, status reason) without a hand edit of ``claims.md``.
     The replacement must still be a ``| C-<id> | …`` row of the same ID, and
     must keep a table row shape (5 cells: ID, claim, status, confidence,
-    evidence).
+    evidence).  A whole row with a raw pipe is ambiguous, so refuse it rather
+    than guess which pipe was meant to be literal.
     """
     hits = [i for i, l in enumerate(bf.lines) if (m := ROW_RE.match(l)) and m.group(1) == cid]
     if len(hits) != 1:
@@ -765,8 +785,7 @@ def op_claim_row(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
     m = ROW_RE.match(new)
     if not m or m.group(1) != cid:
         raise BoardError(f"replacement must start `| {cid} |`")
-    if len(re.split(r"(?<!\\)\|", new)) < 6:
-        raise BoardError("replacement needs 5 cells: ID, claim, status, confidence, evidence")
+    _check_cells(cid, new)
     return bf.splice(hits[0], hits[0] + 1, [new])
 
 
@@ -774,10 +793,7 @@ def _claim_row(bf: BoardFile, cid: str) -> tuple[int, list[str]]:
     hits = [i for i, l in enumerate(bf.lines) if (m := ROW_RE.match(l)) and m.group(1) == cid]
     if len(hits) != 1:
         raise BoardError(f"{cid}: {len(hits)} rows (need exactly one)")
-    parts = re.split(r"(?<!\\)\|", bf.lines[hits[0]])
-    if len(parts) < 7:
-        raise BoardError(f"{cid}: row has fewer than 5 cells")
-    return hits[0], parts
+    return hits[0], _check_cells(cid, bf.lines[hits[0]])
 
 
 def op_claim_set(bf: BoardFile, cid: str, field: str, value: str) -> tuple[str, int]:
@@ -791,25 +807,37 @@ def op_claim_set(bf: BoardFile, cid: str, field: str, value: str) -> tuple[str, 
     """
     i, parts = _claim_row(bf, cid)
     key = field.strip().rstrip(":").strip()
-    val = value.strip()
+    val = _escape_pipes(value.strip())
     if not key or not val:
         raise BoardError("claim-set takes a key and a value")
     sep = r":?\s*" if key.lower() == "supersedes" else r":\s*"
-    pat = re.compile(rf"(?<![\w.]){re.escape(key)}{sep}[^|]*")
+    # Consume ``\|`` as part of the old value, not as the end of it: a naive
+    # ``[^|]*`` would drop the backslash and leave a raw pipe in the row.
+    # ``\\.`` swallows an escaped character pair; ``[^|]`` the rest.
+    pat = re.compile(rf"(?<![\w.]){re.escape(key)}{sep}(?:\\.|[^|])*")
     for ci in (2, 5):
         m = pat.search(parts[ci])
         if m:
             parts[ci] = parts[ci][:m.start()] + f"{key}: {val}" + parts[ci][m.end():]
-            return bf.splice(i, i + 1, ["|".join(parts)])
+            new = "|".join(parts)
+            _check_cells(cid, new)
+            return bf.splice(i, i + 1, [new])
     parts[2] = parts[2].rstrip() + f" {key}: {val} "
-    return bf.splice(i, i + 1, ["|".join(parts)])
+    new = "|".join(parts)
+    _check_cells(cid, new)
+    return bf.splice(i, i + 1, [new])
 
 
 def op_claim_body(bf: BoardFile, cid: str, text: str) -> tuple[str, int]:
-    """Replace the claim body (cell 2) of one row; every other cell stays."""
+    """Replace the claim body (cell 2) of one row; every other cell stays.
+
+    A literal pipe in *text* is stored as ``\\|``; it is not a cell separator.
+    """
     i, parts = _claim_row(bf, cid)
-    parts[2] = f" {text.strip()} "
-    return bf.splice(i, i + 1, ["|".join(parts)])
+    parts[2] = f" {_escape_pipes(text.strip())} "
+    new = "|".join(parts)
+    _check_cells(cid, new)
+    return bf.splice(i, i + 1, [new])
 
 
 # ---------------------------------------------------------------- resolve
@@ -1381,6 +1409,52 @@ def run_selftest() -> int:
            and "| C-100 | replacement body | VERIFIED | H | `x` |" in claims.read_text(),
            "claim-body replaces only cell 1")
         ok(run("claim-body", "C-404", "x") == 1, "claim-body refuses an unknown ID")
+
+        # H130: raw pipes in claim text are escaped; wrong row shapes are refused
+        def crow(cid):
+            return [l for l in claims.read_text().splitlines()
+                    if l.startswith(f"| {cid} |")][0]
+
+        def cparts(cid):
+            return re.split(r"(?<!\\)\|", crow(cid))
+
+        reset()
+        neighbours = (crow("C-101"), crow("C-110"))
+        body = "a (0x800|flon, flat) pair"
+        ok(run("claim-body", "C-100", body) == 0, "claim-body raw pipe exit 0")
+        ok(len(cparts("C-100")) == 7, "raw-pipe body keeps exactly 7 cells")
+        ok(r"a (0x800\|flon, flat) pair" in cparts("C-100")[2], "raw pipe stored escaped")
+        ok(cparts("C-100")[2].replace(r"\|", "|").strip() == body, "escaped body reads back unescaped")
+        ok((crow("C-101"), crow("C-110")) == neighbours, "neighbouring rows unchanged")
+        ok(run("claim-body", "C-100", "x \\| y") == 0 and len(cparts("C-100")) == 7
+           and r"x \| y" in cparts("C-100")[2], "already-escaped pipe is not double-escaped")
+
+        reset()
+        ok(run("claim-set", "C-100", "Pair", "0x800|flon") == 0, "claim-set raw pipe exit 0")
+        ok(len(cparts("C-100")) == 7 and r"Pair: 0x800\|flon" in cparts("C-100")[2],
+           "claim-set escapes raw pipe in value")
+        ok(run("claim-set", "C-100", "Pair", "0x801|flat") == 0
+           and len(cparts("C-100")) == 7 and "0x800\\|flon" not in cparts("C-100")[2]
+           and r"Pair: 0x801\|flat" in cparts("C-100")[2],
+           "claim-set replaces a value containing an escaped pipe")
+
+        reset()
+        bad8 = SAMPLE_CLAIMS.replace("| C-100 | a | VERIFIED | H | `x` |",
+                                     "| C-100 | a |b| VERIFIED | H | `x` |")
+        claims.write_text(bad8, encoding="utf-8")
+        ok(run("claim-body", "C-100", "clean") == 1, "claim-body refuses an 8-cell row")
+        ok(run("claim-set", "C-100", "K", "v") == 1, "claim-set refuses an 8-cell row")
+        ok(run("claim-row", "C-100", "--text", "| C-100 | a |b| VERIFIED | H | `x` |") == 1,
+           "claim-row refuses an 8-cell row")
+        ok(claims.read_text() == bad8, "refused writes leave the ledger byte-identical")
+        bad6 = bad8.replace("| C-100 | a |b| VERIFIED | H | `x` |",
+                            "| C-100 | a | VERIFIED | H |")
+        claims.write_text(bad6, encoding="utf-8")
+        ok(run("claim-body", "C-100", "clean") == 1, "claim-body refuses a 6-cell row")
+        ok(run("claim-row", "C-100", "--text", "| C-100 | a | VERIFIED | H |") == 1,
+           "claim-row refuses a 6-cell row")
+        ok(claims.read_text() == bad6, "refused short rows leave the ledger byte-identical")
+        reset()
 
         # guard: refuses ID loss, wrong delta, collateral edits, concurrent writes
         refused(lambda: guard(SAMPLE_TODO, SAMPLE_TODO.replace("- [ ] **H2 — Second**", "- H2"),
