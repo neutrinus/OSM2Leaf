@@ -4241,7 +4241,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6810–C-6819
 
 - [ ] **M5.71 — `verify_factory` does not reject a legal-but-wrong parcel set (the M5.61 falsifier has no check)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.71-verify-factory-parcels · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tools/tilewriter.py`/`tools/l2check.py` are on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §7)
   - Goal: M5.61's falsifier is "the gate passes on a card where one directory was written with the ways of the neighbouring directory". The `--drop-parcel 80,944,5,3` control (a real parcel left factory) gives a tile of the same size (90,251,560 B) with a different SHA-256 (`6400851b…` vs `7c6ea211…`) and `tilewriter_rc: 0`, so `verify_factory` accepts it: it re-checks the splice it was handed, not "this parcel should differ from factory". No gate the task names reads the tile's parcel set against OSM, so a writer that puts a parcel's ways in the wrong slot passes every L1/L2/L3 check.
