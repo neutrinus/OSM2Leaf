@@ -2863,7 +2863,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7800–C-7809
 
 - [ ] **M4.80 — `ICODE001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.80-icode-decode · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: Row 9 of `docs/research/reader-coverage.md` says the `ICODE001` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
