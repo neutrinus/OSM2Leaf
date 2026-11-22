@@ -1,0 +1,311 @@
+hw/sh4: ze0 HPB-DMAC serial channels: transmit to the SCIF, per-channel interrupts (TODO M8.C2a).
+
+After the launcher checks pass (M8.C1c) the audio-network protocol of the
+EU2011 applications (CInaiProtocol) loops on "write failed".  Its driver,
+serial_scif.dll, sends through HPB-DMAC channel 10 and receives through
+channels 1/3/7 (register trace, hpbdmac-trace=on):
+
+  ch10  DSAR 0xa999a000 (RAM)  DDAR 0xffe4100c (SCIF1 FTDR)  DTCR 8
+        DPTR 0x0001  DCR 0x00000020
+  ch1/3/7  DSAR 0xffe4n014 (SCIFn FRDR)  DDAR/DDAR1 two 0x80-byte RAM
+        planes (0xa999a800/880, 0xa999c800/880, 0xa999e800/880)
+        DTCR 0x80  DPTR 0x0n00  DCR 0x00052000
+
+nk.exe's interrupt rows for these channels (INTEVT 0xb60 + 0x20 * ch:
+0xb80 fn 0x8803e654, 0xbc0 fn 0x8803e6cc, 0xc40 fn 0x8803e7bc, 0xca0
+fn 0x8803e8a8; IntrPrio 14) mask INT2 bit 19, clear the channel bit of
+DINTMR0 (+0x814) and return SYSINTR 0x13.
+
+ze0_hpbdmac.c: one interrupt output per channel (sysbus irq n = channel
+n).  With the new property serial (machine option hpbdmac-serial, default
+on) an armed channel whose DDAR is a SCIF FTDR and whose DSAR is memory
+writes its DTCR bytes one at a time to that FTDR (the sh_serial stub
+behind it) and completes: DTCR 0, DSTSR.0 clear, DINTSR0 bit set,
+interrupt while DINTMR0 has the bit.  A channel whose DSAR is a SCIF
+FRDR stays armed: nothing models the peer, so no data arrives.
+hpbdmac-trace logs each transmit with its bytes.
+
+ze0_intc.c: sources HPBDMAC1/3/7/10 with the INTEVTs above on INT2
+bit 19 (level 14 as the table's IntrPrio); INT2 +0x3c bit 19 is the OR
+of all six DMAC sources.  ze0.c wires channels 1, 3, 7, 8, 9, 10.
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -170,6 +170,7 @@ struct Ze0MachineState {
+     bool sdhi_trace;
+     bool hpbdmac;
+     bool hpbdmac_trace;
++    bool hpbdmac_serial;
+     bool sd_pwd_tofu;
+     bool sd_start_locked;
+     bool scif_stubs;
+@@ -531,6 +532,7 @@ static void ze0_init(MachineState *machine)
+             MemoryRegion *alias = g_new(MemoryRegion, 1);
+ 
+             qdev_prop_set_bit(d, "trace", ZE0_MACHINE(machine)->hpbdmac_trace);
++            qdev_prop_set_bit(d, "serial", ZE0_MACHINE(machine)->hpbdmac_serial);
+             sysbus_realize_and_unref(SYS_BUS_DEVICE(d), &error_fatal);
+             memory_region_add_subregion_overlap(sysmem, ZE0_HPBDMAC_BASE,
+                 sysbus_mmio_get_region(SYS_BUS_DEVICE(d), 0), 1);
+@@ -539,9 +541,15 @@ static void ze0_init(MachineState *machine)
+                 ZE0_HPBDMAC_SIZE);
+             memory_region_add_subregion_overlap(sysmem,
+                 ZE0_HPBDMAC_BASE & ZE0_A7_MASK, alias, 1);
+-            for (i = 0; i < 2; i++) {
+-                sysbus_connect_irq(SYS_BUS_DEVICE(d), i,
+-                                   ze0_intc_irq(intc, ZE0_IRQ_HPBDMAC8 + i));
++            static const int ch_irq[][2] = {
++                { 8, ZE0_IRQ_HPBDMAC8 }, { 9, ZE0_IRQ_HPBDMAC9 },
++                { 1, ZE0_IRQ_HPBDMAC1 }, { 3, ZE0_IRQ_HPBDMAC3 },
++                { 7, ZE0_IRQ_HPBDMAC7 }, { 10, ZE0_IRQ_HPBDMAC10 },
++            };
++
++            for (i = 0; i < ARRAY_SIZE(ch_irq); i++) {
++                sysbus_connect_irq(SYS_BUS_DEVICE(d), ch_irq[i][0],
++                                   ze0_intc_irq(intc, ch_irq[i][1]));
+             }
+             dmac = ZE0_HPBDMAC(d);
+         }
+@@ -635,6 +643,16 @@ static void ze0_set_hpbdmac(Object *obj, bool value, Error **errp)
+     ZE0_MACHINE(obj)->hpbdmac = value;
+ }
+ 
++static bool ze0_get_hpbdmac_serial(Object *obj, Error **errp)
++{
++    return ZE0_MACHINE(obj)->hpbdmac_serial;
++}
++
++static void ze0_set_hpbdmac_serial(Object *obj, bool value, Error **errp)
++{
++    ZE0_MACHINE(obj)->hpbdmac_serial = value;
++}
++
+ static bool ze0_get_hpbdmac_trace(Object *obj, Error **errp)
+ {
+     return ZE0_MACHINE(obj)->hpbdmac_trace;
+@@ -718,6 +736,12 @@ static void ze0_machine_instance_init(Object *obj)
+     s->sdhi = true;
+     s->scif_stubs = true;
+     s->hpbdmac = true;
++    s->hpbdmac_serial = true;
++    object_property_add_bool(obj, "hpbdmac-serial", ze0_get_hpbdmac_serial,
++                             ze0_set_hpbdmac_serial);
++    object_property_set_description(obj, "hpbdmac-serial",
++        "HPB-DMAC channels other than the SD ones move memory to a SCIF "
++        "FTDR (default on; off = register storage only, M8.C2a control)");
+     s->sd_pwd_tofu = true;
+     object_property_add_bool(obj, "sd-pwd-tofu", ze0_get_sd_pwd_tofu,
+                              ze0_set_sd_pwd_tofu);
+diff --git a/hw/sh4/ze0_hpbdmac.c b/hw/sh4/ze0_hpbdmac.c
+--- a/hw/sh4/ze0_hpbdmac.c
++++ b/hw/sh4/ze0_hpbdmac.c
+@@ -24,7 +24,19 @@
+  *           +0x30 DSTPR (write 1 = stop)  +0x34 DSTSR (bit 0 = running)
+  *   common  +0x80c DINTSR0  +0x810 DINTCR0  +0x814 DINTMR0
+  *
+- * Model: only the two SD channels move data.  A channel is armed by
++ * Serial channels (M8.C2a).  serial_scif.dll programs channel 10 as
++ * DSAR = RAM 0xa999a000, DDAR = SCIF1 FTDR 0xffe4100c, DCR 0x20, DPTR 1,
++ * and channels 1/3/7 as DSAR = SCIF1/3/7 FRDR (0xffe4n014), DDAR = two
++ * 0x80-byte RAM buffers (planes 0/1), DCR 0x00052000.  Their interrupt
++ * rows (INTEVT 0xb60 + 0x20 * ch, e.g. 0xca0 fn 0x8803e8a8, 0xb80
++ * fn 0x8803e654) mask INT2 bit 19, clear the channel's bit in DINTMR0
++ * and return SYSINTR 0x13.  With serial=on (default) an armed channel
++ * whose DDAR is a SCIF FTDR (offset 0x0c in 0x1fe40000-0x1fe47fff) and
++ * whose DSAR is RAM writes its bytes one at a time to that FTDR (the
++ * sh_serial device behind it) and completes like an SD channel.  A
++ * channel whose DSAR is a SCIF FRDR stays armed: no peer sends data.
++ *
++ * Model: the two SD channels move SD data.  A channel is armed by
+  * DCMDR.DMEN.  When it is armed and the SD host of its port has data
+  * (CC_EXT_MODE.DMASDRW set by the driver), the bytes are copied between
+  * the card and guest RAM at once: DSAR == SD_BUF0 reads the card into
+@@ -78,11 +90,77 @@
+ static void ze0_hpbdmac_update_irq(Ze0HpbDmacState *s)
+ {
+     uint32_t act = COMMON(s, DINTSR0) & COMMON(s, DINTMR0);
+-    int p;
++    int ch;
++
++    for (ch = 0; ch < ZE0_HPBDMAC_NR_CH; ch++) {
++        qemu_set_irq(s->irq[ch], (act >> ch) & 1);
++    }
++}
++
++#define SCIF_A7_BASE    0x1fe40000u
++#define SCIF_A7_END     0x1fe48000u
++#define SCIF_FTDR       0x0c
++#define SCIF_FRDR       0x14
++
++static bool ze0_hpbdmac_is_scif(uint32_t a, unsigned reg)
++{
++    a &= A7_MASK;
++    return a >= SCIF_A7_BASE && a < SCIF_A7_END && (a & 0xfff) == reg;
++}
++
++/* Serial channels (M8.C2a): memory -> SCIF FTDR, at once. */
++static void ze0_hpbdmac_run_serial(Ze0HpbDmacState *s, int ch)
++{
++    unsigned unit = 1;      /* DCR 0x20: byte beats (bit 8 clear) */
++    uint32_t *sar = &CH(s, ch, DSAR0);
++    uint32_t *dar = &CH(s, ch, DDAR0);
++    uint32_t *tcr = &CH(s, ch, DTCR0);
++    uint32_t n, i, crc;
++    uint8_t buf[256];
++    char hex[2 * 32 + 1] = "";
+ 
+-    for (p = 0; p < 2; p++) {
+-        qemu_set_irq(s->irq[p], (act >> (ZE0_HPBDMAC_SD_CH0 + p)) & 1);
++    if (ze0_hpbdmac_is_scif(*sar, SCIF_FRDR)) {
++        if (s->trace) {
++            qemu_log_mask(LOG_UNIMP, "ze0-hpbdmac: ch%d rx armed from SCIF "
++                          "0x%08x into 0x%08x/0x%08x, %u bytes per plane "
++                          "(no peer: stays armed)\n", ch, *sar, *dar,
++                          CH(s, ch, DDAR1), *tcr);
++        }
++        return;
+     }
++    if (!ze0_hpbdmac_is_scif(*dar, SCIF_FTDR)) {
++        qemu_log_mask(LOG_UNIMP, "ze0-hpbdmac: ch%d armed with DSAR 0x%08x "
++                      "DDAR 0x%08x DCR 0x%08x: not modelled\n", ch, *sar,
++                      *dar, CH(s, ch, DCR));
++        return;
++    }
++    n = MIN((uint64_t)*tcr * unit, sizeof(buf));
++    address_space_read(&address_space_memory, *sar & A7_MASK,
++                       MEMTXATTRS_UNSPECIFIED, buf, n);
++    for (i = 0; i < n; i++) {
++        address_space_write(&address_space_memory, *dar & A7_MASK,
++                            MEMTXATTRS_UNSPECIFIED, &buf[i], 1);
++    }
++    crc = crc32(crc32(0, NULL, 0), buf, n);
++    for (i = 0; i < n && i < 32; i++) {
++        snprintf(hex + 2 * i, 3, "%02x", buf[i]);
++    }
++    if (s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-hpbdmac: ch%d tx %u bytes, DSAR 0x%08x "
++                      "-> SCIF 0x%08x, crc32 0x%08x, data %s\n", ch, n, *sar,
++                      *dar, crc, hex);
++    }
++    *sar += n;
++    *tcr = 0;
++    CH(s, ch, DSASR) = *sar;
++    CH(s, ch, DDASR) = *dar;
++    CH(s, ch, DTCSR) = 0;
++    s->tx_bytes[ch] += n;
++    s->tx_transfers[ch]++;
++    CH(s, ch, DCMDR) &= ~DCMDR_DMEN;
++    CH(s, ch, DSTSR) &= ~1u;
++    COMMON(s, DINTSR0) |= 1u << ch;
++    ze0_hpbdmac_update_irq(s);
+ }
+ 
+ static unsigned ze0_hpbdmac_unit(Ze0HpbDmacState *s, int ch)
+@@ -250,6 +328,8 @@ static void ze0_hpbdmac_write(void *opaque, hwaddr addr, uint64_t v,
+             CH(s, ch, DSTSR) |= 1;
+             if (ch == ZE0_HPBDMAC_SD_CH0 || ch == ZE0_HPBDMAC_SD_CH0 + 1) {
+                 ze0_hpbdmac_run(s, ch - ZE0_HPBDMAC_SD_CH0);
++            } else if (s->serial) {
++                ze0_hpbdmac_run_serial(s, ch);
+             }
+         }
+         return;
+@@ -282,22 +362,28 @@ static void ze0_hpbdmac_reset(DeviceState *dev)
+     memset(s->regs, 0, sizeof(s->regs));
+     memset(s->bytes, 0, sizeof(s->bytes));
+     memset(s->transfers, 0, sizeof(s->transfers));
++    memset(s->tx_bytes, 0, sizeof(s->tx_bytes));
++    memset(s->tx_transfers, 0, sizeof(s->tx_transfers));
+     ze0_hpbdmac_update_irq(s);
+ }
+ 
+ static void ze0_hpbdmac_init(Object *obj)
+ {
+     Ze0HpbDmacState *s = ZE0_HPBDMAC(obj);
++    int ch;
+ 
+     memory_region_init_io(&s->iomem, obj, &ze0_hpbdmac_ops, s, "ze0-hpbdmac",
+                           ZE0_HPBDMAC_SIZE);
+     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->iomem);
+-    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq[0]);
+-    sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq[1]);
++
++    for (ch = 0; ch < ZE0_HPBDMAC_NR_CH; ch++) {
++        sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq[ch]);
++    }
+ }
+ 
+ static const Property ze0_hpbdmac_props[] = {
+     DEFINE_PROP_BOOL("trace", Ze0HpbDmacState, trace, false),
++    DEFINE_PROP_BOOL("serial", Ze0HpbDmacState, serial, true),
+ };
+ 
+ static void ze0_hpbdmac_class_init(ObjectClass *oc, const void *data)
+diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
+--- a/hw/sh4/ze0_intc.c
++++ b/hw/sh4/ze0_intc.c
+@@ -94,6 +94,15 @@ static const Ze0IntcSource ze0_sources[ZE0_INTC_NR_SOURCES] = {
+      */
+     [ZE0_IRQ_HPBDMAC8] = { "HPBDMAC8", 0xc60, 19, ZE0_PRI_FIXED, 14 },
+     [ZE0_IRQ_HPBDMAC9] = { "HPBDMAC9", 0xc80, 19, ZE0_PRI_FIXED, 14 },
++    /*
++     * Serial channels (M8.C2a): rows {0xb80, fn 0x8803e654}, {0xbc0,
++     * fn 0x8803e6cc}, {0xc40, fn 0x8803e7bc}, {0xca0, fn 0x8803e8a8}, all
++     * IntrPrio 14; the ISRs mask INT2 bit 19 and return SYSINTR 0x13.
++     */
++    [ZE0_IRQ_HPBDMAC1] = { "HPBDMAC1", 0xb80, 19, ZE0_PRI_FIXED, 14 },
++    [ZE0_IRQ_HPBDMAC3] = { "HPBDMAC3", 0xbc0, 19, ZE0_PRI_FIXED, 14 },
++    [ZE0_IRQ_HPBDMAC7] = { "HPBDMAC7", 0xc40, 19, ZE0_PRI_FIXED, 14 },
++    [ZE0_IRQ_HPBDMAC10] = { "HPBDMAC10", 0xca0, 19, ZE0_PRI_FIXED, 14 },
+ };
+ 
+ struct Ze0IntcState {
+@@ -195,7 +204,11 @@ static uint64_t ze0_int2_read(void *opaque, hwaddr off, unsigned size)
+                ((s->asserted[ZE0_IRQ_SDHI0] || s->asserted[ZE0_IRQ_SDHI1])
+                 ? (1u << 29) : 0) |
+                ((s->asserted[ZE0_IRQ_HPBDMAC8] ||
+-                 s->asserted[ZE0_IRQ_HPBDMAC9]) ? (1u << 19) : 0);
++                 s->asserted[ZE0_IRQ_HPBDMAC9] ||
++                 s->asserted[ZE0_IRQ_HPBDMAC1] ||
++                 s->asserted[ZE0_IRQ_HPBDMAC3] ||
++                 s->asserted[ZE0_IRQ_HPBDMAC7] ||
++                 s->asserted[ZE0_IRQ_HPBDMAC10]) ? (1u << 19) : 0);
+     }
+     return s->int2[off / 4];
+ }
+diff --git a/include/hw/sh4/ze0_hpbdmac.h b/include/hw/sh4/ze0_hpbdmac.h
+--- a/include/hw/sh4/ze0_hpbdmac.h
++++ b/include/hw/sh4/ze0_hpbdmac.h
+@@ -20,14 +20,17 @@ OBJECT_DECLARE_SIMPLE_TYPE(Ze0HpbDmacState, ZE0_HPBDMAC)
+ struct Ze0HpbDmacState {
+     SysBusDevice parent_obj;
+     MemoryRegion iomem;
+-    qemu_irq irq[2];                /* channels 8 and 9 */
++    qemu_irq irq[ZE0_HPBDMAC_NR_CH]; /* one line per channel (sysbus irq n = channel n) */
+     bool trace;
++    bool serial;                    /* move memory -> SCIF FTDR on other channels */
+ 
+     uint32_t regs[ZE0_HPBDMAC_SIZE / 4];
+     Ze0SdhiState *sdhi[2];
+     hwaddr sdhi_buf[2];             /* area-7 address of each SD_BUF0 */
+     uint64_t bytes[2];              /* moved since reset, per SD port */
+     uint32_t transfers[2];
++    uint64_t tx_bytes[ZE0_HPBDMAC_NR_CH];  /* memory -> SCIF, per channel */
++    uint32_t tx_transfers[ZE0_HPBDMAC_NR_CH];
+ };
+ 
+ void ze0_hpbdmac_attach_sdhi(Ze0HpbDmacState *s, int port, Ze0SdhiState *h,
+diff --git a/include/hw/sh4/ze0_intc.h b/include/hw/sh4/ze0_intc.h
+--- a/include/hw/sh4/ze0_intc.h
++++ b/include/hw/sh4/ze0_intc.h
+@@ -21,6 +21,10 @@ enum {
+     ZE0_IRQ_SDHI1,
+     ZE0_IRQ_HPBDMAC8,
+     ZE0_IRQ_HPBDMAC9,
++    ZE0_IRQ_HPBDMAC1,       /* serial channels (M8.C2a) */
++    ZE0_IRQ_HPBDMAC3,
++    ZE0_IRQ_HPBDMAC7,
++    ZE0_IRQ_HPBDMAC10,
+     ZE0_INTC_NR_SOURCES
+ };
+ 

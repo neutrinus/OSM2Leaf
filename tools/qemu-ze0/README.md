@@ -250,6 +250,11 @@ kept), so the next run extracts cleanly.
   The card has zeros there, so without them the launcher logs an empty
   `VerInf:` and starts `FailSafe.exe`. For the EU 2011 card:
   `verinf=QSD-302-100,mapdb=16-16`.
+- `ze0-0011` (M8.C2a): HPB-DMAC serial channels. Channel 10 (RAM → SCIF1
+  FTDR) transmits and completes with its interrupt; receive channels 1/3/7
+  stay armed (no peer). Interrupt sources for channels 1, 3, 7, 10
+  (INTEVT `0xb80`/`0xbc0`/`0xc40`/`0xca0`, INT2 bit 19). Option
+  `hpbdmac-serial=off` is the control. `hpbdmac-trace=on` logs each frame.
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
