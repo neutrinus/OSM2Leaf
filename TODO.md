@@ -4709,7 +4709,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7200–C-7209
 
 - [ ] **M8.H24 — Emulator quick start for a human: build, boot a card, take a screenshot, in one page**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h24-emulator-quickstart · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The knowledge to run `-M ze0` is spread over thirteen EXP records and a long README. Marek wants to start it and look. One page with the commands that work today and the known limits.
