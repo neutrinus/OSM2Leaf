@@ -174,7 +174,16 @@ def _selftest() -> int:
     # 3. count_problems flags a synthetic mismatch on the working-tree pin.
     text = CLAIMS.read_text(encoding="utf-8")
     rows = cc.parse_claim_rows(text)
-    baseline = {p["id"] for p in cc.count_problems(rows)}
+    # One measurement cache for both passes: the mutation changes only the
+    # claimed count, never what a selftest prints, so re-running every pinned
+    # selftest a second time only doubles the time (it hit the 60 s budget).
+    measured = {}
+
+    def runner(tool, rev=None):
+        if (tool, rev) not in measured:
+            measured[(tool, rev)] = cc._run_selftest(tool, rev)
+        return measured[(tool, rev)]
+    baseline = {p["id"] for p in cc.count_problems(rows, runner)}
     if MUTATION_TARGET in baseline:
         failures.append(f"{MUTATION_TARGET} already mismatches on the clean ledger")
     # Mutate the pin in memory and re-measure.
@@ -185,7 +194,7 @@ def _selftest() -> int:
             line = line[: m.start(2)] + str(int(m.group(2)) + 1) + line[m.end(2):]
         mut_lines.append(line)
     mut_rows = cc.parse_claim_rows("".join(mut_lines))
-    mut_problems = {p["id"]: p for p in cc.count_problems(mut_rows)}
+    mut_problems = {p["id"]: p for p in cc.count_problems(mut_rows, runner)}
     if MUTATION_TARGET not in mut_problems:
         failures.append(f"count_problems did not flag the bumped {MUTATION_TARGET}")
     else:
