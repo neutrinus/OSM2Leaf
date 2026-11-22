@@ -1,0 +1,87 @@
+hw/sh4: ze0 2DG op 0xb1/0xb3: the two remaining map polyline variants (M8.C1o).
+
+M8.C1f left seven 2DG commands skipped in the London map lists
+(0xb3007602 x5, 0xb10038c2 x2, C-6936).  The emitters in build A
+XGLDLL.dll (fn 0x031204ac, fn 0x031205a4) and build B auirtdll.dll
+(fn 0x03d0b408, fn 0x03d0b502), plus a gfx-trace dump of the same
+screen, pin both layouts: 0xb1 has a 6-word header with the vertex
+count in word 4 and vertices inline; 0xb3 is the pointer form
+[op, N, OFF] with vertices at op + OFF (the array of the preceding
+0xd0 polygon).  Both are now drawn as polylines and advance by the
+exact word count instead of resync.  Colour sources are the word-1
+high half (0xb1) and register 0xf0 (0xb3), both observed in the dump.
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+
+--- a/hw/sh4/ze0_2dg.c
++++ b/hw/sh4/ze0_2dg.c
+@@ -24,8 +24,13 @@
+  *   0x80xxxxxx C P0 P1 P2 P3       cover: fill the polygon with C
+  *   0xb0xxxxxx C<<16|N W V0..VN-1  polyline, width W (roads)
+  *   0xb0xx4xxx C<<16|N W OFF       polyline, vertices at op + OFF
++ *   0xb1xxxxxx C MASK OFF FLAGS N 0 V0..VN-1
++ *                                  6-word header + N inline vertices;
++ *                                  C (word 1 high half) is the line colour
++ *   0xb3xxxxxx N OFF               N vertices at op + OFF (area outline;
++ *                                  colour from register 0xf0)
+  *   0x82xxxxxx OFF WH 0 P0..P3     textured quad (see texquad())
+- *   0xb1-0xb7, others              skipped up to the next command word
++ *   0xb2, 0xb4-0xb7, others        skipped up to the next command word
+  *
+  * Render target: reg 0x50 (address), reg 0x5c (stride in pixels).
+  * Clip: regs 0xd4/0xd8 (surface) and 0xdc/0xe0 (user), min/max inclusive.
+@@ -477,6 +482,42 @@
+             }
+             d->done++;
+             continue;
++        case 0xb1: {
++            /*
++             * Emitters: XGLDLL fn 0x031204ac / auirtdll fn 0x03d0b408.
++             * Six header words, then N vertices (N = low half of word 4).
++             * Word 1 is C << 16 | MASK; C is the same dark grey (0x4631)
++             * in every list seen, so use it as the line colour.
++             */
++            uint32_t n = dl_rd(pc + 16) & 0xffff;
++            uint32_t w = dl_rd(pc + 12) & 0xffff;
++
++            polyline(d, pc + 24, n, w ? w : 1, dl_rd(pc + 4) >> 16);
++            d->done++;
++            pc += 24 + 4 * n;
++            continue;
++        }
++        case 0xb3: {
++            /*
++             * Pointer variant seen in the map lists: [op, N, OFF], with
++             * the N vertices at op + OFF (they are the same array the
++             * preceding 0xd0 polygon command used).  The 0x18 write to
++             * register 0xf0 just before it supplies the line colour.
++             */
++            uint32_t n = w1 & 0xffff;
++
++            if (!(op & 0x400)) {
++                /* Inline form: [op, N, V0..VN-1], no seen in map lists. */
++                polyline(d, pc + 8, n, 1, reg(d, 0xf0) & 0xffff);
++                d->done++;
++                pc += 8 + 4 * n;
++                continue;
++            }
++            polyline(d, pc + dl_rd(pc + 8), n, 1, reg(d, 0xf0) & 0xffff);
++            d->done++;
++            pc += 12;
++            continue;
++        }
+         case 0x82:
+             texquad(d, pc);
+             d->done++;
+@@ -484,8 +525,8 @@
+             continue;
+         default:
+             /*
+-             * 0xb1-0xb7 (0xb3007602 and 0xb10038c2 seen: line variants
+-             * whose operand layout is not known) and anything new.
++             * 0xb2, 0xb4-0xb7 and anything new: no operand layout in the
++             * emitters yet, skip to the next command word.
+              */
+             d->skipped++;
+             pc = resync(pc);
