@@ -49,6 +49,11 @@ run.sh -- boot the ZE0 CE images under QEMU and leave a trace in a work dir.
 
 Options:
   --image FILE        CE/SD image to boot (default: none, bare CPU + RAM)
+  --card IMG          one-command run: derive --image/--verinf/--mapdb/
+                      --ipl-patch/--sd from the SD card image (M8.H26) and
+                      build the overlay + IPL patch in the work dir; the card
+                      is never written. Explicit --verinf/--mapdb/--ipl-patch
+                      override the derived values.
   --kernel OFFSET     kernel image start (default 0x3e00200; C = 0x5200200)
   --app OFFSET        application image start (default 0x200200, 0 = none)
   --kernel-addr ADDR  -M none: physical load address (default 0x08000000)
@@ -329,6 +334,11 @@ MEMMAP_SRC=
 DRY_RUN=0
 PREP=
 LOADER_SPEC=
+CARD=
+CARD_VERINF=
+CARD_MAPDB=
+CARD_IPL=
+CARD_OVERLAY=
 
 while [ "$#" -gt 0 ]; do
   _arg=$1
@@ -345,7 +355,8 @@ while [ "$#" -gt 0 ]; do
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
-    --serial | --dbgmsg | --icount | --sd | --verinf | --mapdb | --ipl-patch)
+    --serial | --dbgmsg | --icount | --sd | --verinf | --mapdb | --ipl-patch | \
+    --card)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
         _val=$2
@@ -382,6 +393,7 @@ while [ "$#" -gt 0 ]; do
         --verinf) VERINF=$_val ;;
         --mapdb) MAPDB=$_val ;;
         --ipl-patch) IPL_PATCH=$_val ;;
+        --card) CARD=$_val ;;
       esac
       ;;
     --gdb)
@@ -483,6 +495,45 @@ fi
 
 if [ "$DRY_RUN" -eq 0 ]; then
   mkdir -p "$WORK" || die "cannot create $WORK"
+fi
+
+# ---------------------------------------------------------------------------
+# --card: derive image, verinf, mapdb, ipl-patch and the SD overlay (M8.H26)
+# ---------------------------------------------------------------------------
+
+if [ -n "$CARD" ]; then
+  if [ ! -f "$CARD" ]; then
+    die "no such card image: $CARD"
+  fi
+  if [ "$MACHINE" != ze0 ]; then
+    die "--card needs -M ze0 (this QEMU has no ze0 machine: build it with tools/qemu-ze0/build.sh)"
+  fi
+  if ! command -v "$PYTHON" >/dev/null 2>&1; then
+    die "--card needs $PYTHON for tools/ze0_card.py"
+  fi
+  if [ "$DRY_RUN" -eq 1 ]; then
+    PREP="$PREP
+$(quote "$PYTHON") $(quote "$TOOLS_DIR/ze0_card.py") materialize $(quote "$CARD") --workdir $(quote "$WORK")"
+    CARD_OVERLAY=$WORK/$(basename "$CARD"); CARD_OVERLAY=${CARD_OVERLAY%.*}.qcow2
+    CARD_IPL=$WORK/ipl-patch.txt
+    _desc=$("$PYTHON" "$TOOLS_DIR/ze0_card.py" describe "$CARD" --no-hash 2>/dev/null) || _desc=
+    CARD_VERINF=$(printf '%s\n' "$_desc" | sed -n 's/^verinf  *//p')
+    CARD_MAPDB=$(printf '%s\n' "$_desc" | sed -n 's/^mapdb  *//p')
+  else
+    _card_out=$("$PYTHON" "$TOOLS_DIR/ze0_card.py" materialize "$CARD" \
+      --workdir "$WORK") || die "tools/ze0_card.py materialize failed"
+    CARD_OVERLAY=$(printf '%s\n' "$_card_out" | sed -n 's/^overlay  *//p')
+    CARD_IPL=$(printf '%s\n' "$_card_out" | sed -n 's/^ipl_patch  *//p')
+    CARD_VERINF=$(printf '%s\n' "$_card_out" | sed -n 's/^verinf  *//p')
+    CARD_MAPDB=$(printf '%s\n' "$_card_out" | sed -n 's/^mapdb  *//p')
+    CARD_BUILD=$(printf '%s\n' "$_card_out" | sed -n 's/^build  *//p')
+    info "$PROG: --card $CARD ($CARD_BUILD): verinf=$CARD_VERINF mapdb=$CARD_MAPDB overlay=$CARD_OVERLAY"
+  fi
+  IMAGE=$CARD
+  [ -z "$VERINF" ] && VERINF=$CARD_VERINF
+  [ -z "$MAPDB" ] && MAPDB=$CARD_MAPDB
+  [ -z "$IPL_PATCH" ] && IPL_PATCH=$CARD_IPL
+  [ -z "$SD" ] && SD=$CARD_OVERLAY
 fi
 
 # ---------------------------------------------------------------------------
