@@ -3137,7 +3137,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8180–C-8189
 
 - [ ] **M4.93 — Section-4 wide rows: the `0x1146`–`0x1946` directories left unexplained by the `0x2046` row model**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.93-section4-wide · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: `tools/tile_unknown.py` shows that section 1's wide rows are already modelled by `s1_wide_dir.py` (M5.53/M5.54), but `B48R058R` still has 366,814 B in 36 gaps after that model. Every one is a section-4 level-1 `0x0009` place-name record in a `0x1146`–`0x1946` directory — the same wide-row family with a `0x1046` base that `s1_wide_dir.py` does not handle. Generalise the row model so those records have an owner instead of being copied verbatim.
