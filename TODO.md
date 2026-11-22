@@ -4708,8 +4708,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: samples are uniformly spread over one idle loop in both phases (then sampling by PC alone is useless and the EXP says what else is needed).
   - Claims: C-7200–C-7209
 
-- [ ] **M8.H24 — Emulator quick start for a human: build, boot a card, take a screenshot, in one page**
-  - Status: in progress · Owner: task/m8.h24-emulator-quickstart · Critical: no · Pair: solo
+- [x] **M8.H24 — Emulator quick start for a human: build, boot a card, take a screenshot, in one page**
+  - Status: done · Owner: task/m8.h24-emulator-quickstart · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The knowledge to run `-M ze0` is spread over thirteen EXP records and a long README. Marek wants to start it and look. One page with the commands that work today and the known limits.
@@ -4720,6 +4720,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: a command on the page fails on a clean checkout.
   - Claims: C-7210–C-7219
+  - Result: EXP-2026-11-22-M8.H24-emulator-quickstart; 7 claims C-7210–C-7216; every page command exit 0, 382721-pixel PNG at ~20 s
 
 - [ ] **M8.H25 — Boot-time budget: from start to the idle UI, where the wall-clock minutes go**
   - Status: open · Owner: — · Critical: no · Pair: solo
