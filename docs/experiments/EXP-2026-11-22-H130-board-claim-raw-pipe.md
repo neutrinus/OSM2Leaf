@@ -79,10 +79,11 @@ row with != 7 cells or the guard misses a wrong cell count, the fix fails.
 ## Method
 
 1. **Sample and hash.** No vendor sample. Specimen: `docs/research/claims.md`
-   row `C-6564` at `origin/main` (`ffa54bbb` at claim time); copied to a scratch
-   path before the precheck, so the live ledger is untouched. The precheck ran
-   on the unmodified tool; the fix was written only after the precheck output
-   below was captured.
+   row `C-6564` at `origin/main` (`ffa54bbb` at claim time, re-censused at
+   `ebf03377` after the round-1 rebase); copied to a scratch path before the
+   precheck, so the live ledger is untouched. The precheck ran on the
+   unmodified tool; the fix was written only after the precheck output below
+   was captured.
 2. **Commands.**
 
 ```bash
@@ -128,10 +129,10 @@ python3 tools/gate.py
 4. **Scope.** Covered: `tools/board.py` `_claim_row`, `op_claim_body`,
    `op_claim_set`, `op_claim_row`, their helpers and selftests; live ledger row
    `C-6564` only on a copy. Not covered: `op_claim_status`/`op_add_claims`
-   (unchanged, not in task scope), and the 84 pre-existing ledger rows whose
-   split is not 7 parts — they are not rewritten; the new guard will refuse
-   writes to them until they are repaired by hand with `claim-row` in a task
-   that owns them.
+   (unchanged, not in task scope), and the 92 pre-existing ledger rows whose
+   split is not 7 parts after the round-1 rebase (84 at `ffa54bbb`) — they are
+   not rewritten; the new guard will refuse writes to them until they are
+   repaired by hand with `claim-row` in a task that owns them.
 5. **Falsifier.** Before the fix: raw-pipe `claim-body` leaves 7 cells and all
    neighbouring rows unchanged. After the fix: any `|`-containing write leaves
    != 7 cells, a wrong-cell-count row is written anyway, the selftest passes
@@ -151,9 +152,14 @@ The after row begins
 
 `python3 tools/claims_check.py --claims COPY`: `claims_check: OK` (exit 0).
 
-Ledger cell-count census: `claim rows total: 3409 cells=7: 3325 cells!=7: 84`;
+Ledger cell-count census at `ffa54bbb` (precheck revision):
+`claim rows total: 3409 cells=7: 3325 cells!=7: 84`;
 `distribution: {6: 6, 7: 3325, 8: 61, 9: 4, 10: 5, 11: 3, 12: 2, 13: 2, 14: 1}`.
-`C-6564` on the live ledger: `7`.
+
+Re-census after the round-1 rebase onto `ebf03377` (command printed):
+`claim rows total: 3542 cells=7: 3450 cells!=7: 92`;
+`distribution: {6: 6, 7: 3450, 8: 68, 9: 5, 10: 5, 11: 3, 12: 2, 13: 2, 14: 1}`.
+`C-6564` on the live ledger: `7` at both revisions.
 
 (Post-fix, all quoted from the commands that printed them.)
 
@@ -173,10 +179,13 @@ and `claim-set`, `exit=1` each; `claim-row` with an 8-part row printed
 `board: refused: C-6564: row has 6 cells (need exactly 5)`, `exit=1`. The row
 stayed at 9 split parts after all three refusals.
 
-`python3 tools/board.py lost --base origin/main`: `TODO.md: OK tasks=0
-claims=0`, `docs/research/claims.md: OK tasks=0 claims=0`, `lost exit=0`.
+`python3 tools/board.py lost --base origin/main` (re-run after the round-1
+rebase onto `ebf03377`): `TODO.md: OK tasks=0 claims=0`,
+`docs/research/claims.md: OK tasks=0 claims=0`, `lost exit=0`.
 `python3 tools/claims_check.py --strict --count-check`: `claims_check: OK`,
 `exit=0`. `python3 tools/todo_check.py`: `todo_check: OK`, `exit=0`.
+`python3 tools/board.py --selftest` (re-run after the rebase):
+`board selftest: OK (105 checks)`.
 
 Two gate runs during this session failed only on untouched tools while the host
 was under load ~18 on 8 cores: `tool:ci_gate_repro FAIL timeout after 60s` and
@@ -199,14 +208,27 @@ gate: 5 pass, 0 fail, 0 skip
 gate exit=0
 ```
 
+Final clean gate after the round-1 rebase onto `ebf03377`, with `TMPDIR` on the
+home-tree scratch dir:
+
+```
+selftest      PASS    144.88
+claims_check  PASS     17.36
+todo_check    PASS      0.08
+board_check   PASS      0.20
+fn_audit      PASS      4.48
+gate: 5 pass, 0 fail, 0 skip
+gate exit=0
+```
+
 ## Interpretation
 
 - **FACT:** the unmodified tool splits the raw pipe into a cell separator and
   writes the row anyway, so the status/confidence/evidence cells shift by one;
   `claims_check` does not flag it.
-- **FACT:** the ledger already stores `\|` as a literal pipe and 84 rows have a
-  non-7 split, so escaping is the existing convention and a global rewrite is
-  out of scope.
+- **FACT:** the ledger already stores `\|` as a literal pipe and 92 rows have a
+  non-7 split at `ebf03377` (84 at `ffa54bbb`), so escaping is the existing
+  convention and a global rewrite is out of scope.
 - **FACT:** after the fix the raw-pipe body is stored as `\|`, the row stays at
   7 cells and both neighbouring rows are byte-identical; a 6- or 8-cell row is
   refused with `board: refused: C-6564: row has N cells (need exactly 5)` and
@@ -231,7 +253,30 @@ already existed in the ledger.
 
 ## Corrections after navigator review
 
-pending review
+Round 1 (navigator, PR #551) found two documentation/base defects, no code
+defect. The implementation was deliberately left unchanged.
+
+- **Blocking:** this section said `pending review`. Now filled with the
+  round-1 findings below.
+- **Stale base:** the branch was behind `origin/main` and `board.py lost
+  --base origin/main` only held at `f39d8d9f`; against newer main it lost task
+  `M8.H72` and 70 claim rows. Rebased onto `ebf03377` (five commits replayed,
+  no conflict in `TODO.md`/`docs/research/claims.md`, so `board.py resolve` was
+  not needed). Re-ran `lost --base origin/main`: `TODO.md: OK tasks=0 claims=0`,
+  `docs/research/claims.md: OK tasks=0 claims=0`, `lost exit=0`.
+- **Re-census:** navigator measured 3506 / 3418 / 88 (non-7) at `8e5fe216`,
+  versus this EXP's 3409 / 3325 / 84 at `ffa54bbb`. Re-measured on the final
+  rebased tree at `ebf03377`: `claim rows total: 3542 cells=7: 3450 cells!=7:
+  92`; all ledger-tied numbers in the Method/Scope/Interpretation now cite the
+  revision they were measured at. The documented out-of-scope limit is 92 rows
+  at `ebf03377` (84 at `ffa54bbb`), not a rewritten ledger.
+- **Re-quoted checks:** `board selftest: OK (105 checks)` (89 base + 16 new),
+  `claims_check: OK`, `todo_check: OK`, and the final gate with home-tree
+  `TMPDIR`: `gate: 5 pass, 0 fail, 0 skip`.
+- **Navigator confirmed sound:** diff scope, precheck, escaped-pipe round-trip,
+  `claim-set` replacement regex, four mutation tests with byte-identical
+  files, guard placement and count, and the documented non-7-row limit.
+  No implementation change was requested or made.
 
 ## Overtaken by a later commit
 
