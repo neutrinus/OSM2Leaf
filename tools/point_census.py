@@ -67,6 +67,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import cmpind  # noqa: E402
+import coord  # noqa: E402
 import point_pair_regen as regen  # noqa: E402
 
 CELL_NAME_TRIE = 0x824
@@ -93,7 +94,7 @@ EMPTY = 0xFFFFFFFF
 LAT_ORIGIN, LAT_SCALE = 32768, 192
 LON_ORIGIN, LON_SCALE = 52736, 128               # the tile origin (not 52742)
 LEGACY_LON_ORIGIN = 52742
-FINE_PER_UNIT = 512
+FINE_PER_UNIT = coord.FINE_PER_UNIT
 
 
 class CensusError(ValueError):
@@ -102,11 +103,15 @@ class CensusError(ValueError):
 
 # ---------------------------------------------------------------------------
 # fine position
+#
+# The formula lives in ``coord`` (M4.61: one source, ``coord.decode_point_id`` /
+# ``coord.encode_point_id``); these wrappers keep the record-level API used by
+# the L3 harnesses and ``point_move_poi``.
 
 
 def packed_units(word: int, fine: int) -> float:
     """Packed units of a copy-A word plus its 11-bit fine field."""
-    return (word & ~15) + 4 * (word & 3) + fine / FINE_PER_UNIT
+    return coord.packed_units(word, fine)
 
 
 def fine_fields(rec: bytes) -> tuple[int, int, int, int]:
@@ -117,15 +122,13 @@ def fine_fields(rec: bytes) -> tuple[int, int, int, int]:
 
 def fine_position(rec: bytes) -> tuple[float, float]:
     ax, ay, flon, flat = fine_fields(rec)
-    return ((packed_units(ax, flat) - LAT_ORIGIN) / LAT_SCALE,
-            (packed_units(ay, flon) - LON_ORIGIN) / LON_SCALE)
+    return coord.decode_point_id(ax, ay, flon, flat)
 
 
 def swapped_position(rec: bytes) -> tuple[float, float]:
     """Negative control: the two fine fields exchanged."""
     ax, ay, flon, flat = fine_fields(rec)
-    return ((packed_units(ax, flon) - LAT_ORIGIN) / LAT_SCALE,
-            (packed_units(ay, flat) - LON_ORIGIN) / LON_SCALE)
+    return coord.decode_point_id(ax, ay, flat, flon)
 
 
 def legacy_position(rec: bytes) -> tuple[float, float]:
@@ -136,14 +139,7 @@ def legacy_position(rec: bytes) -> tuple[float, float]:
 
 def encode_position(lat: float, lon: float) -> tuple[int, int, int, int]:
     """Inverse of :func:`fine_position`: ``(A.x, A.y, rec[6..7], rec[8..9])``."""
-    out = []
-    for value, origin, scale in ((lat, LAT_ORIGIN, LAT_SCALE), (lon, LON_ORIGIN, LON_SCALE)):
-        fixed = int(round((value * scale + origin) * FINE_PER_UNIT))
-        units, fine = divmod(fixed, FINE_PER_UNIT)
-        sub, rest = divmod(units % 16, 4)
-        out.append(((units & ~15) | 0xC | sub, rest * FINE_PER_UNIT + fine))
-    (ax, flat), (ay, flon) = out
-    return ax, ay, 0x800 | flon, flat
+    return coord.encode_point_id(lat, lon)
 
 
 def haversine_m(lat1, lon1, lat2, lon2) -> float:
@@ -960,6 +956,16 @@ def selftest() -> int:
     ok(packed_units(0x8ECE, 1745) == 0x8EC0 + 8 + 1745 / 512, "packed_units: sub-cell 2 of nibble 0xe")
     rec = struct.pack(">5H", 0x6005, *encode_position(52.2297, 21.0122))
     ok(haversine_m(52.2297, 21.0122, *legacy_position(rec)) > 500, "negative control: 1-unit reading is > 500 m off")
+    # M4.61: the formula has one source in ``coord``; assert the record-level
+    # wrappers equal it exactly (no second copy of the arithmetic).
+    same = all(
+        encode_position(lat, lon) == coord.encode_point_id(lat, lon)
+        and fine_position(rec := struct.pack(">5H", 0x6005, *coord.encode_point_id(lat, lon)))
+        == coord.decode_point_id(*fine_fields(rec))
+        for lat, lon in ((52.2297, 21.0122), (19.72583, -155.08667),
+                         (36.143882, -5.349857), (64.1466, -21.9426))
+    )
+    ok(same, "wrapper equals coord.encode_point_id/decode_point_id")
 
     blob, info = synth_blob()
     rep = census(blob, want_joins=True)
