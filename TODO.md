@@ -5232,8 +5232,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the range display ignores the injected value.
   - Claims: C-7490–C-7499
 
-- [ ] **M8.H53 — `PowerMonitor`: the power state machine (ACC on/off, start handshake, shutdown and what it saves)**
-  - Status: in progress · Owner: task/m8.h53-power-monitor · Critical: no · Pair: solo
+- [x] **M8.H53 — `PowerMonitor`: the power state machine (ACC on/off, start handshake, shutdown and what it saves)**
+  - Status: done · Owner: task/m8.h53-power-monitor · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: Row C4 of the peripheral table (vehicle microcontroller / power state) was never read. Find what the unit expects at start (a 'system ready' exchange), and what happens at ACC off: which data is flushed to flash, in what order, with what timeout.
@@ -5244,6 +5244,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions.
   - Falsifier: no code path leads from an ACC-off input to a flash write.
   - Claims: C-7500–C-7509
+  - Result: EXP-2026-11-22-M8.H53-powermonitor-static; scan --check 14/14 strings, 9/9 xrefs, 19/19 IOCTLs, 5/5 immediates, selftest 5/5
 
 - [ ] **M8.H54 — Clean shutdown at L4: ACC off, data saved to the flash file, restored at the next boot**
   - Status: open · Owner: — · Critical: no · Pair: solo
