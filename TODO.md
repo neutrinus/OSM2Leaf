@@ -4586,7 +4586,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H73
   - Result: EXP-2026-11-22-M8.H3-external-uart (negative); register model verified, RX loopback failed
 
-- [ ] **M8.H73 — Pin UAT3's SYSINTR-to-INTEVT route for the ze0 UART model**
+- [ ] **M8.H74 — Pin UAT3's SYSINTR-to-INTEVT route for the ze0 UART model**
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Step: reader
   - Depends: M8.H2 (done), M8.H3 (blocked)
@@ -4597,7 +4597,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: a documented VA-backed row names UAT3's SYSINTR, INTEVT, INT2 bit and priority, and the delayed-byte loopback of M8.H3's EXP makes the guest driver read `0x5a` from RBR (a `ze0-uart read idx=0` line with that value plus a hook hit in the driver's read path). EXP + claims.
   - Stop: two sessions; if the route needs the sub-CPU firmware (not in the ROM), record that and stop as blocked.
   - Falsifier: a byte injected on `uat3` is read by the driver without any change to the interrupt routing (then the M8.H3 blocker was wrong).
-  - Claims: C-8420–C-8429
+  - Claims: C-8430–C-8439
 
 - [ ] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
   - Status: open · Owner: — · Critical: no · Pair: required
