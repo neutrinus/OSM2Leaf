@@ -71,6 +71,48 @@ SKIP_MARKERS = (
     "missing archive/",
 )
 
+#: Per-gate hint lines a red run needs to name the failing rule (H127).
+#: ``claims_check`` and ``todo_check`` print hundreds of ``NONRUN``/``NOEXP``
+#: warning rows; a blind ``lines[-40:]`` tail shows only those and hides the
+#: ``MISSING``/``ERROR``/``count mismatches``/``… FAILED`` lines the reader
+#: needs.  When a FAIL output has any of these, the tail keeps every hint line
+#: (capped at ``_HINT_CAP``) plus the last ``_TAIL_KEEP`` non-hint lines, so
+#: an unknown failure still shows its tail.  A gate with no hint line keeps the
+#: full tail (the previous behaviour).
+FAIL_HINTS = {
+    "claims_check": (
+        "MISSING ", "genuine missing evidence paths", "duplicate claim IDs",
+        "unregistered proposed claims", "count mismatches", "BAD ", "UNREG ",
+        "NOEXP ", "claims_check: FAILED",
+    ),
+    "todo_check": ("ERROR ", "todo_check: FAILED"),
+    "fn_audit": ("GAP ", "UNMAPPED ", "fn_audit: FAILED"),
+}
+#: How many hint lines a FAIL tail keeps (the rest are elided with a marker).
+_HINT_CAP = 40
+#: How many trailing non-hint lines a FAIL tail keeps alongside the hints.
+_TAIL_KEEP = 40
+
+
+def _fail_tail(gate_name: str, lines: list[str]) -> tuple[str, str]:
+    """Select the lines a FAIL tail should print for ``gate_name``.
+
+    Returns ``(section_title, text)``.  ``section_title`` is ``output
+    (tail)`` when the blind tail is right and ``output (failures)`` when the
+    hint filter fired.  A gate with no hint line, or a FAIL output with no
+    hint line, keeps the old blind tail so an unknown failure is not hidden.
+    """
+    hints = FAIL_HINTS.get(gate_name)
+    if hints:
+        matched = [ln for ln in lines if any(h in ln for h in hints)]
+        if matched:
+            kept = matched[-_HINT_CAP:]
+            tail = [ln for ln in lines if ln not in set(matched)][-_TAIL_KEEP:]
+            shown = kept + (["… (hint lines elided)"] if len(matched) > _HINT_CAP
+                            else []) + tail
+            return "output (failures)", "\n".join(shown)
+    return "output (tail)", "\n".join(lines[-40:])
+
 
 class Gate:
     """One command in the standing gate."""
@@ -251,8 +293,12 @@ def run(*, cwd: Path = REPO, timeout: float = 900.0, json_out=None,
                 print("\n--- %s output (tail) ---" % r["gate"], file=table_stream)
                 print("\n".join(lines[-80:]), file=table_stream)
         else:
-            print("\n--- %s output (tail) ---" % r["gate"], file=table_stream)
-            print("\n".join(lines[-40:]), file=table_stream)
+            title, text = _fail_tail(r["gate"], lines)
+            print("\n--- %s %s ---" % (r["gate"], title), file=table_stream)
+            print(text, file=table_stream)
+            # A slow failure (H84's manual job) should be visible in the log.
+            print("--- %s wall time: %.1fs ---" % (r["gate"], r["seconds"]),
+                  file=table_stream)
     print(_summary(results), file=table_stream)
     if to_stdout:
         print(json.dumps(doc, indent=2))
@@ -404,6 +450,51 @@ def selftest() -> int:
         r = _run(_FixedGate(), synth, 60)
         check("a dropped claim row turns the board row FAIL",
               r["status"] == "FAIL" and "C-701" in r["output"])
+        # H127: a FAIL tail must name the failing rule, not hide it behind
+        # 40 warning rows.  A claims_check output of NONRUN/NOEXP rows with
+        # one MISSING line keeps the MISSING line (and the tail).
+        cc_lines = (["NONRUN C-6552 ellipsis"] * 60
+                    + ["  MISSING C-2141 archive/us256.img",
+                       "genuine missing evidence paths: 1",
+                       "claims_check: FAILED"])
+        title, text = _fail_tail("claims_check", cc_lines)
+        check("claims_check FAIL tail keeps MISSING before the 40-line cap",
+              "MISSING C-2141 archive/us256.img" in text
+              and "genuine missing evidence paths: 1" in text
+              and "claims_check: FAILED" in text
+              and title == "output (failures)")
+
+        # todo_check: the ERROR line and the FAILED verdict survive the tail.
+        td_lines = (["  WARN  TODO.md:5496 M9.56: Unblock refs blocked"] * 50
+                    + ["  ERROR TODO.md:1841 H122: missing Critical",
+                       "todo_check: FAILED"])
+        title, text = _fail_tail("todo_check", td_lines)
+        check("todo_check FAIL tail keeps ERROR and FAILED",
+              "ERROR TODO.md:1841" in text and "todo_check: FAILED" in text
+              and title == "output (failures)")
+
+        # An unknown gate (no hint table) still shows its last 40 lines, so
+        # an unrecognised failure is never hidden.
+        plain = ["line %d" % i for i in range(100)]
+        title, text = _fail_tail("mystery_gate", plain)
+        check("unknown gate keeps the blind 40-line tail",
+              title == "output (tail)" and "line 99" in text
+              and "line 59" not in text)
+
+        # A claims_check FAIL with no hint line at all also keeps the tail.
+        nohint = ["some unrelated output %d" % i for i in range(60)]
+        title, text = _fail_tail("claims_check", nohint)
+        check("claims_check FAIL without a hint line keeps the tail",
+              title == "output (tail)" and "some unrelated output 59" in text)
+
+        # Hints are capped; a flood of MISSING lines keeps the last cap plus
+        # a marker, so a huge failure is still bounded.
+        flood = (["  MISSING C-%04d archive/x.img" % i for i in range(200)]
+                 + ["claims_check: FAILED"])
+        title, text = _fail_tail("claims_check", flood)
+        check("hint flood is capped with an elision marker",
+              "… (hint lines elided)" in text
+              and "claims_check: FAILED" in text)
 
     print("gate selftest: %s (%d checks, %d failed)"
           % ("OK" if not fails else "FAIL", len(ran), len(fails)))
