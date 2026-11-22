@@ -4290,7 +4290,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: a screenshot shows an AUI form element, or the EXP names the input the start form waits for, with the skin record and the firmware code that would raise it.
   - Stop: one session; if the input is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
   - Falsifier: the start form's records contain no transition (no Show/Start of another form), i.e. the next form comes from outside the skin.
-  - Claims: C-8300–C-8309
+  - Claims: C-8320–C-8329
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
