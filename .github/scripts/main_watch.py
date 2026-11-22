@@ -8,11 +8,15 @@ shadowed by a *later* green run on a *different* commit, and nothing refuses
 the next merge (2026-11-20 04:12-04:36Z: 4 red runs, 16 merges).
 
 This watchdog reads the run list of the gate workflow on `main`, keeps every
-red conclusion that has **no later green run** on the branch (`salient`), and
-opens (or updates) one `[H117] fix:` issue naming the SHA, the failing step and
-the run URL.  It exits non-zero while such a red is unaddressed, so the
-watchdog run itself is the board line.  A red that a later green run already
-replaced is `shadowed`, counted in the metrics line, and does not fail.
+red conclusion that has **no later green run of the same workflow** on the
+branch (`salient`), and opens (or updates) one `[H117] fix:` issue naming the
+SHA, the failing step and the run URL.  It exits non-zero while such a red is
+unaddressed, so the watchdog run itself is the board line.  A red that a later
+green run of *the same workflow* already replaced is `shadowed`, counted in the
+metrics line, and does not fail.  A green run of a *different* workflow (the
+`L1/L2 synthetic fixtures` workflow beside the gate) proves nothing about the
+gate's selftest/claims_check/todo_check and is counted as `unrelated-green`
+(M9.64).
 
 Policy (the (b) fallback of H117, because H98 branch protection is not
 applied to this repo yet):
@@ -55,6 +59,7 @@ class Verdict:
     tip_conclusion: str | None = None
     salient: list = field(default_factory=list)
     shadowed: list = field(default_factory=list)
+    unrelated_green: list = field(default_factory=list)
     cancelled: int = 0
     success: int = 0
     failure: int = 0
@@ -73,9 +78,11 @@ class Verdict:
                 "cancelled": self.cancelled,
                 "salient": len(self.salient),
                 "shadowed": len(self.shadowed),
+                "unrelated_green": len(self.unrelated_green),
             },
             "salient": [short(r) for r in self.salient],
             "shadowed": [short(r) for r in self.shadowed],
+            "unrelated_green": [short(r) for r in self.unrelated_green],
         }
 
 
@@ -84,6 +91,7 @@ def short(run: dict) -> dict:
         "id": int(run["databaseId"]),
         "sha": run["headSha"],
         "short": run["headSha"][:8],
+        "workflow": run.get("workflowName", ""),
         "conclusion": run["conclusion"],
         "createdAt": run["createdAt"],
         "url": run.get("url", ""),
@@ -99,12 +107,17 @@ def is_green(run: dict) -> bool:
 
 
 def classify(runs: list) -> Verdict:
-    """Split red runs into salient (no later green) and shadowed.
+    """Split red runs into salient (no later green of the same workflow) and shadowed.
 
     `runs` is the `gh run list --branch <b>` order-independent list; newest is
     the tip.  For `main` the history is linear, so a run created later is on a
-    descendant commit and a later green *does* cover an older red.  A run that
-    is newer but `cancelled` covers nothing: that is the shadow-run defect.
+    descendant commit and a later green *of the same workflow* does cover an
+    older red.  A green run of a *different* workflow does not: `CI quality
+    gate` runs selftest/claims_check/todo_check/fn_audit, while `L1/L2
+    synthetic fixtures` runs the card round-trips, so a green L1/L2 proves
+    nothing about a red gate (M9.64).  Such a green is counted as
+    `unrelated_green`.  A run that is newer but `cancelled` covers nothing
+    either: that is the shadow-run defect.
     """
     ordered = sorted(
         runs, key=lambda r: (r.get("createdAt", ""), int(r.get("databaseId", 0))), reverse=True
@@ -113,17 +126,26 @@ def classify(runs: list) -> Verdict:
     if ordered:
         v.tip_sha = ordered[0].get("headSha")
         v.tip_conclusion = ordered[0].get("conclusion")
-    later_green = False
+    later_green = set()
     for run in ordered:
+        workflow = run.get("workflowName", "")
         if is_green(run):
             v.success += 1
-            later_green = True
+            later_green.add(workflow)
             continue
         if is_red(run):
             v.failure += 1
-            (v.shadowed if later_green else v.salient).append(run)
+            if workflow in later_green:
+                v.shadowed.append(run)
+            else:
+                v.salient.append(run)
         elif run.get("conclusion") == "cancelled":
             v.cancelled += 1
+    red_workflows = {run.get("workflowName", "") for run in ordered if is_red(run)}
+    if red_workflows:
+        for run in ordered:
+            if is_green(run) and run.get("workflowName", "") not in red_workflows:
+                v.unrelated_green.append(run)
     return v
 
 
@@ -211,6 +233,7 @@ def issue_body(v: Verdict, run: dict, tail: str) -> str:
             "",
             "Metrics: "
             f"{len(v.salient)} salient red, {len(v.shadowed)} shadowed red, "
+            f"{len(v.unrelated_green)} unrelated green, "
             f"{v.cancelled} cancelled, {v.total} runs read.",
         ]
     )
@@ -228,7 +251,7 @@ def run_json(args) -> Verdict:
         "--limit",
         str(args.limit),
         "--json",
-        "databaseId,headSha,status,conclusion,createdAt,url,event",
+        "databaseId,headSha,status,conclusion,createdAt,url,event,workflowName",
     ]
     if args.repo:
         cmd += ["--repo", args.repo]
@@ -332,7 +355,7 @@ def act(v: Verdict, args) -> int:
 
 # ---------------------------------------------------------------- selftest
 
-def _run(i, sha, conclusion, minute):
+def _run(i, sha, conclusion, minute, workflow="CI quality gate"):
     return {
         "databaseId": i,
         "headSha": sha,
@@ -340,6 +363,7 @@ def _run(i, sha, conclusion, minute):
         "createdAt": f"2026-11-20T04:{minute:02d}:00Z",
         "url": f"https://example.invalid/{i}",
         "event": "push",
+        "workflowName": workflow,
     }
 
 
@@ -419,6 +443,53 @@ def selftest() -> int:
     eq("green salient", v.salient, [])
     eq("green tip", v.tip_conclusion, "success")
 
+    # 8. M9.64: a green run of another workflow does not cover a red gate run.
+    #    gate red at :10, L1/L2 green at :20 -> the gate red is still salient.
+    v = classify([
+        _run(60, "6" * 40, "failure", 10, "CI quality gate"),
+        _run(61, "7" * 40, "success", 20, "L1/L2 synthetic fixtures"),
+    ])
+    eq("gate-red then l1l2-green salient", [r["databaseId"] for r in v.salient], [60])
+    eq("gate-red then l1l2-green shadowed", v.shadowed, [])
+    eq("l1l2 green counted unrelated", [r["databaseId"] for r in v.unrelated_green], [61])
+
+    # 9. the same-workflow rule still holds: gate red then gate green -> shadowed.
+    v = classify([
+        _run(70, "8" * 40, "failure", 10, "CI quality gate"),
+        _run(71, "9" * 40, "success", 20, "CI quality gate"),
+    ])
+    eq("gate-red then gate-green salient", v.salient, [])
+    eq("gate-red then gate-green shadowed", [r["databaseId"] for r in v.shadowed], [70])
+    eq("gate green not unrelated", v.unrelated_green, [])
+
+    # 10. the reverse direction: an L1/L2 red is not covered by a green gate.
+    v = classify([
+        _run(80, "a" * 40, "failure", 10, "L1/L2 synthetic fixtures"),
+        _run(81, "b" * 40, "success", 20, "CI quality gate"),
+    ])
+    eq("l1l2-red then gate-green salient", [r["databaseId"] for r in v.salient], [80])
+    eq("l1l2-red then gate-green shadowed", v.shadowed, [])
+
+    # 11. within one workflow, "later" is createdAt; a green only covers older reds.
+    v = classify([
+        _run(90, "c" * 40, "success", 10, "CI quality gate"),
+        _run(91, "d" * 40, "failure", 20, "CI quality gate"),
+        _run(92, "e" * 40, "success", 30, "L1/L2 synthetic fixtures"),
+    ])
+    eq("gate red after gate green is salient", [r["databaseId"] for r in v.salient], [91])
+    eq("later l1l2 green unrelated", [r["databaseId"] for r in v.unrelated_green], [92])
+
+    # 12. the recorded 09:04:51 pair (gate failure, L1/L2 success, same second,
+    #     higher L1/L2 databaseId) is 1 salient, not shadowed.
+    import os
+    fixture = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "main_watch-crossworkflow.json")
+    pair = json.load(open(fixture, encoding="utf-8"))
+    v = classify(pair)
+    eq("fixture salient", [r["databaseId"] for r in v.salient], [45005779931])
+    eq("fixture shadowed", v.shadowed, [])
+    eq("fixture unrelated green", [r["databaseId"] for r in v.unrelated_green], [45005780000])
+
     print(f"main_watch selftest: OK ({checks} checks)")
     return 0
 
@@ -429,6 +500,8 @@ def replay(path: str) -> int:
     Each step classifies the run window that ended at that run (as the
     watchdog would have seen it), so a red that a later green covers is a
     red-tip moment here but not a salient one at the end of the window.
+    The window keeps the runs of the tip's own workflow only (M9.64): a
+    saved two-workflow list must not let an L1/L2 green cover a gate red.
     """
     runs = json.load(open(path, encoding="utf-8"))
     ordered = sorted(
@@ -436,13 +509,17 @@ def replay(path: str) -> int:
     )
     red_tips = []
     for i in range(len(ordered)):
-        window = ordered[max(0, i - 39): i + 1]
+        workflow = ordered[i].get("workflowName", "")
+        same = [r for r in ordered[: i + 1] if r.get("workflowName", "") == workflow]
+        window = same[-40:]
         v = classify(window)
-        if v.tip_conclusion in RED:
-            red_tips.append((ordered[i]["createdAt"], ordered[i]["headSha"][:8], v.tip_conclusion))
+        tip = same[-1]
+        if tip.get("conclusion") in RED:
+            red_tips.append((ordered[i]["createdAt"], ordered[i]["headSha"][:8],
+                             tip.get("conclusion"), workflow))
     print(f"replay: {len(ordered)} runs, {len(red_tips)} red-tip moments")
-    for created, sha, conclusion in red_tips:
-        print(f"  {created} {sha} {conclusion}")
+    for created, sha, conclusion, workflow in red_tips:
+        print(f"  {created} {sha} {conclusion} [{workflow}]")
     return 0
 
 
@@ -475,6 +552,7 @@ def main(argv=None) -> int:
     print(
         f"main_watch: {args.branch} tip {str(v.tip_sha)[:8]} "
         f"{v.tip_conclusion}: {len(v.salient)} salient, {len(v.shadowed)} shadowed, "
+        f"{len(v.unrelated_green)} unrelated green, "
         f"{v.cancelled} cancelled, {v.total} runs"
     )
     return act(v, args)

@@ -6,11 +6,17 @@ The `push` run of `ci.yml` is cancelled by the next push, so a red gate could
 ride into `main` unnoticed (2026-11-20: 4 red runs beside 16 merges). This
 workflow (`workflow_run` after a completed `CI quality gate`/`L1/L2 synthetic
 fixtures` run on `main`, plus an hourly sweep and `workflow_dispatch`) runs
-`.github/scripts/main_watch.py`:
+`.github/scripts/main_watch.py` **once per workflow**, each with its own
+`--workflow` (`M9.64`: a green `L1/L2 synthetic fixtures` run tests the card
+round-trips and never covers a red `CI quality gate` run, which tests
+selftest/claims_check/todo_check/fn_audit):
 
-- **salient red** (no later green run on `main`) → one `[H117] fix:` issue
-  naming the SHA and the failed job/step, and the job fails;
-- **shadowed red** (a later green run covers it) → counted, not failed;
+- **salient red** (no later green run **of the same workflow** on `main`) → one
+  `[H117] fix:` issue naming the SHA and the failed job/step, and the job fails;
+- **shadowed red** (a later green run of the same workflow covers it) →
+  counted, not failed;
+- **unrelated green** (a green run of the *other* workflow) → counted, never
+  shadowing;
 - **`cancelled`** → counted as the concurrency de-dup, never as a green;
 - **no runs** → exit 2, never a pass.
 
