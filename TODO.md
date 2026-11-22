@@ -4819,8 +4819,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6910–C-6919
   - Result: EXP-2026-11-22-M8.C1d-multi-xip (C-6910–C-6917). The audio unit is not the blocker (27 ACM 30 s timeouts, then `Finish Launch Threads!`); every application `CreateProcessW` failed with LastError 2 because ROM image A (Navi.exe etc.) was never joined: nk.exe reads an XIP-chain pointer from a `.data` fixup (var `0x89e43c90`) that the card leaves at -1. `tools/ze0_ipl.py` + `ze0-0012` (`ipl-patch=FILE`) write the chain, RAM end `0x8c6e0000` and compacted TOCs (A and B overlap in the DLL space, C-6913): `Rom chain found`, 0 `Not Create` (was 19), Navi.exe's OSMDLL/OBJDLL run. `tools/ze0_screenshot.py` saves the VRAM as PNG; it stays black because the display engine (phys `0x1ff80000`/`0x1fe80000`) is not modelled → M8.C1e.
 
-- [ ] **M8.C1e — Display engine on `-M ze0`: trace, then a minimal DU/2D model so the VRAM fills**
-  - Status: in progress · Owner: Claude (task/m8.c1e-display-engine) · Critical: no · Pair: solo
+- [x] **M8.C1e — Display engine on `-M ze0`: trace, then a minimal DU/2D model so the VRAM fills**
+  - Status: done · Owner: Claude (task/m8.c1e-display-engine) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1d
   - Goal: Marek wants to boot the emulator and take a screenshot after a while (2026-11-22). With M8.C1d the applications run but the VRAM (phys `0x0e700000`) stays zero; `gdisubdrv.dll` drives two register blocks that `-M ze0` does not model (C-6916).
@@ -4831,6 +4831,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the 2D engine needs a command-list interpreter larger than a register model, record the command format and stop (F5 boundary, M8.C19).
   - Falsifier: with both blocks answering, the VRAM stays zero for the whole run.
   - Claims: C-6920–C-6929
+  - Result: EXP-2026-11-22-M8.C1e-display-engine (C-6920–C-6927). `ze0-0013` adds device `ze0-gfx` (DU phys `0xfff80000`, 2DG `0xffe80000`, `gfx-trace=on`): 60 Hz vblank (INTEVT `0x3e0`, SYSINTR 33) and the 2DG start/end handshake (DLSAR + SCLR = 1 → SR.TRA, INTEVT `0x780`, SYSINTR 34). Two more blockers fixed: `serial_scif.dll` spun on SCIF channel 8 and starved the UI (stubs now 0–9), and Navi.exe died on `fldi1` with `FPSCR.PR = 1` in XGLDLL (board flag `sh4_fldi_any_pr`). The UI now runs to idle, starts 2DG display lists and writes bitmaps/glyphs into VRAM, but no screen frame exists until the lists are executed (Stop case); list format in O9 → M8.C1f. `Engine = 0` is no shortcut.
+
+- [ ] **M8.C1f — 2DG display-list interpreter on `-M ze0`, so `ze0_screenshot.py` shows the UI**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1e
+  - Goal: Marek wants to boot the emulator and take a screenshot after a while (2026-11-22). After M8.C1e the UI submits 2DG display lists (DLSAR + SCLR) and uploads glyphs/bitmaps into VRAM, but nothing executes the lists, so no screen frame exists (C-6925).
+  - Precheck: run G7 of EXP-2026-11-22-M8.C1e-display-engine (`ze0-0013`, `ipl-patch`, `gfx-trace=on`) shows `2dg wr +0x0000/4 = 0x00000001` lines and VRAM blocks with non-zero bytes but no 800 × 480 frame.
+  - Scope: execute lists in `ze0-gfx` at SCLR = 1: register writes (`0x18000000`, `0x28000080` block), sync `0x08000000`, end `0x12000195`, filled quads `0xa0003000` first, then glyph/bitmap blits `0xa8003100` and the matrix commands (`0xe0003020`, `0xd0007038`, `0x80003220`); find the render-target registers; then compose DU planes 2/3/4 (`+0x200/0x300/0x400`, address at `+0x20`, stride at `+0x04`) in `tools/ze0_screenshot.py`. Spec source: the list builder in the AUI renderer (`auirtdll.dll`), the dumped lists (C-6926).
+  - Input: EXP-2026-11-22-M8.C1e-display-engine (O8, O9), `ze0-0013`, `tools/ze0_screenshot.py`, `tools/sh4dis.py`.
+  - Done when: `tools/ze0_screenshot.py grab` writes an 800 × 480 PNG of a DU plane that shows filled rectangles or text drawn by the 2DG model from a running guest, with a list-level log of which commands were executed and which were skipped.
+  - Stop: if the matrix commands turn out to be a general textured-polygon rasteriser, implement fills and axis-aligned blits only, record the rest, and stop.
+  - Falsifier: with fills executed, the DU plane memory stays zero after the lists that fill it.
+  - Claims: C-6930–C-6939
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo

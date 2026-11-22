@@ -1,0 +1,514 @@
+hw/sh4: ze0 display engine registers, vblank and 2DG handshake (TODO M8.C1e).
+
+With ROM image A joined (M8.C1d) the applications run, but the screen
+memory (phys 0x0e700000) stayed zero.  Three things stood between the
+applications and the 2D engine:
+
+1. gdisubdrv.dll drives two register blocks, DU (phys 0xfff80000) and
+   2DG (phys 0xffe80000), reached through their 29-bit aliases.  New
+   device ze0-gfx (hw/sh4/ze0_gfx.c) answers both with read-back storage,
+   a 60 Hz DU vblank (DSSR bit 11, DIER, DSRCR) and the 2DG display-list
+   handshake: DLSAR + SCLR = 1 sets SR.TRA (list end; the list is not
+   executed).  Interrupts from the OAL table at 0x88005c48: DU INTEVT
+   0x3e0 (INT2 bit 0, SYSINTR 33), 2DG INTEVT 0x780 (INT2 bit 12, SYSINTR
+   34).  Machine options gfx= (default on) and gfx-trace= (every access
+   with the guest PC under -d unimp).
+
+2. serial_scif.dll fn 0x0398e888 spins on SCFSR.TEND of SCIF channel 8
+   (0x1fe48010, about 30M reads a minute) and starves every lower
+   priority thread, the UI renderer included.  The SCIF stubs now cover
+   channels 0-9 (were 0-7).
+
+3. Navi.exe died in XGLDLL.dll 0x0310b7c2 on FLDI1 with FPSCR.PR = 1
+   (STATUS_ILLEGAL_INSTRUCTION).  The firmware runs on the real SH-4A;
+   board flag sh4_fldi_any_pr (set by -M ze0 only) lets FLDI0/FLDI1 load
+   the single register whatever PR is.
+
+Result: AuiApp and Navi.exe submit 2DG display lists and upload glyphs
+and bitmaps to VRAM by CPU; the lists themselves still need an
+interpreter (TODO M8.C1f).
+
+
+diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
+index 62318b0fa..716e500ff 100644
+--- a/hw/sh4/meson.build
++++ b/hw/sh4/meson.build
+@@ -6,6 +6,6 @@ sh4_ss.add(when: 'CONFIG_SH7750', if_true: files(
+ sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
+ sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
+ 
+-sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c'))
++sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c', 'ze0_gfx.c'))
+ hw_arch += {'sh4': sh4_ss}
+ sh4_ss.add(files('ze0_stubs.c'))
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 9d252b427..4bda10633 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -37,6 +37,7 @@
+ #include "chardev/char.h"
+ #include "hw/sh4/ze0_sdhi.h"
+ #include "hw/sh4/ze0_hpbdmac.h"
++#include "hw/sh4/ze0_gfx.h"
+ #include "system/blockdev.h"
+ #include "system/system.h"
+ #include "system/reset.h"
+@@ -171,6 +172,8 @@ struct Ze0MachineState {
+     bool hpbdmac;
+     bool hpbdmac_trace;
+     bool hpbdmac_serial;
++    bool gfx;
++    bool gfx_trace;
+     bool sd_pwd_tofu;
+     bool sd_start_locked;
+     bool scif_stubs;
+@@ -598,17 +601,20 @@ static void ze0_init(MachineState *machine)
+     }
+ 
+     /*
+-     * SCIF channels 0-5 and 7 (M8.C10 bring-up; the full model is row
++     * SCIF channels 0-5, 7, 8 and 9 (M8.C10 bring-up; the full model is row
+      * M8.C2): serial_scif.dll fn 0x0398e888 spins on SCFSR.TEND (+0x10,
+      * bit 6) of channel 1 through the area-7 alias 0x1fe41010; in the
+      * catch-all that read is 0 forever and the spinning kernel-mode thread
+      * starves device.exe.  sh_serial in SCIF mode reports TEND/TDFE set.
+      * No chardev: output is dropped.  scif-stubs=off keeps the old map.
++     * M8.C1e: once the applications run (ipl-patch), the same loop spins
++     * on channel 8 (0x1fe48010, ~30M reads/min) and starves every lower
++     * priority thread, the AUI renderer included; channels 8-9 added.
+      */
+     if (ZE0_MACHINE(machine)->scif_stubs) {
+         int i;
+ 
+-        for (i = 0; i < 8; i++) {
++        for (i = 0; i < 10; i++) {
+             DeviceState *sc;
+             MemoryRegion *alias;
+             hwaddr base = 0xffe40000u + i * 0x1000u;
+@@ -703,9 +709,35 @@ static void ze0_init(MachineState *machine)
+         sh4_dbgmsg_va = ZE0_MACHINE(machine)->dbgmsg_va;
+     }
+ 
++    /* XGLDLL.dll runs FLDI1 with FPSCR.PR = 1 (M8.C1e). */
++    sh4_fldi_any_pr = true;
++
+     /* Boot-blocker stubs (M8.A5): priority 1 over the P4/area-6 catch-all. */
+     qdev_realize_and_unref(qdev_new("ze0-stubs"), NULL, &error_fatal);
+ 
++    /* Display engine registers (M8.C1e): DU and 2D blocks, P4 and A7. */
++    if (ZE0_MACHINE(machine)->gfx) {
++        DeviceState *g = qdev_new(TYPE_ZE0_GFX);
++        static const uint32_t gbase[2] = { ZE0_GFX_DU_BASE, ZE0_GFX_2DG_BASE };
++        int gi;
++
++        qdev_prop_set_bit(g, "trace", ZE0_MACHINE(machine)->gfx_trace);
++        sysbus_realize_and_unref(SYS_BUS_DEVICE(g), &error_fatal);
++        sysbus_connect_irq(SYS_BUS_DEVICE(g), 0, ze0_intc_irq(intc, ZE0_IRQ_DU));
++        sysbus_connect_irq(SYS_BUS_DEVICE(g), 1,
++                           ze0_intc_irq(intc, ZE0_IRQ_2DG));
++        for (gi = 0; gi < 2; gi++) {
++            MemoryRegion *r = sysbus_mmio_get_region(SYS_BUS_DEVICE(g), gi);
++            MemoryRegion *al = g_new(MemoryRegion, 1);
++
++            memory_region_add_subregion_overlap(sysmem, gbase[gi], r, 2);
++            memory_region_init_alias(al, NULL, gi ? "ze0-gfx-2dg-a7" :
++                                     "ze0-gfx-du-a7", r, 0, ZE0_GFX_SIZE);
++            memory_region_add_subregion_overlap(sysmem,
++                                                gbase[gi] & ZE0_A7_MASK, al, 2);
++        }
++    }
++
+     /* Built-in loader (M8.A3): -kernel IMAGE, kernel-off=, app-off= */
+     ze0_load_images(ZE0_MACHINE(machine), cpu);
+ }
+@@ -760,6 +792,26 @@ static void ze0_set_hpbdmac_serial(Object *obj, bool value, Error **errp)
+     ZE0_MACHINE(obj)->hpbdmac_serial = value;
+ }
+ 
++static bool ze0_get_gfx(Object *obj, Error **errp)
++{
++    return ZE0_MACHINE(obj)->gfx;
++}
++
++static void ze0_set_gfx(Object *obj, bool value, Error **errp)
++{
++    ZE0_MACHINE(obj)->gfx = value;
++}
++
++static bool ze0_get_gfx_trace(Object *obj, Error **errp)
++{
++    return ZE0_MACHINE(obj)->gfx_trace;
++}
++
++static void ze0_set_gfx_trace(Object *obj, bool value, Error **errp)
++{
++    ZE0_MACHINE(obj)->gfx_trace = value;
++}
++
+ static bool ze0_get_hpbdmac_trace(Object *obj, Error **errp)
+ {
+     return ZE0_MACHINE(obj)->hpbdmac_trace;
+@@ -875,6 +927,15 @@ static void ze0_machine_instance_init(Object *obj)
+     object_property_add_bool(obj, "hpbdmac", ze0_get_hpbdmac, ze0_set_hpbdmac);
+     object_property_set_description(obj, "hpbdmac",
+         "model the HPB-DMAC that moves SD data (default on)");
++    object_property_add_bool(obj, "gfx", ze0_get_gfx, ze0_set_gfx);
++    object_property_set_description(obj, "gfx",
++        "display engine registers (DU 0xfff80000, 2D 0xffe80000 and their "
++        "29-bit aliases; default on, off = old unassigned behaviour)");
++    object_property_add_bool(obj, "gfx-trace", ze0_get_gfx_trace,
++                             ze0_set_gfx_trace);
++    object_property_set_description(obj, "gfx-trace",
++        "log every display engine register access with the guest PC "
++        "(-d unimp)");
+     object_property_add_bool(obj, "hpbdmac-trace", ze0_get_hpbdmac_trace,
+                              ze0_set_hpbdmac_trace);
+     object_property_set_description(obj, "hpbdmac-trace",
+@@ -907,6 +968,7 @@ static void ze0_machine_instance_init(Object *obj)
+         "(big-endian u16; default empty = 0-0, as on the card)");
+ 
+     s->kernel_off = ZE0_DEFAULT_KERNEL_OFF;
++    s->gfx = true;
+     s->app_off = ZE0_DEFAULT_APP_OFF;
+     s->tmu = true;
+     s->ext_ram = true;
+diff --git a/hw/sh4/ze0_gfx.c b/hw/sh4/ze0_gfx.c
+new file mode 100644
+index 000000000..9974a6d98
+--- /dev/null
++++ b/hw/sh4/ze0_gfx.c
+@@ -0,0 +1,216 @@
++/*
++ * ZE0 display engine (TODO M8.C1e): DU vblank + 2DG handshake, with trace.
++ *
++ * gdisubdrv.dll maps two register blocks with VirtualCopy(PAGE_PHYSICAL):
++ * phys 0xfff80000 (display unit, "DU") and 0xffe80000 (2D engine, "2DG").
++ * Through the TLB the guest reaches them at the 29-bit aliases
++ * 0x1ff80000 / 0x1fe80000, where -M ze0 had no device (EXP-2026-11-22-
++ * M8.C1d O8).  This device answers both windows (and their P4 addresses)
++ * with read-back storage plus the few bits the firmware waits for:
++ *
++ *  - DU: a 60 Hz vblank sets DSSR (+0x08) bit 11; DSRCR (+0x0c) clears
++ *    it; the line is DSSR & DIER (+0x10).  OAL ISR fn 0x8803fc64
++ *    (INTEVT 0x3e0, SYSINTR 33) feeds IntrThread_DU.
++ *  - 2DG: the driver writes the display list address to DLSAR (+0x48)
++ *    and starts it with SCLR (+0x00) = 1; the list is NOT executed, the
++ *    model only sets SR (+0x04) bit 0 (TRA, list end); SRCR (+0x08)
++ *    clears it; the line is SR & IER (+0x0c).  OAL ISR fn 0x8803fbcc
++ *    (INTEVT 0x780, SYSINTR 34) feeds IntrThread_2DG.
++ *
++ * trace=on logs every other access with the guest PC under -d unimp
++ * (status polls and the per-frame DSRCR write are left out).
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#include "qemu/osdep.h"
++#include "qemu/log.h"
++#include "qapi/error.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/irq.h"
++#include "hw/core/qdev-properties.h"
++#include "hw/core/cpu.h"
++#include "target/sh4/cpu.h"
++#include "hw/sh4/ze0_gfx.h"
++#include "qemu/timer.h"
++
++/* DU registers (offsets seen in the gdisubdrv.dll init and the OAL ISR). */
++#define DU_DSYSR    0x00
++#define DU_DSSR     0x08    /* status, read by ISR fn 0x8803fc64 */
++#define DU_DSRCR    0x0c    /* status clear (write 1) */
++#define DU_DIER     0x10    /* interrupt enable */
++#define DU_VBK      0x800   /* vertical blank */
++/* 2DG registers (ISR fn 0x8803fbcc). */
++#define G2_SCLR     0x00
++#define G2_SR       0x04
++#define G2_SRCR     0x08
++#define G2_IER      0x0c
++#define G2_TRA      0x01    /* display list end */
++
++static uint32_t ze0_gfx_pc(void)
++{
++    return current_cpu ? SUPERH_CPU(current_cpu)->env.pc : 0;
++}
++
++static uint32_t ze0_reg(Ze0GfxState *s, int blk, hwaddr off)
++{
++    return ldl_le_p(s->regs[blk] + off);
++}
++
++static void ze0_gfx_update(Ze0GfxState *s)
++{
++    qemu_set_irq(s->irq[0], !!(s->du_sr & ze0_reg(s, 0, DU_DIER)));
++    qemu_set_irq(s->irq[1], !!(s->g2_sr & ze0_reg(s, 1, G2_IER)));
++}
++
++static void ze0_gfx_vblank(void *opaque)
++{
++    Ze0GfxState *s = opaque;
++
++    s->du_sr |= DU_VBK;
++    s->vblanks++;
++    ze0_gfx_update(s);
++    timer_mod(s->vbl, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
++              NANOSECONDS_PER_SECOND / 60);
++}
++
++static uint64_t ze0_gfx_rd(Ze0GfxState *s, int blk, hwaddr off, unsigned size)
++{
++    uint8_t *m = s->regs[blk] + off;
++    uint64_t v = size == 4 ? ldl_le_p(m) : size == 2 ? lduw_le_p(m) : *m;
++
++    if (blk == 0 && off == DU_DSSR && size == 4) {
++        v = s->du_sr;
++    } else if (blk == 1 && off == G2_SR && size == 4) {
++        v = s->g2_sr;
++    }
++    if (s->trace && ((blk == 0 && off == DU_DSSR) ||
++                     (blk == 1 && off == G2_SR))) {
++        return v;       /* polled status: keep the log readable */
++    }
++
++    if (s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-gfx: %s rd +0x%04x/%u = 0x%08" PRIx64
++                      " pc 0x%08x\n", blk ? "2dg" : "du", (unsigned)off,
++                      size, v, ze0_gfx_pc());
++    }
++    return v;
++}
++
++static void ze0_gfx_wr(Ze0GfxState *s, int blk, hwaddr off, uint64_t v,
++                       unsigned size)
++{
++    uint8_t *m = s->regs[blk] + off;
++
++    if (s->trace && !(blk == 0 && off == DU_DSRCR)) {
++        qemu_log_mask(LOG_UNIMP, "ze0-gfx: %s wr +0x%04x/%u = 0x%08" PRIx64
++                      " pc 0x%08x\n", blk ? "2dg" : "du", (unsigned)off,
++                      size, v, ze0_gfx_pc());
++    }
++    if (size == 4 && blk == 0 && off == DU_DSRCR) {
++        s->du_sr &= ~v;
++    } else if (size == 4 && blk == 1 && off == G2_SRCR) {
++        s->g2_sr &= ~v;
++    }
++    if (size == 4) {
++        stl_le_p(m, v);
++    } else if (size == 2) {
++        stw_le_p(m, v);
++    } else {
++        *m = v;
++    }
++    if (blk == 1 && off == G2_SCLR && size == 4 && (v & 1)) {
++        /*
++         * Display list start: the driver writes DLSAR (+0x48) and then
++         * SCLR = 1 (fn 0x3af3e14..0x3af3e1e).  The list is not executed
++         * yet; report it finished (SR.TRA) so the IntrThread_2DG ->
++         * InterruptDone(34) handshake completes.
++         */
++        s->g2_kicks++;
++        s->g2_sr |= G2_TRA;
++        stl_le_p(m, v & ~1u);
++    }
++    ze0_gfx_update(s);
++}
++
++static uint64_t ze0_du_read(void *o, hwaddr a, unsigned s)
++{
++    return ze0_gfx_rd(o, 0, a, s);
++}
++
++static void ze0_du_write(void *o, hwaddr a, uint64_t v, unsigned s)
++{
++    ze0_gfx_wr(o, 0, a, v, s);
++}
++
++static uint64_t ze0_2dg_read(void *o, hwaddr a, unsigned s)
++{
++    return ze0_gfx_rd(o, 1, a, s);
++}
++
++static void ze0_2dg_write(void *o, hwaddr a, uint64_t v, unsigned s)
++{
++    ze0_gfx_wr(o, 1, a, v, s);
++}
++
++static const MemoryRegionOps ze0_du_ops = {
++    .read = ze0_du_read, .write = ze0_du_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++};
++
++static const MemoryRegionOps ze0_2dg_ops = {
++    .read = ze0_2dg_read, .write = ze0_2dg_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++};
++
++static void ze0_gfx_realize(DeviceState *dev, Error **errp)
++{
++    Ze0GfxState *s = ZE0_GFX(dev);
++
++    memory_region_init_io(&s->mmio[0], OBJECT(s), &ze0_du_ops, s,
++                          "ze0-gfx-du", ZE0_GFX_SIZE);
++    memory_region_init_io(&s->mmio[1], OBJECT(s), &ze0_2dg_ops, s,
++                          "ze0-gfx-2dg", ZE0_GFX_SIZE);
++    sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->mmio[0]);
++    sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->mmio[1]);
++    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq[0]);
++    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq[1]);
++    s->vbl = timer_new_ns(QEMU_CLOCK_VIRTUAL, ze0_gfx_vblank, s);
++}
++
++static void ze0_gfx_reset(DeviceState *dev)
++{
++    Ze0GfxState *s = ZE0_GFX(dev);
++
++    memset(s->regs, 0, sizeof(s->regs));
++    s->du_sr = s->g2_sr = 0;
++    timer_mod(s->vbl, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
++              NANOSECONDS_PER_SECOND / 60);
++}
++
++static const Property ze0_gfx_props[] = {
++    DEFINE_PROP_BOOL("trace", Ze0GfxState, trace, false),
++};
++
++static void ze0_gfx_class_init(ObjectClass *oc, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(oc);
++
++    dc->realize = ze0_gfx_realize;
++    device_class_set_legacy_reset(dc, ze0_gfx_reset);
++    device_class_set_props(dc, ze0_gfx_props);
++}
++
++static const TypeInfo ze0_gfx_info = {
++    .name = TYPE_ZE0_GFX,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(Ze0GfxState),
++    .class_init = ze0_gfx_class_init,
++};
++
++static void ze0_gfx_register(void)
++{
++    type_register_static(&ze0_gfx_info);
++}
++type_init(ze0_gfx_register)
+diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
+index 736deee28..61f8a7939 100644
+--- a/hw/sh4/ze0_intc.c
++++ b/hw/sh4/ze0_intc.c
+@@ -103,6 +103,14 @@ static const Ze0IntcSource ze0_sources[ZE0_INTC_NR_SOURCES] = {
+     [ZE0_IRQ_HPBDMAC3] = { "HPBDMAC3", 0xbc0, 19, ZE0_PRI_FIXED, 14 },
+     [ZE0_IRQ_HPBDMAC7] = { "HPBDMAC7", 0xc40, 19, ZE0_PRI_FIXED, 14 },
+     [ZE0_IRQ_HPBDMAC10] = { "HPBDMAC10", 0xca0, 19, ZE0_PRI_FIXED, 14 },
++    /*
++     * Display (M8.C1e): rows {0x3e0, fn 0x8803fc64, 4, 0x21} (DU: masks
++     * INT2 bit 0, tests DSSR 0x800) and {0x780, fn 0x8803fbcc, 4, 0x22}
++     * (2DG: masks INT2 bit 12, tests SR bit 0).  gdisubdrv.dll calls
++     * InterruptInitialize(33) and (34).  Level = the table's IntrPrio.
++     */
++    [ZE0_IRQ_DU] = { "DU", 0x3e0, 0, ZE0_PRI_FIXED, 4 },
++    [ZE0_IRQ_2DG] = { "2DG", 0x780, 12, ZE0_PRI_FIXED, 4 },
+ };
+ 
+ struct Ze0IntcState {
+diff --git a/include/hw/sh4/ze0_gfx.h b/include/hw/sh4/ze0_gfx.h
+new file mode 100644
+index 000000000..e0e691c21
+--- /dev/null
++++ b/include/hw/sh4/ze0_gfx.h
+@@ -0,0 +1,26 @@
++/* ZE0 display engine registers (TODO M8.C1e). SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef HW_SH4_ZE0_GFX_H
++#define HW_SH4_ZE0_GFX_H
++
++#include "hw/core/sysbus.h"
++#include "qemu/timer.h"
++
++#define TYPE_ZE0_GFX "ze0-gfx"
++OBJECT_DECLARE_SIMPLE_TYPE(Ze0GfxState, ZE0_GFX)
++
++#define ZE0_GFX_DU_BASE   0xfff80000u
++#define ZE0_GFX_2DG_BASE  0xffe80000u
++#define ZE0_GFX_SIZE      0x10000u
++
++struct Ze0GfxState {
++    SysBusDevice parent_obj;
++    MemoryRegion mmio[2];
++    qemu_irq irq[2];
++    bool trace;
++    uint8_t regs[2][ZE0_GFX_SIZE];
++    QEMUTimer *vbl;
++    uint32_t du_sr, g2_sr;
++    uint64_t vblanks, g2_kicks;
++};
++
++#endif
+diff --git a/include/hw/sh4/ze0_intc.h b/include/hw/sh4/ze0_intc.h
+index 16e82c0f8..4a3b282eb 100644
+--- a/include/hw/sh4/ze0_intc.h
++++ b/include/hw/sh4/ze0_intc.h
+@@ -25,6 +25,8 @@ enum {
+     ZE0_IRQ_HPBDMAC3,
+     ZE0_IRQ_HPBDMAC7,
+     ZE0_IRQ_HPBDMAC10,
++    ZE0_IRQ_DU,             /* display (M8.C1e) */
++    ZE0_IRQ_2DG,
+     ZE0_INTC_NR_SOURCES
+ };
+ 
+diff --git a/target/sh4/cpu.h b/target/sh4/cpu.h
+index f8440040b..e74536dfe 100644
+--- a/target/sh4/cpu.h
++++ b/target/sh4/cpu.h
+@@ -387,6 +387,14 @@ void cpu_load_fpscr(CPUSH4State *env, uint32_t val);
+  * string at r4 is passed to sh4_dbgmsg_sink as UTF-8.  0 = off.
+  */
+ extern uint32_t sh4_dbgmsg_va;
++
++/*
++ * Board quirk (-M ze0, M8.C1e): the ZE0 firmware (XGLDLL.dll
++ * 0x0310b7c2) executes FLDI1 with FPSCR.PR = 1 and runs on the real
++ * SH-4A; QEMU raises an illegal instruction there.  When set, FLDI0/FLDI1
++ * load the single register whatever PR is.
++ */
++extern bool sh4_fldi_any_pr;
+ extern void (*sh4_dbgmsg_sink)(const uint8_t *buf, size_t len);
+ #endif
+ 
+diff --git a/target/sh4/op_helper.c b/target/sh4/op_helper.c
+index f54d880b8..a5f054dad 100644
+--- a/target/sh4/op_helper.c
++++ b/target/sh4/op_helper.c
+@@ -78,6 +78,7 @@ void helper_raise_iaddr_error(CPUSH4State *env)
+ 
+ #ifndef CONFIG_USER_ONLY
+ uint32_t sh4_dbgmsg_va;
++bool sh4_fldi_any_pr;
+ void (*sh4_dbgmsg_sink)(const uint8_t *buf, size_t len);
+ 
+ #define SH4_DBGMSG_MAX_CHARS 1024
+diff --git a/target/sh4/translate.c b/target/sh4/translate.c
+index 57e71d3ae..f9889c3cb 100644
+--- a/target/sh4/translate.c
++++ b/target/sh4/translate.c
+@@ -1720,12 +1720,16 @@ static void _decode_opc(DisasContext * ctx)
+         break;
+     case 0xf08d: /* fldi0 FRn - FPSCR: R[PR] */
+         CHECK_FPU_ENABLED
+-        CHECK_FPSCR_PR_0
++        if (!sh4_fldi_any_pr) {
++            CHECK_FPSCR_PR_0
++        }
+         tcg_gen_movi_i32(FREG(B11_8), 0);
+         return;
+     case 0xf09d: /* fldi1 FRn - FPSCR: R[PR] */
+         CHECK_FPU_ENABLED
+-        CHECK_FPSCR_PR_0
++        if (!sh4_fldi_any_pr) {
++            CHECK_FPSCR_PR_0
++        }
+         tcg_gen_movi_i32(FREG(B11_8), 0x3f800000);
+         return;
+     case 0xf0ad: /* fcnvsd FPUL,DRn */
