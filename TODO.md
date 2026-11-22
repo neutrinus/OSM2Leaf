@@ -2801,7 +2801,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M4.67-kiwi-level-blocks; 0/4 KIWI header checks on both cards, 5 claims C-7660-C-7664
 
 - [ ] **M4.68 — KIWI Parcel ID and coordinates against tile names and `coord.py` (normalised units, parcel division per level)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.68-kiwi-parcel-id · Critical: no · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: KIWI gives every parcel an ID and stores positions as normalised offsets inside the parcel. Our tile names (`BxxRyyyR`), the level/box grid and the POI coordinate words were all derived by fitting. Test the KIWI rules: do they predict our grid sizes per level and the `11xx` nibble / fine-word split of point coordinates?
