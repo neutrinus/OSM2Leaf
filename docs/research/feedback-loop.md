@@ -391,6 +391,60 @@ not a log line:
 watchdog's exit code, or its `main-watch.json` artifact, instead of a 40-row
 `gh run list`.
 
+## One trace record for L3 and L4 reader calls (M9.69)
+
+L3 tools print a reader's outcome each in their own shape: `mmain_l3.py` prints
+one line per case, `drstr_l3.py` prints a verdict document or a controls table,
+and the L4 parity work (M8.H11) will add another. Two runs of the same reader
+are then compared by re-reading prose, and the M9.62 manifest would need a
+per-tool parser. `tools/reader_trace.py` fixes one record so this is mechanical:
+
+```json
+{"schema": "osm2leaf.reader_trace/v1",
+ "producer": "mmain_l3", "build": "eu2011", "module": "Navi.exe",
+ "function": "0x0041a438",
+ "arguments": {"case": "factory", "guest_path": "\\SystemSD\\MMAIN001.DAT",
+               "input_sha256": "240e7c97…", "input_size": 4096},
+ "reads": [{"file": "MMAIN001.DAT", "offset": 0, "length": 4096, "got": 4096}],
+ "result": {"verdict": "ACCEPT", "r0": null, "stage": null, "log_codes": [],
+            "reason": null,
+            "checks": {"buffer_sha256": "88545669…",
+                       "buffer_equals_swap16": true,
+                       "python_model_equal": true}},
+ "environment": {"imports": ["…"], "insns_note": "PySh4, vcard_l3 import models"}}
+```
+
+The five fields the task names are the required ones: `build`, `function`, and
+the `arguments`/`reads`/`result` objects. `reads` is the card access log the
+call caused (file, byte offset, asked, got) so a run that reads different bytes
+is DIFFERENT even with one verdict. `result.verdict` is `ACCEPT`, `REJECT` or
+`BLOCKED`; `result.checks` is an optional object of the producer's own derived
+assertions with scalar values — a hash of what the firmware held after the call
+(`buffer_sha256`), a boolean comparison (`buffer_equals_swap16`,
+`python_model_equal`) — because two accepted files of equal size read the same
+bytes but leave different buffers. Without that field the factory and edited
+`MMAIN001.DAT` runs would compare SAME, which is the task's falsifier. Unknown
+top-level keys are tolerated (a later L4 producer adds fields); the `reads` and
+`result` objects are strict so one concept cannot hide under two names.
+
+A trace file is one record or a JSON array of records (one entry per call).
+`python3 tools/reader_trace.py validate FILE…` accepts or names each problem;
+`compare A.json B.json` prints `SAME` or the differing record fields. Both
+producers take `--trace-out PATH`; a missing flag changes nothing:
+
+- `mmain_l3.py run … --trace-out OUT` — one record per case (6 rows), from the
+  `judge()` row (M9.69 adapter `reader_trace.from_mmain_l3`).
+- `drstr_l3.py run … --trace-out OUT` — one record for the `run` verdict;
+  `drstr_l3.py controls … --trace-out OUT` — one record per control row
+  (M9.69 adapter `reader_trace.from_drstr_l3`, `caller`/`reason` carried for a
+  BLOCKED control).
+
+The record never changes a verdict: the producers write it after they print and
+compute their exit code, and the existing `--json` documents are unchanged. A
+new L3 tool that makes a reader call adds a `from_<tool>` adapter here rather
+than a second format; `--selftest` checks every field and the adapters on
+synthetic rows, and `compare` is the mechanical form of "two runs differ".
+
 ## Open questions
 
 1. Which spare unit is the right one: US 2011 `CLA-NAVI05-01`, or a later
