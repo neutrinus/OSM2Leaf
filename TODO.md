@@ -1276,8 +1276,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-6760–C-6769
   - Result: EXP-2026-11-22-H129-board-claim-set-supersedes-cell; claim-set inserts missing keys into body cell 2, selftest pins cell placement; C-6750 normalized via claim-set.
 
-- [ ] **H130 — `board.py claim-body`/`claim-set` split a row on a raw `|` inside the claim text, corrupting the row and injecting the tail into the next one**
-  - Status: in progress · Owner: task/h130-claim-pipe · Critical: no · Pair: solo
+- [x] **H130 — `board.py claim-body`/`claim-set` split a row on a raw `|` inside the claim text, corrupting the row and injecting the tail into the next one**
+  - Status: done · Owner: task/h130-claim-pipe · Critical: no · Pair: solo
   - Step: tooling
   - Depends: — (found by the M4.61 driver 2026-11-22 while widening C-6564; H129 fixed which cell a key lands in, not the cell splitting)
   - Goal: `_claim_row` splits a row with `re.split(r"(?<!\\|)\\|", line)` and `op_claim_body` / `op_claim_set` re-join with `"|".join(parts)`. A claim body that contains a raw `|` (e.g. the POINT pair written as `(0x800|flon, flat)`, a natural way to write a bitwise OR) is therefore split into extra cells; `claim-body` then writes the new text into cell 2 and keeps the old tail, so the row ends with `... |flon, flat)` pair at ... | VERIFIED | ...` and the next row's leading cells are lost or duplicated. The tool reports success (`board: C-6564 body replaced`) and `claims_check` still exits 0, so the corruption is silent. This is the same class as H129 (a write that passes checks but is wrong) and needs an escaped-pipe convention plus a row-shape guard.
@@ -1289,6 +1289,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: a `|`-containing body that round-trips through `claim-body` and leaves the row at 7 cells and the next row intact — then the split is not the defect and this task is closed negative.
   - Claims: C-8260–C-8269
   - Pair: required
+  - Result: EXP-2026-11-22-H130-board-claim-raw-pipe; claim-body/claim-set escape raw pipes; exact-7 cell guard; 105/105 board selftests; gate 5 pass/0 fail/0 skip
 
 
 ## M2 — Map code, activation, updater
