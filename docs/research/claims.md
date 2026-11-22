@@ -4997,6 +4997,17 @@ into three printed classes.
 | C-6429 | M1.40 static scope delivered: I2C table with driver/client IOCTL rows and explicit static limits, GPIO table with >=8 named rows/bases/IOCTLs, baud-rate rows for `SCI1:`, `SCI6:`, `SCI7:`, `SCI8:`, `UAT3:`, and `SCI0:`/`UAT4:` string evidence. Hardware behavior/chip identity remains unconfirmed (no L3/L4/L5). | OBSERVED (process) | H | EXP-2026-11-22-M1.40-hw-map-ii; `python3 tools/board.py lost --base origin/main` |
 
 
+## H40 — generated-fixture contract (C-3270–C-3279)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-3270 | H40's generated-fixture contract is in place on `origin/main`: `python3 tools/l1l2_fixtures.py --selftest` is OK (32 checks) and `--require-covered` exits 0, so the H26 registry row `l1.synthetic.cardcheck` is runnable rather than a stale "no vendor-free card builder" note. | VERIFIED (tool) | H | EXP-2026-11-22-H40-generated-fixture-contract; `python3 tools/l1l2_fixtures.py --selftest`, `--require-covered` |
+| C-3271 | `python3 tools/cardcheck.py --generate-fixture DIR --json OUT` (H103) writes a vendor-free ZE0 tree, 6 PASS / 2 SKIP, byte-identical over two runs; the L1 row runs it as rc=0 with no FAIL. | VERIFIED (tool) | H | EXP-2026-11-22-H40-generated-fixture-contract; `python3 tools/cardcheck.py --generate-fixture /tmp/good --json /tmp/g.json` and a second run + `diff -r` |
+| C-3272 | H105's `--break tile-level-not-in-mmain` tree is the negative control: `cardcheck --generate-fixture … --break …` exits 1 and FAILs exactly `mmain` — the id the good tree passed — so the L1 row cannot go green on a checker that stopped checking. | VERIFIED (tool) | H | EXP-2026-11-22-H40-generated-fixture-contract; the broken-tree JSON check list |
+| C-3273 | The L2 round-trips run on synthetic fixtures: `l2.drstr.build-roundtrip` PASS (176 B, 2 nodes), `l2.cmpind.preserve-roundtrip` PASS (65,659 B, 2 chunks preserved), `l2.tile.class-roundtrip` PASS (2 parcels, 3 shapes, one-value mutant FAIL), `l2.poi.mutation.imgpatch-selftest` PASS (imgpatch's own selftest count). | VERIFIED (tool) | H | EXP-2026-11-22-H40-generated-fixture-contract; `python3 tools/l1l2_fixtures.py --require-covered` |
+| C-3274 | The honest gaps stay `NOT COVERED`, never faked: `l2.tile.harness-selftest` needs a tile argument and no vendor-free synthetic tile is exposed; real EU2011 / 194 REFER001 / LEV3456R round-trips need vendor data. `l2.cmpind.recompress-roundtrip` is semantic-only (byte-identical SKIP under zlib-ng). | OBSERVED | M | EXP-2026-11-22-H40-generated-fixture-contract; the coverage notes |
+| C-3275 | `.github/workflows/l1l2-fixtures.yml` runs `tools/l1l2_fixtures.py --json … --md …` on Python 3.11 and 3.13 and reports runnable PASS/FAIL/SKIP plus `NOT COVERED`; the step's exit code reflects only runnable checks. No firmware acceptance claim (rule 13), no vendor data. | VERIFIED (docs) | H | EXP-2026-11-22-H40-generated-fixture-contract; `grep -n l1l2_fixtures .github/workflows/l1l2-fixtures.yml` |
+| C-3276 | `python3 tools/gate.py` is green on this tree: 5 pass / 0 fail / 0 skip (selftest, claims_check, todo_check, board_check, fn_audit), so closing the stale H40 board row does not disturb the standing gate. | VERIFIED (tool) | H | EXP-2026-11-22-H40-generated-fixture-contract; `python3 tools/gate.py` |
+
 ## H129 — board.py claim-set Supersedes cell (C-6760–C-6769)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
