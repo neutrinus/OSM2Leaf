@@ -2887,8 +2887,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: every family ends as 'unrelated' (then the page records the negative with its controls and the lead is closed in Retired leads).
   - Claims: C-7770–C-7779
 
-- [ ] **M4.79 — `ZCODE0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.79 — `ZCODE0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
+  - Status: done · Owner: task/m4.79-zcode-decode · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: Row 8 of `docs/research/reader-coverage.md` says the `ZCODE0nn` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
@@ -2899,6 +2899,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; unexplained fields are listed with their value histogram, not guessed.
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7800–C-7809
+  - Result: EXP-2026-11-22-M4.79-zcode-decode; 33/33 EU shards censused (Form A 2, Form B 31), 96.45% of bytes explained, min 67.7% (ZCODE015); US has 0 ZCODE; Form-B header at 0x1100 + base 0x1204+off*2 verified
 
 - [ ] **M4.80 — `ICODE001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5974,8 +5975,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: no mutation is ever rejected (then the path under test does not parse the header and the sweep needs the next stage).
   - Claims: C-8000–C-8009
 
-- [ ] **M9.69 — One trace format for L3 and L4 reader calls**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M9.69 — One trace format for L3 and L4 reader calls**
+  - Status: done · Owner: task/m9.69-reader-trace · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: L3 tools print reader results each in their own shape, and the L4 parity task (M8.H11) will add another. Define one JSON record (build, function, arguments, reads, result) so comparisons and the manifest of M9.62 are mechanical.
@@ -5986,6 +5987,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: one session.
   - Falsifier: a field needed to compare two runs is missing from the schema for one of the two tools.
   - Claims: C-8010–C-8019
+  - Result: EXP-2026-11-22-M9.69-reader-trace; C-8010–C-8013; reader_trace selftest 54/54, both adapted tools validate (6+1+9 records), selftests and l3check unchanged (pass=3 fail=0 runnable=3/13)
 
 - [ ] **M9.70 — A Polish POI name through the firmware: `Łódź Żabieniec` at L3**
   - Status: open · Owner: — · Critical: no · Pair: solo
