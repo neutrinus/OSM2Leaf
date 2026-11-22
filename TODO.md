@@ -4738,7 +4738,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7330–C-7339
 
 - [ ] **M8.H37 — Hard keys and the rotary knob: source, key codes, and the table of names**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h37-keys · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: The unit has hard keys (map, menu, destination, zoom, day/night, audio keys, steering-wheel keys). Find where each arrives (display unit, audio microcontroller on `SCI1:`, GPIO matrix) and build the key-code table the injection tool needs.
