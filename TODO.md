@@ -5420,7 +5420,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: an EXP records an L4 `-M ze0` run in which the simulated position changes on successive reads (a concrete position variable or the on-screen marker), naming the exact trigger, the position-feeding VA and the runnable harness command; the falsifier and the run's serial lines are in the EXP.
   - Stop: one session.
   - Falsifier: after the trigger the position never changes (the simulation needs the missing microcontroller/CAN input) — record the serial lines and stop; a `blocked` result is acceptable.
-  - Claims: C-8330–C-8339
+  - Claims: C-8340–C-8349
   - Pair: required
   - Note: follow-up from M8.H21 (verdict `present`). L4 integration input; needs a reviewer.
 
