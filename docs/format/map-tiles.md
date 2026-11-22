@@ -1201,13 +1201,38 @@ words little-endian after the firmware's swap; C-6774, C-6775):
 
 On the factory record of `B48R058R` (mesh `0xa6c1d6b2`) the walk makes 5,363
 loads (6,868 distinct bytes of 11,264); on the generated record of M9.53 it
-makes 49 (70 distinct bytes). The generated record's first reference word is
-`0x0100` (record word 58), which points past the 184 B record: the firmware
-then loads stale pool bytes (C-6776), and none of the generated shapes is
-counted in the result table `*0x00e8f5dc` (C-6778; cause open, M9.67; writer
-fix M5.72). Record word 59, which M9.58 took for the link id, is not loaded
-by this walk (C-6777). The record tail (`record + 4*w17`) is copied but not
-loaded in this run.
+makes 49 (70 distinct bytes). The generated record's first reference word was
+`0x0100` (record word 58), which pointed past the 184 B record: the firmware
+then loaded stale pool bytes (C-6776), and none of the generated shapes was
+counted in the result table `*0x00e8f5dc` (C-6778; cause open, M9.67). The
+writer now emits **`0xffff`** there (`fa_encode.NONE_REF`), so a start point
+points at no point and the walk stays in the record: the fixed tile G1 makes
+46 loads (66 distinct bytes) with no out-of-window load (C-6853,
+EXP-2026-11-22-M5.72). Record word 59, which M9.58 took for the link id, is
+not loaded by this walk (C-6777). The record tail (`record + 4*w17`) is copied
+but not loaded in this run.
+
+**The reference word on factory records.** `tools/tilewriter.py --census TILE`
+reads the word for every point that carries a dedicated slot, across every
+kind-`0x00fa` record the checked-in reader parses. On the 65,262 parsed records
+of `B48R058R` (5,898,373 points with a word): 83.27 % hold an in-record point
+index, 16.54 % hold `0xffff` ("none"), 0.22 % hold a link-header `val` word
+(`0x0021`, `0x0026`, `0x0028`, …), and **0** point past the record; 60.8 %
+point back (mutual). A start with a link is an in-record point, an isolated
+start is `0xffff`.
+
+**Slot arithmetic.** For a start point at record word `p`, the walk reads
+`p + ((y >> 13) & 1) + 2`, which is the link header's middle word: `[style,
+val, lid]` (fresh style) or `[val, lid]` (bare). The `style` word does not move
+the slot (on F a fresh-header start at word 55 reads slot 36, record word 58;
+a bare-header start at word 72 reads slot 53). The shape buffer starts at
+record word 22 (byte 0x2c), so buffer slot `s` is record word `22 + s`.
+
+> **Open:** the result table is still all zeros for the fixed tile G1: the
+> reference is no longer out of record, but the shapes are not counted. The
+> counted-shape rule of `fn 0x0041f3dc` is M9.67 (C-6857); a generated shape's
+> end reference slot is `0x0000` where the factory writes a back-reference or
+> `0xffff` (C-6856).
 
 > **Not run:** the divided-record branch `fn 0x004205b8`, positions that need
 > a neighbour mesh (`STDDLL!STD_MeshID_getAny`, M9.65), the consumer of the
