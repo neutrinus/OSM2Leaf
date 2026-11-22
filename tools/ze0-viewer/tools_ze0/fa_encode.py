@@ -7,6 +7,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import clarion_bg
 
 STYLE = 0x101e        # the style word 79,182 of 128,000 shipped level-1 shapes carry: no limit
+#: The walk `fn 0x0041f3dc` reads a reference at word (p + ((y >> 13) & 1) + 2)
+#: for every point whose coordinates are neither 0 nor 0x7ff; 0xffff means
+#: "no reference" (EXP-2026-11-21-M9.66, C-6774/C-6775). A shape's start point
+#: has no earlier point to point at, so it carries this value where a factory
+#: start is isolated; 0x0100 (the old one-byte-swapped header flag) is past the
+#: record and made the walk load stale pool bytes (C-6776).
+NONE_REF = 0xffff
 
 def style_word(limit, oneway=False):
     """Level-1 style word for a posted limit, or STYLE for none; bit 12 clear marks one-way."""
@@ -89,7 +96,14 @@ def shape_words(chain, nodes, name_off=0xffff, level=1, cls=None, styles=None, d
     out += [0x0800 | sx, 0x2800 | sy | dirbits(0)]
     npts = 1
     for n, (lid, a, b, inner) in enumerate(chain):
-        if level == 1: out += [styles[n], 0x0100, lid] if fresh[n] else [0x0100, lid]
+        if level == 1:
+            # The walk reads a link start's reference at (p + bit + 2), which
+            # is exactly this header's `val` word: p is the previous point's
+            # x-word, and its y bit (0x2800 fresh / 0x0800 bare) lands the slot
+            # on `val` in both forms (C-6775).  Emit NONE_REF there so the
+            # start points at no point and never leaves the record (C-6776);
+            # 0x0100 was the old one-byte-swapped flag that pointed past it.
+            out += [styles[n], NONE_REF, lid] if fresh[n] else [NONE_REF, lid]
         else: out += [style_word(None, oneway=dirs[n] != 0), lid] if n == 0 else [lid]
         pts = list(inner) + [nodes[b]]
         for k, (x, y) in enumerate(pts):
