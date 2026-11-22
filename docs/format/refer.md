@@ -48,6 +48,64 @@ There are 33 numbered shards, matching the 33 regions:
 `REFER002` is **not** duplicate data — it carries the longer EV schema
 (xy-coordinates, plug info, parking capacity).
 
+### `REFER002` census (M4.85, EU 2011)
+
+> **Status:** `OBSERVED` (file-level census and field schema; record-body field
+> offsets still open — the shared POINT name-record grammar). Evidence:
+> EXP-2026-11-22-M4.85-refer002-census, C-7860–C-7869.
+
+`python3 tools/refer002_census.py census ROOT` reports the 16 files of the
+EU 2011 layer (426,496 B, 880 facility records; US 2011 has 2 files / 1 record):
+
+| file | zlib streams | record pages | records |
+| --- | ---: | ---: | ---: |
+| `COORD001.DAT` | 0 | 0 | 0 (projection companion, C-152) |
+| `POINT002.DAT` | 3 | 1 | 33 |
+| `POINT004.DAT` | 3 | 1 | 6 |
+| `POINT005.DAT` | 3 | 1 | 9 |
+| `POINT007.DAT` | 3 | 1 | 4 |
+| `POINT008.DAT` | 3 | 1 | 121 |
+| `POINT010.DAT` | 3 | 1 | 24 |
+| `POINT011.DAT` | 3 | 1 | 4 |
+| `POINT016.DAT` | 3 | 1 | 1 |
+| `POINT018.DAT` | 3 | 1 | 172 |
+| `POINT019.DAT` | 3 | 1 | 41 |
+| `POINT020.DAT` | 3 | 1 | 24 |
+| `POINT022.DAT` | 3 | 1 | 62 |
+| `POINT025.DAT` | 4 | 1 | 206 |
+| `POINT029.DAT` | 3 | 1 | 2 |
+| `POINT033.DAT` | 3 | 1 | 171 |
+
+Each `POINT0nn` is the `REFER001` POINT container (0x800 header, 299-cell
+directory at `0x800`, zlib pages of `0x60`/`0x68` records) but carries a
+**different field dictionary**: the *facility* dictionary has 11 fields, with
+`xy-coordinates`, `point of arrival` and `tie-up parking` where REFER001 has
+`icon code`. `plug info`, `parking capacity`, `installed facility` and
+`user limitation id` are declared in the `INFORMATION` sub-schema.
+`schema ROOT/POINT002.DAT` prints the table below (type `0x8000` coded,
+`0x6000` text in the record tail, `0x2000` trailing rest):
+
+| id | field | type | length (words) |
+| ---: | --- | --- | ---: |
+| 0 | area code | 0x8000 | 5 |
+| 1 | category | 0x8000 | 1 |
+| 2 | sub-category | 0x8000 | 1 |
+| 3 | detailed code | 0x8000 | 1 |
+| 4 | index | 0x8000 | 0 |
+| 5 | facility name | 0x6000 | 19 |
+| 6 | address | 0x6000 | 14 |
+| 7 | dndc-id | 0x2000 | 0 |
+| 8 | xy-coordinates | 0x8000 | 0 |
+| 9 | point of arrival | 0x8000 | 1 |
+| 10 | tie-up parking | 0x8000 | 1 |
+
+The field dictionary is a C-block (`ff ff u16 word-offset` to a header with
+`u16 first-word @+24`, `u16 nfields @+26`; entries chained by the `u16` at `+0`,
+`0xffff` = last, with `id @+12`, `len @+14`, `name @+16`) — the same chain the
+`fn 0x003f51e0` name accessor reads (see "Field dictionary" under POINT below).
+The record *body* field positions are **not** decoded here: the 48/88-byte name
+record grammar is still open for REFER001 too.
+
 ## `POINT0nn` — POIs
 
 - The field dictionary is inside each file: plain ASCII names with per-field

@@ -288,7 +288,7 @@ asked which bytes it reads. Three new fronts follow from that:
 **Map work that needs no emulator (take these first if you are not on M8):**
 **M4.89** (Poland on the 2014/2016 cards as an answer sheet — also answers
 M5.64), **M4.69**, **M4.72**, M4.79–M4.84 (claim-only decoders become tools),
-M4.85 (EV layer), M4.86 (largest unexplained block of a tile), M4.87 (Polish
+M4.85 (EV layer, done), M4.86 (largest unexplained block of a tile), M4.87 (Polish
 glyphs), M5.64, M5.65, M5.66, M5.76 (synthetic town, no network), M9.68.
 
 **Rule 17 budget still holds:** a batch takes at most one M8.H task that is
@@ -2928,8 +2928,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7850–C-7859
 
-- [ ] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
-  - Status: in progress · Owner: task/m4.85-refer002-census · Critical: no · Pair: solo
+- [x] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
+  - Status: done · Owner: task/m4.85-refer002-census · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: `REFER002` holds the Leaf-specific data (charging stations with plug type and parking information). The matrix says 'EV schema xy/plug/parking undecoded'. For a Polish card this is the layer owners care about most after roads: chargers.
@@ -2940,6 +2940,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; plug-type code meanings may stay open if the layout is done.
   - Falsifier: station positions decoded with the POI rule fall outside the card's coverage area.
   - Claims: C-7860–C-7869
+  - Result: EXP-2026-11-22-M4.85-refer002-census; tools/refer002_census.py --selftest 13/13 PASS; 16 EU files, 880 records, 11-field facility dictionary
 
 - [ ] **M4.86 — What is still unexplained in a factory tile: rank the unknown bytes of `B48R058R` by structure**
   - Status: open · Owner: — · Critical: no · Pair: solo
