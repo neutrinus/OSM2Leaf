@@ -1146,9 +1146,9 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M1.50-us-unit-position-kentucky; position to OpenCARWINGS = head unit OBJ_CarPos via Vehicle.exe→DCM_API!SetVehicleData; coordinate not a firmware constant; held last position most likely; follow-ups M1.51, M1.52
 
 - [ ] **M1.51 — `Navi.exe`: does it accept a GPS fix far from the current car position?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: open · Owner: — · Critical: yes · Pair: solo
   - Depends: —
-  - Goal: side track for Marek's car (EXP-2026-11-22-M1.50, hypothesis H2): decide whether a valid fix 8 000 km from the stored car position is taken, delayed, or rejected, so the measurement on the diagnosis page can be read either way.
+  - Goal: side track for Marek's car (EXP-2026-11-22-M1.50 update): the receiver has a valid fix in Wrocław but a 2007 date (1024-week rollover), while the navigation car position stays in Kentucky. Find the check between OBJ_GpsInfo and OBJ_CarPos that drops the fix: a date comparison (H2a), a distance/jump limit (H2b) or map matching (H2c).
   - Precheck: `python3 tools/sh4xref.py archive/us256.img OBJDLL.dll --image-start 0x200200 --to 0x0346dd7c` names the user of the `LAST` string.
   - Scope: static, US2011: the writers of `OBJ_GpsInfo` and `OBJ_CarPos` in `Navi.exe`/`OBJDLL.dll`, the comparison between fix and dead-reckoned position (distance threshold, count of agreeing fixes, off-map check), what `navdrv!SetFilterConfig` sets.
   - Input: EXP-2026-11-22-M1.50, `tools/sh4xref.py`, `tools/callgraph.py`, M8.H29 if merged.
