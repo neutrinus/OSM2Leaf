@@ -3038,7 +3038,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7860–C-7869
 
 - [ ] **M4.86 — What is still unexplained in a factory tile: rank the unknown bytes of `B48R058R` by structure**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.86-tile-unknown · Critical: no · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: `tools/map_signals.py` reports one of the three sample tiles far less explained than the others. Break its unexplained bytes down by level, record kind and directory, so the next format task takes the largest block instead of a guess.
