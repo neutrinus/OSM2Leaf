@@ -4740,8 +4740,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: both boots read the same tile.
   - Claims: C-7170–C-7179
 
-- [ ] **M8.H21 — Is there a demo drive? Route simulation and other position sources inside `Navi.exe`**
-  - Status: in progress · Owner: task/m8.h21-demo-drive · Critical: no · Pair: solo
+- [x] **M8.H21 — Is there a demo drive? Route simulation and other position sources inside `Navi.exe`**
+  - Status: done · Owner: task/m8.h21-demo-drive · Critical: no · Pair: solo
   - Step: research
   - Depends: —
   - Goal: Many navigation programs can simulate driving a route. If this one can (a hidden or dealer menu), the emulator gets a moving position with no sensor model at all.
@@ -4752,6 +4752,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: a string hit has no code reference (dead resource).
   - Claims: C-7180–C-7189
+  - Result: EXP-2026-11-22-M8.H21-demo-drive; verdict present; 149 EU / 151 US modules, switch + VAs; follow-up M8.H72
 
 - [ ] **M8.H22 — Census of unmodelled hardware accesses in one boot: what to model next, by numbers**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5407,6 +5408,21 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the screen shows the factory roads (the renderer does not read the changed parcel) or no roads in the parcel (records rejected).
   - Claims: C-8310–C-8319
   - Result: EXP-2026-11-22-M8.H71-osm-roads-l4; OSM London parcel drawn by Navi.exe at L4 (no names: --no-names); L1 PASS; pipeline negative-lon bbox fix
+
+- [ ] **M8.H72 — Trigger the route simulation under ze0 to get a moving position**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: tooling
+  - Depends: M8.H21 (done)
+  - Goal: M8.H21 found a demo/simulation mode in both 2011 builds: the `Navi.exe` menu item `2: Simulation on/off` (`fn 0x003daf5c`), the demo flag `u16 0x00bcd208`, `RGD_DEMO_*` position feeders (`fn 0x005182e0` …), `CRouteSimulation` in `NaviRouteCC.dll` (`fn 0x02f69198`) and the `NAVI_ROUTE_SIMULATION_START/PAUSE/STOP` events (`fn 0x004b9fa4`). If any trigger works under `-M ze0`, the emulator gets a moving position with no GPS/CAN sensor model — a moving test oracle for generated OSM cards.
+  - Precheck: `tools/ze0_screenshot.py screen` boots the factory EU 2011 card to the London map (M8.H70/M8.H71); the M8.H21 VAs are readable in `archive/head256.img`.
+  - Scope: EU 2011, image A; try the debug-menu selection `'2'` (value `0x32` at `0x003daf86`) and/or the `NAVI_ROUTE_SIMULATION_START` event; trace the position written by the `RGD_DEMO_*` helpers and `CRouteSimulation::ControlRouteSimulation`, using `tools/sh4dis.py`/`tools/sh4xref.py` to place breakpoints. The persistent switch may be `OBJ_Setting_readShopDemo` (`OBJDLL.dll` VA `0x034b7b84`). Keep screenshots and logs out of the repo; record only VAs, counts and hashes.
+  - Input: `tools/qemu-ze0/run.sh`, `tools/ze0_screenshot.py`, `tools/sh4dis.py`, `tools/sh4xref.py`, EXP-2026-11-22-M8.H21-demo-drive.
+  - Done when: an EXP records an L4 `-M ze0` run in which the simulated position changes on successive reads (a concrete position variable or the on-screen marker), naming the exact trigger, the position-feeding VA and the runnable harness command; the falsifier and the run's serial lines are in the EXP.
+  - Stop: one session.
+  - Falsifier: after the trigger the position never changes (the simulation needs the missing microcontroller/CAN input) — record the serial lines and stop; a `blocked` result is acceptable.
+  - Claims: C-8330–C-8339
+  - Pair: required
+  - Note: follow-up from M8.H21 (verdict `present`). L4 integration input; needs a reviewer.
 
 ---
 
