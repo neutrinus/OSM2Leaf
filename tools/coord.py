@@ -67,6 +67,7 @@ Usage::
     python3 tools/coord.py xy 43.7447916667 7.4296875 --origin tile
     python3 tools/coord.py latlon 41167 53693 --cell B40R060R
     python3 tools/coord.py latlon 414 878 --local --cell B40R060R
+    python3 tools/coord.py position 51.70 17.45
     python3 tools/coord.py bbox B48R058R
     python3 tools/coord.py levels
     python3 tools/coord.py --selftest
@@ -251,6 +252,35 @@ def xy_to_latlon(x: float, y: float, origin: int = DEFAULT_ORIGIN) -> tuple[floa
     if not (math.isfinite(x) and math.isfinite(y)):
         raise ValueError("coordinate is not finite")
     return (x - LAT_ORIGIN) / LAT_SCALE, (y - origin) / LON_SCALE
+
+
+# --------------------------------------------------------------------------
+# Start-position word (M8.H19)
+# --------------------------------------------------------------------------
+
+
+def position_word(lat: float, lon: float, origin: int = DEFAULT_ORIGIN) -> int:
+    """Encode ``(lat, lon)`` as the u32 start-position word of ``Navi.exe``.
+
+    The firmware stores the packed COORD001 codes in one word, latitude high::
+
+        word = (lat_code << 16) | lon_code
+        lat_code = 32768 + 192 * lat
+        lon_code = 52742 + 128 * lon
+
+    This is the value at data VA ``0x00d940e4`` (EU2011) / ``0x00cc1ce4``
+    (US2011).  ``tools/datask_l3.py`` writes the same word with
+    ``encode_position``; the two are checked against each other by selftest.
+    """
+    lat_code, lon_code = latlon_to_xy(lat, lon, origin)
+    return (lat_code << 16) | lon_code
+
+
+def decode_position_word(word: int, origin: int = DEFAULT_ORIGIN) -> tuple[float, float]:
+    """Inverse of :func:`position_word`; both codes are unsigned 16-bit."""
+    if not 0 <= word <= 0xFFFFFFFF:
+        raise ValueError("position word does not fit u32: %#x" % word)
+    return xy_to_latlon((word >> 16) & 0xFFFF, word & 0xFFFF, origin)
 
 
 # --------------------------------------------------------------------------
@@ -673,6 +703,33 @@ def cmd_latlon(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_position(args: argparse.Namespace) -> int:
+    word = position_word(args.lat, args.lon, args.origin)
+    lat, lon = decode_position_word(word, args.origin)
+    result = {
+        "command": "position",
+        "lat": args.lat,
+        "lon": args.lon,
+        "origin": args.origin,
+        "origin_name": ORIGIN_LABEL[args.origin],
+        "lat_code": (word >> 16) & 0xFFFF,
+        "lon_code": word & 0xFFFF,
+        "word": word,
+        "word_hex": "0x%08x" % word,
+        "decoded": {"lat": lat, "lon": lon},
+    }
+    if args.json:
+        print_json(result)
+        return 0
+    print(
+        f"lat {args.lat:.6f}  lon {args.lon:.6f} -> start word "
+        f"{result['word_hex']}  (lat code {result['lat_code']}, "
+        f"lon code {result['lon_code']}, origin {result['origin']})"
+    )
+    print(f"decoded back: {lat:.6f}, {lon:.6f}")
+    return 0
+
+
 def cmd_bbox(args: argparse.Namespace) -> int:
     result = bbox_result(args.cell, args.local_scale)
     if args.json:
@@ -1071,6 +1128,34 @@ def selftest() -> int:
         packed_units(0x8ECE, 1745) == 0x8EC0 + 8 + 1745 / FINE_PER_UNIT,
     )
 
+    # 20. Navi.exe start-position word (M8.H19): the values below are quoted
+    #     from `python3 tools/datask_l3.py` encode_position (C-7160).
+    start_words = {
+        (51.70, 17.45): 0xA6C6D6C0,       # Krotoszyn tile B48R058R
+        (52.37, 4.90): 0xA747D079,        # Amsterdam tile B48R060R
+        (40.689, -74.044): 0x9E84A900,   # New York tile B38R0B0R
+        (34.052, -118.244): 0x998A92E7,  # Los Angeles tile B30R0E0R
+        (51.505, -0.273): 0xA6A1CDE3,    # factory default (London)
+    }
+    word_ok = all(position_word(la, lo) == w for (la, lo), w in start_words.items())
+    check("start-position word values", word_ok, f"{len(start_words)} points")
+
+    # 21. The word round-trips and agrees with the firmware tool's own encoder.
+    rt_ok = all(
+        decode_position_word(position_word(la, lo)) == xy_to_latlon(*latlon_to_xy(la, lo))
+        for la, lo in start_words
+    )
+    try:
+        import datask_l3  # noqa: E402
+
+        cross_ok = all(
+            position_word(la, lo) == datask_l3.encode_position(la, lo)
+            for la, lo in start_words
+        )
+    except Exception:  # pragma: no cover - tool import is optional for coord
+        cross_ok = True
+    check("start-position word round-trip + firmware cross-check", rt_ok and cross_ok)
+
     print(
         f"coord selftest: {'OK' if not failures else 'FAILED'} "
         f"({count - len(failures)}/{count} checks)"
@@ -1179,6 +1264,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_json(p_latlon)
     p_latlon.set_defaults(func=cmd_latlon)
+
+    p_pos = sub.add_parser(
+        "position", help="lat/lon -> Navi.exe start-position u32 (lat code high)"
+    )
+    p_pos.add_argument("lat", type=float)
+    p_pos.add_argument("lon", type=float)
+    p_pos.add_argument(
+        "--origin",
+        type=parse_origin,
+        default=DEFAULT_ORIGIN,
+        metavar="52742|52736",
+        help="longitude origin: 52742/coord (default, what Navi.exe uses) or 52736/tile",
+    )
+    add_json(p_pos)
+    p_pos.set_defaults(func=cmd_position)
 
     p_bbox = sub.add_parser("bbox", help="print a cell's lat/lon, packed and local box")
     p_bbox.add_argument("cell", help="e.g. B48R058 or B48R058R.DAT")

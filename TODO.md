@@ -4715,8 +4715,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the guest boots identically with and without the flash device and never accesses it.
   - Claims: C-7150–C-7159
 
-- [ ] **M8.H19 — Where does `Navi.exe` keep the last vehicle position, and who reads it at start**
-  - Status: in progress · Owner: task/m8.h19-position-store · Critical: no · Pair: solo
+- [x] **M8.H19 — Where does `Navi.exe` keep the last vehicle position, and who reads it at start**
+  - Status: done · Owner: task/m8.h19-position-store · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: The quickest way to show a chosen place in the emulator is the way the car does it after a restart: the saved last position. `tools/datask_l3.py` already knows a position word and a default-position function per build. Find the persistent record (flash user area / `VSram`), its encoding and its reader.
@@ -4727,6 +4727,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the load goes through a message from another process, name the sender and stop.
   - Falsifier: the start position ignores the record (changing the stored word in L3 does not change the first map request).
   - Claims: C-7160–C-7169
+  - Result: EXP-2026-11-22-M8.H19-position-store; VSram block 0x8e is settings, not the position (pattern control negative); L3 falsifier not triggered: EU B48R058R vs B48R060R, US B38R0B0R vs B30R0E0R; coord selftest 24/24; position_store_l3 5/5 on both builds
 
 - [ ] **M8.H20 — Start the emulator at a chosen place: seed the saved position**
   - Status: open · Owner: — · Critical: no · Pair: required
