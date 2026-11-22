@@ -885,6 +885,15 @@ HASH_ABBREV_RE = re.compile(r"[0-9a-f]{4,}…[0-9a-f]*")
 PLACEHOLDER_RE = re.compile(
     r"\b(?:START|MODULE|VA)\b|<[A-Za-z_][\w.-]*>|<\.\.\.>|<…>")
 INLINE_SCRIPT_RE = re.compile(r"<<|\bpython3\s+-c\b")
+#: H66: a bare prose reference to another claim's command instead of one.
+SAME_COMMAND_RE = re.compile(
+    r"\bsame(?:\s+command)?\s+as\s+C-\d+", re.IGNORECASE)
+#: H66: the window of rows whose H58 evidence reasons are elevated to errors.
+#: Four rows from one NOC pass (C-3493, C-3494, C-3840, C-3843); the wider
+#: ledger keeps H58's warning semantics so `tools/gate.py` stays green and the
+#: "off by default" contract holds.  A later task that fixes a row drops it
+#: here; the `--flag-audit` output lists every row for that sweep.
+WINDOW_IDS = frozenset({"C-3493", "C-3494", "C-3840", "C-3843"})
 
 
 def _evidence_spans(evidence):
@@ -911,9 +920,13 @@ def evidence_reasons(evidence):
     with an invocation.
     """
     spans = _evidence_spans(evidence)
-    if not spans:
-        return []
     reasons = []
+    if SAME_COMMAND_RE.search(evidence) and "same-command" not in reasons:
+        # `same command as C-3840` is prose, not a re-runnable invocation:
+        # no command of its own, whether or not it has other backticked spans.
+        reasons.append("same-command")
+    if not spans:
+        return reasons
     invocations = [s for s in spans if INVOCATION_RE.match(s)]
     for span in invocations:
         bare = HASH_ABBREV_RE.sub("", span)
@@ -925,7 +938,7 @@ def evidence_reasons(evidence):
         if (INLINE_SCRIPT_RE.search(span) and "tools/" not in span
                 and "inline" not in reasons):
             reasons.append("inline")
-    if not invocations and "inline" not in reasons:
+    if not invocations and "inline" not in reasons and "same-command" not in reasons:
         reasons.append("no-invocation")
     return reasons
 
@@ -941,6 +954,170 @@ def bad_evidence(rows):
         if reasons:
             problems.append({"id": cid, "reasons": reasons})
     return problems
+
+
+def window_evidence_problems(rows):
+    """H66: the four-row window whose H58 reasons are errors, not warnings.
+
+    `evidence_reasons` (H58) stays a warning for the whole ledger (60 VERIFIED
+    rows carry an `…`, so elevating all of them would turn the CI gate red for
+    rows this task does not own).  This narrows the *error* to the four
+    NOC-pass rows C-3493, C-3494, C-3840 and C-3843, so `--window-strict`
+    fails only on them while `tools/gate.py` (`--strict --count-check`) keeps
+    its green contract.
+    """
+    problems = []
+    for cid, line in rows:
+        if cid not in WINDOW_IDS:
+            continue
+        cells = row_cells(line)
+        reasons = evidence_reasons(cells[-1]) if cells else []
+        if reasons:
+            problems.append({"id": cid, "reasons": reasons})
+    return problems
+
+
+# --- H66: the `--flag-audit` sweep ------------------------------------------
+
+def _tool_from_span(span):
+    """`tools/x.py` from an invocation span, or None."""
+    m = re.search(r"\b(tools/[\w./]+\.py)\b", span)
+    return m.group(1) if m else None
+
+
+def _tool_flags(path):
+    """(dest, option strings) for each ``add_argument`` in *path*.
+
+    Read with ``ast`` so a commented-out flag is never counted.  ``dest`` is
+    the explicit ``dest=`` or the long option with dashes as underscores.
+    """
+    import ast
+    try:
+        tree = ast.parse(Path(path).read_text(encoding="utf-8"), path)
+    except (OSError, SyntaxError):
+        return []
+    flags = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "add_argument"):
+            continue
+        opts = [a.value for a in node.args
+                if isinstance(a, ast.Constant) and isinstance(a.value, str)
+                and a.value.startswith("-")]
+        dest = None
+        for kw in node.keywords:
+            if kw.arg == "dest" and isinstance(kw.value, ast.Constant):
+                dest = kw.value.value
+        if dest is None and opts:
+            long = [o for o in opts if o.startswith("--")]
+            dest = (long[0] if long else opts[0]).lstrip("-").replace("-", "_")
+        if dest:
+            flags.append((dest, opts))
+    return flags
+
+
+def _read_dests(path):
+    """Dests a tool actually reads and whether it forwards ``**vars``.
+
+    ``<ns>.x``/``getattr(<ns>,'x')``/``<ns>['x']`` where ``<ns>`` is the
+    namespace ``parse_args()`` binds (usually ``args``/``a``); a flag named in
+    an ``if "--x" in argv`` short-circuit is also read; a tool that forwards
+    ``**vars(...)``/``**kwargs`` may read any flag one hop away, so it is never
+    reported.
+    """
+    import ast
+    try:
+        src = Path(path).read_text(encoding="utf-8")
+        tree = ast.parse(src, path)
+    except (OSError, SyntaxError):
+        return set(), False
+    namespaces = {"args"}
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Attribute)
+                and node.value.func.attr == "parse_args"):
+            for tgt in node.targets:
+                if isinstance(tgt, ast.Name):
+                    namespaces.add(tgt.id)
+    used = set()
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id in namespaces):
+            used.add(node.attr)
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+              and node.func.id == "getattr" and len(node.args) >= 2
+              and isinstance(node.args[0], ast.Name)
+              and node.args[0].id in namespaces
+              and isinstance(node.args[1], ast.Constant)
+              and isinstance(node.args[1].value, str)):
+            used.add(node.args[1].value)
+        elif (isinstance(node, ast.Subscript)
+              and isinstance(node.value, ast.Name)
+              and node.value.id in namespaces
+              and isinstance(node.slice, ast.Constant)
+              and isinstance(node.slice.value, str)):
+            used.add(node.slice.value)
+    for opt in re.findall(r"['\"](-{1,2}[A-Za-z0-9][\w-]*)['\"]", src):
+        if re.search(r"['\"]%s['\"]\s+in\s+(?:sys\.)?argv" % re.escape(opt), src):
+            used.add(opt.lstrip("-").replace("-", "_"))
+    forwarded = bool(re.search(r"\*\*vars\(|\*\*kwargs|\breturn args\b", src))
+    return used, forwarded
+
+
+def unused_flags(path):
+    """Flag dests *path* parses but never reads (one-hop resolved).
+
+    A tool that forwards ``args`` wholesale is never reported: the flag may be
+    read by the callee (the common ``main(argv)`` → ``run(args)`` shape).  The
+    sweep is therefore a warning list, not a verdict: H66's Stop says a
+    false-positive-heavy sweep is `NOT SHIPPED` as an error.
+    """
+    used, forwarded = _read_dests(path)
+    if forwarded:
+        return []
+    return [f"{dest} ({','.join(opts)})" for dest, opts in _tool_flags(path)
+            if dest not in used]
+
+
+def flag_audit(rows):
+    """List tools with a parsed-but-unread flag, and name the window claims.
+
+    Returns ``(global_rows, window_rows)``: ``global_rows`` is
+    ``(tool, flag)`` over ``tools/*.py``; ``window_rows`` is
+    ``(claim id, tool or "(no tool)", [unused flag, …])`` for each of the four
+    window claims whose evidence names a tool, whether or not that tool is
+    clean (an empty list records "its evidence tool has no unused flag").
+    Warning-only.
+    """
+    tools = sorted(Path(REPO_ROOT / "tools").glob("*.py"))
+    global_rows = []
+    for path in tools:
+        for flag in unused_flags(path):
+            global_rows.append((path.name, flag))
+    per_tool = {p.name: unused_flags(p) for p in tools}
+    window_rows = []
+    # C-3843's own cell is `same command as C-3840`, so it has no tool of its
+    # own; name it against C-3840's tool so all four IDs appear.
+    fallback = {"C-3843": "one_tile_pipeline.py"}
+    for cid, line in rows:
+        if cid not in WINDOW_IDS:
+            continue
+        spans = _evidence_spans(evidence_cell(line))
+        names = []
+        for span in spans:
+            rel = _tool_from_span(span)
+            if rel:
+                names.append(rel.rsplit("/", 1)[-1])
+        if not names and cid in fallback:
+            names = [fallback[cid]]
+        if names:
+            for name in names:
+                window_rows.append((cid, name, per_tool.get(name, [])))
+        else:
+            window_rows.append((cid, "(no tool)", []))
+    return global_rows, window_rows
 
 
 # --- H61: every cited EXP name resolves to a file ---------------------------
@@ -1069,6 +1246,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
                                   cmd_runner=prose_cmd_runner)
              if run_prose else [])
     nonrunnable = bad_evidence(rows)
+    window = window_evidence_problems(rows)
     unresolved = unresolved_exp_names(
         rows, exp_dir_names() if exp_names is None else exp_names)
     reserved = reserved_problems(rows, statuses=statuses)
@@ -1082,6 +1260,7 @@ def check(claims_text, exp_files, run_counts=False, runner=_run_selftest,
         "exp_count_conflicts": exp_counts,
         "bad_prose_counts": prose,
         "nonrunnable_evidence": nonrunnable,
+        "window_evidence": window,
         "unresolved_exp_names": unresolved,
         "reserved_dead": reserved,
         "ok": not dups and not unregistered and not bad_annotations,
@@ -1107,6 +1286,15 @@ def main(argv=None):
                              "command (H58), or any row citing an EXP name "
                              "with no record (H61), exits 1; off by default "
                              "and not implied by --strict")
+    parser.add_argument("--window-strict", action="store_true",
+                        help="H66: make the four-row evidence window "
+                             "(C-3493, C-3494, C-3840, C-3843) an error; off by "
+                             "default, so the gate stays green and a bare "
+                             "--strict keeps H58's warning semantics")
+    parser.add_argument("--flag-audit", action="store_true",
+                        help="H66: list every tools/*.py flag parsed but never "
+                             "read (warning-only; a window claim whose evidence "
+                             "tool has one is named)")
     parser.add_argument("--reserved", action="store_true",
                         help="a bare `RESERVED (<ID>).` placeholder row whose "
                              "owner task is done or absent from TODO.md exits 1 "
@@ -1164,8 +1352,22 @@ def main(argv=None):
                      and bool(result["nonrunnable_evidence"]
                               or result["unresolved_exp_names"]))
     reserved_fail = _reserved_fail(args) and bool(result["reserved_dead"])
+    window_fail = args.window_strict and bool(result["window_evidence"])
     failed = (not result["ok"] or path_fail or count_fail or conflict_fail
-              or prose_fail or evidence_fail or reserved_fail)
+              or prose_fail or evidence_fail or reserved_fail or window_fail)
+    if args.flag_audit:
+        rows = parse_claim_rows(claims_text)
+        global_rows, window_rows = flag_audit(rows)
+        print("flag audit: %d parsed-but-unread flag(s) over %d tool(s)"
+              % (len(global_rows), len({t for t, _ in global_rows})))
+        for tool, flag in global_rows:
+            print("  FLAG %-30s %s" % (tool, flag))
+        print("window claim tools with an unused flag: %d" % len(window_rows))
+        for cid, tool, flags in window_rows:
+            state = ",".join(flags) if flags else "clean (no unused flag)"
+            print("  WINDOWFLAG %s %s %s" % (cid, tool, state))
+        print("claims_check: OK" if not failed else "claims_check: FAILED")
+        return 0 if not failed else 1
     if args.json:
         result["genuine_paths"] = genuine
         result["strict_failed"] = failed
@@ -1230,6 +1432,11 @@ def main(argv=None):
                  else "warning; --strict-evidence fails"))
         for b in nonrun:
             print("  NONRUN %s %s" % (b["id"], ",".join(b["reasons"])))
+        window = result["window_evidence"]
+        if window:
+            print("window evidence errors (H66, --window-strict): %d" % len(window))
+            for b in window:
+                print("  WINDOW %s %s" % (b["id"], ",".join(b["reasons"])))
         unres = result["unresolved_exp_names"]
         print("unresolved EXP names: %d (%s)"
               % (len(unres), "error" if _evidence_strict(args)
@@ -1798,7 +2005,73 @@ def run_selftest():
     # (ah) names resolve from REPO_ROOT, not the current directory.
     assert EXP_DIR == REPO_ROOT / "docs" / "experiments"
 
-    print("claims_check selftest: OK (51 checks)")
+    # --- H66: the same-command reason and the window / flag audit -----------
+    # (ai) a bare prose `same command as C-x` is not runnable, whatever the
+    # row's status: it carries no invocation of its own.
+    sc = ("| C-3843 | x | OBSERVED | H | "
+          "EXP-2026-11-16-H64-x; same command as C-3840 |\n"
+          "| C-9401 | x | VERIFIED | H | "
+          "EXP-2026-11-16-H64-x; same command as C-3840 |\n")
+    rsc = parse_claim_rows(sc)
+    assert evidence_reasons(evidence_cell(rsc[0][1])) == ["same-command"]
+    assert evidence_reasons(evidence_cell(rsc[1][1])) == ["same-command"]
+    # (aj) a clean `--json PATH` row is runnable (the positive control).
+    clean_json = ("| C-9402 | x | VERIFIED | H | EXP-2026-11-16-H64-x; "
+                  "`python3 tools/one_tile_pipeline.py --json /tmp/o.json` |\n")
+    rj = parse_claim_rows(clean_json)
+    assert evidence_reasons(evidence_cell(rj[0][1])) == [], \
+        evidence_reasons(evidence_cell(rj[0][1]))
+    # (ak) only the four window IDs are errors; another `same command` row is
+    # not, so the window narrowing holds.
+    assert {p["id"] for p in window_evidence_problems(rsc)} == {"C-3843"}
+    # (al) a window VERIFIED row with an `…` is an error; a clean one is not.
+    win_ev = ("| C-3493 | x | VERIFIED | H | EXP-x; "
+              "`python3 tools/x.py run …` |\n")
+    rw = parse_claim_rows(win_ev)
+    assert [p["id"] for p in window_evidence_problems(rw)] == ["C-3493"]
+    # (am) the flag audit: a fixture tool that parses --json but never reads
+    # it is reported; one that reads it, and one that forwards `**vars`, are
+    # clean.  The window rows name all four IDs regardless.
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        (d / "unread.py").write_text(
+            "import argparse\n"
+            "def main():\n"
+            "    ap = argparse.ArgumentParser()\n"
+            "    ap.add_argument('--json', action='store_true')\n"
+            "    a = ap.parse_args()\n"
+            "    print('hi')\n", encoding="utf-8")
+        (d / "reads.py").write_text(
+            "import argparse\n"
+            "def main():\n"
+            "    ap = argparse.ArgumentParser()\n"
+            "    ap.add_argument('--json', action='store_true')\n"
+            "    a = ap.parse_args()\n"
+            "    print(a.json)\n", encoding="utf-8")
+        (d / "fwd.py").write_text(
+            "import argparse\n"
+            "def run(**kwargs):\n"
+            "    return kwargs\n"
+            "def main():\n"
+            "    ap = argparse.ArgumentParser()\n"
+            "    ap.add_argument('--json', action='store_true')\n"
+            "    return run(**vars(ap.parse_args()))\n", encoding="utf-8")
+        assert unused_flags(str(d / "unread.py")) == ["json (--json)"], \
+            unused_flags(str(d / "unread.py"))
+        assert unused_flags(str(d / "reads.py")) == []
+        assert unused_flags(str(d / "fwd.py")) == []
+    win_ids = ("| C-3493 | x | VERIFIED | H | EXP-x; "
+               "`python3 tools/acm_id_scan.py x` |\n"
+               "| C-3494 | x | VERIFIED | H | EXP-x; "
+               "`python3 tools/sh4dis.py x` |\n"
+               "| C-3840 | x | VERIFIED | H | EXP-x; "
+               "`python3 tools/one_tile_pipeline.py --json /tmp/o` |\n"
+               "| C-3843 | x | OBSERVED | H | EXP-x; same command as C-3840 |\n")
+    _, wr = flag_audit(parse_claim_rows(win_ids))
+    assert {cid for cid, _t, _f in wr} == {"C-3493", "C-3494", "C-3840",
+                                            "C-3843"}, wr
+
+    print("claims_check selftest: OK (59 checks)")
     return 0
 
 if __name__ == "__main__":
