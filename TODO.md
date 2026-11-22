@@ -981,7 +981,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-21-M1.36b-rom-atlas; census reproduced (A 149/151/153/153, B 91/91/95/96, C 88/88/92/92); EU2011 vs US2011 A equal 1 (atlce400.dll) with B 91/91, C 88/88 negative control; raw==masked equal on all 9 pairxROM rows (0 gained); C-6290-C-6299
 
 - [ ] **M1.37 — Changelog between builds, module by module (functions, strings, exports)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.37-rom-changelog · Critical: no · Pair: solo
   - Depends: M1.36b
   - Goal: for each module present in two builds: functions added / removed / changed (pdata + `fn_match`), new strings, new exports and COM methods; first for `Navi.exe`, `Audio.exe`, `BT_MGR.dll`/`BT_ENG.dll`/`BT_FW.dll`, `Speech.exe`, `DriveComputerCC.dll`, pairs EU2011→EU2014 and EU2014→EU2016. This is what tells whether a newer Bluetooth or navigation build has anything we want.
   - Precheck: `python3 tools/pdata.py` lists functions for `BT_MGR.dll` on both images; `fn_match` reaches ≥ 90 % on a module known to be nearly equal (`BT_FW.dll`, same size in all four).
