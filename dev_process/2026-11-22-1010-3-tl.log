@@ -39,3 +39,22 @@ decisions:
 problems:
 - `git pull` on a dirty primary checkout: two interrupted runs left
   uncommitted docs and an uncommitted EXP that a merged PR already added.
+
+--- (append, later same run)
+- Provider quota exhausted for subagents (HTTP 429 / upstream SSE), so the 20
+  developers could not run; their claim-only draft PRs were closed and their
+  worktrees removed. Two drivers survived earlier: M4.79 (#529) and M9.69
+  (#528) were verified and merged.
+- Recovered prior-run PRs: H40 (#511), M1.47 (#479), H66 (#499), H126 (#492),
+  M4.61 (#490) were rebased onto moving main; board.py resolve handled
+  TODO/claims, and duplicate follow-up IDs issued by those branches were
+  renamed to the next free stream ID so main stays single-ID.
+- H130 (added by M4.61's driver) and the M1.47 follow-up each had to move to a
+  fresh claim block as new tasks merged on main; todo_check 0 errors on every
+  branch before push.
+- Snapshot gate repair (this branch): M1.50's merge (#531) added 4 new TODO
+  citations and 8 in its EXP, which the frozen fn_audit corpora lacked, turning
+  main's gate red (3 pass, 2 fail). Regenerated both corpora with the
+  --write-snapshot commands from EXP-2026-11-16-M1.30-fn-audit-snapshot.md and
+  EXP-2026-11-16-H69-snapshot-refresh.md; gate on the branch reads 5 pass,
+  0 fail, 0 skip. No snapshot policy change, no new claims.
