@@ -204,6 +204,14 @@ The bbox table is fixed at `0x2ac`. ZE0 has 45 grid tiles + `LEV3456R`, not
 the 52 of the QY8x family. There is no layer-11 coastline; the coast is the
 sea-polygon edge.
 
+An OSM background writer exists (M5.74, C-7930–C-7937,
+`EXP-2026-11-22-M5.74-osm-background-writer`):
+`python3 tools/tilewriter.py --background OSM.XML --factory TILE --cell BxxRyyR --out OUT.DAT`
+clips water/river/forest polygons to one level-1 parcel and splices one odd
+record using the grammar above; a written tile passes L1/L2 and an L3
+`datask_l3.py mount` diff `SAME` against the factory. It writes no styling,
+names or routing, and only one parcel at a time.
+
 Byte-identical rebuilds with the patched harness:
 
 | Tile | Result |

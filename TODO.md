@@ -3747,8 +3747,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a rule targets a code with zero records on the factory card.
   - Claims: C-7920–C-7929
 
-- [ ] **M5.74 — Water and forests from OSM: first slice of a background writer**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.74 — Water and forests from OSM: first slice of a background writer**
+  - Status: done · Owner: task/m5.74-osm-background-writer · Critical: no · Pair: required
   - Step: P1
   - Depends: M4.70
   - Goal: A map with roads only looks empty. After M4.70 names the background record, write lakes, rivers and forests from OSM polygons into one tile.
@@ -3759,6 +3759,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session; styles/colours are whatever the type code gives.
   - Falsifier: the map client rejects or skips the record (L3 verdict differs from the factory tile).
   - Claims: C-7930–C-7939
+  - Result: EXP-2026-11-22-M5.74-osm-background-writer; 27 shapes roundtrip, L1/L2 PASS, L3 mount SAME, 8 claims C-7930-C-7937
 
 - [x] **M5.75 — Geometry budget per level: simplification tolerance against the slot budget, measured on a synthetic town**
   - Status: done · Owner: task/m5.75-geom-budget · Critical: no · Pair: solo
