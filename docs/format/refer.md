@@ -767,6 +767,51 @@ byte 3      n2             words of the item block after it (house ranges)
 100 % inside; two spill at borders; Monaco's box is degenerate, so it cannot
 be used as a point-decoding control).
 
+### Which files use the `11xx` nibble (M4.61)
+
+> **Status:** `OBSERVED` on EU 2011 (33 `ADDRE` shards, 132 `COORD001` words)
+> and US 2011 (11 shards, 44 `COORD001` words) (C-6560–C-6563). This is a
+> measurement, not a new model: the ids are **plain 1-unit coordinates** in
+> `COORD001` and `ADDRE`, decoded with `(x−32768)/192`, `(y−52742)/128`.
+
+`tools/point_census.py` found that a **POINT** copy-A word is `11xx`-marked and
+needs the marker stripped (M4.27, C-2679). `COORD001` and `ADDRE` ids often
+carry the same `11xx` low nibble, but there it is **position, not a marker**:
+
+- `COORD001` has **no fine field** — each of the 33 (EU) / 11 (US) entries is
+  14 bytes `x0, y0, x1, y1, level_u32, pad_u16` (`coord_zcode_icode.py`), and
+  only the four coordinate words are ids. All 132/132 (EU) and 44/44 (US)
+  words have low nibble `11xx` (`c`/`d`/`e`/`f`), but the box is read as plain
+  coordinates: with the marker stripped, a stripped box moves every MONACO
+  ADDRE id out (0/609) while the plain box keeps them (57/609).
+- `ADDRE` ids split **per shard and per card**, and the split is a first-class
+  result, not noise: EU `ADDRE001` 2,082/2,082 words `11xx`, `ADDRE017`
+  only 114/1,218 (`ADDRE017`'s 57 `11xx` ids are exactly the addresses inside
+  Monaco's box; its 552 low-nibble ids land ~0.06° south of it, C-6561).
+  Totals: EU 16,539,516/17,409,252 words `11xx`; US 32,719,161/32,981,740
+  (10 EU and 4 US shards with `0xc1` framing are unreadable by
+  `split_records`, M4.9, and are named in the census, not counted).
+- In every discriminating shard the **plain** decode is the in-box one:
+  `ADDRE017` 57/57 plain vs 0/57 stripped; `ADDRE032` 9/9 vs 0/9;
+  EU `ADDRE001` 1,041/1,041 plain vs 845 stripped; `ADDRE014` 3,354/3,354 vs
+  2,951. So `11xx` on a `COORD001`/`ADDRE` id is four position bits, and only
+  a POINT copy-A word (read by the firmware with the marker stripped, M3.34)
+  uses the fine form.
+
+**The `ADDRE` fine position is absent.** Every even offset of every readable
+`ADDRE` record was tested for the POINT record pair (`0x800|flon`, then a raw
+`flat` 0..0x7ff). No such pair sits at **`id+6`**, the byte position the POINT
+name record uses (0 in every shard tested). A pair-shaped pair at `id+8`/`id+12`
+does occur (5.8 % EU `ADDRE001`, 4.5 % `ADDRE003`, 0.4 % US `ADDRE001`), but
+decoded as `(flon, flat)` of the same coord it lands 2–6 km from the plain
+position (EU `ADDRE001`), so it is not a sub-cell refinement — it is point- and
+range-token payload bytes. The only structured field adjacent to the id is the
+**`TT 40 XX YY` point token** at `id+6` (2 or 4, 1/256 scale), which M4.19
+could not give a 2D frame (C-1964); it is not a POINT-style fine pair.
+
+Tool: `python3 tools/refer_id_census.py ids --eu DIR --us DIR --control` and
+`... fine --dir DIR --shards ADDRE001 ADDRE017` (`--selftest`).
+
 Still open: the 6-byte cell payload (`value`/`count`), the `prefix`
 `0x06/0x07/0x08` axis of the range tokens, the `(XX, YY)` 2D frame / axis
 assignment and the meaning of `XX` (2D geographic not derivable from
