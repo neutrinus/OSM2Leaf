@@ -3051,8 +3051,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7870–C-7879
   - Result: EXP-2026-11-22-M4.86-tile-unknown-ranking; 67,928,024 B ranked, residual 366,814 B -> M4.93
 
-- [ ] **M4.87 — Polish letters on the map: glyph coverage of the map font (`xglXtpDrawXanaviCharacter`)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.87 — Polish letters on the map: glyph coverage of the map font (`xglXtpDrawXanaviCharacter`)**
+  - Status: done · Owner: task/m4.87-polish-glyphs · Critical: no · Pair: required
   - Step: P2
   - Depends: —
   - Goal: A Polish map needs ą ć ę ł ń ó ś ź ż drawn. M4.13 settled string storage; whether the renderer has the glyphs is a separate question. Find the font data the map text renderer uses and list the code points it can draw.
@@ -3063,6 +3063,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: the glyph table lists a letter as present but the Polish towns on the factory card are stored without diacritics (then data, not the font, is the limit — record it).
   - Claims: C-7880–C-7889
+  - Result: EXP-2026-11-22-M4.87-polish-glyphs; C-7880-C-7889; 8/18 letters present (ĄąĆćĘęÓó), 10 absent; fallback 0x03451ede; recommendation in osm-pipeline.md; gate 5 pass/0 fail/0 skip
 
 - [ ] **M4.88 — POI categories: the category code list, its names and icons (`BICON001`), as a table the compiler can target**
   - Status: open · Owner: — · Critical: no · Pair: solo
