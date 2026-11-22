@@ -7,8 +7,9 @@ M9.65 binds a second module: ``Client(... native=("STDDLL.dll", EXPORTS))``
 loads STDDLL's real executable sections and re-points the Navi.exe import slots
 at the export VAs, so the thunk ``0x003d1640`` runs STDDLL's own
 ``STD_MeshPnt_isValid`` (no host stub).  The consumer now passes its two
-``isValid`` calls; the unit-0 pointer is copied into the reply buffer at
-``0x0061a020`` rather than dereferenced here (see the EXP).
+``isValid`` calls and the ``STD_MeshID_getAny`` it makes next; the unit-0
+pointer is copied into the reply buffer at ``0x0061a020`` rather than
+dereferenced here (see the EXP).
 """
 import struct
 import sys
@@ -24,7 +25,7 @@ G = 0x0061A824                  # RPF globals (EU2011), found by the driver
 RPF_INIT = 0x003360BC
 RPF_CONSUMER = 0x003367A0       # the function 0x00336BF0 calls with the reply list
 EXPORTS = ("STD_MeshPnt_isValid", "STD_MeshPnt_chgLv", "STD_MeshID_judgeLevel",
-           "STD_MeshPnt_initPrm", "STD_MeshPnt_chgMapPnt")
+           "STD_MeshPnt_initPrm", "STD_MeshPnt_chgMapPnt", "STD_MeshID_getAny")
 
 c = R.Client(IMG, V.make_card(None, CARD, {}), (51.70, 17.45),
              native=("STDDLL.dll", EXPORTS))
