@@ -5123,8 +5123,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7400–C-7409
   - Result: EXP-2026-11-22-M8.H43-anwdrv-frame-protocol; frame grammar + BCC verified on logged frame; 12/12 selftest; claims C-7400-C-7409
 
-- [ ] **M8.H44 — `tools/ze0_peers/micon.py`: audio-microcontroller peer that answers the launch handshake**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H44 — `tools/ze0_peers/micon.py`: audio-microcontroller peer that answers the launch handshake**
+  - Status: done · Owner: task/m8.h44-micon-peer · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H43
   - Goal: A host program on the `sci1` chardev that replies as `docs/firmware/anwdrv.md` requires, so the launcher stops waiting.
@@ -5135,6 +5135,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the selftest accepts a frame with a wrong checksum.
   - Claims: C-7410–C-7419
+  - Result: EXP-2026-11-22-M8.H44-micon-peer; 26/26 selftest, auto-discovered, corrupt BCC rejected; claims C-7410-C-7419
 
 - [ ] **M8.H45 — Boot without the 30-second waits: the micon peer on `-M ze0`**
   - Status: open · Owner: — · Critical: no · Pair: required
