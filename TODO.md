@@ -4508,8 +4508,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if a boot stops short of the map state twice with the same log, record the last opened file and the stage in an EXP and set `blocked` on the M8.C row or M9.16 step that stops it.
   - Claims: C-2270–C-2279
 
-- [ ] **M8.G1 — Hardware of the three generations: ZE0 (2011–12, `X210`) vs AZE0 (2013–17, `X212`) vs ZE1 / Leaf 2 (2018+), from our images**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.G1 — Hardware of the three generations: ZE0 (2011–12, `X210`) vs AZE0 (2013–17, `X212`) vs ZE1 / Leaf 2 (2018+), from our images**
+  - Status: done · Owner: task/m8.g1-generations · Critical: no · Pair: solo
   - Step: map
   - Priority: low (Marek, 2026-11-22: the ZE0 2011 unit stays the focus; the other generations are the long-term goal "run any of them in QEMU").
   - Depends: M1.36 (done), M1.39 (done); M1.38 and M1.37 help
@@ -4521,6 +4521,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: do not open or change any card; if the 2019 image is not CE/SH-4, record the architecture and stop that column there.
   - Falsifier: the EU2014 kernel ROM names the same BSP string and RAM window as EU2011 (then AZE0 is a board revision, not a new platform).
   - Claims: C-6940–C-6949
+  - Result: EXP-2026-11-22-M8.G1-generations; 12 rows x 3 columns, every cell evidenced or unknown; falsifier not met (same BSP, +8 MiB RAM shift); 3 emulation differences
 
 - [ ] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
   - Status: open · Owner: — · Critical: no · Pair: solo
