@@ -4887,6 +4887,16 @@ into three printed classes.
 | C-6892 | Nothing measured depends on QEMU 8.2: runs A (11.1.3) and D (8.2.10) of M8.C1b agree in every `ze0_sdhost.py serial` and `dmatrace` count, and no repo tool takes a QEMU version. | VERIFIED | H | EXP-2026-11-21-M8.A11-qemu-single-version; C-6873 |
 | C-6893 | The one recorded behavioural difference between the two generations is C-4322 (an ITLB data-array write aborted 8.2 and is performed on 11.x); the measured boot to F3 does no such write on either. | OBSERVED | M | EXP-2026-11-21-M8.A11-qemu-single-version; C-4322 |
 
+## H128 - todo_check strict debt ledger
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-6700 | `tools/todo_check.py` records the `--strict` rule-14 ERROR debt as a committed baseline `tools/fixtures/todo_strict_baseline.json` keyed by `(task ID, missing field)` (never line number): 8 entries over 4 tasks (`M1.38|Stop`, `M3.13|Precheck/Scope/Stop`, `M3.29|Precheck`, `M8.C|Precheck/Scope/Stop`) at `ba503549`. `--update-baseline PATH` writes the current keys with the HEAD revision and prints `+`/`-` rows; `--strict --baseline PATH` fails only on a new key (structural errors, no key, always fail) and prints `cleared: <task>` for baselined entries that resolved. Verified: clean main exits 0 with `8 error(s) over 4 task(s) (baseline 8, new 0)`; a temp TODO with a new firmware task missing `Stop` exits 1 naming `NEW M9.99|Stop`; completing `M3.13` prints `cleared: M3.13` and exits 0. No WARN suppressed, no firmware rule relaxed, no open task edited. | VERIFIED (tool) | H | EXP-2026-11-21-H128; `python3 tools/todo_check.py --strict --baseline tools/fixtures/todo_strict_baseline.json` → OK rc=0; `python3 tools/selftest.py --only todo_check` → PASS (31 checks) |
+
+## H127 - gate log failing row
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-6680 | A red `tools/gate.py` run names the failing rule: the FAIL tail selects per-gate hint lines (`FAIL_HINTS` — `claims_check` keeps `MISSING`/`genuine missing evidence paths`/`count mismatches`/`… FAILED`, `todo_check` keeps `ERROR`/`FAILED`, `fn_audit` keeps `GAP`/`UNMAPPED`/`FAILED`) capped at 40 with an elision marker plus 40 trailing non-hint lines, and a per-gate wall-time line; gates with no hint table or no matching hint keep the blind 40-line tail. Verified end-to-end: a synthetic `MISSING C-2953 docs/format/absent-fixture.md` appears first under `claims_check output (failures)` (old tail hid it), and a task losing `Claims` surfaces `ERROR TODO.md:1889 H127: missing required field(s): Claims` first under `todo_check output (failures)`. No gate assertions or exit codes change; `gate.py --selftest` OK (16 checks). | VERIFIED (tool) | H | EXP-2026-11-21-H127; `python3 tools/gate.py --selftest` → OK (16 checks); synthetic MISSING row and missing-Claims ERROR both survive the cap; `python3 tools/gate.py` → 4 pass/0 fail/0 skip |
+
 ## ## M8.C1c — Launcher VerInf source (C-6880–C-6889)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |

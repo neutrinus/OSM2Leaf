@@ -1893,8 +1893,8 @@ text of this section is in git (`13cb0cf`).
   - Falsifier: an open non-draft PR whose head has 0 completed gate check-runs and the watchdog still exits 0.
   - Claims: C-6670–C-6679
 
-- [ ] **H127 — A red gate log names no claims_check row: the 5 red `main` runs print 2 gate lines and 40 NONRUN lines, never the failing rule**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H127 — A red gate log names no claims_check row: the 5 red `main` runs print 2 gate lines and 40 NONRUN lines, never the failing rule**
+  - Status: done · Owner: task/h127-h127-gate-log-failing-row · Critical: no · Pair: required
   - Depends: — (serves H117's diagnosis: `main_watch` can name the SHA and the step, not the rule)
   - Goal: the five red `CI quality gate` runs on `main` since 2026-11-20 (`8e0f913c90`, `28927eb43d`, `13731fe9cf`, `c4b5a90279`, `6834e4b4eb`) all failed on `quality :: Standing gate (tools/gate.py)`, and every red log's `--- claims_check output (tail) ---` section holds only `NONRUN …`/`NOEXP …` warning rows — the actual failing line (`MISSING C-2141 archive/us256.img` for the first four; a `count-check`/evidence line for the fifth) is printed above the last 40 lines and cut off. `tools/gate.py` prints `"\n".join(lines[-40:])` for every non-selftest gate, so a claims_check output of ~500 lines hides its verdict. The weekly/manual README already promises "name the failing row" and cannot: a reader of a red run cannot tell which rule failed without re-running the tool at that SHA.
   - Precheck: `gh run view 44874389818 --log-failed | grep -aE 'claims_check +FAIL|NONRUN|MISSING'` prints the `claims_check FAIL` line plus ~40 `NONRUN` rows and no `MISSING`; `grep -n 'lines\[-40:\]' tools/gate.py` prints the single tail slice used for `claims_check`, `todo_check` and `fn_audit`.
@@ -1905,9 +1905,10 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the CI log format cannot be replayed offline, test the formatter directly (`_print_table`/the tail helper) on saved outputs and record that the end-to-end assertion is manual in the EXP.
   - Falsifier: a red claims_check run whose gate log contains no line naming the failing claim/path/rule after this task.
   - Claims: C-6680–C-6689
+  - Result: EXP-2026-11-21-H127-h127-gate-log-failing-row (C-6680): tools/gate.py FAIL tails now select hint lines per gate (FAIL_HINTS: claims_check keeps MISSING/genuine missing/count mismatches/…/FAILED; todo_check keeps ERROR/FAILED; fn_audit keeps GAP/UNMAPPED/FAILED) capped at 40 with an elision marker, plus 40 trailing non-hint lines and a per-gate wall-time line; gates with no hint table or no matching hint keep the blind 40-line tail, so unknown failures are not hidden. gate.py --selftest OK (16 checks); gate.py 4 pass/0 fail/0 skip. Verified: a synthetic MISSING row survives the cap (the earlier reproduction printed it first), and a missing Claims field surfaces its ERROR line.
 
-- [ ] **H128 — `todo_check --strict` has no ledger of its own debt: 8 ERROR held by open PRs, and no baseline says whether the count grew**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H128 — `todo_check --strict` has no ledger of its own debt: 8 ERROR held by open PRs, and no baseline says whether the count grew**
+  - Status: done · Owner: task/h128-h128-todo-strict-debt · Critical: no · Pair: required
   - Depends: — (H53 lowered its own Done-when to "no ERROR for tasks this cycle can own"; this task makes the remainder measurable)
   - Goal: the QA prompt says report the `--strict` count and "do not treat it as a new regression until H53 cleans it" — but nothing records what the count was, so each pass re-derives "8 ERROR / is it new?" by memory. At `b67d1519` `python3 tools/todo_check.py --strict` exits 1 with **8 ERROR** over **4** tasks (`M1.38`, `M3.13`, `M3.29`, `M8.C`; two of them also `WARN … references blocked task`) and **181 WARN**. H53's Result recorded 17 ERROR over 7 tasks at `ea15563` and said they "clear when those land `done`" — 3 of those 7 are still open (`M3.13 #351`, `M3.29 #341`, `M8.C #355`), so the debt is a set of PRs, not a number to eyeball. A baseline keyed by task ID turns "it grew" into a command.
   - Precheck: `python3 tools/todo_check.py --strict >/tmp/opencode/tc.txt 2>&1; echo $?` prints `1`; `grep -cE '^  ERROR' /tmp/opencode/tc.txt` prints `8`; `grep -E '^  ERROR' /tmp/opencode/tc.txt | sed -E 's/.*TODO.md:[0-9]+ ([A-Z0-9.]+):.*/\1/' | sort -u` prints the four IDs above; `python3 tools/todo_check.py; echo $?` prints `0` (default stays green).
@@ -1918,6 +1919,7 @@ text of this section is in git (`13cb0cf`).
   - Stop: if the strict ERROR set changes with every PR-held merge (it will, as #351/#341/#355 land), the baseline is still correct — those merges clear entries, and the task says so; do not pin the count as a constant in prose, pin the IDs.
   - Falsifier: after this task a new firmware task with a missing `Precheck`/`Scope`/`Stop` still exits 0 under `--strict --baseline`.
   - Claims: C-6700–C-6709
+  - Result: EXP-2026-11-21-H128-h128-todo-strict-debt (C-6700): tools/todo_check.py gains --baseline/--update-baseline; committed tools/fixtures/todo_strict_baseline.json keys 8 ERRORs over 4 tasks (M1.38, M3.13, M3.29, M8.C) by (task ID, missing field). --strict --baseline exits 0 on main (8 over 4, baseline 8, new 0), a new firmware task missing Stop exits 1 (NEW M9.99|Stop), a cleared task prints cleared: M3.13 and stays 0; structural errors (no key) always fail. selftest 31 checks, default mode still 0. No WARN suppressed, firmware rule unchanged, no open task edited.
 
 - [ ] **H129 — `board.py claim-set` writes `Supersedes:` to the evidence cell, and its selftest does not check the target cell**
   - Status: open · Owner: — · Critical: no · Pair: required
