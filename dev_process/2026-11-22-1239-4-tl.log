@@ -1,0 +1,69 @@
+---
+role: TL
+model: Hy4 flash Free (opencode/hy4-flash-free)
+start: 2026-11-22 12:39Z
+origin/main at start: bdcb053a
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md rules 1-17 + Priorities, dev_process/2026-11-22-1010-3-tl.log
+---
+
+Goal: TL prompt in-thread. Fast-forward main (stays clean), clear the non-draft
+PR queue first (critical path first), then pick up to 10 qualifying tasks,
+pair by default, TL verifies and merges one at a time.
+
+Work log: append as I go; finish before last commit.
+
+actions (queue):
+1. `git fetch`, `git pull --ff-only` on main; stayed clean. Origin/main advanced
+   during the run (bdcb053 -> 50dc3b5 -> ca8aa339 -> 313dc7c2 -> a437165b) as a
+   concurrent TL/agent merged PRs; re-fetched before every decision.
+2. Non-draft queue at start: #534 M4.80, #535 M5.76, #536 M8.H24, #538 M8.H7.
+   #534/#536 merged by the concurrent process with green CI. #535 CI green,
+   MERGEABLE, then merged (squash). #538 was a salvage: its tool `ze0_ui.py`
+   and EXP were untracked in its worktree; committed them, rebased onto fresh
+   main, resolved claims.md with `board.py resolve` and tools/README.md keeping
+   both sides, ran gate (5 pass, 0 fail, 0 skip), pushed. PR #538 was merged
+   concurrently at the same HEAD.
+3. #540 M4.84 appeared in the queue; local checks + ZIPFR selftest passed;
+   it was already merged by the concurrent process.
+4. No vendor data in any merged diff; each branch touched only its own files.
+
+actions (batch launch, origin/main dbadeb8f):
+- Re-checked all 8 candidate IDs against origin/main: Status open, Owner —,
+  Depends done, absent from every open PR title. Created 8 worktrees with
+  `wt switch --create ... --base origin/main --no-cd --yes`; all show archive
+  image symlinks.
+- Rule 17: 2 M8.H pure-tooling tasks (M8.H8, M8.H13) against 6 non-M8.H tasks.
+- Modes: M9.68 pair (L3, Pair: required); M8.H8 pair (L4/L3 oracle, required);
+  M8.H13 pair (L4 gate, required); H130 pair (board.py gate tool, required);
+  M9.70 pair (TL overrides Pair: solo: it feeds an L3 run); M4.87 pair
+  (firmware search, required); M4.86 solo (Pair: solo, selftest-covered
+  data-analysis command, no gate/writer/claim-evidence edit); M5.75 solo
+  (Pair: solo, small profile/tool change with selftest-covered Done when).
+- Skipped: M4.69/M4.72 (KIWI source absent on this host), M4.89 (only 256 MiB
+  2014/2016 heads, no full cards), M5.77/M5.78 (network extract), all L5/M6
+  (no hardware), M9.31+M9.12 (same l3check.py file as each other, and gate
+  semantics), M8.H1 (needs in-guest RX loopback on 9 serial lines, large).
+- Each driver was told: claim commit + push + draft PR first; EXP Plan written
+  before code; Method with positive/negative controls and falsifier first;
+  small commits; board.py-only board edits; rebase + lost + checks before push;
+  done only if Done when passes; no merge. Navigators launch after each
+  driver finishes; CHANGES are relayed back by session continuation.
+
+actions (owner request, 13:54Z):
+- Checked `/tmp`: 3.8 GiB tmpfs at 1% (23-37 MB). Found a transient 300 MB
+  `tmppm552qzx/` with three 100 MB synthetic card images from a selftest; it
+  was removed by the same command before the next check. All large permanent
+  intermediates are already in `~/projekty/leafre-work/scratch/` (25G m5.49,
+  23G m9.60, 15G m8.h13, ...).
+- Added a hard rule to prompt_common.txt: scratch/card images/extracted trees/
+  QEMU dirs go to `~/projekty/leafre-work/scratch/<task>/`, `/tmp` only for
+  small files the same command removes. Told TLs in prompt_tl.txt to pass this
+  to every subagent. Committed on tl/tmp-scratch-rule (housekeeping branch,
+  primary checkout stays clean) together with this log.
+
+problems:
+- The run is shared with a concurrent TL process: origin/main moved from
+  dbadeb8f to 962263c3 while the eight drivers ran, and more non-draft PRs
+  appeared (#541, #555, #559, #564, #566). Re-check state before each merge.
+- No navigator sessions were launched yet for the eight drivers; their draft
+  PRs have work, but review/verification is still outstanding.
