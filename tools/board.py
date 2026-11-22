@@ -37,8 +37,8 @@ Commands (``python3 tools/board.py CMD --help`` for each)::
     add-claims --section TITLE (--row ROW … | --file F) [--create]
     claim-status C-ID STATUS        change the Status cell of one claim row
     claim-row C-ID --text ROW       replace one whole claim row (no hand edit)
-    claim-set C-ID FIELD VALUE      set one `Key: Value` in a claim's body or
-                                    evidence (e.g. `claim-set C-1 Supersedes C-2`)
+    claim-set C-ID FIELD VALUE      set one `Key: Value` in a claim row: replace in
+                                    body or evidence, or insert into body (cell 2)
     claim-body C-ID TEXT            replace only the claim body cell
     lost --base REF [--head REF] [FILE …]
                                     IDs present at REF and missing now (exit 1)
@@ -784,21 +784,24 @@ def op_claim_set(bf: BoardFile, cid: str, field: str, value: str) -> tuple[str, 
     """Set one ``Key: Value`` inside a claim's body (cell 2) or evidence (cell 5).
 
     Cells are ``['', id, body, status, confidence, evidence, '']`` — the row is
-    split on its pipes, so the body is index 2, not 1.  An existing
-    ``Key: …`` in the body is replaced, else the evidence tail gets
-    ``; Key: Value``, else the body gains it.
+    split on its pipes, so the body is index 2, not 1.  An existing key in the
+    body or evidence is replaced in place; if the key is absent it is added to
+    the body (cell 2), not the evidence cell. ``Supersedes`` also matches the
+    legacy ``Supersedes C-nnnn`` form (no colon).
     """
     i, parts = _claim_row(bf, cid)
     key = field.strip().rstrip(":").strip()
-    if not key or not value.strip():
+    val = value.strip()
+    if not key or not val:
         raise BoardError("claim-set takes a key and a value")
-    pat = re.compile(rf"(?<![\w.]){re.escape(key)}:\s*[^|]*")
+    sep = r":?\s*" if key.lower() == "supersedes" else r":\s*"
+    pat = re.compile(rf"(?<![\w.]){re.escape(key)}{sep}[^|]*")
     for ci in (2, 5):
         m = pat.search(parts[ci])
         if m:
-            parts[ci] = parts[ci][:m.start()] + f"{key}: {value.strip()}" + parts[ci][m.end():]
+            parts[ci] = parts[ci][:m.start()] + f"{key}: {val}" + parts[ci][m.end():]
             return bf.splice(i, i + 1, ["|".join(parts)])
-    parts[5] = parts[5].rstrip() + f"; {key}: {value.strip()} "
+    parts[2] = parts[2].rstrip() + f" {key}: {val} "
     return bf.splice(i, i + 1, ["|".join(parts)])
 
 
@@ -1347,8 +1350,33 @@ def run_selftest() -> int:
 
         # claim-set / claim-body touch one cell, keep every ID
         ok(run("claim-set", "C-101", "Supersedes", "C-999") == 0, "claim-set exit 0")
-        ok("Supersedes: C-999" in claims.read_text() and claim_ids(claims.read_text())
-           == ["C-100", "C-101", "C-102", "C-110", "C-200"], "claim-set keeps IDs")
+        cl = claims.read_text()
+        row101 = [l for l in cl.splitlines() if l.startswith("| C-101 |")][0]
+        parts101 = re.split(r"(?<!\\)\|", row101)
+        ok("Supersedes: C-999" in parts101[2], "claim-set adds Supersedes to body cell 2")
+        ok("Supersedes" not in parts101[5], "claim-set does not write Supersedes to evidence cell 5")
+        ok(claim_ids(cl) == ["C-100", "C-101", "C-102", "C-110", "C-200"], "claim-set keeps IDs")
+        # replace an existing Supersedes in body (including legacy no-colon form)
+        ok(run("claim-set", "C-101", "Supersedes", "C-998") == 0, "claim-set replaces existing Supersedes")
+        row101b = [l for l in claims.read_text().splitlines() if l.startswith("| C-101 |")][0]
+        parts101b = re.split(r"(?<!\\)\|", row101b)
+        ok("Supersedes: C-998" in parts101b[2] and "C-999" not in parts101b[2],
+           "claim-set replaces Supersedes value in body")
+        ok("Supersedes" not in parts101b[5], "claim-set replacement stays out of evidence")
+        reset()
+        claims.write_text(SAMPLE_CLAIMS.replace(
+            "| C-100 | a | VERIFIED | H | `x` |",
+            "| C-100 | a Supersedes C-050 | VERIFIED | H | `x` |"), encoding="utf-8")
+        ok(run("claim-set", "C-100", "Supersedes", "C-051") == 0, "claim-set handles legacy no-colon Supersedes")
+        row100 = [l for l in claims.read_text().splitlines() if l.startswith("| C-100 |")][0]
+        parts100 = re.split(r"(?<!\\)\|", row100)
+        ok("Supersedes: C-051" in parts100[2] and "Supersedes C-050" not in parts100[2],
+           "claim-set rewrites legacy Supersedes form in body")
+        ok("Supersedes" not in parts100[5], "legacy Supersedes rewrite stays out of evidence")
+        reset(); ok(run("add-claims", "--section", "A section", "--row", "| C-102 | d | OBSERVED | M | z |") == 0,
+                    "add-claims exit 0 (restored)")
+        ok(run("claim-status", "C-101", "RETRACTED") == 0, "claim-status exit 0 (restored)")
+        ok(run("claim-set", "C-101", "Supersedes", "C-999") == 0, "claim-set exit 0 (restored)")
         ok(run("claim-body", "C-100", "replacement body") == 0
            and "| C-100 | replacement body | VERIFIED | H | `x` |" in claims.read_text(),
            "claim-body replaces only cell 1")
