@@ -1587,6 +1587,16 @@ Audio.exe answers SystemCC's `SYS_REQ_ACTIVATE` and SystemCC fires
 `NotifySourceChange`. The call site is found by byte pattern; `usb.exe`
 has the same launcher. Record: EXP-2026-11-22-M8.C1j-audio-activate.
 
+`--object-store [PERCENT]` (M8.C1l) makes every control DLL register.
+Kernel B keeps its registry hive in the object store, and nk.exe's
+OEMCalcFSPages hook returns a fixed 80 pages (320 KiB). The registration
+loop therefore fails after about 52 DLLs. The option turns the hook into
+`mov r5,r0`, so it returns the kernel's own result, and sets
+ulFSRamPercent to `0x00808028` (592 pages, about 2.3 MiB, on ze0). Both
+patch sites are found by pattern. `--register-first A.dll,B.dll` moves
+DLLs to the front of the name list. Record:
+EXP-2026-11-22-M8.C1l-object-store-registry.
+
 ## `ze0_stubdll.py` — stub modules for unit-flash DLLs on `-M ze0` (M8.C1h)
 
 ```bash

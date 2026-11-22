@@ -4292,8 +4292,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8290–C-8299
   - Result: EXP-2026-11-22-M8.C1k-unit-flash-nk1 (C-8290–C-8297). NK1, the unit-flash CE image (51 modules), is cut from Marek's NAND dump by `tools/nk1_extract.py` and committed as `firmware/unit-flash/nk1-QY7200ND.bin` (owner's decision; checked for serial, unit key, password, VIN). `ze0_ipl.py patch --copy-dlls unitflash` copies the real HCXLog/HCXMemory/AppTimerDll (moved; HCXMemory's compressed sections decoded by image B's kernel routine). The real HCXMemory runs (CreateSharedBuffer lines), failures are unchanged (16 imports: Cws_Apl, BOLERODLL; 6 controls), ScreenState now reports CC window 16 unregistered; the paint gate (Audio.exe/ACM module 6) is unchanged. Next: M8.C1j.
 
-- [ ] **M8.C1l — UI layer on `-M ze0`: what `frm_PRCOM_StartUp` waits for before the next form**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1l — UI layer on `-M ze0`: what `frm_PRCOM_StartUp` waits for before the next form**
+  - Status: done · Owner: Claude (thread Zamontuj kartę SD w QEMU) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1j
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). M8.C1j showed that the audio-source activation completes with `ze0_aui.py --skip-module-wait audio.exe` and SystemCC fires `NotifySourceChange`, yet no form follows `frm_PRCOM_StartUp` (C-8284); the start form's controls are created (C-8285).
@@ -4304,6 +4304,33 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the input is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
   - Falsifier: the start form's records contain no transition (no Show/Start of another form), i.e. the next form comes from outside the skin.
   - Claims: C-8320–C-8329
+  - Result: EXP-2026-11-22-M8.C1l-object-store-registry (C-8320–C-8327). Control registration stopped after ~52 DLLs because kernel B fixes the object store (RAM registry hive) at 80 pages in OEMCalcFSPages. New `ze0_aui.py --object-store` (hook returns the TOC value, ulFSRamPercent 0x00808028, 592 pages): every DLL registers. ScreenStateCC = CC window 16 now runs (also `--register-first`), CC window ids mapped from code; the screen state stays in `INI_STARTUP`, windows 40/41/46 (UnitMainte, EvNotice, InfoBar) are missing, 29 controls fail init, screen still the map. Next: M8.C1n; M8.C1m (unit data) added.
+
+- [ ] **M8.C1m — `-M ze0` with the unit's own NAND/VFlash/SRAM: does the EU card boot against US unit data?**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1k
+  - Goal: Marek (2026-11-22, relayed by the coordinator) wants the EU card run in `-M ze0` with the data of his US unit (NAND, VFlash, SRAM dumps from M6.18) instead of the hand-set `verinf=`/`mapdb=` values and stand-ins. His hypothesis: the region (Product ID `10 20 02 12`, area USA) lives in the unit's NAND/flash and the EU card will not start. This also tests the launcher's gates (`DIFFERENT MAP CODE`, `MAP DATA BASE UNMATCH`) on real data.
+  - Precheck: the three dumps are outside the repository in the worker's directory (never committed, nor their hashes for PROD); `ze0_ipl.py patch --copy-dlls unitflash` boots to `AppLch >> Finish Launch Threads!` with the M8.C1k command line.
+  - Scope: (1) find where `-M ze0` and the IPL feed the product info, area and SRAM backup today (`OALIoCtlGetProductInfo`, `GetBackUpFlashInfoTbl`, `RestoreSystemSramMain`, `Launcher [Area:…]`); (2) map those reads to offsets in the NAND/VFlash/SRAM dumps; (3) add an emulator option that serves them from the dump files (paths on the command line, nothing copied into the repository); (4) boot the EU card with the US data and record what the launcher does (area, map-code gate, map-DB gate, screen).
+  - Input: EXP-2026-11-22-M8.C1k-unit-flash-nk1, `docs/hardware/head-unit.md`, M6.17/M6.19 notes on the SRAM area, `tools/qemu-ze0/`.
+  - Done when: an EXP states which launcher gate the EU card hits with the US unit's data (or that it boots), with the serial lines and the dump offsets that decide it.
+  - Stop: one session; vendor bytes, PIN, PROD content and screenshots stay out of the repository.
+  - Falsifier: the launcher reads the area only from the card (no read from the dumps changes the outcome).
+  - Claims: C-8350–C-8359
+
+- [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1l
+  - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). With `ze0_aui.py --object-store` every control registers and ScreenStateCC runs, but the screen state stays in `INI_STARTUP`. `NOTIFY_TRANSITION_FIRST_SCREEN` finds no window for InfoBarCC (46), UnitMainteCC (40) and EvNoticeCC (41), and 29 controls fail to initialise (C-8324, C-8325).
+  - Precheck: run J16's configuration (`ze0_ipl.py patch --prefer-app auiapp.exe,auirtdll.dll --copy-dlls unitflash` + `ze0_aui.py --no-aui-timeout --skip-module-wait audio.exe --object-store`). The serial log shows `Filesystem pages = 592`, `Event[SK_OTH_STARTUP] Handled at State[INI_STARTUP]` and `The CC Window is not exist. [id = 46`.
+  - Scope: (1) list the 29 failing controls by CLSID: break in auirtdll on the `Failed initialize control` path and read the control record; (2) for InfoBarCC, UnitMainteCC and EvNoticeCC, find the failing step of control init (window creation, shared buffer, IPC queue, missing import); (3) decode ScreenStateCC's transition table for `INI_STARTUP` and name the event that leaves it and who raises it; (4) raise it or fix the failing init in the guest as an emulator-only patch, and take a screenshot.
+  - Input: EXP-2026-11-22-M8.C1l-object-store-registry, EXP-2026-11-22-M8.C1j-audio-activate, `tools/ze0_aui.py`.
+  - Done when: a screenshot shows an AUI form element, or the EXP names the event that leaves `INI_STARTUP` with the ScreenStateCC table entry and the code that raises it.
+  - Stop: one session; if the event is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
+  - Falsifier: the three CCs create their windows, and the state still does not change.
+  - Claims: C-8340–C-8349
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
