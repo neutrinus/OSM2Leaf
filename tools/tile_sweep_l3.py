@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import gc
 import json
 import sys
 from dataclasses import dataclass
@@ -368,6 +369,8 @@ def cmd_sweep(args) -> int:
                       "section_tables": mut["section_tables"].get(tile, 0),
                       "rows": rows_sig(mut["rows"], tile),
                       "events": events_sig(mut["events"], tile)})
+        del mut
+        gc.collect()   # the PySh4 engine is large; do not hold 52 of them at once
         print("%-30s %-8s %-12s %s%s" %
               (f.name, verdict, fn, detail, ("  [" + f.note + "]") if f.note else ""),
               flush=True)

@@ -920,12 +920,43 @@ EXP-2026-11-20-M3.33-b60-header-drop, C-6080–C-6087). `LEV3456R.DAT` (level
 bits `0x3c`) needs two.
 
 **No bound on the level-table walk.** With the byte at `0x1ac` changed to
-`0xff`, `0x0040aa50` loads 402 bytes up to `0x805` instead of 34.
+`0xff`, `0x0040aa50` loads 402 bytes up to `0x805` instead of 34. **Not
+reproduced on `B48R058R.DAT`** by the M9.68 sweep: flipping `0x1ac` or `0x1ad`
+to `0xff` left the `0x0040aa50` ranges at 38/40/12 bytes (see below).
 
 For M9.13: the runnable target is the whole run (`datask_l3.py mount` with a
 card whose tile is replaced), not a call of one entry on a bare buffer: the
 entries find their request through the slot table that the earlier request
 filled.
+
+### Which header fields the client checks (M9.68, EU2011 build A, L3)
+
+> **Status:** `VERIFIED` on one tile (`B48R058R.DAT`, position 51.70 N
+> 17.45 E): one field flipped per run, 52 runs, whole `datask_l3.py mount`.
+> `read-same` means the tile's read requests and every parser's byte range
+> equal the factory baseline — **not** that the byte is never loaded (the
+> date digits at `0xfa`…`0x10f` are loaded by `0x0040a8d0` but a flipped digit
+> changes neither the request nor the range). `rejected` means the tile was
+> left after its header or the run blocked. `fn` is the header check for a
+> drop, or the first reader whose byte range changed.
+> EXP-2026-11-22-M9.68-tile-header-sweep, C-8000–C-8009.
+
+| Field | Verdict | `fn` |
+| --- | --- | --- |
+| level table `s1.id@0x1ae`, `s1.n@0x1af`, `s1.L6.count@0x1b3`, `s2.id@0x1c8`, `s2.n@0x1c9`, `s4.id@0x1da` | read-different | `0x0040aa50` / `0x0040b8b4` |
+| level-entry kind `s1.L1@0x1c5`, `s4.L1@0x1dd` | read-different | `0x00414dbc` (the slot parser; read length set by `0x0040901c(kind, 1)`) |
+| level-entry kind `s2.L1@0x1d7` | read-different | `0x00414644` |
+| section-list sector/offset of entries 0, 1, 2 (`0x800`…`0x80f`) | read-different | `0x0040b8b4` (9 -> 7 or 9 -> 8 tile reads) |
+| section-list length of entries 0, 1, 2 (`0x804`, `0x80a`, `0x810`) | read-different | `0x0040c308` |
+| third section-list entry removed (`0x80c`…`0x80f` -> `ff`) | **rejected** | `0x0040acb8` (part 2 missing, branch `+0x16e`) |
+| fourth entry written at terminator `0x812` | read-same | — (box mask 7 checks parts 0..2 only) |
+| identity strings (`0x00`, `0x40`, `0x80`, `0xa0`, `0x162`), constants (`0x160`, `0x182`, `0x5cc`, `0x5d4`), date digits (`0xfa`, `0x10c`), bounds (`0x184`…`0x18a`, `0x5d0`…`0x5d2`), whole box table at `0x2ac`, `level.n_tables@0x1ac` | read-same | — |
+
+Counts over the 52 fields: `read-same` 33, `read-different` 18, `rejected` 1.
+This confirms the M3.31 kind-byte rule (only a level with a non-zero count
+replaces the merged table: `s1.L6@0x1b1` and `s2.L5@0x1cb` are read-same) and
+the M3.33 three-entry rule, and extends both to the sector/offset/length of
+every section-list entry.
 
 ### What the mount reads of a tile, and a generated tile (M9.13, EU2011 build A)
 
