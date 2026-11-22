@@ -13,12 +13,17 @@ One file, two entry points:
   variable ``$ze0_memmap``, else from ``$ZE0_MEMMAP``, else from
   ``./memmap.json``; prints one line per CE thread (name, PC, module, section,
   offset); registers the ``ze0-threads`` command so the report can be repeated
-  without re-sourcing; and restores the thread gdb had selected.
+  without re-sourcing; and restores the thread gdb had selected.  If a symbol
+  document from ``tools/ze0_syms.py`` is available (``$ze0_syms``, else
+  ``$ZE0_SYMS``, else ``./syms.json``), the enclosing ``module!name`` is
+  appended to each PC in angle brackets; without it the output is unchanged.
 
 * **standalone**, for the selftest and for checking PCs by hand::
 
       python3 tools/qemu-ze0/gdb-ze0.py --selftest
       python3 tools/qemu-ze0/gdb-ze0.py --memmap WORK/memmap.json --pc 0x8803d266
+      python3 tools/qemu-ze0/gdb-ze0.py --memmap WORK/memmap.json \
+          --syms WORK/syms.json --pc 0x0041a438
 
 Without a memmap the thread list still prints the raw PCs and a hint; the
 mapping half needs only the JSON, never the image, so ``--selftest`` runs
@@ -36,6 +41,7 @@ wins.
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import os
 import sys
@@ -49,6 +55,7 @@ except Exception:  # pragma: no cover - exercised by every standalone run
     gdb = None
 
 DEFAULT_MEMMAP = "memmap.json"
+DEFAULT_SYMBOLS = "syms.json"
 P1_BASE = 0x80000000
 P2_BASE = 0xA0000000
 P2_MASK = 0x1FFFFFFF
@@ -157,7 +164,7 @@ def resolve(sections, pc: int):
     return None
 
 
-def format_pc(pc: int | None, sections=None) -> str:
+def format_pc(pc: int | None, sections=None, symbols=None) -> str:
     """``0x8ce01010  NK.EXE/sec0+0x10  [r-x]`` (or why it cannot be mapped)."""
     if pc is None:
         return "?  (registers unreadable)"
@@ -179,14 +186,73 @@ def format_pc(pc: int | None, sections=None) -> str:
         notes.append("bss")
     suffix = "  [%s]" % ",".join(notes) if notes else ""
     alias = "" if matched == pc else " (via 0x%08x)" % matched
-    return "%s  %s/%s+0x%x%s%s" % (
+    symbol = ""
+    if symbols:
+        name = symbols_at(symbols, matched, section.module)
+        if name:
+            symbol = "  <%s>" % name
+    return "%s  %s/%s+0x%x%s%s%s" % (
         text,
         section.module,
         section.name,
         offset,
         alias,
         suffix,
+        symbol,
     )
+
+
+# --------------------------------------------------------------------------
+# Symbol table (`tools/ze0_syms.py` syms.json): PC -> module!name
+# --------------------------------------------------------------------------
+
+
+def parse_symbols(document):
+    """Flatten a ``ze0_syms.py`` document into ``{module_lower: [(display, rows)]}``.
+
+    A module name can appear in more than one build (``filesys.exe`` is in B
+    and C), so every build's table is kept and :func:`symbols_at` picks the one
+    whose function actually contains the VA.  Rows are ``(start, end, name)``
+    sorted by start.  A document with no ``builds`` (or a plain list) yields
+    ``{}``.
+    """
+    if isinstance(document, (str, os.PathLike)):
+        with open(document, "r", encoding="utf-8") as handle:
+            document = json.load(handle)
+    table: dict[str, list] = {}
+    if not isinstance(document, dict):
+        return table
+    for segment in document.get("builds", []):
+        for module in segment.get("modules", []):
+            functions = module.get("functions") or []
+            if not functions:
+                continue
+            rows = sorted((_as_int(f["start"]), _as_int(f["end"]), str(f["name"]))
+                          for f in functions)
+            table.setdefault(module["name"].lower(), []).append(
+                (str(module["name"]), rows))
+    return table
+
+
+def _containing(rows, va):
+    starts = [r[0] for r in rows]
+    i = bisect.bisect_right(starts, va) - 1
+    if i >= 0 and rows[i][0] <= va < rows[i][1]:
+        return rows[i][2]
+    return None
+
+
+def symbols_at(symbols, va, module=None):
+    """``module!name`` for *va*, or ``None``; a *module* hint is authoritative."""
+    if not symbols:
+        return None
+    names = [module.lower()] if module is not None else list(symbols)
+    for key in names:
+        for display, rows in symbols.get(key, ()):
+            name = _containing(rows, va)
+            if name is not None:
+                return "%s!%s" % (display, name)
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -234,14 +300,14 @@ def collect_threads(inferior, frame_pc, current=None) -> list[ThreadRow]:
     return rows
 
 
-def format_threads(rows, sections=None, current_num=None) -> list[str]:
+def format_threads(rows, sections=None, current_num=None, symbols=None) -> list[str]:
     """Render the thread list; returns lines so the selftest can pin them."""
     lines = ["== CE threads (%d) ==" % len(rows)]
     for row in rows:
         mark = "*" if current_num is not None and row.num == current_num else " "
         lines.append(
             "%s %2d  %-14s  pc=%s"
-            % (mark, row.num, row.label, format_pc(row.pc, sections))
+            % (mark, row.num, row.label, format_pc(row.pc, sections, symbols))
         )
     return lines
 
@@ -251,20 +317,30 @@ def format_threads(rows, sections=None, current_num=None) -> list[str]:
 # --------------------------------------------------------------------------
 
 
-def _gdb_memmap_path():
-    """``$ze0_memmap``, else ``$ZE0_MEMMAP``, else ``./memmap.json``."""
+def _gdb_var(name, env_name, default):
+    """``$name`` convenience variable, else ``$env_name``, else ``./default``."""
     path = None
     try:
-        value = gdb.convenience_variable("ze0_memmap")
+        value = gdb.convenience_variable(name)
         if value is not None:
             path = value.string()
     except Exception:
         path = None
     if not path:
-        path = os.environ.get("ZE0_MEMMAP") or None
-    if not path and os.path.exists(DEFAULT_MEMMAP):
-        path = DEFAULT_MEMMAP
+        path = os.environ.get(env_name) or None
+    if not path and os.path.exists(default):
+        path = default
     return path
+
+
+def _gdb_memmap_path():
+    """``$ze0_memmap``, else ``$ZE0_MEMMAP``, else ``./memmap.json``."""
+    return _gdb_var("ze0_memmap", "ZE0_MEMMAP", DEFAULT_MEMMAP)
+
+
+def _gdb_symbols_path():
+    """``$ze0_syms``, else ``$ZE0_SYMS``, else ``./syms.json``."""
+    return _gdb_var("ze0_syms", "ZE0_SYMS", DEFAULT_SYMBOLS)
 
 
 def gdb_report() -> None:
@@ -279,6 +355,15 @@ def gdb_report() -> None:
             path = None
     else:
         print('gdb-ze0: no memmap; set $ze0_memmap = "/path/memmap.json"')
+
+    sym_path = _gdb_symbols_path()
+    symbols = {}
+    if sym_path:
+        try:
+            symbols = parse_symbols(sym_path)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print("gdb-ze0: cannot read symbols %s: %s" % (sym_path, exc))
+            sym_path = None
 
     try:
         current = gdb.selected_thread()
@@ -302,10 +387,12 @@ def gdb_report() -> None:
             current_num = int(current.num)
         except Exception:
             current_num = None
-    for line in format_threads(rows, sections, current_num):
+    for line in format_threads(rows, sections, current_num, symbols):
         print(line)
     if path:
         print("memmap: %s (%d section(s))" % (path, len(sections)))
+    if sym_path:
+        print("symbols: %s (%d module(s))" % (sym_path, len(symbols)))
 
 
 if gdb is not None:  # sourced by gdb
@@ -550,6 +637,59 @@ def selftest(argv=None) -> int:
     check("no mark without a current thread (row)",
           format_threads(rows, sections)[1].startswith("   1  ntdll"), True)
 
+    # A synthetic symbol table: a PC inside NAVI.EXE's sec0 maps to a name.
+    syms_doc = {
+        "schema": "osm2leaf.ze0-syms/v1",
+        "builds": [{"build": "A", "modules": [{
+            "name": "NAVI.EXE",
+            "functions": [
+                {"start": "0x8D000010", "end": "0x8D000040",
+                 "name": "mmain_reader"},
+                {"start": "0x8D000040", "end": "0x8D000080",
+                 "name": "fn_0x8d000040"},
+            ],
+        }]}],
+    }
+    syms = parse_symbols(syms_doc)
+    check("parse_symbols flattens by module", list(syms), ["navi.exe"])
+    check("symbols_at finds a PC by module", symbols_at(syms, 0x8D000020,
+          "NAVI.EXE"), "NAVI.EXE!mmain_reader")
+    check("symbols_at ignores case of the module",
+          symbols_at(syms, 0x8D000020, "navi.exe"), "NAVI.EXE!mmain_reader")
+    check("symbols_at finds a PC without a module hint",
+          symbols_at(syms, 0x8D000020), "NAVI.EXE!mmain_reader")
+    check("symbols_at rejects a PC in a gap", symbols_at(syms, 0x8D000090),
+          None)
+    check("symbols_at rejects the wrong module",
+          symbols_at(syms, 0x8D000020, "NK.EXE"), None)
+    # The same module name in two builds (filesys.exe in B and C) keeps both
+    # tables, and the VA picks the right one instead of the last write.
+    two_build = {"builds": [
+        {"build": "B", "modules": [{"name": "filesys.exe", "functions": [
+            {"start": 0x2000, "end": 0x2100, "name": "b_fn"}]}]},
+        {"build": "C", "modules": [{"name": "filesys.exe", "functions": [
+            {"start": 0x3000, "end": 0x3100, "name": "c_fn"}]}]},
+    ]}
+    tb = parse_symbols(two_build)
+    check("a name in two builds keeps both tables",
+          [len(v) for v in tb.values()], [2])
+    check("symbols_at picks the build that contains the VA",
+          (symbols_at(tb, 0x2010), symbols_at(tb, 0x3010)),
+          ("filesys.exe!b_fn", "filesys.exe!c_fn"))
+    check("symbols_at with a hint still picks the matching build",
+          symbols_at(tb, 0x3010, "FILESYS.EXE"), "filesys.exe!c_fn")
+    check("format_pc adds the symbol",
+          format_pc(0x8D000020, sections, syms),
+          "0x8d000020  NAVI.EXE/sec0+0x20  [r-x]  <NAVI.EXE!mmain_reader>")
+    check("format_pc works without symbols",
+          format_pc(0x8D000020, sections), "0x8d000020  NAVI.EXE/sec0+0x20  [r-x]")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "syms.json")
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(syms_doc, handle)
+        check("parse_symbols reads a file", list(parse_symbols(path)),
+              ["navi.exe"])
+
     print("checks: %d, failures: %d" % (checks, failures))
     print("selftest: OK" if failures == 0 else "selftest: FAILED")
     return 0 if failures == 0 else 1
@@ -578,6 +718,11 @@ def main(argv=None) -> int:
         metavar="HEX",
         help="print the module/section for this PC (repeatable, needs --memmap)",
     )
+    parser.add_argument(
+        "--syms",
+        metavar="FILE",
+        help="ze0_syms.py JSON (PC -> module!name, optional)",
+    )
     args = parser.parse_args(argv)
 
     if args.selftest:
@@ -590,9 +735,19 @@ def main(argv=None) -> int:
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print("gdb-ze0: cannot read %s: %s" % (args.memmap, exc), file=sys.stderr)
         return 1
+    symbols = {}
+    if args.syms:
+        try:
+            symbols = parse_symbols(args.syms)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print("gdb-ze0: cannot read symbols %s: %s" % (args.syms, exc),
+                  file=sys.stderr)
+            return 1
 
     modules = len({s.module for s in sections})
     print("memmap: %s (%d section(s) in %d module(s))" % (args.memmap, len(sections), modules))
+    if args.syms:
+        print("symbols: %s (%d module(s))" % (args.syms, len(symbols)))
     if not args.pc:
         return 0
     for value in args.pc:
@@ -601,7 +756,7 @@ def main(argv=None) -> int:
         except ValueError:
             print("gdb-ze0: not a number: %r" % value, file=sys.stderr)
             return 2
-        print(format_pc(pc, sections))
+        print(format_pc(pc, sections, symbols))
     return 0
 
 

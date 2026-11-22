@@ -5372,8 +5372,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the listed process names do not match the launcher's DBGMSG lines of the same run.
   - Claims: C-8130–C-8139
 
-- [ ] **M8.H69 — Breakpoints by name: a symbol file for the guest from `.pdata` and exports**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H69 — Breakpoints by name: a symbol file for the guest from `.pdata` and exports**
+  - Status: done · Owner: task/m8.h69-symbols · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: Debugging the guest means typing VAs from EXP records. Generate a symbol table (module + export name, or `module!fn_VA`) for every module of a card's ROM images so gdb scripts and coverage reports use names.
@@ -5384,6 +5384,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: a function start from `.pdata` resolves into the wrong module (overlapping DLL ranges of A and B/C, known from M8.C1d).
   - Claims: C-8140–C-8149
+  - Result: EXP-2026-11-22-M8.H69-symbols; mmain_reader resolves 0x0041a438 both ways; verify 0 missing owners; 36/36 tool selftest, 198/198 registry
 
 - [x] **M8.H70 — A renamed street on the emulated screen: one map label changed in place, factory vs changed card at L4**
   - Status: done · Owner: claude/project-thread-66ezlk · Critical: yes · Pair: solo
