@@ -4595,7 +4595,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7220–C-7229
 
 - [ ] **M8.H26 — `run.sh --card IMG`: derive `verinf`, `mapdb`, the overlay and the `ipl-patch` from the card**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h26-card-derive · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: A run needs four hand-made inputs. All four are functions of the card image; a wrong `verinf` makes the launcher reject the card for a reason that has nothing to do with the test.
