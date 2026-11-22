@@ -2823,8 +2823,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the KIWI field widths cannot tile our record without leftover bits.
   - Claims: C-7680–C-7689
 
-- [ ] **M4.70 — KIWI Background Data Frame (chapter 7.3) against the odd-partner background records: polygons, shape classes, minimum graphics records**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.70 — KIWI Background Data Frame (chapter 7.3) against the odd-partner background records: polygons, shape classes, minimum graphics records**
+  - Status: done · Owner: task/m4.70-kiwi-bg-frame · Critical: no · Pair: required
   - Step: P1
   - Depends: —
   - Goal: Water, forests and built-up areas are background data. KIWI stores them as typed units of 'minimum graphics records' (point, line, polygon; an 11-bit count of offset coordinates). Our tiles keep background in the odd partner record, mostly unexplained. Test the KIWI layout there.
@@ -2835,6 +2835,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: decoded polygons are not closed or leave the tile frame.
   - Claims: C-7690–C-7699
+  - Result: EXP-2026-11-22-M4.70-kiwi-bg-frame; 0/17,659 KIWI fits, synthetic control PASS, 8 claims C-7690-C-7697
 
 - [ ] **M4.71 — KIWI Name Data Frame (chapter 7.4) against tile names and section 4: name records, placement kinds, string encoding**
   - Status: open · Owner: — · Critical: no · Pair: required
