@@ -6163,8 +6163,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the model matches F but cannot match G or the other records without per-record exceptions; then the walk depends on state outside the shape buffer and the EXP must name it.
   - Claims: C-6840–C-6849
 
-- [ ] **M9.68 — Mutation sweep of the tile header at L3: which fields does the map client check**
-  - Status: in progress · Owner: task/m9.68-tile-header-sweep · Critical: no · Pair: required
+- [x] **M9.68 — Mutation sweep of the tile header at L3: which fields does the map client check**
+  - Status: done · Owner: task/m9.68-tile-header-sweep · Critical: no · Pair: required
   - Step: P1
   - Depends: M3.25 (done), M9.13 (done)
   - Goal: We know a generated tile 'reads the same as factory' and a fresh-container tile fails (M9.52/M9.53). Map the acceptance envelope: flip each header and table field of a factory tile in turn and record whether the mount/read path still completes.
@@ -6175,6 +6175,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: one session; at most 64 mutations.
   - Falsifier: no mutation is ever rejected (then the path under test does not parse the header and the sweep needs the next stage).
   - Claims: C-8000–C-8009
+  - Result: EXP-2026-11-22-M9.68-tile-header-sweep; 52 fields: read-same 33 / read-different 18 / rejected 1 (fn 0x0040acb8); C-8000-C-8009; gate 5 pass 0 fail 0 skip
 
 - [x] **M9.69 — One trace format for L3 and L4 reader calls**
   - Status: done · Owner: task/m9.69-reader-trace · Critical: no · Pair: solo
