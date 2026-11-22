@@ -29,8 +29,11 @@ MAGIC = b"FDL Font"
 CMAP_OFF = 0xD4
 MAX_CP = 0x1000
 FILL_RUN = 16
-# A glyph id that occurs this many times for one code point is a notdef fill,
-# not a distinct drawable glyph (the table stores one entry per font variant).
+# HYPOTHESIS (not established by any command): a glyph id repeated this many
+# times for one code point is a notdef fill rather than a distinct drawable
+# glyph; the "one entry per font variant" reading is only a guess. The 18-letter
+# verdicts are unchanged for thresholds 2, 4, 8, 16 and 32, so the constant is
+# not load-bearing for the reported result.
 FILL_THRESHOLD = 8
 
 POLISH = {
@@ -73,12 +76,14 @@ def parse_cmap(data, off, limit=None):
 def build_map(pairs, fallback):
     """cp -> list of real glyph ids (notdef fill removed).
 
-    For each code point the table holds one entry per font variant.  A missing
-    variant is filled with the same glyph id many times; those repeated ids
-    are notdef, not drawable glyphs.  ``fallback`` is the global fill value
+    HYPOTHESIS (not established by a command): for each code point the table
+    holds one entry per font variant, and a missing variant is filled with the
+    same glyph id many times.  Repeated ids are therefore treated as notdef,
+    not as distinct drawable glyphs.  ``fallback`` is the global fill value
     taken from the tail of the table; additionally, any id repeated
     ``FILL_THRESHOLD`` times for one code point is treated as that code
-    point's notdef fill.
+    point's notdef fill.  The threshold is not load-bearing for the 18-letter
+    verdict (2/4/8/16/32 all give the same result).
     """
     from collections import Counter
     out = {}
