@@ -52,3 +52,12 @@ dist/
 .idea/
 *.swp
 .DS_Store
+
+# Head-unit flash dumps (LeafSDTools): SD PIN, serial, phone book, destinations.
+/MarekDumpSD/
+nand_*.bin
+nand_*.bin.backup
+sram_*.bin
+vflash_*.bin
+prod_*.bin
+leafsdtools.log

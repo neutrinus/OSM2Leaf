@@ -3925,10 +3925,10 @@ the file names in `docs/experiments/` (warning by default and under
 | C-5200 | Marek's US unit is model `QY7200ND`, Product ID `10 20 02 12` (PROD `+0x40` and `+0x20..+0x23`, flash `0xA040`/`0xA020`). | OBSERVED | H | LeafSDTools `111-beta` main screen photo; `Flash.cpp` `GetProdSection`; EXP-2026-11-20-M6.18-prod-screen |
 | C-5201 | The firmware Target ID (`KernelIoControl 0x01013208`, byte 0 non-zero/non-`FF`, byte 1 = area) is PROD `+0x20..+0x23`; the market byte is flash `0xA021` (`0x20` USA here), not `0xA022` as C-078 says (`0xA022` = `0x02`). | HYPOTHESIS (strong) | M | C-5200; us-eu-region.md Target ID; test: M6.19 on the dump |
 | C-5202 | On this unit IMMO code is `FF FF FF FF` and IMMO check is `00` (PROD `+0xA0`, `+0x193`): the immobiliser handshake is disabled. | OBSERVED | H | EXP-2026-11-20-M6.18-prod-screen |
-| C-5203 | RESERVED (M6.18). | — | — | — |
-| C-5204 | RESERVED (M6.18). | — | — | — |
-| C-5205 | RESERVED (M6.18). | — | — | — |
-| C-5206 | RESERVED (M6.18). | — | — | — |
+| C-5203 | The LeafSDTools backup of Marek's unit exists outside the repository: full flash 8,388,608 B (SHA-256 `dc2b30df…2cbb8b`), SRAM 1,048,576 B (`4ca46edf…e0db6e`), VFlash 3,014,656 B (`c3e37e6f…be1b`), PROD 722 B (`f916ebce…950c`); the tool skipped no block. | OBSERVED | H | EXP-2026-11-22-M6.18-unit-flash-backup |
+| C-5204 | On a real QY7200ND the LeafSDTools partial files are byte-identical to ranges of the full flash dump: SRAM = `0x400000–0x4FFFFF`, VFlash = `0x500000–0x7DFFFF`, PROD = `0xA000–0xA2D1` (shifted control differs). Confirms the block map of C-5193. | VERIFIED | H | EXP-2026-11-22-M6.18-unit-flash-backup; C-5193 |
+| C-5205 | The PROD checksum is the 16-bit sum of bytes `+0x000..+0x2CF`, stored little-endian at `+0x2D0` (computed `0x9CBE` = stored on Marek's unit). | VERIFIED | H | EXP-2026-11-22-M6.18-unit-flash-backup |
+| C-5206 | The dump holds the values of the LeafSDTools screen at the stated PROD offsets: `+0x20` = `10 20 02 12`, `+0x40` = `QY7200ND`, `+0xA0` = `FF FF FF FF`, `+0x193` = `00`. | OBSERVED | H | EXP-2026-11-22-M6.18-unit-flash-backup; C-5200, C-5202 |
 | C-5207 | RESERVED (M6.18). | — | — | — |
 | C-5208 | RESERVED (M6.18). | — | — | — |
 | C-5209 | RESERVED (M6.18). | — | — | — |
