@@ -4530,7 +4530,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7170–C-7179
 
 - [ ] **M8.H21 — Is there a demo drive? Route simulation and other position sources inside `Navi.exe`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h21-demo-drive · Critical: no · Pair: solo
   - Step: research
   - Depends: —
   - Goal: Many navigation programs can simulate driving a route. If this one can (a hidden or dealer menu), the emulator gets a moving position with no sensor model at all.
