@@ -1709,8 +1709,8 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-20-M1.39-hardware-map (C-6410–C-6416), page [`docs/hardware/head-unit.md`](docs/hardware/head-unit.md): SH-4A (SH-NaviJ family, part unproven), DRAM from `0x08000000`, at least 102 MiB (128 MiB guessed), 44.6 MiB for applications; 8 MiB NOR flash; 800 × 480 × 16 bpp; port users from device-name strings — `SCI1:` audio microcontroller, `SCI3:` display, `SCI6:` debug console (= kernel debug SCIF `0xffe46000`), `SCI7:` GPS, `SCI8:` Bluetooth, `UAT3:` CAN sub-microcontroller; `0xffe70000` is the USB host block (OHCI at `+0x400`).
   - Claims: C-6410–C-6419
 
-- [ ] **M1.40 — Hardware map II: I2C slaves, GPIO pin roles, baud rates, the users of `SCI0:` and `UAT4:`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.40 — Hardware map II: I2C slaves, GPIO pin roles, baud rates, the users of `SCI0:` and `UAT4:`**
+  - Status: done · Owner: task/m1.40-hw-map-ii · Critical: no · Pair: solo
   - Depends: M1.39 (done)
   - Goal: fill the rows `docs/hardware/head-unit.md` leaves open, still from the firmware: which I2C slave addresses each driver uses on which bus (and what chip that suggests), which GPIO bits `GPIO.dll` clients set or read and for what (mute, SD power, card detect, LCD power, reverse, illumination), the baud rate and framing each port user sets (`SetCommState` DCB), and who opens `SCI0:` / `UAT4:` (compressed sections were not searched in M1.39).
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports I2C.dll` and `… exports GPIO.dll` print the driver entry points; `python3 tools/nk_decomp.py` decompresses a `.data` section of `SDHC.dll`.
@@ -1719,6 +1719,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: the page has ≥ 5 I2C (bus, address, driver) rows or the reason they cannot be read statically, a GPIO table with ≥ 8 named bits, and baud rates for `SCI1:`, `SCI6:`, `SCI7:`, `SCI8:`, `UAT3:`.
   - Stop: chip names stay HYPOTHESIS without a board photo; do not guess a part from an address alone.
   - Claims: C-6420–C-6429
+  - Result: EXP-2026-11-22-M1.40-hw-map-ii; head-unit.md updated with I2C/GPIO/baud/SCI0/UAT4 static map; C-6420-C-6429
 
 - [ ] **M1.41 — Decompile map of the Bluetooth stack, and why two phones work badly**
   - Status: open · Owner: — · Critical: no · Pair: solo

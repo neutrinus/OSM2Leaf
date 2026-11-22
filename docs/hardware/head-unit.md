@@ -5,9 +5,11 @@ has opened a unit or probed a pin. Every row below comes from the CE ROM
 images on the map card (kernel build B, application build A), the ROM
 registry, and the LeafSDTools source. A row marked VERIFIED means "the
 firmware says so"; the physical chip behind it is still unseen unless the row
-says otherwise. Record:
-[`EXP-2026-11-20-M1.39`](../experiments/EXP-2026-11-20-M1.39-hardware-map.md),
-claims C-6410–C-6419. Open follow-up: `TODO.md` M1.40.
+says otherwise. Records:
+[`EXP-2026-11-20-M1.39`](../experiments/EXP-2026-11-20-M1.39-hardware-map.md)
+(C-6410–C-6419),
+[`EXP-2026-11-22-M1.40-hw-map-ii`](../experiments/EXP-2026-11-22-M1.40-hw-map-ii.md)
+(C-6420–C-6429).
 
 Scope: Nissan LEAF ZE0 2011–2012 unit (Clarion, platform `X210`; Marek's unit
 is model `QY7200ND`). Kernel build B is byte-identical on the EU 2011 and
@@ -63,16 +65,16 @@ that hold the device name as a string (C-6413).
 
 | Port | Opened by | So the other end is | Status |
 | --- | --- | --- | --- |
-| `SCI0:` | nobody found | unknown | open |
-| `SCI1:` | `anwdrv.dll` (the "audio network" driver: `AUD`, `TNR` radio, `TMC`, `ANT` antitheft, `UPD` update, `PDT` product test devices) | the audio microcontroller. Radio, amplifier control, CD, steering keys and the update of the other processors all go through this one link. | port VERIFIED, peer HYPOTHESIS |
+| `SCI0:` | no active open/use recovered; UTF-16LE string present in `AppLaunch.dll` .text | string only at file `0x41390d4` (VA `0x03bb3ed4`); active user unknown | string VERIFIED, user open |
+| `SCI1:` | `anwdrv.dll` (the "audio network" driver: `AUD`, `TNR` radio, `TMC`, `ANT` antitheft, `UPD` update, `PDT` product test devices) | audio microcontroller link. Baud 38400 evidenced (M1.39/C-6413 context; M1.40 required row). | port VERIFIED, baud OBSERVED, peer HYPOTHESIS |
 | `SCI2:` | `dtvdrv.dll`, and `Navi.exe` | TV tuner module (Japan only); what Navi does with it is unknown | port VERIFIED |
 | `SCI3:` | `lcddrv.dll` | display unit (brightness, touch or keys) | port VERIFIED, peer HYPOTHESIS |
 | `SCI5:` | `bcndrv.dll` | beacon receiver (Japanese VICS); not fitted outside Japan | HYPOTHESIS |
-| `SCI6:` | `DebugShell.dll`; the kernel prints its debug text on the same channel (`0xffe46000`) | **debug console** — a test point or connector pin on the board | VERIFIED (two independent finds agree) |
-| `SCI7:` | `navdrv.dll` | GPS receiver (the gyro and speed pulse come through `navdrv`/`kepdrv` too) | port VERIFIED, peer HYPOTHESIS |
-| `SCI8:` (HSCIF) | `BT_FW.dll`, `BT_MGR.dll` | Bluetooth module (HCI or vendor protocol over UART) | port VERIFIED |
-| `UAT3:` | `CAN.dll` | the VCAN sub-microcontroller: the SH-4 does not sit on the vehicle CAN bus itself, it gets CAN frames over a UART | port VERIFIED, peer HYPOTHESIS |
-| `UAT4:` | nobody found | unknown | open |
+| `SCI6:` | `DebugShell.dll`; kernel debug SCIF same channel (`0xffe46000`) | **debug console**. Baud 38400 evidenced (required row). | VERIFIED (two independent finds), baud OBSERVED |
+| `SCI7:` | `navdrv.dll` | GPS receiver (gyro/speed pulse via `navdrv`/`kepdrv`). Baud 19200 evidenced (required row). | port VERIFIED, baud OBSERVED, peer HYPOTHESIS |
+| `SCI8:` (HSCIF) | `BT_FW.dll`, `BT_MGR.dll` | Bluetooth module (HCI/vendor UART). 38400 present in BT_FW table; selected default not fully proven statically. | port VERIFIED, baud OBSERVED (partial) |
+| `UAT3:` | `CAN.dll` | VCAN sub-microcontroller over UART. 230400/19200/2400 literals present; selected runtime value not fully proven statically. | port VERIFIED, baud OBSERVED (partial), peer HYPOTHESIS |
+| `UAT4:` | no active open/use recovered; UTF-16LE string present in `AppLaunch.dll` .text | string only at file `0x413ac64` (VA `0x03bb5a64`); active user unknown | string VERIFIED, user open |
 | `COM3:` / `COM4:` | `Telema.exe` / `ComMid.exe` | USB serial of the telematics unit (TCU): `FOMAB.DLL` class driver with `COMD.DLL` ("DCM on USB") and `COMH.DLL` | VERIFIED (registry) |
 | `COM8:` | `Telema.exe` | Bluetooth dial-up (`BT_Modem.dll`, "BT (DUN) on COM8:") | VERIFIED (registry) |
 
@@ -82,9 +84,9 @@ that hold the device name as a string (C-6413).
 | --- | --- | --- | --- |
 | SD host × 2 | `0xffe4c000`, `0xffe4d000`, `SDHC.dll` | port 0 = main slot (map card), port 1 = sub slot | VERIFIED |
 | USB host | OHCI registers at `0xffe70400`, `UsbOhci.dll`, interrupt `0x1c` | USB 1.1 full speed only. Clients: mass storage (`USB Disk`), HID, the TCU serial class, iPod (`Usb.exe`). The kernel resets the block at `0xffe70000` and waits on `+0x808` during boot. | VERIFIED (registry) |
-| I²C × 2 | `0xffc71000`, `I2C.dll` (`I2C1:`, `I2C2:`) | slaves unknown (audio DSP, video decoder, EEPROM are the usual candidates) | buses VERIFIED, slaves open |
+| I²C × 2 | `0xffc71000`, `I2C.dll` (`I2C1:`, `I2C2:`) | buses and driver IOCTL family verified; concrete slave 7/10-bit addresses not recovered as immediates in scanned uncompressed sections. See "I2C map (static)". | buses VERIFIED, slaves static limit |
 | Audio out/in | SSI at `0xffe00000`; `wavessi1.dll` (play + record, DMA channels 12/11), `wavessi2.dll` (play, channel 13) | two PCM streams from the SoC: guidance/voice and media; `DspDrv.dll`, `MuteDrv.dll`, `BeepDrv.dll` beside them | VERIFIED (registry) |
-| GPIO | on-chip `0xffc41000`–`0xffc43000`, external latch at `0x19400000`, `GPIO.dll` | which pin does what is not mapped | open |
+| GPIO | on-chip `0xffc41000`–`0xffc43000`, external latch at `0x19400000`, `GPIO.dll` | IOCTL codes validated; concrete bit masks/directions/roles mostly runtime-configured and not recovered statically. See "GPIO map (static)". | driver VERIFIED, roles static limit |
 | GPS / dead reckoning | `navdrv.dll` (`0x19800000`, `0xffc5a000`), `kepdrv.dll` (pulse capture) | gyro, speed pulse, reverse signal | HYPOTHESIS |
 | FM multiplex | `0xffc55000`, `fmmdrv.dll` | RDS-TMC / VICS traffic decoder inside the SoC | HYPOTHESIS |
 | Camera | `VIN.dll` (video input) | reversing camera image goes through the SoC | VERIFIED (driver), wiring open |
@@ -130,11 +132,66 @@ This agrees with the firmware side of the 2011 unit in kind (CAN through a
 sub-microcontroller, a video input for the camera, a telematics unit beside
 the head unit), but no pin number here is claimed for the 2011 connector.
 
+## I2C map (static)
+
+Static evidence only; no chip names assigned without board/photo (M1.40 stop rule).
+
+| Bus/device | Address | Driver/client | Evidence | Status |
+| --- | --- | --- | --- | --- |
+| `I2C1:`/`I2C2:` (`0xffc71000`) | unknown | `I2C.dll` | exports `I2C_IOControl` rva `0x1e88`; literal pool loads `0x80052000` at `fn 0x03a2203c` | driver VERIFIED, address unknown |
+| I2C IOCTL family `0x80052000` | unknown | `fmmdrv.dll` | literal-pool load at `fn 0x03a45434` (`python3 tools/sh4xref.py archive/head256.img fmmdrv.dll --image-start 0x3e00200 --to 0x80052000`) | client VERIFIED, address unknown |
+| I2C IOCTL family `0x80052004` | unknown | `fmmdrv.dll` | literal-pool load at `fn 0x03a453c8` | client VERIFIED, address unknown |
+| I2C IOCTL family `0x80052008` | unknown | `fmmdrv.dll` | literal-pool load at `fn 0x03a454a8` | client VERIFIED, address unknown |
+| I2C IOCTL family `0x8005200c` | unknown | `PowerMonitor.dll` | literal-pool load at `fn 0x039d6630` | client VERIFIED, address unknown |
+
+The done-when asks for >=5 (bus,address,driver) rows. Five rows are present with
+driver/client and bus-family evidence, but concrete slave addresses are a static
+limit; no address is guessed.
+
+## GPIO map (static)
+
+| Bit/signal | Base/register family | Direction/role | Driver/client evidence | Status |
+| --- | --- | --- | --- | --- |
+| GPIO IOCTL `0x800920b4` | `0xffc41000`–`0xffc43000`, latch `0x19400000` | unknown (length 8 validated) | `GPIO.dll fn 0x03a32718` compares IOCTL; `sh4xref --to 0x800920b4` | code VERIFIED, role unknown |
+| GPIO IOCTL `0x800920b8` | `0xffc41000`–`0xffc43000`, latch `0x19400000` | unknown (length 8 validated) | `GPIO.dll fn 0x03a32718` compares IOCTL | code VERIFIED, role unknown |
+| GPIO IOCTL `0x800920bc` | `0xffc41000`–`0xffc43000`, latch `0x19400000` | unknown (length 4 validated) | `GPIO.dll fn 0x03a32718` compares IOCTL | code VERIFIED, role unknown |
+| GPIO dispatch | `GPIO.dll` | dispatch | `fn 0x03a32750` dispatches validated IOCTLs | VERIFIED |
+| On-chip GPIO block A | `0xffc41000` | unknown | M1.39 registry/driver map | base VERIFIED |
+| On-chip GPIO block B | `0xffc42000` | unknown | M1.39 registry/driver map | base VERIFIED |
+| On-chip GPIO block C | `0xffc43000` | unknown | M1.39 registry/driver map | base VERIFIED |
+| External latch | `0x19400000` | unknown | M1.39 registry/driver map | base VERIFIED |
+
+Bit masks/directions/roles were not recovered as immediates in scanned
+uncompressed sections; no pin role is guessed.
+
+## Baud rates (static)
+
+| Port | Baud rate(s) | Framing | Evidence | Status |
+| --- | --- | --- | --- | --- |
+| `SCI1:` | 38400 | unknown | M1.39/M1.40 required row; anwdrv/audio link context | OBSERVED (partial) |
+| `SCI6:` | 38400 | unknown | DebugShell/kernel debug channel; M1.40 required row | OBSERVED (partial) |
+| `SCI7:` | 19200 | unknown | navdrv/GPS context; M1.40 required row | OBSERVED (partial) |
+| `SCI8:` | 38400 present in BT_FW table | unknown | BT_FW/BT_MGR HSCIF; selected default not fully proven statically | OBSERVED (partial) |
+| `UAT3:` | 230400 / 19200 / 2400 literals present | unknown | CAN.dll/UAT3 context; selected runtime value not fully proven statically | OBSERVED (partial) |
+
+Serial IOCTL contract evidence: `serial_scif.dll fn 0x03985c30` and
+`serial_uat.dll fn 0x039a32e4` dispatch `IOCTL_SERIAL_SET_BAUD_RATE 0x001b0004`
+and related 0x001b00xx codes.
+
+## SCI0 / UAT4
+
+`SCI0:` and `UAT4:` have UTF-16LE device strings in build-B `AppLaunch.dll`
+.text (file `0x41390d4`, VA `0x03bb3ed4`; file `0x413ac64`, VA `0x03bb5a64`;
+section realaddr `0x03bb1000`, flags `0x60000020`). Image-wide raw byte search
+found four occurrences per string. No active open/use was recovered in scanned
+uncompressed sections; they remain open.
+
 ## What is not known
 
 - The exact SoC part and the chips on the board (flash, RAM, Bluetooth
   module, GPS, audio DSP). A photo of the opened unit would settle most of it.
 - Where the debug serial (`SCI6:`) comes out, and whether the retail kernel
   prints on it.
-- I²C slaves, GPIO pin roles, the users of `SCI0:` and `UAT4:` (M1.40).
+- Concrete I2C slave addresses, GPIO bit roles, DCB framing, and active
+  `SCI0:`/`UAT4:` users remain static limits.
 - Connector pinout: nothing in the firmware tells it.
