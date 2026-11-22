@@ -4993,7 +4993,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H37-keys; 4 sources, 15 tables/174 pairs decoded, C-7340-C-7349; falsifier negative
 
 - [ ] **M8.H38 — `tools/ze0_peers/panel.py`: touch and key injection peer (`tap`, `drag`, `key`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h38-panel-peer · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H36, M8.H37
   - Goal: The display-unit/input model as a host program: answers the start-up handshake of `docs/firmware/lcddrv.md` and sends touch and key events in the format of `docs/firmware/touch.md` and `keys.md`.
