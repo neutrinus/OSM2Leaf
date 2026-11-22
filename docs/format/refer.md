@@ -513,8 +513,43 @@ path and corrected record layout confirmed, C-2210–C-2219).
 
 ## `ZIPFR001` — postal/freeway masks
 
-- 14-byte records: `char key[10] + u32 LE mask`; 36,881 records, 119 distinct
-  masks. Keys look like truncated postal codes.
+Global file (not country-sharded), EU2011/2014/2016 only (absent from the
+US2011 card, C-7844). A decoded file is a common 512-byte header, the shared
+`0x200..0xfff` template, an 8-byte body header at `0x1000`, fixed **14-byte
+records** from `0x1008`, then zero padding to EOF. `tools/zipfr_decode.py
+census` walks it and reaches every byte (100 % on all three EU cards, C-7841):
+
+```
+0x000 512-byte common header (UTF-16BE strings, binary bytes at 0x180)
+0x200 0xe00-byte template (the same "mixed" 00/ff pad as the other families)
+0x1000 u16 3, u16 projection_end, u16 swap16(projection_end), u16 7   body header
+0x1008 14-byte records: u8 flag, u8 0, char key[6], u8 0, u8 0,
+       u16 group, u16 mask
+```
+
+- **Record:** `flag` is `0x00` for plain records and `0x80` for the "expand
+  letter" tail; `key[6]` is zero-padded digits/uppercase/space (C-7841). There
+  are 36,881 records on EU2011 (C-137). The last record before the tail is a
+  **special marker** (`80 00 00 03 f0 64 …`, a 4-byte counter in the group/mask
+  words, C-7845).
+- **Fields:** `key[4:6]` (bytes `+0x4..+0x5`) is a **sector** taking **119**
+  distinct values on EU2011 — that is the "119 masks" C-137 counts, and it is
+  not the trailing `u16` (C-7843). The trailing `u16` at `+0xc` is a per-record
+  bit flag (**118** distinct, mostly `0`/`8`/`128`); the `u16` at `+0xa` is a
+  small group index (**131** distinct, 0…130) (C-7846).
+- **Body header** (C-7842): word 2 = the **projection end**, i.e. the index of
+  the special marker = records before it (36,877 on EU2011 = 36,881 − marker −
+  3 zero tail records; 44,060 EU2014; 46,267 EU2016); word 1 is its 16-bit
+  little-endian swap (`0x900d`); words 0/3 are `3`/`7` on every card.
+- **Tail:** 23 records with `flag = 0x80` expand the letters `A`–`Z` for
+  prefix-keyed lookups. Three consecutive `A` entries occur (`AB` plain, `AD`
+  and `AL` flagged), so the tail is not strictly alphabetical; the census
+  reports the inversion list rather than assuming sorted order (C-7845).
+- **Bytes:** every byte is reached by the walk (header, template, body header,
+  14-byte records, zero tail); the unexplained part is zero on EU2011, EU2014
+  and EU2016 (C-7841). The `sector`/`mask`/`key` *semantics* (postal vs freeway
+  lookup, C-7848) and the 14-byte consumer in firmware (M3.18 r3) remain
+  **HYPOTHESIS/UNKNOWN**.
 - Open path (EU2011, M3.18 r3): `ZIPFR001.DAT` (`0x00178e08`) is **row 4** of a
   24-byte descriptor table in sec1 at `0x00564160` (`0x005641c0`, style code
   16, id `0x040c`, sec1 pointer `0x005641c4`). The table is loaded by
