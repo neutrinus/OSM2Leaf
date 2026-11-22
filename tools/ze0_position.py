@@ -84,6 +84,21 @@ def parse_x_reply(text):
     raise ValueError("no word in HMP reply: %r" % text[:200])
 
 
+def gdb_word(port, va):
+    """Read 4 bytes of guest *virtual* memory through the QEMU gdbstub.
+
+    HMP ``x`` can answer ``Cannot access memory`` for a user-mode VA when the
+    CPU is in another context; the RSP ``m`` packet uses the current guest MMU
+    and is the reliable route for Navi.exe's 0x00d940e4.
+    """
+    import ze0_dbgmsg
+    rsp = ze0_dbgmsg.Rsp(port)
+    payload = rsp.cmd("m%x,%x" % (va, 4))
+    if payload.startswith("E") or len(payload) < 8:
+        raise ValueError("gdbstub could not read 0x%08x: %r" % (va, payload[:40]))
+    return struct.unpack("<I", bytes.fromhex(payload[:8]))[0]
+
+
 def read_word(args):
     if args.file:
         with open(args.file, "rb") as fh:
@@ -92,9 +107,11 @@ def read_word(args):
         if len(data) != 4:
             raise ValueError("short read at 0x%x of %s" % (args.offset, args.file))
         word = struct.unpack("<I", data)[0]
+    elif args.gdb:
+        word = gdb_word(args.gdb, args.va)
     else:
         if not args.monitor:
-            raise ValueError("need --monitor SOCK or --file IMAGE")
+            raise ValueError("need --monitor SOCK, --gdb PORT or --file IMAGE")
         text = hmp_command(args.monitor, "x /1wx 0x%08x" % args.va)
         word = parse_x_reply(text)
     return word
@@ -132,7 +149,7 @@ def selftest():
         with open(path, "wb") as fh:
             fh.write(b"\x00" * EU_VA + struct.pack("<I", word))
         args = argparse.Namespace(file=path, offset=EU_VA, monitor=None,
-                                  build="EU2011", va=EU_VA, json=False)
+                                  gdb=None, build="EU2011", va=EU_VA, json=False)
         read_back = read_word(args)
         check("synthetic memory read", "0x%08x" % read_back, "0xa640d686")
         lat, lon, _ = decode(read_back)
@@ -190,6 +207,8 @@ def main(argv=None):
     r = sub.add_parser("read", help="read the live position word")
     src = r.add_mutually_exclusive_group(required=False)
     src.add_argument("--monitor", help="HMP unix socket of run.sh")
+    src.add_argument("--gdb", type=int, metavar="PORT",
+                     help="gdbstub TCP port (virtual read; use when HMP x fails)")
     src.add_argument("--file", help="synthetic/frozen memory image")
     r.add_argument("--offset", type=lambda s: int(s, 0), default=EU_VA)
     r.add_argument("--va", type=lambda s: int(s, 0), default=None)

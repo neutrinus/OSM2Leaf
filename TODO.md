@@ -4945,7 +4945,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H30-gps-peer; 27 selftests, doc frame byte-exact, GPX 5 samples; gate parts PASS except pre-existing C-6728 count
 
 - [ ] **M8.H31 — A GPS fix reaches the map: inject a position on `-M ze0` and read it back from the guest**
-  - Status: in progress · Owner: task/m8.h31-gps-fix-l4 · Critical: yes · Pair: required
+  - Status: blocked · Owner: — · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H30, M8.H29
   - Goal: The first end-to-end sensor test: the peer sends a fix, the firmware accepts it, the position variable follows.
@@ -4956,6 +4956,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the firmware ignores fixes without dead-reckoning inputs, record the filter condition (VA) and hand over to M8.H32.
   - Falsifier: the position follows the fix even when the frame checksum is wrong (then the parser path taken is not the one documented).
   - Claims: C-7280–C-7289
+  - Blocker: A0 00 seeding command is not a receiver fix; Navi.exe ignores it: position word and screenshots unchanged (0/128 MiB words changed)
+  - Unblock: M8.H73
+  - Result: EXP-2026-11-22-M8.H31-gps-fix-l4-negative (negative with M8.H1/H30 positive controls)
 
 - [ ] **M8.H32 — Wheel pulses, gyro and reverse on `-M ze0`, driven from the same track as the GPS**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5522,6 +5525,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: after the change the screenshot loses map pixels or the guest error count grows.
   - Claims: C-8390–C-8399
   - Result: EXP-2026-11-22-M8.C1o-2dg-line-variants (C-8390–C-8395). ze0-0016 draws 2DG op 0xb1 (6-word header + inline vertices, count in word 4 low half) and 0xb3 (pointer form [op,N,OFF], vertices at op+OFF, colour from reg 0xf0) as polylines with exact lengths; both layouts read from build-A XGLDLL.dll fn 0x031204ac/0x031205a4 and build-B auirtdll.dll fn 0x03d0b408/0x03d0b502 and checked against a gfx-trace dump. L4 map boot: 2676 drawn / 0 skipped (was 2669 drawn / 7 skipped, C-6936); 342/384000 screenshot pixels differ (0.09%), no map pixels lost. UI layer and 0xb2/0xb4-0xb7 remain open.
+
+- [ ] **M8.H73 — Receiver fix frame: what frame from `SCI7:` actually moves `OBJ_CarPos`?**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: reader
+  - Depends: M8.H27, M8.H29, M8.H30
+  - Goal: Derive the layout of the frame `navdrv.dll` forwards from `SCI7:` as a position fix — the record whose u16s at `+28`/`+34` are decoded by `Navi.exe` function `0x003752e8` — so a host peer can make the map centre move.
+  - Precheck: `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x3752e8 --count 400` prints the FPU decode; `grep -n 'fix frame' docs/firmware/navdrv.md` shows the current gap.
+  - Scope: static EU2011 (build A + build B), then one L4 rerun of M8.H31 if a frame can be built. The `A0 00` TestMode seeding command is known NOT to be that frame (EXP-2026-11-22-M8.H31-gps-fix-l4-negative O2); do not re-test it.
+  - Input: `docs/firmware/navdrv.md`, `docs/experiments/EXP-2026-11-22-M8.H29-fix-to-map.md`, `tools/ze0_peers/gps.py`, `tools/ze0_position.py`, `tools/sh4fpu.py`, `tools/sh4dis.py`.
+  - Done when: `docs/firmware/navdrv.md` has a fix-frame table (field, record offset, unit, decoder VA) and one hand-built frame whose checksum validates; M8.H31 is re-run and `ze0_position.py read` returns the injected position; EXP + claims.
+  - Stop: if the layout needs a chip vendor datasheet that is not in the repo, record the sync bytes and exact FPU operations, mark blocked, and name the datasheet in `Unblock:`.
+  - Falsifier: the hand-built frame leaves the position word and both screenshots unchanged (the M8.H31 negative).
+  - Claims: C-8420–C-8429
 
 ---
 

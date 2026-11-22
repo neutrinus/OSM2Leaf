@@ -439,18 +439,23 @@ def cmd_hmp(args):
     """One Human Monitor Protocol command, for guest-side evidence."""
     try:
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-            sock.settimeout(min(args.timeout, 0.5))
+            sock.settimeout(args.timeout)
             sock.connect(args.sock)
             sock.sendall((args.command + "\n").encode())
             data = bytearray()
             while True:
                 try:
-                    part = sock.recv(4096)
+                    part = sock.recv(65536)
                 except socket.timeout:
                     break
                 if not part:
                     break
                 data.extend(part)
+                # QEMU echoes the command character by character; stop only
+                # when a prompt follows a newline after that echo.  Long
+                # pmemsave dumps need the caller to raise --timeout.
+                if re.search(rb"\n\(qemu\) $", data.replace(b"\r", b"")):
+                    break
         text = data.decode("utf-8", "replace").replace("\r", "")
         text = re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", text)
         print("\n".join(ln for ln in text.split("\n") if ln.strip()))
