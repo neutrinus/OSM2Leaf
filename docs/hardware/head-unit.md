@@ -59,9 +59,12 @@ LeafSDTools source:
 
 The SoC has SCIF channels at `0xffe40000` + n × `0x1000`; the registry starts
 eight of them (`SCI0:`–`SCI3:`, `SCI5:`–`SCI7:`, and the high-speed one as
-`SCI8:`) plus two external UARTs (`UAT3:`, `UAT4:`, driver `serial_uat.dll`,
-chips in the `0x19b00000`–`0x19e00000` area). The users below are the modules
-that hold the device name as a string (C-6413).
+`SCI8:`) plus two external UARTs (`UAT3:` at `0x19b00000`, `UAT4:` at
+`0x19e00000`, driver `serial_uat.dll`, C-6992). Their registers are 16-bit
+ports at a 2-byte stride with two vendor registers at `+0x1a`/`+0x1c`, so
+QEMU's `serial-mm` is not a drop-in model (C-6993/C-6994/C-6999,
+[`docs/firmware/serial-uat.md`](../firmware/serial-uat.md)). The users below are
+the modules that hold the device name as a string (C-6413).
 
 | Port | Opened by | So the other end is | Status |
 | --- | --- | --- | --- |
@@ -73,8 +76,8 @@ that hold the device name as a string (C-6413).
 | `SCI6:` | `DebugShell.dll`; kernel debug SCIF same channel (`0xffe46000`) | **debug console**. Baud 38400 evidenced (required row). | VERIFIED (two independent finds), baud OBSERVED |
 | `SCI7:` | `navdrv.dll` | GPS receiver (gyro/speed pulse via `navdrv`/`kepdrv`). Baud 19200 evidenced (required row). | port VERIFIED, baud OBSERVED, peer HYPOTHESIS |
 | `SCI8:` (HSCIF) | `BT_FW.dll`, `BT_MGR.dll` | Bluetooth module (HCI/vendor UART). 38400 present in BT_FW table; selected default not fully proven statically. | port VERIFIED, baud OBSERVED (partial) |
-| `UAT3:` | `CAN.dll` | VCAN sub-microcontroller over UART. 230400/19200/2400 literals present; selected runtime value not fully proven statically. | port VERIFIED, baud OBSERVED (partial), peer HYPOTHESIS |
-| `UAT4:` | no active open/use recovered; UTF-16LE string present in `AppLaunch.dll` .text | string only at file `0x413ac64` (VA `0x03bb5a64`); active user unknown | string VERIFIED, user open |
+| `UAT3:` | `CAN.dll` | VCAN sub-microcontroller over UART, base `0x19b00000` (P4 `0xb9b00000`, DeviceArrayIndex 2). 230400 is passed to the open; two baud tables (24/48 MHz clock) and one 9554 entry exist; table choice at boot not pinned. | port/base VERIFIED, baud OBSERVED (partial), peer HYPOTHESIS |
+| `UAT4:` | no active open/use recovered; UTF-16LE string present in `AppLaunch.dll` .text | string only at file `0x413ac64` (VA `0x03bb5a64`); base `0x19e00000` (P4 `0xb9e00000`, index 3), active user unknown | string/base VERIFIED, user open |
 | `COM3:` / `COM4:` | `Telema.exe` / `ComMid.exe` | USB serial of the telematics unit (TCU): `FOMAB.DLL` class driver with `COMD.DLL` ("DCM on USB") and `COMH.DLL` | VERIFIED (registry) |
 | `COM8:` | `Telema.exe` | Bluetooth dial-up (`BT_Modem.dll`, "BT (DUN) on COM8:") | VERIFIED (registry) |
 
@@ -172,11 +175,14 @@ uncompressed sections; no pin role is guessed.
 | `SCI6:` | 38400 | unknown | DebugShell/kernel debug channel; M1.40 required row | OBSERVED (partial) |
 | `SCI7:` | 19200 | unknown | navdrv/GPS context; M1.40 required row | OBSERVED (partial) |
 | `SCI8:` | 38400 present in BT_FW table | unknown | BT_FW/BT_MGR HSCIF; selected default not fully proven statically | OBSERVED (partial) |
-| `UAT3:` | 230400 / 19200 / 2400 literals present | unknown | CAN.dll/UAT3 context; selected runtime value not fully proven statically | OBSERVED (partial) |
+| `UAT3:` | 230400 passed by `CAN.dll` (`0x00038400` at `0x03b511f0`); driver tables at `0x039a1590` (24 MHz, includes 9554) and `0x039a15d0` (48 MHz, includes 230400) | 16-bit ports, 2-byte stride; long word/parity/stop unknown | `sh4dis.py … --va 0x39a4bc0` / `--va 0x39a51090`; C-6996, C-7463 | OBSERVED (selected table unknown) |
 
 Serial IOCTL contract evidence: `serial_scif.dll fn 0x03985c30` and
 `serial_uat.dll fn 0x039a32e4` dispatch `IOCTL_SERIAL_SET_BAUD_RATE 0x001b0004`
-and related 0x001b00xx codes.
+and related 0x001b00xx codes. **UAT3/UAT4 SYSINTR and INTEVT are UNKNOWN**:
+the driver obtains SYSINTR from `DDKReg_GetIsrInfo` at runtime and no
+`SysIntr`/`Irq` value exists in the UART3/UART4 registry keys (C-6998); a QEMU
+interrupt binding must be measured, not guessed.
 
 ## SCI0 / UAT4
 
