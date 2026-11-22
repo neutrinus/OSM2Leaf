@@ -1,0 +1,99 @@
+hw/sh4: ze0 unit NOR flash dump at phys 0: flash= (TODO M8.C1m).
+
+The kernel's OAL reads the unit's PROD block from the NOR flash at
+0xa000a000 (nk.exe B fn 0x88048604, KernelIoControl 0x01013208) for the
+product/Target ID, and its backup tables from the same chip.  ze0 had
+nothing at phys 0, so the product info failed and the launcher fell back
+to "Area FFFFFFFF >> Euro".  flash=FILE maps a dump of the unit's flash
+(LeafSDTools "NAND", 8 MiB; a power of two up to 64 MiB) read-only at
+phys 0.  The dump is the owner's and stays outside the repository.
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+index 4bda10633..95d98fcc9 100644
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -180,8 +180,10 @@ struct Ze0MachineState {
+     char *verinf;
+     char *mapdb;
+     char *ipl_patch;
++    char *flash;
+ };
+ 
++#define ZE0_FLASH_MAX          (64 * MiB)
+ #define ZE0_DEFAULT_KERNEL_OFF 0x3e00200u
+ #define ZE0_DEFAULT_APP_OFF    0x200200u
+ #define ZE0_CE_MAX_LEN         (256 * MiB)
+@@ -552,6 +554,39 @@ static void ze0_init(MachineState *machine)
+     }
+     create_unimplemented_device("ze0-area6", ZE0_AREA6_BASE, ZE0_AREA6_SIZE);
+ 
++    /*
++     * Unit NOR flash at phys 0 (TODO M8.C1m).  The kernel's OAL reads the
++     * PROD block at 0xa000a000 (fn 0x88048604, KernelIoControl 0x01013208
++     * product info, IsEvModel) and the backup tables from this chip.  On the
++     * card there is no copy; flash=FILE maps a dump of the unit's flash
++     * (LeafSDTools "NAND", 8 MiB) read-only.  The dump stays outside the
++     * repository.
++     */
++    if (ZE0_MACHINE(machine)->flash) {
++        const char *fpath = ZE0_MACHINE(machine)->flash;
++        MemoryRegion *fl = g_new(MemoryRegion, 1);
++        gchar *fdata = NULL;
++        gsize flen = 0;
++        GError *ferr = NULL;
++
++        if (!g_file_get_contents(fpath, &fdata, &flen, &ferr)) {
++            error_report("ze0: flash: %s", ferr->message);
++            exit(1);
++        }
++        if (flen == 0 || flen > ZE0_FLASH_MAX || (flen & (flen - 1))) {
++            error_report("ze0: flash: %s is %zu bytes; want a power of two "
++                         "up to %u MiB", fpath, (size_t)flen,
++                         (unsigned)(ZE0_FLASH_MAX / MiB));
++            exit(1);
++        }
++        memory_region_init_rom(fl, NULL, "ze0.flash", flen, &error_fatal);
++        memcpy(memory_region_get_ram_ptr(fl), fdata, flen);
++        g_free(fdata);
++        memory_region_add_subregion(sysmem, 0, fl);
++        info_report("ze0: flash %s (%zu bytes) at phys 0, read-only",
++                    fpath, (size_t)flen);
++    }
++
+     /* SH-4 CCN/MMU/exception registers and cache/TLB arrays. */
+     ccn = SH4_CCN(qdev_new(TYPE_SH4_CCN));
+     qdev_realize_and_unref(DEVICE(ccn), NULL, &error_fatal);
+@@ -888,6 +923,19 @@ static void ze0_set_ipl_patch(Object *obj, const char *value, Error **errp)
+     s->ipl_patch = *value ? g_strdup(value) : NULL;
+ }
+ 
++static char *ze0_get_flash(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->flash ?: "");
++}
++
++static void ze0_set_flash(Object *obj, const char *value, Error **errp)
++{
++    Ze0MachineState *s = ZE0_MACHINE(obj);
++
++    g_free(s->flash);
++    s->flash = *value ? g_strdup(value) : NULL;
++}
++
+ static char *ze0_get_mapdb(Object *obj, Error **errp)
+ {
+     return g_strdup(ZE0_MACHINE(obj)->mapdb ?: "");
+@@ -962,6 +1010,10 @@ static void ze0_machine_instance_init(Object *obj)
+     object_property_set_description(obj, "ipl-patch",
+         "file of 'PHYS HEXBYTES' lines the IPL would leave in RAM "
+         "(tools/ze0_ipl.py: join ROM image A to the kernel)");
++    object_property_add_str(obj, "flash", ze0_get_flash, ze0_set_flash);
++    object_property_set_description(obj, "flash",
++        "dump of the unit's NOR flash mapped read-only at phys 0 (PROD "
++        "block at +0xa000; default none, as without a unit; M8.C1m)");
+     object_property_add_str(obj, "mapdb", ze0_get_mapdb, ze0_set_mapdb);
+     object_property_set_description(obj, "mapdb",
+         "unit map-DB window MIN-MAX at kernel image header +0x70/+0x72 "

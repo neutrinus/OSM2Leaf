@@ -1480,6 +1480,23 @@ Exit codes: 0 PASS, 1 FAIL, 3 BLOCKED (boot rejected or the loop never ran),
 2 usage. The head offsets are start-relative, so the tool spells no mid-function
 VA. Results: `docs/experiments/EXP-2026-11-20-M3.11b-point-byteorder-2.md`.
 
+## `card_mapcode.py` — show or change the card's map code (M8.C1m)
+
+```bash
+python3 tools/card_mapcode.py unit --nk1 firmware/unit-flash/nk1-QY7200ND.bin   # or a NAND dump
+python3 tools/card_mapcode.py show --image CARD.img
+python3 tools/card_mapcode.py set --image CARD.img --from-nk1 NK1_OR_NAND --in-place   # or -o OUT.img, --code, --dry-run
+python3 tools/card_mapcode.py --selftest
+```
+
+The launcher compares the unit's map code (NK1 header `+0x60`) with line 1
+of the card's `VER_INFO/HDD_INFO.TXT`. `set` rewrites that line through
+`imgpatch.py` (same length, no FAT rebuild) and by default also updates the
+raw copy at `0x06000000`. Then it verifies through `cardcheck`. How to use
+it for an EU card on a US unit:
+[docs/hardware/eu-card-on-us-unit.md](../docs/hardware/eu-card-on-us-unit.md).
+Record: EXP-2026-11-22-M8.C1m-unit-flash-region.
+
 ## `imgpatch.py` — patch one file inside a card image in place
 
 Writes one file's new bytes into its **existing** clusters of a card image,
