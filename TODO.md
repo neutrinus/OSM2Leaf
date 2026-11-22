@@ -330,7 +330,7 @@ orders the map work; the live grouping is `python3 tools/card_ladder.py steps --
 - **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards; `cardcheck --generate-fixture` builds a vendor-free tree (H40 done, H105 done). Open: **H41** → **H42** (CI use), **H104** (baseline).
 - **L2 (the product path):** P0 built; P1 card **M5.61** (blocked, see its block). Open: **M5.35** (one command), **M5.66** (rendered tile as an L2 gate), **M5.76** (synthetic town so compiler tasks run without network) → **M7.1** (all Dolnośląskie).
 - **L3 (moving):** container, record read and the renderer walk are done on a generated tile. Open: **M9.68** (which header fields the map client checks), **M9.15** and **M9.18** (targets per family), routing **M4.55** → **M4.40** → **M5.57** → **M9.56** (blocked chain; **M4.72** tests a KIWI shortcut), card gate **M9.31** → **M9.12**.
-- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX), **M8.H27** (GPS frame grammar) and **M8.H30** (GPS peer) are done; **M8.H8** (SD block reads mapped to card files) completed. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. Next: **M8.H13** (`l4check.py` gate) → **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H9** (coverage) completes the format oracle; GPS **M8.H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
+- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX), **M8.H27** (GPS frame grammar) and **M8.H30** (GPS peer) are done; **M8.H8** (SD block reads mapped to card files) completed. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. The one-command `tools/l4check.py` gate is available (factory card exit 0 stage F5). Next: **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H9** (coverage) completes the format oracle; GPS **M8.H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
 - **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
 
 ### Map signal (read first)
@@ -4657,8 +4657,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the EU recipe works unchanged on the US card with EU constants (then nothing is build-specific and the README says so).
   - Claims: C-7090–C-7099
 
-- [ ] **M8.H13 — `tools/l4check.py`: one command, card image in, L4 verdict out**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M8.H13 — `tools/l4check.py`: one command, card image in, L4 verdict out**
+  - Status: done · Owner: — · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: L1–L3 have one-command gates; L4 is a recipe in EXP records. Wrap the boot into a gate: stage reached (F0…F5 names of `tools/l4_status.py`), launcher verdict on the card, map files opened, time to idle.
@@ -4669,6 +4669,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if no log line separates 'card accepted' from 'card rejected', report the two logs side by side and stop.
   - Falsifier: the broken card and the factory card give the same verdict.
   - Claims: C-7100–C-7109
+  - Result: EXP-2026-11-22-M8.H13-l4check; factory exit 0 stage F5 idle 218.62 s, broken card exit 1 stage F4, gate 5 pass / 0 fail / 0 skip
 
 - [ ] **M8.H14 — CI: every push checks that the `ze0` patch series still applies**
   - Status: open · Owner: — · Critical: no · Pair: solo
