@@ -3087,7 +3087,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M4.88-poi-categories; 276 codes / 531,199 coded records; 34 verified icons stable (0 collisions); place control 53/10; selftest 11/11 and verify PASS
 
 - [ ] **M4.89 — Poland on the later cards as an oracle: do the 2014/2016 Poland tiles decode with the 2011 tools**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m4.89-poland-cross-year · Critical: yes · Pair: required
   - Step: P2
   - Depends: —
   - Goal: The EU 2014 and 2016 cards belong to another unit generation, but if their map files keep the 2011 format, their Polish coverage is a factory-made answer sheet: Polish names, the country code in `LCTBL` (M5.64), road classes on Polish roads, POI categories.
