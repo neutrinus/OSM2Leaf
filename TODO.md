@@ -3127,8 +3127,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8170–C-8179
   - Result: EXP-2026-11-22-M4.91-opening-picture (C-8170-C-8179); tools/opng.py --selftest 10/10, decode->encode byte-identical on EU+US factory files (sha256 + cmp); BASS container decoded; raw-pixel hypothesis refuted (entropy 5.2559, pixel grammar UNKNOWN)
 
-- [ ] **M4.92 — Traffic for Poland: which countries and location tables does the EU 2011 `TMC/reception.dat` cover**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.92 — Traffic for Poland: which countries and location tables does the EU 2011 `TMC/reception.dat` cover**
+  - Status: done · Owner: task/m4.92-tmc-poland · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: `RDSTM001`/`LCTBL001` must be generated for Poland, but traffic also needs the receiver side: the list of countries, location-table numbers and service identifiers in `TMC/reception.dat`. If Poland is absent there, generated location data would never be asked for.
@@ -3139,6 +3139,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: the file lists services without any country or table field (then coverage is decided elsewhere — name where).
   - Claims: C-8180–C-8189
+  - Result: EXP-2026-11-22-M4.92-tmc-poland-coverage; 14 services both cards, Poland absent (CC 3); 10/10 selftest
 
 - [x] **M4.93 — Section-4 wide rows: the `0x1146`–`0x1946` directories left unexplained by the `0x2046` row model**
   - Status: done · Owner: task/m4.93-section4-wide · Critical: no · Pair: solo

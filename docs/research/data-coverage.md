@@ -34,6 +34,8 @@ Do not assume that “OSM has buildings” means “the unit can display buildin
 | Voice / TTS | **Yes** | `SPEECH/*` AGM/TTS/GID archives | Not OSM | Out of scope for the map compiler. |
 | Traffic / TMC | **Yes** | `TMC/reception.dat` | Separate data source | Not a map-compile input. |
 
+**Traffic / TMC consequence (M4.92):** the EU2011 and EU2014 `TMC/reception.dat` files are byte-identical (SHA-256 `09603f6b91359f5ab47dd29d18dbe37def6b54f7e74d2c8bb1eb293efc7b1590`) and list 14 country/location-table services but no CC 3 (Poland) service, so generated Polish `RDSTM001`/`LCTBL001` location data would never be requested by the receiver — a Polish service entry must be added to `reception.dat` as well (EXP-2026-11-22-M4.92-tmc-poland-coverage).
+
 ## What is proven vs merely plausible
 
 **Proven present in the factory map:**
