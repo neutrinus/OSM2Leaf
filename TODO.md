@@ -4223,8 +4223,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8210–C-8219
   - Result: EXP-2026-11-22-M8.C1h-hcx-stubs (C-8210–C-8216). `ze0_stubdll.py` + `ze0_ipl.py patch --stub-dlls hcx` add stub ROM modules for `HCXLog.dll`/`HCXMemory.dll` (C++ base classes; every ordinal returns `this`, HCXMemory #23 = named file mapping), placed in gwes.exe's dropped pages. All HCX imports resolve, failed controls 16 → 5 (only Cws_Apl/AppTimerDll), `ctl_PRCOM_System` initialises. AuiApp still paints no form (only clears), also with `ze0_aui.py --start-form frm_PRAGR_AgreeCaution`; likely gated by the power/display sequence with the audio microcontroller (hypothesis). Next: M8.C1i, M8.H43–H45.
 
-- [ ] **M8.C1i — UI layer on `-M ze0`: what makes AuiApp paint its first form**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1i — UI layer on `-M ze0`: what makes AuiApp paint its first form**
+  - Status: done · Owner: task/m8.c1i-aui-paint · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1h
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). After M8.C1h every non-telematics control loads, but AuiApp only clears its surface, even with StartForm = `frm_PRAGR_AgreeCaution`.
@@ -4235,6 +4235,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the gate is the microcontroller handshake, record the call chain and hand over to M8.H44.
   - Falsifier: forcing the suspected gate open still leaves the AUI surface cleared only.
   - Claims: C-8230–C-8239
+  - Result: EXP-2026-11-22-M8.C1i-aui-paint-gate (C-8230–C-8239). No form after `frm_PRCOM_StartUp` loads: auirtdll's draw routine (fn `0x037c5440`) polls about twice a second with nothing pending, no control is created, and AuiMonitoringCC (which sets INIT_END from its init) never exists, hence SystemEXE's 45 s watchdog. New `ze0_ipl.py patch --copy-dlls apptimer` copies `AppTimerDll.dll` from image C (moved; RW page must be in the kernel's DLL data window). Audio.exe (the `MSG_PROCESS_OFF` source SystemCC asks to activate) now starts, then waits for ACM module 6 behind the silent audio microcontroller. Gate chain handed over to M8.H43/M8.H44; M8.C1j tests the activation hypothesis without the microcontroller.
+
+- [ ] **M8.C1j — UI layer on `-M ze0`: answer the audio-source activation without the microcontroller**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1i
+  - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). M8.C1i found that no form after `frm_PRCOM_StartUp` loads; the likeliest gate is SystemCC's `SYS_REQ_ACTIVATE` to `MSG_PROCESS_OFF` (Audio.exe), which Audio.exe never answers while the audio microcontroller is silent (C-8237, C-8238 HYPOTHESIS).
+  - Precheck: with `ze0_ipl.py patch --prefer-app auiapp.exe,auirtdll.dll --stub-dlls hcx --copy-dlls apptimer` + `ze0_aui.py --no-aui-timeout`, the serial log has `[Audio::] Create Thread[1] Wait Modules Error LaunchId=[45] Wait Modules ID=[6]` and no `SYS_NOTIFY_ACTIVATE_COMPLETE`.
+  - Scope: (1) how SystemCC receives `SYS_NOTIFY_ACTIVATE_COMPLETE` (`0x81120012`) and which window message (`0x1983`, `0x1a44`–`0x1a58`) it then raises toward `NotifySysEvent`; (2) deliver that answer in the guest (IPC message injected by an IPL routine, or a patched branch in Audio.exe's OFF source), recorded as an emulator-only patch; (3) breakpoints on control creation (fn `0x037dffdc`) and invalidation (fn `0x037def48`) with a step-over client (C-8239); (4) screenshot.
+  - Input: EXP-2026-11-22-M8.C1i-aui-paint-gate, `tools/ze0_aui.py`, `tools/ze0_stubdll.py`.
+  - Done when: a screenshot shows an AUI form element, or the EXP shows that the injected answer reaches SystemCC and the skin still loads no form (then C-8238 is refuted and the next wait is named).
+  - Stop: one session; if the answer needs Audio.exe's full source state machine, hand over to M8.H45.
+  - Falsifier: with the answer injected and logged by SystemCC, `0x037dffdc` and `0x037def48` stay silent.
+  - Claims: C-8280–C-8289
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
