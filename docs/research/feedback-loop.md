@@ -70,6 +70,24 @@ available; L4 (emulator) as the software integration gate before L5; L5
 (bench/car) before calling a hardware acceptance milestone done, one variable
 per run, never skipped from S0.**
 
+**L4 is now one command (M8.H13).** Where L1–L3 have `cardcheck` / `l2check` /
+`l3check`, the emulator boot is wrapped by `tools/l4check.py`:
+
+```bash
+python3 tools/l4check.py --card EUCARD --json        # 0 pass, 1 fail, 3 not runnable
+python3 tools/l4check.py --selftest                  # canned logs, no QEMU needed
+```
+
+It derives `verinf` and `mapdb` from the card's `VER_INFO/HDD_INFO.TXT`,
+builds the C1k/C1i IPL patch and a qcow2 overlay, boots QEMU `-M ze0`, and
+scores the DBGMSG serial log against the F0–F4 stage names of
+`tools/l4_status.py` plus an F5 idle row. The JSON names the stage reached,
+the failed stage, the launcher verdict, the map-file verdict and the time to
+idle. Exit **3** (no card, no firmware head, no `-M ze0` QEMU) is *not* a pass.
+The measured positive/negative controls and the log grammar are in
+`docs/experiments/EXP-2026-11-22-M8.H13-l4check.md`; this command is not added
+as a standing `gate.py` check (rule 17 budget).
+
 ## Option A — Wine
 
 Wine is a **Win32 API compatibility layer**, not a CPU emulator. It runs
