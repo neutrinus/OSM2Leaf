@@ -5195,8 +5195,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: a function start from `.pdata` resolves into the wrong module (overlapping DLL ranges of A and B/C, known from M8.C1d).
   - Claims: C-8140–C-8149
 
-- [ ] **M8.H70 — A renamed street on the emulated screen: one map label changed in place, factory vs changed card at L4**
-  - Status: in progress · Owner: claude/project-thread-66ezlk · Critical: yes · Pair: solo
+- [x] **M8.H70 — A renamed street on the emulated screen: one map label changed in place, factory vs changed card at L4**
+  - Status: done · Owner: claude/project-thread-66ezlk · Critical: yes · Pair: solo
   - Step: tooling
   - Depends: M8.C1f (done)
   - Goal: Marek (2026-11-22): "Skoro już odpala nam się w qemu mapa londynu na NAVI, to moglibyśmy zbudować zmodyfikowany obraz karty SD z podmienioną nazwą ulicy, i zweryfikować czy się podmieniła?" The first card change that the real `Navi.exe` has to draw: rename one street label visible on the M8.C1f London screen, patch the card in place, boot both cards and compare screenshots.
@@ -5206,7 +5206,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: the changed card boots to the same map position and the screenshot shows the new name where the factory card shows the old one, every other label unchanged; the card SHA-256 and the changed streams are in the EXP.
   - Stop: one session; if the label does not change, find which file the renderer takes street labels from and record it.
   - Falsifier: the changed card shows the old name (the label comes from another file) or the map stops drawing (a record check the format docs do not know).
-  - Claims: C-8200–C-8209
+  - Claims: C-8220–C-8229
+  - Result: EXP-2026-11-22-M8.H70-street-rename-l4; AIR STREET -> ARI/TIR STREET drawn by Navi.exe at L4, OSM STREET dropped (label wider than segment); tile_rename.py selftest 14/14
 
 ---
 

@@ -1501,6 +1501,22 @@ python3 tools/imgpatch.py --selftest      # synthetic image, 46 checks
 Use it instead of `mkcard.py` when a test must change only the file under test
 (M5.13b, M6.5–M6.7). Background: the docstring in `imgpatch.py`.
 
+## `tile_rename.py` — rename one map label in a `MAPAL001` tile (M8.H70)
+
+```bash
+python3 tools/tile_rename.py find B48R068R.DAT --text "AIR STREET"
+python3 tools/tile_rename.py rename B48R068R.DAT --old "AIR STREET" \
+    --new "ARI STREET" --only 0x06f643a0 -o NEW.DAT
+python3 tools/imgpatch.py --image CARD --file MAPAL001/B48R068R.DAT --from NEW.DAT -o OUT.img
+python3 tools/tile_rename.py --selftest
+```
+
+Same-length rename only; every changed stream is recompressed to its
+original length (factory zlib setting first, level 6), so the card is
+patched in place with no FAT change. Not every name keeps the length
+(EXP-2026-11-22-M8.H70-street-rename-l4 O2), and a label wider than its
+street segment is not drawn (O4).
+
 ## `qemu-ze0/` — pinned QEMU for the `ze0` SH-4 machine
 
 Out-of-tree home of the M8 emulator work. No QEMU source is vendored: the
