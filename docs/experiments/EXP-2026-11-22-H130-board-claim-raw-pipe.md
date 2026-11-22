@@ -1,6 +1,6 @@
 # EXP-2026-11-22-H130-board-claim-raw-pipe
 
-- **Status:** running
+- **Status:** done
 - **Date:** 2026-11-22
 - **Sample:** none (tool-only task) — edits `tools/board.py`; the specimen is the
   live ledger row `C-6564`, copied to a scratch path for the precheck. No vendor
@@ -123,7 +123,7 @@ python3 tools/gate.py
    `|` body on the scratch copy must go from 7 to 8 split parts while
    `claims_check` still exits 0 (precheck); after the fix a raw `|` write must
    stay at 7 parts, a wrong-cell-count row must be refused before any write,
-   and the selftest's `refused(...)` cases must pass. `claims_check --strict
+   and the selftest's `run(...) == 1` refusal cases must pass. `claims_check --strict
    --count-check` and `gate.py` are the standing regression controls.
 4. **Scope.** Covered: `tools/board.py` `_claim_row`, `op_claim_body`,
    `op_claim_set`, `op_claim_row`, their helpers and selftests; live ledger row
@@ -155,7 +155,49 @@ Ledger cell-count census: `claim rows total: 3409 cells=7: 3325 cells!=7: 84`;
 `distribution: {6: 6, 7: 3325, 8: 61, 9: 4, 10: 5, 11: 3, 12: 2, 13: 2, 14: 1}`.
 `C-6564` on the live ledger: `7`.
 
-(Post-fix observations to be filled in before the final commit.)
+(Post-fix, all quoted from the commands that printed them.)
+
+`python3 tools/board.py --selftest`: `board selftest: OK (105 checks)`
+(was 89 before the 16 new H130 checks).
+
+Same precheck command on a fresh copy after the fix: `board: C-6564 body
+replaced`; split counts `before cells 7 body 'No \`ADDRE\` record carries a
+POINT-style (0x800 + flon, flat) pair …'` and
+`after cells 7 body 'a (0x800\\|flon, flat) pair'`. The literal pipe is stored
+escaped and the neighbouring cells (status, confidence, evidence) keep their
+positions. `python3 tools/claims_check.py --claims COPY`: `claims_check: OK`.
+
+Guard, on a copy whose C-6564 row was made to have 9 split parts:
+`board: refused: C-6564: row has 7 cells (need exactly 5)` for both `claim-body`
+and `claim-set`, `exit=1` each; `claim-row` with an 8-part row printed
+`board: refused: C-6564: row has 6 cells (need exactly 5)`, `exit=1`. The row
+stayed at 9 split parts after all three refusals.
+
+`python3 tools/board.py lost --base origin/main`: `TODO.md: OK tasks=0
+claims=0`, `docs/research/claims.md: OK tasks=0 claims=0`, `lost exit=0`.
+`python3 tools/claims_check.py --strict --count-check`: `claims_check: OK`,
+`exit=0`. `python3 tools/todo_check.py`: `todo_check: OK`, `exit=0`.
+
+Two gate runs during this session failed only on untouched tools while the host
+was under load ~18 on 8 cores: `tool:ci_gate_repro FAIL timeout after 60s` and
+`tool:mkcard FAIL exit 1 (ENOSPC on the 98 %-full /tmp)` in the first, then
+`tool:ci_gate_repro FAIL timeout after 60s` and `tool:lev3456gen FAIL exit -9`
+(OOM kill) in the second. `board_check`, `claims_check`, `todo_check` and
+`fn_audit` were PASS in both. `python3 tools/ci_gate_repro.py --selftest` with
+`TMPDIR` on the home tree printed `ci_gate_repro selftest: OK …`; the same
+command without it died with `OSError: [Errno 28] No space left on device`.
+A third gate run printed `selftest FAIL; claims_check/todo_check/board_check/
+fn_audit PASS` = `gate: 4 pass, 1 fail, 0 skip`; a fourth (load 5.97) printed
+
+```
+selftest      PASS    199.11
+claims_check  PASS     18.13
+todo_check    PASS      0.08
+board_check   PASS      0.22
+fn_audit      PASS      5.29
+gate: 5 pass, 0 fail, 0 skip
+gate exit=0
+```
 
 ## Interpretation
 
@@ -165,13 +207,27 @@ Ledger cell-count census: `claim rows total: 3409 cells=7: 3325 cells!=7: 84`;
 - **FACT:** the ledger already stores `\|` as a literal pipe and 84 rows have a
   non-7 split, so escaping is the existing convention and a global rewrite is
   out of scope.
-- **HYPOTHESIS:** escaping on write plus an exact-7 guard fixes the silent
-  corruption — to be confirmed by the post-fix observations.
-- **UNKNOWN:** none yet.
+- **FACT:** after the fix the raw-pipe body is stored as `\|`, the row stays at
+  7 cells and both neighbouring rows are byte-identical; a 6- or 8-cell row is
+  refused with `board: refused: C-6564: row has N cells (need exactly 5)` and
+  exit 1, leaving the file unchanged.
+- **OBSERVED:** `board selftest: OK (105 checks)`, `claims_check: OK` under
+  `--strict --count-check`, `board.py lost --base origin/main` exit 0, and
+  `gate: 5 pass, 0 fail, 0 skip`. The earlier gate failures were host load and
+  `/tmp` pressure on untouched tools (`ci_gate_repro`, `mkcard`, `lev3456gen`),
+  not this change.
+- **HYPOTHESIS:** none.
+- **UNKNOWN:** none.
 
 ## Conclusion
 
-Pending post-fix observations and navigator review.
+H130 is fixed: `claim-body` and `claim-set` escape raw pipes on write, the
+reader treats `\|` as literal, and `_check_cells` refuses any row that is not
+exactly five cells before any write. `op_claim_row` refuses a whole row with a
+raw pipe instead of guessing. The selftest pins escaping, unescaped read-back,
+unchanged neighbours and both wrong-cell-count refusals. No ledger row was
+rewritten by hand and no `AGENTS.md` change was needed: the escape convention
+already existed in the ledger.
 
 ## Corrections after navigator review
 
@@ -184,9 +240,14 @@ none
 ## Reproduction
 
 ```bash
-python3 tools/board.py --selftest
-python3 tools/gate.py
+python3 tools/board.py --selftest          # board selftest: OK (105 checks)
+python3 tools/claims_check.py --strict --count-check   # claims_check: OK
+python3 tools/gate.py                      # gate: 5 pass, 0 fail, 0 skip
 ```
+
+On a loaded host set `TMPDIR` to a home-tree scratch dir for the gate run: a
+98 %-full `/tmp` tmpfs killed unrelated `mkcard`/`ci_gate_repro` selftests with
+ENOSPC during this session.
 
 ## Follow-ups
 
