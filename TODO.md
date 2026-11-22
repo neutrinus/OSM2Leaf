@@ -5427,8 +5427,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Pair: required
   - Note: follow-up from M8.H21 (verdict `present`). L4 integration input; needs a reviewer.
 
-- [ ] **M8.C1o — 2DG engine: decode and draw the remaining `0xb1`/`0xb3` commands**
-  - Status: in progress · Owner: task/m8.c1o-2dg-ops · Critical: no · Pair: solo
+- [x] **M8.C1o — 2DG engine: decode and draw the remaining `0xb1`/`0xb3` commands**
+  - Status: done · Owner: task/m8.c1o-2dg-ops · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1f
   - Goal: Marek asked (2026-11-22) to improve the 2DG engine where we can. M8.C1f left 7 commands skipped (`0xb3007602` ×5, `0xb10038c2` ×2, C-6936). The emitters in build B `auirtdll.dll` (fn `0x03d0b408`, `0x03d0b502`) and build A `XGLDLL.dll` (fn `0x031204ac`, `0x031205a4`) give their exact header layouts; a `gfx-trace` dump gives the runtime operands.
@@ -5439,6 +5439,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one RE pass plus one boot; if the colour source is a register never written in the lists, record it and stop.
   - Falsifier: after the change the screenshot loses map pixels or the guest error count grows.
   - Claims: C-8390–C-8399
+  - Result: EXP-2026-11-22-M8.C1o-2dg-line-variants (C-8390–C-8395). ze0-0016 draws 2DG op 0xb1 (6-word header + inline vertices, count in word 4 low half) and 0xb3 (pointer form [op,N,OFF], vertices at op+OFF, colour from reg 0xf0) as polylines with exact lengths; both layouts read from build-A XGLDLL.dll fn 0x031204ac/0x031205a4 and build-B auirtdll.dll fn 0x03d0b408/0x03d0b502 and checked against a gfx-trace dump. L4 map boot: 2676 drawn / 0 skipped (was 2669 drawn / 7 skipped, C-6936); 342/384000 screenshot pixels differ (0.09%), no map pixels lost. UI layer and 0xb2/0xb4-0xb7 remain open.
 
 ---
 
