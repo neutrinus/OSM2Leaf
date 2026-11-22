@@ -4835,7 +4835,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.C1e-display-engine (C-6920–C-6927). `ze0-0013` adds device `ze0-gfx` (DU phys `0xfff80000`, 2DG `0xffe80000`, `gfx-trace=on`): 60 Hz vblank (INTEVT `0x3e0`, SYSINTR 33) and the 2DG start/end handshake (DLSAR + SCLR = 1 → SR.TRA, INTEVT `0x780`, SYSINTR 34). Two more blockers fixed: `serial_scif.dll` spun on SCIF channel 8 and starved the UI (stubs now 0–9), and Navi.exe died on `fldi1` with `FPSCR.PR = 1` in XGLDLL (board flag `sh4_fldi_any_pr`). The UI now runs to idle, starts 2DG display lists and writes bitmaps/glyphs into VRAM, but no screen frame exists until the lists are executed (Stop case); list format in O9 → M8.C1f. `Engine = 0` is no shortcut.
 
 - [ ] **M8.C1f — 2DG display-list interpreter on `-M ze0`, so `ze0_screenshot.py` shows the UI**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: Claude (task/m8.c1f-2dg-interpreter) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1e
   - Goal: Marek wants to boot the emulator and take a screenshot after a while (2026-11-22). After M8.C1e the UI submits 2DG display lists (DLSAR + SCLR) and uploads glyphs/bitmaps into VRAM, but nothing executes the lists, so no screen frame exists (C-6925).
