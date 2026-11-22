@@ -27,7 +27,16 @@ append them to its output) that patch image A in RAM before the CPU starts:
   ``DebugMode`` is set);
 * AuiApp's registry read of SkinPath redirected to that routine
   (``jsr @r10`` -> ``jsr @r4`` and the name pointer -> the routine);
-* with ``--no-aui-timeout``, SystemEXE's 45 000 ms wait set to INFINITE.
+* with ``--no-aui-timeout``, SystemEXE's 45 000 ms wait set to INFINITE;
+* with ``--skip-module-wait EXE``, the launcher of that EXE starts its
+  threads after a failed WaitModule (M8.C1j);
+* with ``--register-first DLL,...``, those DLLs move to the front of the
+  name list (M8.C1l);
+* with ``--object-store``, a larger object store (M8.C1l).  The registry is
+  hive-based and lives in the object store, and nk.exe's OEMCalcFSPages
+  returns a fixed 80 pages (320 KiB).  The loop then stops registering after
+  about 52 DLLs (``0x8002801c``, then ``0x80020009``).  The hook's delay slot
+  becomes ``mov r5,r0`` and ulFSRamPercent becomes ``0x00808028`` (592 pages).
 
 Every address is found from the image (strings, literal pools, exports),
 not hard-coded; the tool refuses if a pattern is not unique.  No byte on
@@ -36,7 +45,8 @@ the card changes; the lines only reach RAM through ``-M ze0,ipl-patch``.
 Usage::
 
     ze0_aui.py archive/head256.img -o aui.txt [--no-aui-timeout]
-               [--skins ReleaseMain.skn,Substance.skn]
+               [--skins ReleaseMain.skn,Substance.skn] [--object-store [PERCENT]]
+               [--skip-module-wait audio.exe] [--register-first ScreenStateCC.dll]
     cat ipl.txt aui.txt > ipl_ui.txt
     ze0_aui.py --selftest
 """
@@ -54,6 +64,10 @@ import ze0_ipl  # noqa: E402
 SKIN = "\\windows\\ReleaseMain.skn"
 FIRST = ["multiskin.dll", "SystemCC.dll", "AuiMonitoringCC.dll"]
 AUI_TIMEOUT_MS = 45000
+# ulFSRamPercent bytes: 4 KiB pages per 1 MiB of the first 2 MiB, next 2 MiB, next 4 MiB, rest.
+# 0x00808028 keeps the first 2 MiB at the ROM's 0x28 and adds 256 + 512 pages (592 in all
+# on -M ze0, about 2.3 MiB instead of 320 KiB).
+OBJECT_STORE_PERCENT = 0x00808028
 
 
 # ---------------------------------------------------------------- assembler
@@ -214,7 +228,7 @@ def registry_modules(rom):
     return out
 
 
-def control_dlls(app, kept, skins=()):
+def control_dlls(app, kept, skins=(), extra_first=()):
     """Control DLLs to register: REGISTRY modules of A that stay in the TOC.
 
     With ``skins`` (raw .skn bytes) only DLLs whose CLSIDs the skins name."""
@@ -234,7 +248,9 @@ def control_dlls(app, kept, skins=()):
             if ids & want:
                 keep.append(n)
         cand = keep
-    first = [n for n in FIRST if n.lower() in {c.lower() for c in cand}]
+    have = {c.lower(): c for c in cand}
+    first = [have[n.lower()] for n in list(FIRST) + list(extra_first) if n.lower() in have]
+    first = list(dict.fromkeys(first))
     return first + sorted((n for n in cand if n not in first), key=str.lower)
 
 
@@ -301,8 +317,35 @@ def skip_wait_lines(app, exe):
              % (exe, s["realaddr"] + at))]
 
 
+OEM_FS_PAGES = bytes.fromhex("0b0050e0")  # rts; mov #80,r0
+
+
+def object_store_lines(kern, percent):
+    """Grow the object store, which holds the RAM-based registry hive (M8.C1l).
+
+    nk.exe's OEMCalcFSPages hook is ``rts; mov #80,r0``: 80 pages whatever the
+    TOC says.  The delay slot becomes ``mov r5,r0`` (r5 = the kernel's own
+    ulFSRamPercent result) and ulFSRamPercent is set to ``percent``."""
+    nk = kern.module("nk.exe")
+    s = text_section(kern, nk)
+    off = kern.va2file(s["dataptr"])
+    blob = kern.d[off:off + s["psize"]]
+    hits = [i for i in range(0, len(blob) - 3, 2) if blob[i:i + 4] == OEM_FS_PAGES]
+    if len(hits) != 1:
+        raise SystemExit("ze0_aui: nk.exe: %d hits for OEMCalcFSPages" % len(hits))
+    fs_va = s["dataptr"] + hits[0] + 2
+    pct_va = kern.ptoc + 14 * 4
+    old = struct.unpack_from("<I", kern.d, kern.va2file(pct_va))[0]
+    return [(ze0_ipl.phys(fs_va), struct.pack("<H", 0x6053),
+             "nk.exe: OEMCalcFSPages (fn 0x%08x) returns the TOC value, not 80 pages"
+             % (s["realaddr"] + hits[0])),
+            (ze0_ipl.phys(pct_va), struct.pack("<I", percent),
+             "kernel TOC ulFSRamPercent 0x%08x -> 0x%08x (object store = registry hive)"
+             % (old, percent))]
+
+
 def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False, start_form="",
-          skip_wait=()):
+          skip_wait=(), register_first=(), object_store=0):
     kern, app = CERom(data, kernel_off), CERom(data, app_off)
     keep_k, keep_a, _ = ze0_ipl.plan(kern, app, prefer)
     kept = {m["name"].lower() for m in keep_a}
@@ -317,7 +360,7 @@ def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False, start_f
     names_va, _ = find_wstr(app, aui, "##AUITK ERROR##: CETLSTUB.DLL", prefix=True)
     names_end, _ = find_wstr(app, aui, "\\release\\scrn_400_240.bmp")
 
-    dlls = control_dlls(app, kept, skins)
+    dlls = control_dlls(app, kept, skins, register_first)
     blob = name_list(dlls)
     while len(blob) > names_end - names_va:
         dlls.pop()
@@ -355,6 +398,8 @@ def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False, start_f
                       "SystemEXE: CAuiMonitorCmn wait %d ms -> INFINITE" % AUI_TIMEOUT_MS))
     for exe in skip_wait:
         lines += skip_wait_lines(app, exe)
+    if object_store:
+        lines += object_store_lines(kern, object_store)
     return lines, dlls
 
 
@@ -390,6 +435,13 @@ def main():
     ap.add_argument("--skip-module-wait", default="", help="comma list of EXEs (audio.exe, "
                     "usb.exe) whose launcher starts its threads after a failed WaitModule "
                     "(M8.C1j)")
+    ap.add_argument("--object-store", nargs="?", const=OBJECT_STORE_PERCENT, default=0,
+                    type=lambda s: int(s, 0),
+                    help="grow the object store (RAM registry hive) past the kernel's fixed "
+                         "80 pages: ulFSRamPercent value, default 0x%08x (M8.C1l)"
+                         % OBJECT_STORE_PERCENT)
+    ap.add_argument("--register-first", default="", help="comma list of control DLLs to "
+                    "register right after the fixed first ones (M8.C1l)")
     a = ap.parse_args()
     if a.selftest:
         selftest()
@@ -402,7 +454,9 @@ def main():
     prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
     lines, dlls = build(data, a.kernel_off, a.app_off, prefer, skins, a.no_aui_timeout,
                         a.start_form,
-                        [n.strip() for n in a.skip_module_wait.split(",") if n.strip()])
+                        [n.strip() for n in a.skip_module_wait.split(",") if n.strip()],
+                        [n.strip() for n in a.register_first.split(",") if n.strip()],
+                        a.object_store)
     with open(a.out, "w") as fo:
         for p, blob, why in lines:
             fo.write("0x%08x %s  # %s\n" % (p, blob.hex(), why))
