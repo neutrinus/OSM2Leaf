@@ -5155,8 +5155,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7410–C-7419
   - Result: EXP-2026-11-22-M8.H44-micon-peer; 26/26 selftest, auto-discovered, corrupt BCC rejected; claims C-7410-C-7419
 
-- [ ] **M8.H45 — Boot without the 30-second waits: the micon peer on `-M ze0`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H45 — Boot without the 30-second waits: the micon peer on `-M ze0`**
+  - Status: done · Owner: task/m8.h45-micon-boot · Critical: no · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H44
   - Goal: Measure the launch with the peer attached: the module waits should succeed at once.
@@ -5167,6 +5167,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if a module needs more than a presence reply (firmware version exchange, update check), answer the first level and list the rest.
   - Falsifier: the timeout count is the same with and without the peer.
   - Claims: C-7420–C-7429
+  - Result: EXP-2026-11-22-M8.H45-micon-boot (negative); 19 timeouts with and without peer in 3 boots, remaining ACM waits listed; claims C-7420-C-7429
 
 - [ ] **M8.H46 — Sound out of the emulator: SSI audio output to a WAV file**
   - Status: open · Owner: — · Critical: no · Pair: required
