@@ -3625,8 +3625,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6140–C-6149
   - Result: EXP-2026-11-20-M5.60-lctbl-index-l3. `tools/lctbl_lookup_l3.py` runs the whole lookup in PySh4 (EU2011): request `0x14e4` sub 1 (country code, database number, location code; table code = hex digit of the country << 8 | number) → catalog → B-tree index pages → page directory → zlib page inflated by `HDL_MapTblTask` (`0x14b8`/`0x14b9`) → answer `0x14fb`. On a `lctbl_build.py synth` file 4/4 held codes return the model's record and 3/3 absent codes are not found; factory file 4/4 agree; a flipped index key and a damaged record page both break the agreement (C-6140–C-6149). Open: the real country/database numbers for Poland; an absent table is served from the first table (observed).
 
-- [ ] **M5.64 — LCTBL: the real country/database table code for Poland, and whether the firmware actually keys LCTBL by country (the M5.60 open item)**
-  - Status: in progress · Owner: task/m5.64-lctbl-poland · Critical: no · Pair: required
+- [x] **M5.64 — LCTBL: the real country/database table code for Poland, and whether the firmware actually keys LCTBL by country (the M5.60 open item)**
+  - Status: done · Owner: task/m5.64-lctbl-poland · Critical: no · Pair: required
   - Step: P3
   - Depends: M5.60 (done), M5.17 (LCTBL builder, done), M4.16d (TMC reception table codes, done)
   - Goal: M5.60 built the first LCTBL ("names of places your card has") writer that the firmware's own lookup runs, but its Result leaves two things open that decide whether a Poland card's place names are found: "the real country/database numbers for Poland" and "an absent table is served from the first table (observed)" (`EXP-2026-11-20-M5.60-lctbl-index-l3`, C-6140–C-6149). M5.17's synthetic Polish set is written with a hand-picked table code; if a real unit looks up `(country 11, database 1)` and that is not the code in the file, the card's street names are not returned even though every byte round-trips. That makes this the format decision behind M5.61 ("Poland to look at") and M7.1.
@@ -3637,6 +3637,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session. If the EU catalog has no Poland entry at all and the unit's request country cannot be read from a run, write the fallback rule (a generated file must also be reachable by the absent-table path) and stop.
   - Falsifier: a generated file with the "right" table code whose Polish records are not found by the firmware, or the absent-table fallback proven not to be the first table (then M5.60's "observed" line is retracted).
   - Claims: C-6610–C-6619
+  - Result: EXP-2026-11-22-M5.64-lctbl-poland-code.md; EU 0/30 Poland tables, US 0/34; hit 0x3311 returns catalog record, absent 0x3312/factory 0x3301 returns first-table record; C-6610–C-6619
 
 - [x] **M5.65 — Section 4 place-name index from OSM (M4.21's `generate` left names empty)**
   - Status: done · Owner: task/m5.65-section4-place-names · Critical: no · Pair: required
