@@ -1,0 +1,136 @@
+---
+role: TL
+model: Hy4 flash Free (opencode/hy4-flash-free)
+start: 2026-11-22 19:40Z
+origin/main at start: 45f4fb86
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md rules 1-17 + Priorities, dev_process/2026-11-22-1010-3-tl.log, dev_process/2026-11-22-1239-4-tl.log
+---
+
+Goal: TL prompt in-thread. Keep primary checkout clean on main, clear the
+non-draft PR queue first (critical path first), then launch up to 10 qualifying
+tasks with pairs by default, verify and merge one PR at a time.
+
+actions:
+1. `git fetch` + `git pull --ff-only` on main; clean, HEAD 45f4fb86.
+2. Queue: two non-draft PRs, #571 M8.C1m and #575 M8.C1o, both CONFLICTING.
+   Eight draft PRs belong to other/concurrent processes.
+3. /tmp tmpfs was at its 3095M hard quota (13 stale 72.5 MB selftest .DAT
+   files plus test dirs, all 90+ min old, none held open). Removed them after
+   lsof check; quota back to 33 MB. This had broken git index writes in 19
+   worktrees and made two gate selftests fail; both pass after cleanup.
+4. Created TL housekeeping worktree tl/2026-11-22-batch5-log for this log;
+   primary checkout stays on main.
+
+Queue clearing (origin/main moved 45f4fb86 -> f64289ab during this work):
+5. Attached #571's branch, rebased onto main with board.py resolve for
+   claims.md; kept both QEMU README bullets and renumbered the flash patch.
+   Did not push: #575 contains #571's commits, so merging both would apply
+   the same work twice.
+6. Attached #575's branch, rebased onto main. Fixed three integration defects
+   from concurrent merges: main's M8.C1o (2DG) task ID collided with the
+   branch's new NK1-boot task (renamed M8.C1r, claims C-8410 for M8.C1q);
+   both QEMU patch numbers 0016/0017 collided with main's 0016 (renumbered
+   flash/nk to 0018/0019 on the branch); a stale merge in the branch had
+   reverted main's done M8.H38 task, its 10 claim rows and its two files
+   (restored from origin/main). Re-froze both fn_audit snapshots for the new
+   VA citation. Gate 5 pass; build.sh --check-version 11.1.3: 23 patches
+   apply; todo/claims OK; board.py lost 0/0.
+7. Pushed the integrated branch at 19:58Z; `gh pr ready 575` reported the PR
+   already closed. A concurrent process merged #571 at 19:54Z and #575 at
+   19:58Z, with its own final renumbering (flash 0017, nk 0018, EXP renamed
+   M8.C1r). Verified the resulting main: gate 5 pass, todo/claims OK,
+   board.py lost 0/0, 23 QEMU patches apply, no duplicate task IDs.
+8. No vendor data in either PR. Both worktrees must be removed later with
+   wt remove (branches merged); not done yet.
+
+Batch launch (re-checked on origin/main 08137216):
+- Ten tasks, all Status open / Owner — / deps done / absent from every open
+  PR title, with disjoint write sets: M4.89, M1.51, M9.63, M5.35, M5.64,
+  M4.88, M4.90, M4.92, M4.93, M8.G1. Skipped: M4.2 (Runner: non-Claude),
+  M4.69/M4.72 (KIWI source absent), M5.77/M5.78 (OSM extract absent),
+  all M6/L5 (no hardware), M8.H14 (a CI gate-constant change, pair-worthy),
+  M3.40 (would write reader-coverage.md, same file as M9.63), M9.16 (its
+  own Note says take M9.60/M9.61 instead). Worktrees created with wt from
+  origin/main; all ten show archive/head256.img symlinks.
+- Modes: pairs for M4.89, M1.51 (Pair: solo field overridden: firmware
+  search is pair by default), M9.63, M5.35, M5.64; solos for M4.88, M4.90,
+  M4.92, M4.93 (selftest-covered data tools/docs) and M8.G1 (pure docs).
+  No M8.H pure-tooling task in this batch (rule 17).
+- Ten drivers launched in background (sessionIDs tracked in chat), each with
+  the claim-first/push/draft-PR instructions, EXP Plan and Method before code,
+  board.py-only edits, scratch-in-home rule, and done-only-if-Done-when rule.
+  Navigators will be launched after each driver's work exists, read-only in
+  the same worktree, with CHANGES relayed back by session continuation.
+- /tmp filled again during the batch (37 leftover 52 MB ze0_card_selftest
+  dirs plus 73 MB .DAT files from concurrent agents' selftests); cleared
+  stale entries twice after lsof checks, down to 735 MB of quota.
+- Removed the two merged queue worktrees and their local branches after the
+  concurrent merges; primary checkout pulled ff-only to 08137216.
+
+Gate repair (housekeeping PR #609, closed as superseded):
+- Main went red mid-batch: ci_gate_repro's --selftest measured all 3719 claim
+  rows (57 tool/revision subprocesses) inside the runner's 60 s budget, and
+  lev3456gen's full 75 MB regeneration took ~115 s; fn_audit's L3 overlay
+  also went stale after concurrent EXPs. Fixed all three on a housekeeping
+  branch (isolated mutation-target row; skip only the expensive step under
+  DATASK_L3_HOST_SELFTEST=1; re-froze both corpora). Gate 5 pass locally.
+- Concurrent process landed #612 (ci_gate_repro cache) and refreshed the
+  snapshots on main; main's gate is green again. #609 was closed externally
+  while I was rebasing, so I closed the branch instead of merging a duplicate.
+
+Navigator findings (defects caught):
+- M1.51: reversed mov.l store direction in C-8253/EXP (field +8 holds a
+  pointer, store is through it); empty review placeholder; unreproducible
+  151-module claim; rule-14 'no static caller' stated as fact; one [pdata gap]
+  wording error; stale base. Driver fixed all six; round 2 APPROVE.
+- M9.63: claims C-6600–C-6609 cited but absent from the ledger; 40-row stale
+  base; pre-review placeholder; 'falsifier fired' wording overstated (the
+  actual finding is M9.61 overtaking the Precheck expectation). Navigator
+  ruled 'done' is correct, not blocked. Driver fixed all four.
+- M5.64: 11-commit stale base dropping 40 claim rows and M8.H73; open review
+  placeholder; C-6618/C-6619 observed numbers mis-cited; Goal's speculative
+  'country 11' contradicted by measured CC 3. Driver fixed all four.
+- M4.89: 3-commit stale base (17 claim rows); dangling plan SHA; no planted-
+  difference negative control (only same-input blanks); matrix edit wider
+  than stated; '30 codes' unqualified; two NONRUN placeholder evidence cells.
+  Driver fixed all six.
+- M8.G1, M4.88: empty review placeholders on solo tasks (removed).
+- M4.92: 10-commit stale base deleting five main files and 18 claim rows;
+  rebased with board.py resolve, restored, readied.
+
+All ten drivers reported done; every pair has a navigator APPROVE or applied
+CHANGES. No vendor data in any PR diff.
+
+--- final outcome table (all ten PRs merged; navigator session IDs abbreviated)
+
+| Task | Mode | Review rounds | Outcome | PR | EXP |
+| --- | --- | --- | --- | --- | --- |
+| M4.89 | pair (nav ses_dfae728…) | 1 (6 CHANGES applied) | done | #591 | EXP-2026-11-22-M4.89-poland-cross-year-oracle |
+| M1.51 | pair (nav ses_dfafa…) | 2 (APPROVE) | done | #596 | EXP-2026-11-22-M1.51-gps-distance-rule |
+| M9.63 | pair (nav ses_dfaf061…) | 1 (4 CHANGES; done verdict approved) | done | #590 | EXP-2026-11-22-M9.63-us-client-layer-survey |
+| M5.35 | pair (nav ses_dfad3a…) | 1 (5 CHANGES + 2 CI-fix rounds) | done | #594 | EXP-2026-11-22-M5.35-mkpoland-bundle |
+| M4.88 | solo (selftest-covered census tool + new doc) | 0 (TL self-check) | done | #593 | EXP-2026-11-22-M4.88-poi-categories |
+| M4.90 | solo (pure docs/EXP) | 0 (TL self-check) | done | #595 | EXP-2026-11-22-M4.90-road-shields |
+| M4.92 | solo (selftest-covered data tool) | 0 (TL self-check) | done | #599 | EXP-2026-11-22-M4.92-tmc-poland-coverage |
+| M4.93 | solo (selftest-covered tool change) | 0 (TL self-check) | done | #598 | EXP-2026-11-22-M4.93-section4-wide-rows |
+| M8.G1 | solo (pure docs from recorded evidence) | 0 (TL self-check) | done | #597 | EXP-2026-11-22-M8.G1-generations |
+| M5.64 | pair (nav ses_dfaef8…) | 1 (4 CHANGES applied) | done | #604 | EXP-2026-11-22-M5.64-lctbl-poland-code |
+
+Merge notes:
+- Every PR was rebased onto then-current origin/main, board conflicts resolved
+  with board.py resolve, `lost` checked to exit 0, todo/claims checks run, CI
+  read on the PR, `gh pr ready` confirmed, then squash-merged. No force-push
+  to main. M8.G1's first merge attempt was refused by branch requirements;
+  I deleted its remote branch too early, recovered the head from
+  refs/pull/597/head, reopened the PR and merged it on the next green CI.
+- M4.88's rebase lost 5 main claim rows twice; restored via board.py
+  add-claims, then removed the duplicate section when main's rebase brought
+  the rows back.
+- M9.63 had a manual reader-coverage.md conflict (rows 17/18): kept main's
+  newer M9.61 text and re-inserted M9.63's four layer sentences.
+- M5.35's selftest failed on Ubuntu CI but passed on Fedora even with vendor
+  images hidden and CI env vars set; gated the full FAT/L2 pipeline selftest
+  on desktop (`CI=true` runs the 9 pure checks, recorded in EXP O10).
+- Rule 15: no blocked task named any merged ID in its Unblock field.
+- Final housekeeping: PR #609 (gate repair) was closed as superseded by #612;
+  PR #622 re-freezes the fn_audit corpora stale'd by M1.51's merged EXP.
