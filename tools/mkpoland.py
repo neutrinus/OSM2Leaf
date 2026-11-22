@@ -525,10 +525,72 @@ def selftest() -> int:
         if not cond:
             fails.append(msg)
 
+    # CI quality runners have no `7z` step and no vendor head. The synthetic
+    # pipeline extracts OUT.img with 7z for the L2 --root stage, so without it
+    # the subprocess stages cannot run. Gate them on the real prerequisite and
+    # keep the pure-Python checks (schema, versions, verdict fold, H69 union)
+    # running on every host. The synthetic L3 gate needs no vendor head: the
+    # generated factory image is not EU2011, so it returns NOT RUN (build).
+    have_7z = shutil.which("7z") is not None
+
     base = DEFAULT_WORKDIR / "selftest"
     base.mkdir(parents=True, exist_ok=True)
     root = Path(tempfile.mkdtemp(prefix="mkpoland-", dir=base))
     try:
+        def falsifier_checks() -> None:
+            # A NOT_RUNNABLE / SKIP L3 can never fold to PASS.
+            fake = [
+                {"name": n, "status": "PASS"}
+                for n in ("factory", "compile", "card", "l1", "l2")
+            ] + [{"name": "l3", "status": "NOT_RUNNABLE"}]
+            chk(overall_verdict(fake) != "PASS", "falsifier: L3 NOT_RUNNABLE not promoted")
+            chk(overall_verdict(fake[:-1] + [{"name": "l3", "status": "SKIP"}]) != "PASS",
+                "falsifier: L3 SKIP not promoted")
+            fake_fail = fake[:-1] + [{"name": "l3", "status": "PASS"}]
+            fake_fail[1] = {"name": "compile", "status": "FAIL"}
+            chk(overall_verdict(fake_fail) == "FAIL", "any FAIL dominates")
+
+        def h69_pure_checks() -> None:
+            # The union/deletion fix tested without any subprocess: two tiny
+            # trees plus a synthetic FAT image from mkcard (pure Python).
+            try:
+                import mkcard
+                before = root / "pure-before"
+                after = root / "pure-after"
+                before.mkdir()
+                after.mkdir()
+                (before / "KEPT.DAT").write_bytes(b"kept")
+                (after / "KEPT.DAT").write_bytes(b"kept")
+                (before / "DELETED_SENTINEL.DAT").write_bytes(b"gone")
+                image = root / "pure.img"
+                mkcard.make_synthetic_image(image, {"KEPT.DAT": b"kept"})
+                dsum = change_summary(before, after, image)
+                chk("DELETED_SENTINEL.DAT" in dsum.get("changed_files", []),
+                    "H69 pure: deletion in changed_files")
+                chk("DELETED_SENTINEL.DAT" in dsum.get("deleted_files", []),
+                    "H69 pure: deletion in deleted_files")
+                chk(dsum.get("files_before") == 2 and dsum.get("files_after") == 1,
+                    f"H69 pure: both-side counts {dsum.get('files_before')}/{dsum.get('files_after')}")
+                chk(not any("DELETED_SENTINEL" in u for u in dsum.get("unresolved", [])),
+                    "H69 pure: deletion skipped for cluster lookup")
+            except Exception as exc:  # noqa: BLE001 - a crash is a failed check
+                chk(False, f"H69 pure check crashed: {type(exc).__name__}: {exc}")
+
+        if not have_7z:
+            print("synthetic pipeline skipped: 7z unavailable on CI (pure checks only)")
+            chk(SCHEMA == "osm2leaf.mkpoland/v1", "manifest schema constant")
+            versions = tool_versions()
+            chk(isinstance(versions.get("mkcard.py"), dict) and
+                "sha256" in versions["mkcard.py"], "tool versions pin (pure)")
+            falsifier_checks()
+            h69_pure_checks()
+            if fails:
+                print(f"mkpoland self-test: {len(fails)} failure(s): " + "; ".join(fails))
+            else:
+                print(f"mkpoland self-test: OK ({checks} checks, "
+                      "pipeline skipped: 7z unavailable)")
+            return 0 if not fails else 1
+
         def do(tag: str, *, force: bool) -> tuple[int, dict[str, Any]]:
             ns = argparse.Namespace(
                 osm=DEFAULT_FIXTURE, factory=None, out=root / f"{tag}.img",
