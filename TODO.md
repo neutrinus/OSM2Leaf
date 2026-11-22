@@ -3097,7 +3097,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7900–C-7909
 
 - [ ] **M4.90 — Road numbers and shields: how the factory map stores `A4`, `E40`, `B6` and which shield the renderer draws**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.90-road-shields · Critical: no · Pair: solo
   - Step: P2
   - Depends: —
   - Goal: The first emulator screenshots show road shields. For Poland we need `A4`, `S8`, `DK94`, `E40` to appear correctly: find where a road's reference number lives, how the shield type is chosen, and which shield types exist.
