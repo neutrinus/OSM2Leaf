@@ -3838,7 +3838,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7980–C-7989
 
 - [ ] **M5.80 — Names the unit cannot draw: transliteration fallback in the compiler**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.80-transliteration · Critical: no · Pair: solo
   - Step: P2
   - Depends: M4.87
   - Goal: If M4.87 finds missing glyphs, names must be transliterated (`Łódź` → `Lodz`) at compile time, in one place, with a test.
