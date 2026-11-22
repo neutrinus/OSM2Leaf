@@ -1296,6 +1296,126 @@ def find_record(tile, level, y0, x0, row, pair):
 # --------------------------------------------------------------------------
 
 
+def census_tile(data: bytes, level: int = 1):
+    """Census of the point reference word on every road record of one tile.
+
+    The walk ``fn 0x0041f3dc`` reads a reference at word
+    ``p + ((y >> 13) & 1) + 2`` for every point whose x/y are neither 0 nor
+    ``0x7ff`` (EXP-2026-11-21-M9.66, C-6774/C-6775).  The shape buffer starts
+    at record `+ 0x2c` (44 B = 22 words), so buffer slot ``s`` is record word
+    ``22 + s`` and the reference is record word ``22 + p - 22 + bit + 2``.
+    This counts, over the factory records of one tile, how many points carry a
+    dedicated reference word and what it holds: an in-record point index,
+    ``0xffff`` ("none"), something that is not a point, or a word past the
+    record.  It also counts how many point back (the walk compares the target's
+    own reference with the source's slot).  The coordinates and the shape
+    layout are read with the firmware's own grammar (``fa_encode.parse_record``),
+    not a second model.  A point whose formula lands on another point's x/y
+    coordinate has no dedicated word (the bit-0 form has no extra word) and is
+    not counted as carrying one.
+    """
+    tile = read_tile_rows(data)
+    recs = records_by_position(tile, level, level=level)
+    # The shape buffer is record + 0x2c (44 B = 22 words): record word 22 is
+    # buffer word 0, and the walk's slot ``s`` is record word ``22 + s``.
+    # C-6776 pins this: G's first point (record word 55) has its reference at
+    # buffer word 36, record word 58.
+    BUF = 22
+    out = dict(
+        level=level, records=0, records_parsed=0, records_rejected=0,
+        shapes=0, points=0, points_legal=0, points_with_ref=0,
+        ref_in_record_point=0, ref_none=0, ref_other=0, ref_out_of_record=0,
+        ref_sentinel=0, mutual_back=0, out_examples=[], other_examples=[],
+    )
+    vals = collections.Counter()
+    for key, raw in sorted(recs.items(), key=lambda kv: repr(kv[0])):
+        # records_by_position keys are (dir_y, dir_x, slot, pair); wide-row
+        # sub-records carry a ('subN') member and are not separate roads.
+        if not (isinstance(key, tuple) and len(key) == 4
+                and all(isinstance(x, int) for x in key)):
+            continue
+        try:
+            plain = zlib.decompress(bytes(raw))
+        except zlib.error:
+            continue
+        if len(plain) < 24:
+            continue
+        words = struct.unpack(">%dH" % (len(plain) // 2), plain)
+        if words[2] != ROAD_TAG:
+            continue
+        out["records"] += 1
+        try:
+            _code, _unit, shapes = fa_encode.parse_record(plain, level)
+        except (AssertionError, IndexError):
+            out["records_rejected"] += 1
+            continue
+        out["records_parsed"] += 1
+        n = len(words)
+        # The shape-buffer word indices of every point in the record (across
+        # all shapes); a reference is "in-record point" only against this set.
+        all_points = [p for shape in shapes if shape.get("ok")
+                      for p in shape["points"] if p + 1 < n]
+        indices = {p - BUF for p in all_points}
+        coordinate_slots = set()
+        for q in all_points:
+            coordinate_slots.add(q - BUF)
+            coordinate_slots.add(q - BUF + 1)
+        out["points"] += len(all_points)
+        for shape in shapes:
+            if not shape.get("ok"):
+                continue
+            out["shapes"] += 1
+            points = shape["points"]
+            for p in sorted(points):
+                if p + 1 >= n:
+                    continue
+                x, y = words[p], words[p + 1]
+                xc, yc = x & 0x7FF, y & 0x7FF
+                if x & 0x1800 == 0x1800 or xc in (0, 0x7FF) or yc in (0, 0x7FF):
+                    continue
+                out["points_legal"] += 1
+                slot = p - BUF + ((y >> 13) & 1) + 2
+                if slot in coordinate_slots:
+                    # No dedicated reference word: the formula lands on another
+                    # point's x/y coordinate (a bit-0 point has no extra word).
+                    continue
+                out["points_with_ref"] += 1
+                if BUF + slot >= n:
+                    out["ref_out_of_record"] += 1
+                    if len(out["out_examples"]) < 8:
+                        out["out_examples"].append(dict(
+                            record=list(key), word=p, slot=slot, words=n,
+                            value=None))
+                    continue
+                value = words[BUF + slot]
+                vals[value] += 1
+                if value == fa_encode.NONE_REF:
+                    out["ref_none"] += 1
+                elif value == 0:
+                    # 0 is not a valid point index (its own first point is at
+                    # buffer word 33); factory uses it at the slot after a
+                    # shape's final point as a record sentinel the walk stops on.
+                    out["ref_sentinel"] += 1
+                elif value in indices:
+                    out["ref_in_record_point"] += 1
+                    ty = words[BUF + value + 1]
+                    tslot = value + ((ty >> 13) & 1) + 2
+                    if BUF + tslot < n and words[BUF + tslot] == (p - BUF):
+                        out["mutual_back"] += 1
+                else:
+                    out["ref_other"] += 1
+                    if len(out["other_examples"]) < 8:
+                        out["other_examples"].append(dict(
+                            record=list(key), word=p, value=value,
+                            in_record=(BUF + value) < n))
+    total = out["points_with_ref"]
+    explained = out["ref_in_record_point"] + out["ref_none"] + out["ref_sentinel"]
+    out["value_histogram"] = vals.most_common(16)
+    out["mutual_back_pct"] = round(100.0 * out["mutual_back"] / total, 3) if total else 0.0
+    out["explained_pct"] = round(100.0 * explained / total, 3) if total else 0.0
+    return out
+
+
 def _decode_road(dirs, y0, x0, row, col, level):
     """Lattice points of the road record at one parcel, or ``None`` if absent."""
     directory = dirs.get((y0, x0))
@@ -2128,6 +2248,12 @@ def selftest():
               roads_only[:14] == "CLARION".encode("utf-16-be"), roads_only[:14].hex())
         parsed = clarion_tile.read_tile(roads_only)
         check("synthetic tile parses", len(parsed["sections"]) == 3)
+        census = census_tile(roads_only, 1)
+        check("generated records carry no out-of-record reference",
+              census["ref_out_of_record"] == 0 and census["points_with_ref"] > 0,
+              [census["ref_out_of_record"], census["points_with_ref"]])
+        check("generated reference words are none, a sentinel or an in-record point",
+              census["explained_pct"] == 100.0, census["explained_pct"])
         _slot_, road = find_record(parsed, 1, 72, 936, 4, 6)
         check("synthetic road stream present",
               struct.unpack_from(">H", zlib.decompress(bytes(road["raw"])), 4)[0] == 0x00FA)
@@ -2234,6 +2360,9 @@ def build_parser():
     parser.add_argument("--readback", metavar="TILE.DAT",
                         help="decode the road records of TILE.DAT and compare them with "
                              "the IMF input (writes nothing); exit 1 on any mismatch")
+    parser.add_argument("--census", metavar="TILE.DAT",
+                        help="census the point reference word of every road record in "
+                             "TILE.DAT (M5.72); writes nothing")
     parser.add_argument("--selftest", action="store_true", help="run the synthetic test")
     return parser
 
@@ -2245,11 +2374,40 @@ def main(argv=None):
         return selftest()
 
     cell = args.cell
-    for source in (args.factory, args.readback):
+    for source in (args.factory, args.readback, args.census):
         if cell is None and source:
             stem = Path(source).name.split(".")[0]
             if CELL_RE.match(stem):
                 cell = stem
+    if args.census:
+        try:
+            report = census_tile(_read_bytes(args.census), args.level)
+        except (WriterError, OSError, zlib.error) as exc:
+            print("tilewriter: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        if args.json:
+            json.dump(report, sys.stdout, indent=2, sort_keys=True)
+            sys.stdout.write("\n")
+        else:
+            print("census %s: %d records (%d parsed, %d rejected), %d shapes, "
+                  "%d points (%d legal)"
+                  % (args.census, report["records"], report["records_parsed"],
+                     report["records_rejected"], report["shapes"],
+                     report["points"], report["points_legal"]))
+            print("  reference words: %d carry one; in-record point %d, none %d, "
+                  "sentinel 0 %d, other %d, out of record %d"
+                  % (report["points_with_ref"], report["ref_in_record_point"],
+                     report["ref_none"], report["ref_sentinel"],
+                     report["ref_other"], report["ref_out_of_record"]))
+            print("  mutual back-reference %.3f%% of points with a word; "
+                  "explained (in-record + none + sentinel) %.3f%%"
+                  % (report["mutual_back_pct"], report["explained_pct"]))
+            print("  top values: %s" % (report["value_histogram"],))
+            for ex in report["out_examples"]:
+                print("  OUT-OF-RECORD %s" % (json.dumps(ex, sort_keys=True),))
+            for ex in report["other_examples"]:
+                print("  NOT-A-POINT    %s" % (json.dumps(ex, sort_keys=True),))
+        return EXIT_OK
     if args.readback:
         if not args.imf:
             parser.error("--readback needs the split IMF as the positional argument")
