@@ -2746,7 +2746,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M4.63-kiwi-map; 0/4 header fits on 3 files, 8 structures mapped, negative verdict; gate 5/5
 
 - [ ] **M4.64 — KIWI lineage in the firmware: every string and symbol that names a KIWI concept (parcel, level, block, Xanavi)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.64-kiwi-lineage · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: Marek's hypothesis (2026-11-22): Clarion described the maps in the KIWI format, so a public specification could replace reverse engineering from zero. Clarion took over Xanavi, a KIWI-W member, and the ROM still says so: a raw scan of `IMG256` finds `xglXtpDrawXanaviCharacter`, `NOT XANAVI    : %d` and `MDP_pushRcvParcel` (`grep -a -c` below). Collect the full vocabulary and map each term to its module and function, so the other KIWI tasks start from names the firmware itself uses.
