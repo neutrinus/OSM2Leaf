@@ -4553,7 +4553,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H1-serial-chardevs; sci1+sci7 TX/RX loopback, ch7 ISR 1 hit, baseline unchanged, gate 5/5
 
 - [ ] **M8.H2 — `serial_uat.dll`: which UART chip sits at `0x19b00000`–`0x19e00000` (register map, interrupts)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h2-serial-uat-map · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: `UAT3:` carries the vehicle CAN microcontroller (`CAN.dll`), `UAT4:` has no known user. Nothing models the external UARTs, so no CAN frame can enter the emulator. Read the driver and write the register model a QEMU device needs.
