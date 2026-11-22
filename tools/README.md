@@ -1595,6 +1595,21 @@ shared block per class name). The code lives in the ROM pages of a module
 the TOC compaction dropped, at a free VA window in the ROM DLL code space.
 Record: EXP-2026-11-22-M8.C1h-hcx-stubs.
 
+`--copy-dlls apptimer` (M8.C1i) copies `AppTimerDll.dll` from ROM image C,
+which the IPL does not load, into image A's TOC. Its own addresses collide
+with image A's `OBJDLL.dll` data, so the code and `.pdata` move to a free
+code window and the RW section (import table) to a free page of the kernel
+image's DLL data window; aligned words that point into the old sections are
+rewritten and listed by `ze0_ipl.py plan`. An RW page outside that window
+(e.g. image A's own) makes the loader fail with ERROR_OUTOFMEMORY. With it,
+Audio.exe, Speech.exe, Vehicle.exe, PhoneBTA.exe and CameraCC load.
+Record: EXP-2026-11-22-M8.C1i-aui-paint-gate.
+
+```bash
+python3 tools/ze0_ipl.py patch archive/head256.img --prefer-app auiapp.exe,auirtdll.dll \
+        --stub-dlls hcx --copy-dlls apptimer -o ipl.txt
+```
+
 ## `board.py` — edit `TODO.md` and `claims.md` by line operations (H123)
 
 Every change to the board files is one splice; a guard refuses a write that

@@ -38,10 +38,23 @@ kernel copy runs instead), so they stay inside image A's XIP region.  The
 code VA is the first free 64 KiB window above the lowest ROM DLL code
 address (the gaps left by modules that the compaction dropped).
 
+Copied modules (M8.C1i, ``--copy-dlls apptimer``): ``AppTimerDll.dll`` is
+not a unit-flash DLL; it sits in ROM image C of the card, which the IPL does
+not load.  Audio.exe, Speech.exe, Vehicle.exe, Usb.exe, PhoneBTA.exe and
+CameraCC import it.  Its fixed addresses collide with image A (its code VA
+``0x01e41000`` lies in the data of image A's ``OBJDLL.dll``), so the module
+is copied and moved: the code and read-only sections go to a free 64 KiB
+window in the ROM DLL code space, the read-write section (the import table
+and one global) to a free page of image A's DLL data range.  Every aligned
+word of the code and read-only sections that points into one of the old
+sections is rewritten for the new place (the literal pools, a pointer
+table, the ``.pdata`` entries); RVAs (export and import directories) do not
+change.  The list of rewritten words is printed with the notes.
+
 Usage::
 
     ze0_ipl.py patch archive/head256.img --prefer-app auiapp.exe,auirtdll.dll \
-               --stub-dlls hcx -o ipl.txt
+               --stub-dlls hcx --copy-dlls apptimer -o ipl.txt
     ze0_stubdll.py --selftest
 """
 import os
@@ -50,6 +63,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ze0_aui import asm, export  # noqa: E402
+from cerom import CERom  # noqa: E402
 
 PAGE = 0x1000
 CODE_SPACE = (0x02000000, 0x04000000)
@@ -63,6 +77,13 @@ FILE_MAP_ALL_ACCESS = 0x000f001f
 STUBS = {
     "hcx": [("HCXLog.dll", 8, {}), ("HCXMemory.dll", 32, {23: "shm"})],
 }
+
+
+# name -> [(module, image start of the ROM that holds it)]
+COPIES = {
+    "apptimer": [("AppTimerDll.dll", 0x5200200)],
+}
+DATA_SPACE = (0x01000000, 0x02000000)
 
 
 def ret_this():
@@ -182,21 +203,111 @@ def donor_pages(app, dropped, pages):
     raise SystemExit("ze0_stubdll: no dropped module with %d free code pages" % pages)
 
 
-def build(kern, app, keep_k, keep_a, which="hcx", timestamp=0x4e363910):
+def all_mods(rom):
+    return list(rom.modules())
+
+
+def free_page(used, lo, hi):
+    """Lowest free page in [lo, hi) that no range in ``used`` touches."""
+    va = (lo + PAGE - 1) & ~(PAGE - 1)
+    while va + PAGE <= hi:
+        if not any(a < va + PAGE and va < b for a, b in used):
+            return va
+        va += PAGE
+    raise SystemExit("ze0_stubdll: no free data page in 0x%08x..0x%08x" % (lo, hi))
+
+
+def relocate(blob, base, moves):
+    """Rewrite the aligned words of ``blob`` (at VA ``base``) that point into a
+    moved range.  ``moves`` is [(old_lo, old_hi, new_lo)].  Returns (bytes,
+    [(va, old, new)])."""
+    out, done = bytearray(blob), []
+    for off in range(0, len(out) - 3, 4):
+        v = struct.unpack_from("<I", out, off)[0]
+        for lo, hi, new in moves:
+            if lo <= v < hi:
+                struct.pack_into("<I", out, off, new + v - lo)
+                done.append((base + off, v, new + v - lo))
+                break
+    return bytes(out), done
+
+
+def copy_module(src, name, vbase, rw_va, pages, timestamp=None):
+    """Move module ``name`` of ROM ``src`` to code VA ``vbase`` and RW VA ``rw_va``.
+
+    ``pages`` yields the ROM VAs of free pages.  Returns (lines, e32, o32s,
+    toc_fields, notes); e32/o32 are bytes, the o32 dataptrs already set."""
+    mod = next((m for m in src.modules() if m["name"].lower() == name.lower()), None)
+    if mod is None:
+        raise SystemExit("ze0_stubdll: %s not in the ROM at 0x%x" % (name, src.start))
+    e = src.e32(mod)
+    secs = list(src.o32(mod))
+    moves, plan = [], []
+    for s in secs:
+        writable = bool(s["flags"] & 0x80000000)
+        new = rw_va if writable else vbase + s["rva"]
+        if writable and s["vsize"] > PAGE:
+            raise SystemExit("ze0_stubdll: %s RW section larger than a page" % name)
+        moves.append((s["realaddr"], s["realaddr"] + max(s["vsize"], s["psize"]), new))
+        plan.append((s, new))
+    lines, o32s, notes, all_done = [], b"", [], []
+    for s, new in plan:
+        if s["flags"] & 0x2000:
+            raise SystemExit("ze0_stubdll: %s has a compressed section" % name)
+        raw = bytes(src.d[src.va2file(s["dataptr"]):][:s["psize"]])
+        size = max(s["vsize"], s["psize"])
+        if s["flags"] & 0x80000000:
+            # import table: start from the lookup table (the loader resolves it)
+            body = bytearray(size)
+            imp_off = src.rva2file(mod, e["imp"][0])
+            while True:
+                oft, _t, _f, _n, ft = struct.unpack_from("<5I", src.d, imp_off)
+                if not (oft or ft):
+                    break
+                k = 0
+                while True:
+                    w = struct.unpack_from("<I", src.d, src.rva2file(mod, oft) + 4 * k)[0]
+                    struct.pack_into("<I", body, ft - s["rva"] + 4 * k, w)
+                    if not w:
+                        break
+                    k += 1
+                imp_off += 20
+            raw, done = bytes(body), []
+        else:
+            raw, done = relocate(raw + bytes(size - len(raw)), new, moves)
+        all_done += done
+        dataptr = next(pages)
+        if len(raw) > PAGE:
+            raise SystemExit("ze0_stubdll: %s section larger than a page" % name)
+        lines.append((dataptr, raw, "%s rva 0x%x -> 0x%08x (%d words moved, M8.C1i)"
+                      % (name, s["rva"], new, len(done))))
+        o32s += struct.pack("<6I", s["vsize"], s["rva"], len(raw), dataptr, new, s["flags"])
+    e32 = bytearray(src.d[src.va2file(mod["e32"]):][:112])
+    struct.pack_into("<I", e32, 8, vbase)
+    if timestamp is not None:
+        struct.pack_into("<I", e32, 32, timestamp)
+    notes.append("%s: copied from ROM 0x%x, vbase 0x%08x -> 0x%08x, RW 0x%08x, %d words moved: %s"
+                 % (name, src.start, e["vbase"], vbase, rw_va, len(all_done),
+                    " ".join("%08x" % va for va, _o, _n in all_done)))
+    return lines, bytes(e32), o32s, (mod["attrib"], mod["ft"], mod["size"]), notes
+
+
+def build(kern, app, keep_k, keep_a, which="hcx", timestamp=0x4e363910, copies=None):
     """IPL lines and TOC entries for the stub set ``which``.
 
     Returns (lines, toc_entries, notes); lines are (rom_va, bytes, why)."""
-    specs = STUBS[which]
+    specs = STUBS[which] if which else []
+    cspecs = COPIES[copies] if copies else []
     kept_a = {m["index"] for m in keep_a}
     dropped = {m["name"].lower() for m in app.modules() if m["index"] not in kept_a}
     have = {m["name"].lower() for m in list(keep_k) + list(keep_a)}
-    for n, _, _ in specs:
+    for n in [x[0] for x in specs] + [x[0] for x in cspecs]:
         if n.lower() in have:
             raise SystemExit("ze0_stubdll: %s already in a TOC" % n)
-    donor, page0 = donor_pages(app, dropped, len(specs) + 1)
+    donor, page0 = donor_pages(app, dropped, len(specs) + 1 + 3 * len(cspecs))
     used = used_ranges([(kern, keep_k), (app, keep_a)])
     lo = min(r[0] for r in used if CODE_SPACE[0] <= r[0] < CODE_SPACE[1])
-    vbases = free_windows(used, len(specs), space=(lo, CODE_SPACE[1]))
+    vbases = free_windows(used, len(specs) + len(cspecs), space=(lo, CODE_SPACE[1]))
     helpers = {"shm": shm(export(kern, "coredll.dll", "CreateFileMappingW"),
                           export(kern, "coredll.dll", "MapViewOfFile"))}
     meta_va = page0 + len(specs) * PAGE
@@ -218,7 +329,34 @@ def build(kern, app, keep_k, keep_a, which="hcx", timestamp=0x4e363910):
         tocs.append(struct.pack("<8I", TOC_ATTRIB, 0, 0, PAGE, name_va, e32_va, o32_va, dataptr))
         notes.append("%s: vbase 0x%08x, ROM 0x%08x, specials %s" % (
             name, vbase, dataptr, sorted(special) or "-"))
-    lines.append((meta_va, bytes(meta), "e32/o32 records of the stub modules"))
+    if cspecs:
+        # RW pages: free in images A and B (all modules, kept or not)
+        every = used_ranges([(kern, all_mods(kern)), (app, all_mods(app))])
+        # the loader reserves RW sections only inside the kernel image's DLL
+        # data window (dllfirst high word .. 0x02000000); 0x01a7c000, inside
+        # image A's own window, fails with ERROR_OUTOFMEMORY (M8.C1i run H9)
+        data_lo = max(app.hdr["dllfirst"], kern.hdr["dllfirst"]) & 0xffff0000
+        pages = iter(range(meta_va + PAGE, meta_va + PAGE * (1 + 3 * len(cspecs)), PAGE))
+        for j, (name, start) in enumerate(cspecs):
+            src = CERom(app.d, start)
+            rw_va = free_page(every, data_lo, DATA_SPACE[1])
+            every.append((rw_va, rw_va + PAGE))
+            c_lines, e32, o32s, (attrib, ft, size), c_notes = copy_module(
+                src, name, vbases[len(specs) + j], rw_va, pages)
+            lines += c_lines
+            notes += c_notes
+            e32_va = meta_va + len(meta)
+            meta += e32
+            o32_va = meta_va + len(meta)
+            meta += o32s
+            name_va = meta_va + len(meta)
+            meta += name.encode("ascii") + b"\0"
+            meta += b"\0" * (-len(meta) % 4)
+            tocs.append(struct.pack("<8I", attrib, ft & 0xffffffff, ft >> 32, size, name_va,
+                                    e32_va, o32_va, c_lines[0][0]))
+    if len(meta) > PAGE:
+        raise SystemExit("ze0_stubdll: module records do not fit in one page")
+    lines.append((meta_va, bytes(meta), "e32/o32 records of the stub and copied modules"))
     notes.append("pages from dropped module %s at 0x%08x" % (donor, page0))
     return lines, tocs, notes
 
@@ -240,6 +378,12 @@ def selftest():
     assert len(o32_bytes(0x100, 0x8cae2000, 0x02001000)) == 24
     assert free_windows([(0x02000000, 0x02010000), (0x02015000, 0x02016000)], 2) == \
         [0x02020000, 0x02030000]
+    blob = struct.pack("<4I", 0x01e41084, 0x01e4203c, 0x12345678, 0x01e43000)
+    out, done = relocate(blob, 0x03751000, [(0x01e41000, 0x01e41a00, 0x03751000),
+                                           (0x01e42000, 0x01e42040, 0x01f4f000)])
+    assert struct.unpack("<4I", out) == (0x03751084, 0x01f4f03c, 0x12345678, 0x01e43000)
+    assert [va for va, _o, _n in done] == [0x03751000, 0x03751004]
+    assert free_page([(0x01bf0000, 0x01bf1800)], 0x01bf0000, 0x01c00000) == 0x01bf2000
     print("ze0_stubdll selftest: ok")
 
 
