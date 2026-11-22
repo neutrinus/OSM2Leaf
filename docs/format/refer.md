@@ -357,10 +357,21 @@ nearest-POI search of `Navi.exe` (`tools/point_tree_l3.py` runs it):
 A leaf is kept only when its code is 0, 63 or equal to the global
 `*0x005638ec`. The usual `0x8800 | fine_lon`, `0xf800 | fine_lat` is code
 63; factory trees also carry leaves with codes 2–10, which the search skips
-while the global is 0 (C-6836; meaning of the code open, M3.37). So a
-written leaf needs the `0x0800` flag, code 63, the ordinal, the two fine
-values, and a `0005` terminator after the node's last entry. Checked on 5
-files, 237 trees, 8,475 cells (C-6838).
+while the global is 0 (C-6836). M3.37 (C-6970–C-6979): `fn 0x003f2f98`
+writes request-indexed `*0x005638ec/0x005638f4/0x005638fc` (`r8*4`, request
+`+0x0c/+0x10`), so the code is request/setup state, not a tree constant. EU
+census: 2,653,215 leaves, codes {63:2631890,6:3414,4:3356,5:3064,10:3061,
+7:2866,2:2803,8:2761}, 4,945 same-position multi-code positions / 2,532,220;
+meaning remains HYPOTHESIS (variant/language/brand selector). Root loader
+`fn 0x0040f674` runs in L3 and sets `*0x00d5b858` to the expected tree base on
+`POINT010` tree 0, but full descent needs more seeded request state (BLOCKED).
+US2011 twins: LOAD_CHILD `0x437774`, STEP `0x438f0c`, WALK `0x43930c`,
+DISTANCE `0x430fa4`, ROOT_LOAD `0x4374a4`, DRIVER_A `0x439dac`, DRIVER_B
+`0x43a134`, SETUP_338 `0x437168`, SETUP_2FC `0x43712c`, WRITER_255c
+`0x41aefc`; EU `fn 0x003f2f98`/US `*0x005638ec` filter equivalent not found by
+direct signature/VA scan. So a written leaf needs the `0x0800` flag, code 63,
+the ordinal, the two fine values, and a `0005` terminator after the node's
+last entry. Checked on 5 files, 237 trees, 8,475 cells (C-6838).
 
 **Phone B-tree** (US only): 0x1000-byte nodes of 16-byte entries
 `u32 child_w, u32 name ordinal, 8-byte BCD number (f-padded)`. The number
