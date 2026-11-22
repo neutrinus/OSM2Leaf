@@ -5202,8 +5202,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7460–C-7469
   - Result: EXP-2026-11-22-M8.H49-can-uart; 10/10 claims, wire grammar honestly UNKNOWN
 
-- [ ] **M8.H50 — `tools/ze0_peers/vcan.py`: vehicle peer (ignition, speed, reverse, lights, state of charge)**
-  - Status: in progress · Owner: task/m8.h50-vcan-peer · Critical: no · Pair: solo
+- [x] **M8.H50 — `tools/ze0_peers/vcan.py`: vehicle peer (ignition, speed, reverse, lights, state of charge)**
+  - Status: done · Owner: task/m8.h50-vcan-peer · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H49
   - Goal: The VCAN microcontroller as a host program on the `uat3` chardev, sending the periodic frames of `docs/firmware/can.md` from a small vehicle state.
@@ -5214,6 +5214,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the encoder disagrees with the documented example frame.
   - Claims: C-7470–C-7479
+  - Result: EXP-2026-11-22-M8.H50-vcan-peer; 9/9 selftest, no L4 claim
 
 - [ ] **M8.H51 — Lights on, night map: ignition and illumination from the vehicle peer change the screen**
   - Status: open · Owner: — · Critical: no · Pair: solo
