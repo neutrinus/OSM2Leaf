@@ -1118,8 +1118,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: a fifth `_l3.py` that reads ROM sections through `cerom` directly and would have been wrong under the new helper (then the helper's API is too narrow; extend it, do not fork it again).
   - Claims: C-6630–C-6639
 
-- [ ] **M1.50 — Why the US unit in Poland shows a position in Kentucky (map screen and OpenCARWINGS): GPS receiver, `navdrv` or `Navi.exe`**
-  - Status: in progress · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+- [x] **M1.50 — Why the US unit in Poland shows a position in Kentucky (map screen and OpenCARWINGS): GPS receiver, `navdrv` or `Navi.exe`**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track asked by Marek (2026-11-22). His US 2011 unit in Poland shows the vehicle near Somerset, Kentucky (37.4058806, −84.4876444) on the map screen, and OpenCARWINGS reports the same point, updated today. Decide from the firmware which link can hold the position there: the receiver, the `SCI7:` driver, a position filter or default in `Navi.exe`, or the Carwings client; name the measurements on the unit that settle it.
   - Precheck: `python3 tools/ce_strfind.py archive/us256.img --encoding all navdrv` and `--encoding ascii Latitude` print hits.
@@ -1129,6 +1129,31 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; the receiver protocol itself is M8.H27, the position store M8.H19, the fix path M8.H29 — reference them, do not do them.
   - Falsifier: the coordinate is found as a constant in a ROM (then it is a factory default, not a last position).
   - Claims: C-8240–C-8249
+  - Result: EXP-2026-11-22-M1.50-us-unit-position-kentucky; position to OpenCARWINGS = head unit OBJ_CarPos via Vehicle.exe→DCM_API!SetVehicleData; coordinate not a firmware constant; held last position most likely; follow-ups M1.51, M1.52
+
+- [ ] **M1.51 — `Navi.exe`: does it accept a GPS fix far from the current car position?**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: side track for Marek's car (EXP-2026-11-22-M1.50, hypothesis H2): decide whether a valid fix 8 000 km from the stored car position is taken, delayed, or rejected, so the measurement on the diagnosis page can be read either way.
+  - Precheck: `python3 tools/sh4xref.py archive/us256.img OBJDLL.dll --image-start 0x200200 --to 0x0346dd7c` names the user of the `LAST` string.
+  - Scope: static, US2011: the writers of `OBJ_GpsInfo` and `OBJ_CarPos` in `Navi.exe`/`OBJDLL.dll`, the comparison between fix and dead-reckoned position (distance threshold, count of agreeing fixes, off-map check), what `navdrv!SetFilterConfig` sets.
+  - Input: EXP-2026-11-22-M1.50, `tools/sh4xref.py`, `tools/callgraph.py`, M8.H29 if merged.
+  - Done when: an EXP naming the function that turns a fix into the car position and its accept rule with VA (or "no distance rule found" with the searched callers); claims.
+  - Stop: one session; if the rule sits in another process, name the message and stop.
+  - Falsifier: the car position is written from the fix unconditionally.
+  - Claims: C-8250–C-8254
+
+- [ ] **M1.52 — TestMode GPS initialisation: how to seed the receiver with a Polish position and the date**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: side track for Marek's car (EXP-2026-11-22-M1.50, hypotheses H1/H1a): `TestMode.exe` writes a date and lat/lon to the GPS receiver (`CTestModeGPSInit::WriteGpsData`, US `fn 0x0003aa80`). Find the screen that calls it, the text format the technician enters, and what the `B0_A3`, `B0_A0`, `B3`, `B4` commands do, so Marek can try it on the unit.
+  - Precheck: `python3 tools/sh4xref.py archive/us256.img TestMode.exe --image-start 0x5200200 --to 0x198f0` prints `fn 0x0003aa80`.
+  - Scope: static, US2011 then EU2011: callers of `0x0003aa80` up to a screen/button, the source of the text fields at object +0x8c/+0x94, the date frame of `fn 0x00043da8`, the four `GpsDataSet*` frames (`fn 0x0004443c`, `0x00044494`, `0x000444ec`, `0x0004453c`), how TestMode is entered (EXP-2026-11-05-M2.10-testmode).
+  - Input: EXP-2026-11-22-M1.50, `tools/sh4dis.py`, `tools/sh4xref.py`, `docs/hardware/head-unit.md`.
+  - Done when: a page section (in `docs/hardware/head-unit.md` or a new `docs/firmware/gps.md`) with the steps on the unit and the frame table with VAs; EXP + claims; a hand-encoded example frame for 52.23 N 21.01 E.
+  - Stop: one session; nothing is sent to a real unit by the agent.
+  - Falsifier: no caller of `0x0003aa80` is reachable from a screen (dead code).
+  - Claims: C-8255–C-8259
 
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
