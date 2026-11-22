@@ -4820,7 +4820,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.C1d-multi-xip (C-6910–C-6917). The audio unit is not the blocker (27 ACM 30 s timeouts, then `Finish Launch Threads!`); every application `CreateProcessW` failed with LastError 2 because ROM image A (Navi.exe etc.) was never joined: nk.exe reads an XIP-chain pointer from a `.data` fixup (var `0x89e43c90`) that the card leaves at -1. `tools/ze0_ipl.py` + `ze0-0012` (`ipl-patch=FILE`) write the chain, RAM end `0x8c6e0000` and compacted TOCs (A and B overlap in the DLL space, C-6913): `Rom chain found`, 0 `Not Create` (was 19), Navi.exe's OSMDLL/OBJDLL run. `tools/ze0_screenshot.py` saves the VRAM as PNG; it stays black because the display engine (phys `0x1ff80000`/`0x1fe80000`) is not modelled → M8.C1e.
 
 - [ ] **M8.C1e — Display engine on `-M ze0`: trace, then a minimal DU/2D model so the VRAM fills**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: Claude (task/m8.c1e-display-engine) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1d
   - Goal: Marek wants to boot the emulator and take a screenshot after a while (2026-11-22). With M8.C1d the applications run but the VRAM (phys `0x0e700000`) stays zero; `gdisubdrv.dll` drives two register blocks that `-M ze0` does not model (C-6916).
