@@ -204,7 +204,7 @@ def main(argv=None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--selftest" in argv:
         return selftest()
-    if argv and argv[0] == "compare":
+    if argv and argv[0] in ("--help", "-h", "compare"):
         args = ap.parse_args(argv)
     elif argv:
         args = ap.parse_args(["edit"] + argv)
