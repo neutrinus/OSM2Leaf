@@ -1,0 +1,557 @@
+hw/sh4: ze0 SSI audio: PCM sink for WaveSSI1/2 over HPB-DMAC (TODO M8.H46).
+
+EU2011 build B maps wavessi1/2's PCM path at phys 0xffe00000 (SSI) with an
+area-7 alias at 0x1fe00000; the nk.exe OAL interrupt table attributes
+SYSINTR 0x24 (WaveSSI1) to HPB-DMAC channels 11 (INTEVT 0xcc0, ISR
+0x8803e8e4) and 12 (0xda0, 0x8803e98c), and SYSINTR 0x25 (WaveSSI2) to
+channel 13 (0xdc0, 0x8803ea14).  The ISRs test DINTSR0 bits 11/12/13.
+
+hw/sh4/ze0_ssi.c: a register file for the three SSI blocks (0x10000 stride)
+so the driver's mapping and reset writes land in memory, plus a QEMU
+audiodev voice.  When an HPB-DMAC channel is armed with DDAR inside the
+SSI block, ze0_hpbdmac_run_ssi() moves the buffer into the voice; a
+machine option ssi-audio=ID binds -audiodev wav.  ssi-selftest=N is an
+explicit positive control that pushes N bytes of PCM through the same
+DMA path (off by default; not guest playback).
+
+Base: QEMU 11.1.3 with the earlier patches of this directory, in sorted
+order (sorts after ze0-h01).  Evidence: EXP-2026-11-22-M8.H46-ssi-audio.
+diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
+--- a/hw/sh4/meson.build
++++ b/hw/sh4/meson.build
+@@ -6,6 +6,6 @@
+ sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
+ sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
+ 
+-sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c', 'ze0_gfx.c', 'ze0_2dg.c'))
++sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c', 'ze0_ssi.c', 'ze0_gfx.c', 'ze0_2dg.c'))
+ hw_arch += {'sh4': sh4_ss}
+ sh4_ss.add(files('ze0_stubs.c'))
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -39,6 +39,7 @@
+ #include "qemu/log.h"
+ #include "hw/sh4/ze0_sdhi.h"
+ #include "hw/sh4/ze0_hpbdmac.h"
++#include "hw/sh4/ze0_ssi.h"
+ #include "hw/sh4/ze0_gfx.h"
+ #include "system/blockdev.h"
+ #include "system/system.h"
+@@ -174,6 +175,12 @@
+     bool hpbdmac;
+     bool hpbdmac_trace;
+     bool hpbdmac_serial;
++    bool ssi;
++    bool ssi_trace;
++    char *ssi_audio;
++    int32_t ssi_rate;
++    int32_t ssi_channels;
++    uint32_t ssi_selftest;
+     bool gfx;
+     bool gfx_trace;
+     bool sd_pwd_tofu;
+@@ -702,6 +709,7 @@
+ 
+ static void ze0_init(MachineState *machine)
+ {
++    Ze0HpbDmacState *dmac = NULL;
+     Ze0IntcState *intc;
+     SuperHCPU *cpu;
+     MemoryRegion *sysmem = get_system_memory();
+@@ -917,7 +925,6 @@
+ 
+     /* SD host (M8.C10) */
+     if (ZE0_MACHINE(machine)->sdhi) {
+-        Ze0HpbDmacState *dmac = NULL;
+         int i;
+ 
+         if (ZE0_MACHINE(machine)->hpbdmac) {
+@@ -982,6 +989,33 @@
+         }
+     }
+ 
++    /* SSI registers + PCM sink (M8.H46): P4 and area-7 aliases. */
++    if (ZE0_MACHINE(machine)->ssi) {
++        DeviceState *a = qdev_new(TYPE_ZE0_SSI);
++        MemoryRegion *alias = g_new(MemoryRegion, 1);
++        DeviceState *dm = dmac ? DEVICE(dmac) : NULL;
++        const char *id = ZE0_MACHINE(machine)->ssi_audio;
++
++        if (id && *id) {
++            qdev_prop_set_string(a, "audiodev", id);
++        }
++        qdev_prop_set_bit(a, "trace", ZE0_MACHINE(machine)->ssi_trace);
++        qdev_prop_set_int32(a, "rate", ZE0_MACHINE(machine)->ssi_rate);
++        qdev_prop_set_int32(a, "channels", ZE0_MACHINE(machine)->ssi_channels);
++        qdev_prop_set_uint32(a, "selftest-pcm", ZE0_MACHINE(machine)->ssi_selftest);
++        sysbus_realize_and_unref(SYS_BUS_DEVICE(a), &error_fatal);
++        memory_region_add_subregion_overlap(sysmem, ZE0_SSI_BASE,
++            sysbus_mmio_get_region(SYS_BUS_DEVICE(a), 0), 3);
++        memory_region_init_alias(alias, NULL, "ze0-ssi-a7",
++            sysbus_mmio_get_region(SYS_BUS_DEVICE(a), 0), 0, ZE0_SSI_SIZE);
++        memory_region_add_subregion_overlap(sysmem, ZE0_SSI_BASE_A7, alias, 3);
++        if (dmac) {
++            ze0_ssi_attach_dmac(ZE0_SSI(a), dmac);
++            ze0_hpbdmac_attach_ssi(dmac, ZE0_SSI(a));
++        }
++        (void)dm;
++    }
++
+     /* Kernel debug text on serial port 0 (M8.B6), off unless dbgmsg=VA. */
+     if (ZE0_MACHINE(machine)->dbgmsg_va) {
+         ze0_dbgmsg_chr = serial_hd(0);
+@@ -1092,6 +1126,37 @@
+     ZE0_MACHINE(obj)->hpbdmac_serial = value;
+ }
+ 
++static bool ze0_get_ssi(Object *obj, Error **errp)
++{
++    return ZE0_MACHINE(obj)->ssi;
++}
++
++static void ze0_set_ssi(Object *obj, bool value, Error **errp)
++{
++    ZE0_MACHINE(obj)->ssi = value;
++}
++
++static bool ze0_get_ssi_trace(Object *obj, Error **errp)
++{
++    return ZE0_MACHINE(obj)->ssi_trace;
++}
++
++static void ze0_set_ssi_trace(Object *obj, bool value, Error **errp)
++{
++    ZE0_MACHINE(obj)->ssi_trace = value;
++}
++
++static char *ze0_get_ssi_audio(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->ssi_audio);
++}
++
++static void ze0_set_ssi_audio(Object *obj, const char *value, Error **errp)
++{
++    g_free(ZE0_MACHINE(obj)->ssi_audio);
++    ZE0_MACHINE(obj)->ssi_audio = g_strdup(value);
++}
++
+ static bool ze0_get_gfx(Object *obj, Error **errp)
+ {
+     return ZE0_MACHINE(obj)->gfx;
+@@ -1266,6 +1331,28 @@
+     s->scif_stubs = true;
+     s->hpbdmac = true;
+     s->hpbdmac_serial = true;
++    s->ssi = true;
++    s->ssi_rate = 48000;
++    s->ssi_channels = 2;
++    object_property_add_bool(obj, "ssi", ze0_get_ssi, ze0_set_ssi);
++    object_property_set_description(obj, "ssi",
++        "SSI register block at 0xffe00000 and the PCM-to-audio sink "
++        "(default on; off = negative control, M8.H46)");
++    object_property_add_bool(obj, "ssi-trace", ze0_get_ssi_trace,
++                             ze0_set_ssi_trace);
++    object_property_add_str(obj, "ssi-audio", ze0_get_ssi_audio,
++                            ze0_set_ssi_audio);
++    object_property_add_uint64_ptr(obj, "ssi-rate",
++        (uint64_t *)&ZE0_MACHINE(obj)->ssi_rate, OBJ_PROP_FLAG_READWRITE);
++    object_property_add_uint64_ptr(obj, "ssi-channels",
++        (uint64_t *)&ZE0_MACHINE(obj)->ssi_channels, OBJ_PROP_FLAG_READWRITE);
++    object_property_add_uint64_ptr(obj, "ssi-selftest",
++        (uint64_t *)&ZE0_MACHINE(obj)->ssi_selftest, OBJ_PROP_FLAG_READWRITE);
++    object_property_set_description(obj, "ssi-selftest",
++        "positive control: push N bytes of PCM through the model (0 = off)");
++    object_property_set_description(obj, "ssi-audio",
++        "audiodev id for SSI playback (e.g. -audiodev wav,id=w,path=out.wav "
++        "-M ze0,ssi-audio=w; M8.H46)");
+     object_property_add_bool(obj, "hpbdmac-serial", ze0_get_hpbdmac_serial,
+                              ze0_set_hpbdmac_serial);
+     object_property_set_description(obj, "hpbdmac-serial",
+diff --git a/hw/sh4/ze0_hpbdmac.c b/hw/sh4/ze0_hpbdmac.c
+--- a/hw/sh4/ze0_hpbdmac.c
++++ b/hw/sh4/ze0_hpbdmac.c
+@@ -65,6 +65,7 @@
+ #include "hw/core/irq.h"
+ #include "hw/core/qdev-properties.h"
+ #include "hw/sh4/ze0_hpbdmac.h"
++#include "hw/sh4/ze0_ssi.h"
+ 
+ #define DSAR0   0x00
+ #define DDAR0   0x04
+@@ -117,6 +118,51 @@
+ }
+ 
+ /* Serial channels (M8.C2a): memory -> SCIF FTDR, at once. */
++/* M8.H46: memory -> SSI PCM FIFO, forwarded to the audio backend. */
++static void ze0_hpbdmac_run_ssi(Ze0HpbDmacState *s, int ch)
++{
++    uint32_t *sar = &CH(s, ch, DSAR0);
++    uint32_t *dar = &CH(s, ch, DDAR0);
++    uint32_t *tcr = &CH(s, ch, DTCR0);
++    uint8_t buf[1024];
++    uint32_t n = MIN(*tcr, sizeof(buf));
++
++    address_space_read(&address_space_memory, *sar & A7_MASK,
++                       MEMTXATTRS_UNSPECIFIED, buf, n);
++    ze0_ssi_play(s->ssi, buf, n);
++    if (s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-hpbdmac: ch%d audio %u bytes, DSAR "
++                      "0x%08x -> SSI 0x%08x\n", ch, n, *sar, *dar);
++    }
++    *sar += n;
++    *tcr = 0;
++    CH(s, ch, DSASR) = *sar;
++    CH(s, ch, DDASR) = *dar;
++    CH(s, ch, DTCSR) = 0;
++    CH(s, ch, DCMDR) &= ~DCMDR_DMEN;
++    CH(s, ch, DSTSR) &= ~1u;
++    COMMON(s, DINTSR0) |= 1u << ch;
++    ze0_hpbdmac_update_irq(s);
++}
++
++void ze0_hpbdmac_attach_ssi(Ze0HpbDmacState *s, Ze0SsiState *ssi)
++{
++    s->ssi = ssi;
++}
++
++void ze0_hpbdmac_selftest_audio(Ze0HpbDmacState *s, uint32_t sar, uint32_t n)
++{
++    if (!s->ssi) {
++        return;
++    }
++    CH(s, 12, DSAR0) = sar;
++    CH(s, 12, DDAR0) = 0x1fe00174u;
++    CH(s, 12, DTCR0) = n;
++    CH(s, 12, DCMDR) = DCMDR_DMEN;
++    CH(s, 12, DSTSR) = 1;
++    ze0_hpbdmac_run_ssi(s, 12);
++}
++
+ static void ze0_hpbdmac_run_serial(Ze0HpbDmacState *s, int ch)
+ {
+     unsigned unit = 1;      /* DCR 0x20: byte beats (bit 8 clear) */
+@@ -127,6 +173,10 @@
+     uint8_t buf[256];
+     char hex[2 * 32 + 1] = "";
+ 
++    if (s->ssi && ze0_ssi_is_fifo(*dar)) {
++        ze0_hpbdmac_run_ssi(s, ch);
++        return;
++    }
+     if (ze0_hpbdmac_is_scif(*sar, SCIF_FRDR)) {
+         /*
+          * M8.H1: a chardev peer may feed the sh_serial FIFO.  Remember the
+diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
+--- a/hw/sh4/ze0_intc.c
++++ b/hw/sh4/ze0_intc.c
+@@ -104,6 +104,16 @@
+     [ZE0_IRQ_HPBDMAC7] = { "HPBDMAC7", 0xc40, 19, ZE0_PRI_FIXED, 14 },
+     [ZE0_IRQ_HPBDMAC10] = { "HPBDMAC10", 0xca0, 19, ZE0_PRI_FIXED, 14 },
+     /*
++     * WaveSSI1/2 audio DMA (M8.H46), read from nk.exe's OAL table at
++     * 0x88005e18/0x88005e28/0x88005e38: rows {0xcc0, fn 0x8803e8e4,
++     * 14, 0x24} (ch11), {0xda0, fn 0x8803e98c, 14, 0x24} (ch12) and
++     * {0xdc0, fn 0x8803ea14, 14, 0x25} (ch13).  The ISRs test DINTSR0
++     * bits 11/12/13 and mask INT2 bit 19 like the serial DMAC rows.
++     */
++    [ZE0_IRQ_HPBDMAC11] = { "HPBDMAC11", 0xcc0, 19, ZE0_PRI_FIXED, 14 },
++    [ZE0_IRQ_HPBDMAC12] = { "HPBDMAC12", 0xda0, 19, ZE0_PRI_FIXED, 14 },
++    [ZE0_IRQ_HPBDMAC13] = { "HPBDMAC13", 0xdc0, 19, ZE0_PRI_FIXED, 14 },
++    /*
+      * Display (M8.C1e): rows {0x3e0, fn 0x8803fc64, 4, 0x21} (DU: masks
+      * INT2 bit 0, tests DSSR 0x800) and {0x780, fn 0x8803fbcc, 4, 0x22}
+      * (2DG: masks INT2 bit 12, tests SR bit 0).  gdisubdrv.dll calls
+diff --git a/include/hw/sh4/ze0_hpbdmac.h b/include/hw/sh4/ze0_hpbdmac.h
+--- a/include/hw/sh4/ze0_hpbdmac.h
++++ b/include/hw/sh4/ze0_hpbdmac.h
+@@ -11,6 +11,8 @@
+ #include "qemu/timer.h"
+ #include "qom/object.h"
+ 
++typedef struct Ze0SsiState Ze0SsiState;
++
+ #define TYPE_ZE0_HPBDMAC "ze0-hpbdmac"
+ OBJECT_DECLARE_SIMPLE_TYPE(Ze0HpbDmacState, ZE0_HPBDMAC)
+ 
+@@ -24,6 +26,7 @@
+     qemu_irq irq[ZE0_HPBDMAC_NR_CH]; /* one line per channel (sysbus irq n = channel n) */
+     bool trace;
+     bool serial;                    /* move memory -> SCIF FTDR on other channels */
++    Ze0SsiState *ssi;               /* PCM sink for channels 11/12/13 (M8.H46) */
+ 
+     uint32_t regs[ZE0_HPBDMAC_SIZE / 4];
+     Ze0SdhiState *sdhi[2];
+@@ -41,5 +44,8 @@
+ 
+ void ze0_hpbdmac_attach_sdhi(Ze0HpbDmacState *s, int port, Ze0SdhiState *h,
+                              hwaddr buf_addr);
++void ze0_hpbdmac_attach_ssi(Ze0HpbDmacState *s, Ze0SsiState *ssi);
++/* Model self-test: arm channel 12 with PCM already in guest RAM. */
++void ze0_hpbdmac_selftest_audio(Ze0HpbDmacState *s, uint32_t sar, uint32_t n);
+ 
+ #endif
+diff --git a/include/hw/sh4/ze0_intc.h b/include/hw/sh4/ze0_intc.h
+--- a/include/hw/sh4/ze0_intc.h
++++ b/include/hw/sh4/ze0_intc.h
+@@ -25,6 +25,9 @@
+     ZE0_IRQ_HPBDMAC3,
+     ZE0_IRQ_HPBDMAC7,
+     ZE0_IRQ_HPBDMAC10,
++    ZE0_IRQ_HPBDMAC11,      /* audio DMA: SYSINTR 0x24/0x25 (M8.H46) */
++    ZE0_IRQ_HPBDMAC12,
++    ZE0_IRQ_HPBDMAC13,
+     ZE0_IRQ_DU,             /* display (M8.C1e) */
+     ZE0_IRQ_2DG,
+     ZE0_IRQ_UAT3,           /* M8.H3: external UARTs */
+diff --git a/hw/sh4/ze0_ssi.c b/hw/sh4/ze0_ssi.c
+new file mode 100644
+--- /dev/null
++++ b/hw/sh4/ze0_ssi.c
+@@ -0,0 +1,206 @@
++/*
++ * ZE0 SSI: register stub plus a PCM sink for the HPB-DMAC (TODO M8.H46).
++ *
++ * The guest maps 0xffe00000 and copies the SSI registers into the area-7
++ * alias 0x1fe00000 (wavessi1/2 "SSI_Init, g_pSSI_TX_RegBase" strings).
++ * Keeping the registers readable makes that init succeed.  When a DMA
++ * channel targets a FIFO inside the block, ze0_ssi_play() forwards the
++ * bytes to a QEMU audio backend (-audiodev wav,id=...), so the PCM the
++ * guest produces ends up in a WAV file.  With no playback the file is
++ * silent.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++#include "qemu/osdep.h"
++#include "qemu/log.h"
++#include "qapi/error.h"
++#include "system/memory.h"
++#include "hw/core/sysbus.h"
++#include "hw/core/qdev-properties.h"
++#include "hw/sh4/ze0_hpbdmac.h"
++#include "hw/sh4/ze0_ssi.h"
++#include "system/address-spaces.h"
++#include "qemu/timer.h"
++
++#define SSI_NREG (ZE0_SSI_SIZE / 4)
++
++struct Ze0SsiState {
++    SysBusDevice parent_obj;
++
++    MemoryRegion iomem;
++    uint32_t regs[SSI_NREG];
++    AudioBackend *audio_be;
++    SWVoiceOut *voice;
++    bool trace;
++    int32_t rate;
++    int32_t channels;
++    uint64_t pcm_bytes;
++    uint32_t pcm_transfers;
++    Ze0HpbDmacState *dmac;
++    QEMUTimer *selftest_timer;
++    uint32_t selftest_pcm;
++};
++
++/* Positive control for the model (not guest playback): push a sine wave
++ * through the same HPB-DMAC -> SSI -> audiodev path the driver uses. */
++static void ze0_ssi_selftest(void *opaque)
++{
++    Ze0SsiState *s = opaque;
++    uint8_t buf[4096];
++    unsigned i;
++    uint32_t n = s->selftest_pcm;
++
++    qemu_log_mask(LOG_UNIMP, "ze0-ssi: selftest callback n=%u dmac=%p\n",
++                  n, s->dmac);
++    if (!n || n > sizeof(buf) || !s->dmac) {
++        return;
++    }
++    for (i = 0; i < n; i += 4) {
++        int16_t v = ((i / 16) & 1) ? 12000 : -12000;
++        buf[i] = v & 0xff;
++        buf[i + 1] = (v >> 8) & 0xff;
++        buf[i + 2] = buf[i];
++        buf[i + 3] = buf[i + 1];
++    }
++    address_space_write(&address_space_memory, ZE0_SSI_SELFTEST_RAM,
++                        MEMTXATTRS_UNSPECIFIED, buf, n);
++    ze0_hpbdmac_selftest_audio(s->dmac, ZE0_SSI_SELFTEST_RAM, n);
++}
++
++bool ze0_ssi_is_fifo(uint32_t addr)
++{
++    uint32_t a = addr & 0x1fffffffu;
++
++    return a >= ZE0_SSI_BASE_A7 && a < ZE0_SSI_END_A7;
++}
++
++void ze0_ssi_play(Ze0SsiState *s, const uint8_t *buf, size_t n)
++{
++    size_t done;
++
++    if (!s || !s->voice || !n) {
++        return;
++    }
++    audio_be_set_active_out(s->audio_be, s->voice, true);
++    done = audio_be_write(s->audio_be, s->voice, (void *)buf, n);
++    s->pcm_bytes += done;
++    s->pcm_transfers++;
++    if (s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-ssi: played %zu/%zu bytes (total %"
++                      PRIu64 ", transfers %u)\n", done, n, s->pcm_bytes,
++                      s->pcm_transfers);
++    }
++}
++
++void ze0_ssi_attach_dmac(Ze0SsiState *s, Ze0HpbDmacState *d)
++{
++    s->dmac = d;
++}
++
++static uint64_t ze0_ssi_read(void *opaque, hwaddr addr, unsigned size)
++{
++    Ze0SsiState *s = opaque;
++    uint64_t v = 0;
++    unsigned i;
++
++    for (i = 0; i < size && addr + i < ZE0_SSI_SIZE; i++) {
++        v |= (uint64_t)s->regs[(addr + i) / 4] << (8 * (i % 4));
++    }
++    if (s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-ssi: read  @0x%05" HWADDR_PRIx
++                      " size %u -> 0x%" PRIx64 "\n", addr, size, v);
++    }
++    return v;
++}
++
++static void ze0_ssi_write(void *opaque, hwaddr addr, uint64_t value,
++                          unsigned size)
++{
++    Ze0SsiState *s = opaque;
++    unsigned i;
++
++    for (i = 0; i < size && addr + i < ZE0_SSI_SIZE; i++) {
++        s->regs[(addr + i) / 4] =
++            (s->regs[(addr + i) / 4] & ~(0xffu << (8 * (i % 4)))) |
++            ((value >> (8 * (i % 4))) & 0xffu) << (8 * (i % 4));
++    }
++    if (s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-ssi: write @0x%05" HWADDR_PRIx
++                      " size %u <- 0x%" PRIx64 "\n", addr, size, value);
++    }
++}
++
++static const MemoryRegionOps ze0_ssi_ops = {
++    .read = ze0_ssi_read,
++    .write = ze0_ssi_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .impl = {
++        .min_access_size = 1,
++        .max_access_size = 4,
++    },
++};
++
++/* The audio backend pulls from a callback; PCM arrives through DMA instead. */
++static void ze0_ssi_callback(void *opaque, int free)
++{
++}
++
++static void ze0_ssi_realize(DeviceState *dev, Error **errp)
++{
++    Ze0SsiState *s = ZE0_SSI(dev);
++    struct audsettings as;
++
++    memory_region_init_io(&s->iomem, OBJECT(s), &ze0_ssi_ops, s, "ze0-ssi",
++                          ZE0_SSI_SIZE);
++    sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->iomem);
++
++    s->selftest_timer = timer_new_ns(QEMU_CLOCK_REALTIME, ze0_ssi_selftest, s);
++    if (s->selftest_pcm) {
++        timer_mod(s->selftest_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) +
++                  2 * NANOSECONDS_PER_SECOND);
++    }
++
++    if (s->audio_be && audio_be_check(&s->audio_be, errp)) {
++        as.freq = s->rate;
++        as.nchannels = s->channels;
++        as.fmt = AUDIO_FORMAT_S16;
++        as.big_endian = false;
++        s->voice = audio_be_open_out(s->audio_be, s->voice, "ze0-ssi", s,
++                                     ze0_ssi_callback, &as);
++        if (!s->voice) {
++            error_setg(errp, "ze0-ssi: could not open playback voice");
++            return;
++        }
++    }
++}
++
++static const Property ze0_ssi_properties[] = {
++    DEFINE_AUDIO_PROPERTIES(Ze0SsiState, audio_be),
++    DEFINE_PROP_BOOL("trace", Ze0SsiState, trace, false),
++    DEFINE_PROP_INT32("rate", Ze0SsiState, rate, 48000),
++    DEFINE_PROP_INT32("channels", Ze0SsiState, channels, 2),
++    DEFINE_PROP_UINT32("selftest-pcm", Ze0SsiState, selftest_pcm, 0),
++};
++
++static void ze0_ssi_class_init(ObjectClass *klass, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++
++    dc->realize = ze0_ssi_realize;
++    device_class_set_props(dc, ze0_ssi_properties);
++}
++
++static const TypeInfo ze0_ssi_info = {
++    .name = TYPE_ZE0_SSI,
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(Ze0SsiState),
++    .class_init = ze0_ssi_class_init,
++};
++
++static void ze0_ssi_register(void)
++{
++    type_register_static(&ze0_ssi_info);
++}
++
++type_init(ze0_ssi_register)
+diff --git a/include/hw/sh4/ze0_ssi.h b/include/hw/sh4/ze0_ssi.h
+new file mode 100644
+--- /dev/null
++++ b/include/hw/sh4/ze0_ssi.h
+@@ -0,0 +1,35 @@
++/*
++ * ZE0 SSI audio block (TODO M8.H46).
++ *
++ * Two PCM streams leave the SoC over SSI: WaveSSI1 (PLAY_CH 12, REC_CH 11)
++ * and WaveSSI2 (PLAY_CH 13), both driven by the shared HPB-DMAC at
++ * 0xffc08000.  The register block is at 0xffe00000 (P4) with an area-7
++ * alias at 0x1fe00000; the three SSI channels are 0x10000 apart.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#ifndef HW_SH4_ZE0_SSI_H
++#define HW_SH4_ZE0_SSI_H
++
++#include "hw/core/sysbus.h"
++#include "qemu/audio.h"
++
++#define TYPE_ZE0_SSI "ze0-ssi"
++OBJECT_DECLARE_SIMPLE_TYPE(Ze0SsiState, ZE0_SSI)
++
++#define ZE0_SSI_BASE        0xffe00000u
++#define ZE0_SSI_SIZE        0x30000u
++#define ZE0_SSI_BASE_A7     0x1fe00000u
++#define ZE0_SSI_END_A7      0x1fe30000u
++
++/** True when a DMA destination is a PCM FIFO of the SSI block. */
++bool ze0_ssi_is_fifo(uint32_t addr);
++#define ZE0_SSI_SELFTEST_RAM 0x09982000u
++
++/** Hand one DMA buffer of PCM bytes to the audio backend. */
++void ze0_ssi_play(Ze0SsiState *s, const uint8_t *buf, size_t n);
++
++/** Called by the machine init once the HPB-DMAC has been realized. */
++void ze0_ssi_attach_dmac(Ze0SsiState *s, struct Ze0HpbDmacState *d);
++
++#endif
