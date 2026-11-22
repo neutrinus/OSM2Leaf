@@ -4833,7 +4833,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7240–C-7249
 
 - [ ] **M8.H28 — `kepdrv.dll`: speed pulse, reverse signal and gyro — the dead-reckoning inputs**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h28-kepdrv · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: Between GPS fixes the unit dead-reckons from wheel pulses, a gyro and the reverse signal. A position that jumps without matching pulses may be filtered out, so the emulator needs these inputs too.
