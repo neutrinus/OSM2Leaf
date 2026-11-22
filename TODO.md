@@ -4233,7 +4233,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: a screenshot shows an AUI form element, or the EXP shows that the injected answer reaches SystemCC and the skin still loads no form (then C-8238 is refuted and the next wait is named).
   - Stop: one session; if the answer needs Audio.exe's full source state machine, hand over to M8.H45.
   - Falsifier: with the answer injected and logged by SystemCC, `0x037dffdc` and `0x037def48` stay silent.
-  - Claims: C-8260–C-8269
+  - Claims: C-8270–C-8279
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
