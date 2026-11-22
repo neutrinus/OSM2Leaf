@@ -67,3 +67,46 @@ problems:
   appeared (#541, #555, #559, #564, #566). Re-check state before each merge.
 - No navigator sessions were launched yet for the eight drivers; their draft
   PRs have work, but review/verification is still outstanding.
+
+--- (final, after the eight reviews)
+
+Outcome table (mode: pair names the navigator; rounds = navigator review rounds):
+
+| Task | Mode | Rounds | Outcome | PR | EXP |
+| --- | --- | --- | --- | --- | --- |
+| M9.68 | pair: dfc3cf232ffevl7uffZTpoqm2i | 2 | done | #545 | EXP-2026-11-22-M9.68-tile-header-sweep |
+| M8.H8 | pair: dfc67d50affegHSPtSovPGT6HW | 2 | done | #547 | EXP-2026-11-22-M8.H8-sd-block-trace |
+| M8.H13 | pair: dfbf0c503ffePJIihpRgXt10eb | 3 | done | #546 | EXP-2026-11-22-M8.H13-l4check |
+| M4.86 | solo (selftest-covered data-analysis command) | 0 | done | #548 | EXP-2026-11-22-M4.86-tile-unknown-ranking |
+| M5.75 | solo (Pair: solo, selftest-covered profile/tool) | 0 | done | #549 | EXP-2026-11-22-M5.75-geom-budget |
+| M9.70 | pair: dfc3c9a87ffe3WiOMpQoRJMjcq | 2 | done | #550 | EXP-2026-11-22-M9.70-polish-poi-l3 |
+| H130 | pair: dfc3c4618ffeb19rSqerbFjInh | 2 | done | #551 | EXP-2026-11-22-H130-board-claim-raw-pipe |
+| M4.87 | pair: dfc3beba0ffe0lszlTdCe3J4gX | 2 | done | #552 | EXP-2026-11-22-M4.87-polish-glyphs |
+
+Navigator-caught defects (why pairing paid off):
+- M8.H8: false "main fails the same two selftests" claim (main was green);
+  a todo_check Priorities regression introduced by the branch; 3349 unmapped
+  reads mis-attributed to 0x5c00000; empty review placeholder.
+- M9.68: empty placeholder; Plan promised a factory header dump absent from
+  Observations; 38 B / 12 B numbers printed by no command (corrected to 40 B).
+- M8.H13: `hddinfo.parse` instead of `hddinfo.HddInfo.parse`; orphan commit
+  cited; false "plan written before tool" (author timestamps); done status
+  lost in rebase (round 3).
+- M9.70: empty placeholder; two POIs vs task's one (scope reconciled);
+  negative-control commands missing / wrong build flag.
+- H130: empty placeholder; stale base with 70 lost claim rows.
+- M4.87: orphan plan commit; SH-4 delay-slot order wrong; variant reading
+  asserted as fact where EXP said HYPOTHESIS; stale base/70 lost rows.
+- M4.86 (solo, self-review): residual mislabelled sec2 instead of sec4.
+
+Merge notes:
+- origin/main moved after almost every merge (concurrent TL/agents). Each PR
+  was rebased onto fresh main, board conflicts resolved with `board.py resolve`,
+  `board.py lost --base origin/main` checked (remaining "lost" IDs always newer
+  on main, never dropped by the branch), CI re-read (6 pass), `gh pr ready`,
+  squash merge. No force-push to main.
+- All eight worktrees and remote branches removed after merge; no leftover
+  worktree from this batch. Two non-draft PRs (#571 M8.C1m, #575 M8.C1o) plus
+  four drafts belong to other processes and are left for the next TL.
+- /tmp scratch rule merged in PR #567; 870 MB of large temp files moved to
+  ~/projekty/leafre-work/scratch/tmp-relocated/.
