@@ -388,6 +388,11 @@ Known limits:
   a ZE0 layer-table pair (0 or 26), not a KIWI `SWS` header word. A ZE0 shape
   is also one word shorter than `mingr_t`. Use the ZE0 grammar above, not a
   KIWI layout, in writers.
+- The KIWI 7.2 Road Data Frame does not describe the even (road) records
+  either (M4.69, C-7680–C-7684, `EXP-2026-11-22-M4.69-kiwi-road-frame`):
+  0 of 6,000 records on EU2011/US2011 fit; the first word is a ZE0 parcel
+  code, not a KIWI `SWS` header. No KIWI road-type table was produced, so
+  the class mapping here stays provisional.
 
 ## `LEV3456R.DAT`: coarse levels 3–5
 
