@@ -1610,6 +1610,32 @@ python3 tools/ze0_ipl.py patch archive/head256.img --prefer-app auiapp.exe,auirt
         --stub-dlls hcx --copy-dlls apptimer -o ipl.txt
 ```
 
+`--copy-dlls unitflash` (M8.C1k) replaces both: it copies the real
+`HCXLog.dll`, `HCXMemory.dll` and `AppTimerDll.dll` from the unit-flash
+kernel image NK1 (`firmware/unit-flash/nk1-QY7200ND.bin`, committed by the
+owner's decision; `--nk1 PATH` for another one) the same way. Compressed
+sections (HCXMemory's RW and RO data) are stored decompressed, by the card
+kernel's own routine (`nk_decomp.py`). Record:
+EXP-2026-11-22-M8.C1k-unit-flash-nk1.
+
+```bash
+python3 tools/ze0_ipl.py patch archive/head256.img --prefer-app auiapp.exe,auirtdll.dll \
+        --copy-dlls unitflash -o ipl.txt
+```
+
+## `nk1_extract.py` — cut NK1 out of a unit NAND dump (M8.C1k)
+
+Finds the CE image with the most modules on a 64 KiB boundary of a
+LeafSDTools NAND dump and writes only that image; boot loaders, the other
+regions and the SRAM/VFlash/PROD dumps are never written.
+
+```bash
+python3 tools/nk1_extract.py --selftest
+python3 tools/nk1_extract.py NAND.bin --list
+python3 tools/nk1_extract.py NAND.bin -o firmware/unit-flash/nk1-QY7200ND.bin \
+        --sha256 b4b3542bb95d336c55ed11e1a4854be2c5f3dce1b60e074629d2b185f3b9fb00
+```
+
 ## `board.py` — edit `TODO.md` and `claims.md` by line operations (H123)
 
 Every change to the board files is one splice; a guard refuses a write that

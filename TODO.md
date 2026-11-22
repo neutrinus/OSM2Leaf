@@ -4250,6 +4250,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: with the answer injected and logged by SystemCC, `0x037dffdc` and `0x037def48` stay silent.
   - Claims: C-8280–C-8289
 
+- [x] **M8.C1k — UI layer on `-M ze0`: real unit-flash DLLs from NK1 instead of stubs**
+  - Status: done · Owner: Claude (thread "Zamontuj kartę SD w QEMU") · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1i
+  - Goal: Marek sent a LeafSDTools dump of his unit's flash (2026-11-22) and asked to put the system files into the repository so QEMU is easier to start. The NAND holds NK1, the CE image image A was built against, with the real `HCXLog.dll`, `HCXMemory.dll` and `AppTimerDll.dll` that M8.C1h stubbed and M8.C1i copied from image C.
+  - Precheck: `tools/nk1_extract.py NAND --list` shows a 51-module CE image at 0x40000.
+  - Scope: (1) cut NK1 out of the dump (`tools/nk1_extract.py`), check it for the unit serial, unit key, lock password and VIN-shaped strings, commit it as `firmware/unit-flash/nk1-QY7200ND.bin` (owner's decision, AGENTS.md exception); (2) `ze0_ipl.py patch --copy-dlls unitflash [--nk1 PATH]` copies the three modules into image A, compressed sections stored decompressed; (3) one run against the M8.C1i baseline (H10).
+  - Input: EXP-2026-11-22-M8.C1i-aui-paint-gate, `tools/ze0_stubdll.py`, `tools/nk_decomp.py`.
+  - Done when: the run loads the real modules (their own log lines appear) and the EXP records what changes against H10.
+  - Stop: one session.
+  - Falsifier: with the real modules, controls fail that loaded with the stubs.
+  - Claims: C-8290–C-8299
+  - Result: EXP-2026-11-22-M8.C1k-unit-flash-nk1 (C-8290–C-8297). NK1, the unit-flash CE image (51 modules), is cut from Marek's NAND dump by `tools/nk1_extract.py` and committed as `firmware/unit-flash/nk1-QY7200ND.bin` (owner's decision; checked for serial, unit key, password, VIN). `ze0_ipl.py patch --copy-dlls unitflash` copies the real HCXLog/HCXMemory/AppTimerDll (moved; HCXMemory's compressed sections decoded by image B's kernel routine). The real HCXMemory runs (CreateSharedBuffer lines), failures are unchanged (16 imports: Cws_Apl, BOLERODLL; 6 controls), ScreenState now reports CC window 16 unregistered; the paint gate (Audio.exe/ACM module 6) is unchanged. Next: M8.C1j.
+
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
   - Depends: — (trigger: M8 F1 stable kernel; see `todo-history-2026-11-05.md` §M8.D)

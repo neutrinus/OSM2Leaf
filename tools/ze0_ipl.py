@@ -41,12 +41,16 @@ What the patch holds (each line is ``PHYS HEXBYTES  # why``):
 8. ``--copy-dlls apptimer`` (M8.C1i) copies ``AppTimerDll.dll`` from ROM
    image C (not loaded by the IPL) into image A's TOC, moved to free code
    and data addresses; see ``ze0_stubdll.py``.
+9. ``--copy-dlls unitflash`` (M8.C1k) copies the real ``HCXLog.dll``,
+   ``HCXMemory.dll`` and ``AppTimerDll.dll`` from the unit-flash kernel image
+   NK1 (``firmware/unit-flash/``, ``--nk1 PATH``) instead of stubs.
+   Compressed sections are stored decompressed (card kernel's routine).
 
 Usage::
 
     ze0_ipl.py patch archive/head256.img -o ipl.txt [--kernel-off 0x3e00200]
                      [--prefer-app auiapp.exe,auirtdll.dll] [--stub-dlls hcx]
-                     [--copy-dlls apptimer]
+                     [--copy-dlls apptimer|unitflash] [--nk1 PATH]
     ze0_ipl.py plan  archive/head256.img            # what would be dropped
     ze0_ipl.py --selftest
 """
@@ -202,7 +206,7 @@ def xip_entry(addr, length, order, name):
     return e.ljust(XIP_ENTRY_LEN, b"\0")
 
 
-def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=None):
+def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=None, nk1=None):
     kern = CERom(data, kernel_off)
     app = CERom(data, app_off)
     kh, ah = kern.hdr, app.hdr
@@ -240,7 +244,7 @@ def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=Non
     if stubs or copies:
         import ze0_stubdll
         s_lines, extra, s_notes = ze0_stubdll.build(kern, app, keep_k, keep_a, stubs,
-                                                    copies=copies)
+                                                    copies=copies, nk1=nk1)
         for va, blob, why in s_lines:
             poke(va, blob, why)
         notes += [("stub", n, "") for n in s_notes]
@@ -314,8 +318,12 @@ def main():
                        help="comma list: keep image A's copy of these modules (M8.C1g)")
         p.add_argument("--stub-dlls", default="", choices=("", "hcx"),
                        help="add stub modules for unit-flash DLLs (M8.C1h, ze0_stubdll.py)")
-        p.add_argument("--copy-dlls", default="", choices=("", "apptimer"),
-                       help="copy and move modules of ROM image C into image A (M8.C1i)")
+        p.add_argument("--copy-dlls", default="", choices=("", "apptimer", "unitflash"),
+                       help="copy and move modules into image A: apptimer = from ROM image C "
+                            "(M8.C1i); unitflash = HCXLog/HCXMemory/AppTimerDll from the "
+                            "unit-flash kernel image NK1 (M8.C1k)")
+        p.add_argument("--nk1", default=None,
+                       help="unit-flash kernel image (default firmware/unit-flash/nk1-QY7200ND.bin)")
         if name == "patch":
             p.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
@@ -327,7 +335,7 @@ def main():
     data = open_image(a.image)
     prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
     lines, notes, info = build(data, a.kernel_off, a.app_off, a.chain_at, prefer,
-                              a.stub_dlls or None, a.copy_dlls or None)
+                              a.stub_dlls or None, a.copy_dlls or None, a.nk1)
     print("chain pointer var 0x%08x (template 0x%08x), XIPCHAIN at phys 0x%08x, RAM end 0x%08x"
           % (info["chain_var"], info["template"], info["chain_at"], info["ram_end"]))
     print("kernel modules kept %d/%d, image A modules kept %d/%d"
