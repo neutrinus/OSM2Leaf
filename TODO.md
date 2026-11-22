@@ -5258,7 +5258,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7510–C-7519
 
 - [ ] **M8.H55 — Bluetooth module on `SCI8:`: wire protocol and what makes its start-up finish**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h55-bt-wire · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: `BT_FW.dll` and `BT_MGR.dll` talk to a Bluetooth module over the high-speed UART. For the emulator we need the transport (HCI H4, BCSP, or a vendor command set), whether firmware is downloaded into the module at start, and the shortest exchange that lets the stack settle (present, or cleanly absent). M1.41 maps the stack above; this task is the wire only.
