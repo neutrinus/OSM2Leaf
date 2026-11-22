@@ -138,7 +138,9 @@ def change_summary(src_tree: Path, out_tree: Path, out_img: Path) -> dict[str, A
     byte-by-byte image diff: ``mkcard.diff_ranges`` walks all 7.6 GB in Python
     and was killed by resource limits on the real image.  The cluster numbers
     come from OUT.img's own FAT via ``mkcard._resolve``/``chain``, so they are
-    the real chains the firmware reads, not an estimate.
+    the real chains the firmware reads, not an estimate.  The UNION of both
+    sides is compared (H69): a file deleted from OUT.img is a change and is
+    listed in ``deleted_files`` even though it has no cluster to map.
     """
     try:
         import mkcard
@@ -148,13 +150,20 @@ def change_summary(src_tree: Path, out_tree: Path, out_img: Path) -> dict[str, A
                     for p in root.rglob("*") if p.is_file()}
 
         before, after = hashes(src_tree), hashes(out_tree)
-        changed = sorted(rel for rel, digest in after.items()
-                         if before.get(rel) != digest)
+        # H69: iterate the UNION. A file present in --factory but missing from
+        # OUT.img is a change and must be reported, not silently dropped by
+        # walking only the output tree.
+        union = sorted(set(before) | set(after))
+        changed = [rel for rel in union if before.get(rel) != after.get(rel)]
+        deleted = [rel for rel in union if rel in before and rel not in after]
+        added = [rel for rel in union if rel not in before and rel in after]
         clusters: set[int] = set()
         unresolved: list[str] = []
         with out_img.open("rb") as fh:
             _part, geo, fat = mkcard.open_map_partition(fh)
             for rel in changed:
+                if rel in deleted:
+                    continue  # no cluster in OUT.img by definition
                 try:
                     _entry, cluster = mkcard._resolve(fh, geo, fat, rel)
                     clusters.update(mkcard.chain(fat, cluster))
@@ -162,15 +171,20 @@ def change_summary(src_tree: Path, out_tree: Path, out_img: Path) -> dict[str, A
                     unresolved.append(f"{rel}: {exc}")
         return {
             "method": "SHA-256 per file in factory/out trees; FAT chain from OUT.img",
-            "files_compared": len(before),
+            "files_before": len(before),
+            "files_after": len(after),
+            "files_compared": len(union),
             "changed_files": changed,
+            "deleted_files": deleted,
+            "added_files": added,
             "changed_cluster_count": len(clusters),
             "changed_clusters": sorted(clusters),
             "unresolved": unresolved,
             "cluster_bytes": geo.cluster_bytes,
             "data_offset": geo.data_offset,
             "note": "Clusters of files whose content differs from --factory; "
-                    "FAT/FSInfo and directory-entry changes are not counted.",
+                    "deleted files have no OUT.img cluster and are listed in "
+                    "deleted_files; FAT/FSInfo and directory entries are not counted.",
         }
     except Exception as exc:  # noqa: BLE001 - evidence must not crash the bundle
         return {"error": f"{type(exc).__name__}: {exc}", "changed_files": [],
@@ -486,7 +500,9 @@ def write_report(path: Path, m: dict[str, Any]) -> None:
         lines.append("- no L3 rows were produced")
     cc = m.get("changed_clusters") or {}
     lines += ["", "## Card diff", "",
-              f"- Files compared: {cc.get('files_compared')}",
+              f"- Files before/after/union: {cc.get('files_before')} / "
+              f"{cc.get('files_after')} / {cc.get('files_compared')}",
+              f"- Deleted from OUT.img: {cc.get('deleted_files')}",
               f"- Changed files: {cc.get('changed_files')}",
               f"- Changed data clusters: {cc.get('changed_cluster_count')}",
               f"- Cluster numbers: {cc.get('changed_clusters')}",
@@ -547,6 +563,29 @@ def selftest() -> int:
             "report quotes rule 13")
         chk("SYNTHETIC_OSM" in " ".join(good["notes"]),
             "compiler built-in OSM mode disclosed")
+
+        # H69 (navigator round 1): a file present in --factory but deleted
+        # from OUT.img must be reported. Plant a sentinel only in the good
+        # run's factory tree and re-run the pure mapper against the same
+        # OUT.img -- no subprocess and no second card build.
+        good_work = root / "work-good"
+        sentinel = good_work / "factory-tree" / "DELETED_SENTINEL.DAT"
+        sentinel.write_bytes(b"H69 sentinel\n" * 16)
+        try:
+            dsum = change_summary(good_work / "factory-tree",
+                                  good_work / "out-tree", root / "good.img")
+            base_before = good["changed_clusters"].get("files_before")
+            chk("DELETED_SENTINEL.DAT" in dsum.get("changed_files", []),
+                "H69: deleted file listed in changed_files")
+            chk("DELETED_SENTINEL.DAT" in dsum.get("deleted_files", []),
+                "H69: deleted file listed in deleted_files")
+            chk(base_before is not None and
+                dsum.get("files_before") == base_before + 1,
+                f"H69: both-side count before +1 ({dsum.get('files_before')} vs {base_before})")
+            chk(not any("DELETED_SENTINEL" in u for u in dsum.get("unresolved", [])),
+                "H69: deleted file skipped for cluster lookup, not an error")
+        finally:
+            sentinel.unlink()
 
         rc2, bad = do("bad", force=True)
         by2 = {s["name"]: s for s in bad["stages"]}
