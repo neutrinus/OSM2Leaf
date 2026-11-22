@@ -568,6 +568,7 @@
   "docs/experiments/EXP-2026-11-22-M8.H38-panel-peer.md",
   "docs/experiments/EXP-2026-11-22-M8.H53-powermonitor-static.md",
   "docs/experiments/EXP-2026-11-22-M8.H55-bt-wire.md",
+  "docs/experiments/EXP-2026-11-22-M8.H56-bt-peer.md",
   "docs/experiments/EXP-2026-11-22-M8.H6-run-determinism.md",
   "docs/experiments/EXP-2026-11-22-M8.H65-debugshell.md",
   "docs/experiments/EXP-2026-11-22-M8.H43-anwdrv-frame-protocol.md",
@@ -585,6 +586,7 @@
  ],
  "summary": {"files": 575, "citations": 1653, "unique_va": 481, "start": 1472, "inside": 75, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 16, "unmapped": 2},
  "summary": {"files": 569, "citations": 1640, "unique_va": 470, "start": 1458, "inside": 76, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 16, "unmapped": 2},
+ "summary": {"files": 576, "citations": 1654, "unique_va": 481, "start": 1473, "inside": 75, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 16, "unmapped": 2},
  "rows": [
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
@@ -2112,6 +2114,7 @@
   {"file": "docs/experiments/EXP-2026-11-22-M8.H55-bt-wire.md", "va": "0x03693db0", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "docs/experiments/EXP-2026-11-22-M8.H55-bt-wire.md", "va": "0x03694364", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "docs/experiments/EXP-2026-11-22-M8.H55-bt-wire.md", "va": "0x0369566c", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
+  {"file": "docs/experiments/EXP-2026-11-22-M8.H56-bt-peer.md", "va": "0x035c9374", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "docs/experiments/EXP-2026-11-22-M8.H65-debugshell.md", "va": "0x039237a0", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "docs/experiments/EXP-2026-11-22-M8.H65-debugshell.md", "va": "0x03923b04", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "docs/experiments/EXP-2026-11-22-M8.H65-debugshell.md", "va": "0x03923b7c", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
