@@ -35,11 +35,14 @@ What the patch holds (each line is ``PHYS HEXBYTES  # why``):
    the drivers live in device.exe, the AUI DLLs in AuiApp.exe).  The kernel
    image B is the updater build, so its ``auiapp.exe``/``auirtdll.dll`` do
    not know A's screens; ``--prefer-app auiapp.exe,auirtdll.dll`` runs A's.
+7. ``--stub-dlls hcx`` (M8.C1h) appends stub modules for ``HCXLog.dll`` and
+   ``HCXMemory.dll`` (unit flash, not on the card) to image A's TOC; see
+   ``ze0_stubdll.py``.
 
 Usage::
 
     ze0_ipl.py patch archive/head256.img -o ipl.txt [--kernel-off 0x3e00200]
-                     [--prefer-app auiapp.exe,auirtdll.dll]
+                     [--prefer-app auiapp.exe,auirtdll.dll] [--stub-dlls hcx]
     ze0_ipl.py plan  archive/head256.img            # what would be dropped
     ze0_ipl.py --selftest
 """
@@ -122,11 +125,12 @@ def plan(kern, app, prefer=()):
     return keep_k, keep_a, notes
 
 
-def toc_bytes(rom, keep):
-    """New TOC (kept entries) followed by the unchanged FILES entries."""
+def toc_bytes(rom, keep, extra=()):
+    """New TOC (kept entries, then ``extra`` entries) and the unchanged FILES."""
     base = rom.hdr_off + ROMHDR_SIZE
     out = b"".join(rom.d[base + TOC_SIZE * m["index"]: base + TOC_SIZE * (m["index"] + 1)]
                    for m in keep)
+    out += b"".join(extra)
     fstart = base + TOC_SIZE * rom.hdr["nummods"]
     out += rom.d[fstart: fstart + FILES_SIZE * rom.hdr["numfiles"]]
     return out
@@ -194,7 +198,7 @@ def xip_entry(addr, length, order, name):
     return e.ljust(XIP_ENTRY_LEN, b"\0")
 
 
-def build(data, kernel_off, app_off, chain_at, prefer=()):
+def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None):
     kern = CERom(data, kernel_off)
     app = CERom(data, app_off)
     kh, ah = kern.hdr, app.hdr
@@ -228,13 +232,23 @@ def build(data, kernel_off, app_off, chain_at, prefer=()):
     poke(app.ptoc, struct.pack("<I", a_dllfirst),
          "image A ROMHDR dllfirst 0x%08x -> 0x%08x (no DLL data reservation)" % (ah["dllfirst"], a_dllfirst))
     keep_k, keep_a, notes = plan(kern, app, prefer)
+    extra = []
+    if stubs:
+        import ze0_stubdll
+        s_lines, extra, s_notes = ze0_stubdll.build(kern, app, keep_k, keep_a, stubs)
+        for va, blob, why in s_lines:
+            poke(va, blob, why)
+        notes += [("stub", n, "") for n in s_notes]
+        if len(keep_a) + len(extra) > ah["nummods"]:
+            raise SystemExit("ze0_ipl: image A TOC has no room for the stub modules")
     if len(keep_k) != kh["nummods"]:
         poke(kern.ptoc + 0x54, toc_bytes(kern, keep_k), "kernel TOC, %d of %d modules + FILES"
              % (len(keep_k), kh["nummods"]))
         poke(kern.ptoc + 0x10, struct.pack("<I", len(keep_k)), "kernel ROMHDR nummods")
-    poke(app.ptoc + 0x54, toc_bytes(app, keep_a), "image A TOC, %d of %d modules + FILES"
-         % (len(keep_a), ah["nummods"]))
-    poke(app.ptoc + 0x10, struct.pack("<I", len(keep_a)), "image A ROMHDR nummods")
+    poke(app.ptoc + 0x54, toc_bytes(app, keep_a, extra),
+         "image A TOC, %d of %d modules%s + FILES"
+         % (len(keep_a), ah["nummods"], " + %d stubs" % len(extra) if extra else ""))
+    poke(app.ptoc + 0x10, struct.pack("<I", len(keep_a) + len(extra)), "image A ROMHDR nummods")
     info = dict(chain_var=var, template=tva, ram_end=ram_end, chain_at=chain_at,
                 kernel_mods=(len(keep_k), kh["nummods"]), app_mods=(len(keep_a), ah["nummods"]))
     return lines, notes, info
@@ -293,6 +307,8 @@ def main():
         p.add_argument("--chain-at", type=lambda s: int(s, 0), default=DEFAULT_CHAIN_AT)
         p.add_argument("--prefer-app", default="",
                        help="comma list: keep image A's copy of these modules (M8.C1g)")
+        p.add_argument("--stub-dlls", default="", choices=("", "hcx"),
+                       help="add stub modules for unit-flash DLLs (M8.C1h, ze0_stubdll.py)")
         if name == "patch":
             p.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
@@ -303,7 +319,8 @@ def main():
         ap.error("command required")
     data = open_image(a.image)
     prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
-    lines, notes, info = build(data, a.kernel_off, a.app_off, a.chain_at, prefer)
+    lines, notes, info = build(data, a.kernel_off, a.app_off, a.chain_at, prefer,
+                              a.stub_dlls or None)
     print("chain pointer var 0x%08x (template 0x%08x), XIPCHAIN at phys 0x%08x, RAM end 0x%08x"
           % (info["chain_var"], info["template"], info["chain_at"], info["ram_end"]))
     print("kernel modules kept %d/%d, image A modules kept %d/%d"

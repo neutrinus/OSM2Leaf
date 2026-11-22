@@ -5040,3 +5040,14 @@ into three printed classes.
 | C-8205 | AuiApp's surfaces: Command/Bitmap/Alphamap 800 × 2400, FontAlpha 800 × 960; DU plane 1 shows the AUI surface at window (0, 480). | VERIFIED | H | EXP-2026-11-22-M8.C1g-ui-layer O6; run G18 |
 | C-8206 | On a keyed DU plane a pixel is transparent when alpha bit 15 is clear or it equals the key; DU `+0x08` (`0xa5`/`0xa6`) is not a plane alpha. | OBSERVED | M | EXP-2026-11-22-M8.C1g-ui-layer O7 |
 | C-8207 | 2DG op `0x44 XY` adds XY to the local offset; AuiApp uses (0, 480) and (0, −480) to draw its surface page by page. | VERIFIED (by rendering) | M | EXP-2026-11-22-M8.C1g-ui-layer O8 |
+
+## M8.C1h — HCX stub DLLs on ze0 (C-8210–C-8219)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8210 | Image A's HCX imports go through IAT words whose run-time address is the data section's `realaddr` (e.g. SystemCC slot `0x02a8b264` is read at `0x01cd8264`); thunks and vtables reference those. | VERIFIED | H | EXP-2026-11-22-M8.C1h-hcx-stubs Method, O1 |
+| C-8211 | `HCXLog.dll` exports a logger base class: #7 constructor, #6 destructor, #1 member destructor, #2/#4/#5 virtual methods whose results are ignored. | OBSERVED | M | EXP-2026-11-22-M8.C1h-hcx-stubs O1 |
+| C-8212 | `HCXMemory.dll` exports a shared-memory base class: #24/#3 constructors, #1/#29 destructors, #5 lock(timeout) TRUE = success, #4 unlock, #23 (obj, type name, size) → address of a named block that callers fetch again and expect unchanged, #6 (obj, block, size) after #23. | OBSERVED | M | EXP-2026-11-22-M8.C1h-hcx-stubs O1 |
+| C-8213 | Stubs returning `this` for every ordinal and a named file mapping for HCXMemory #23 resolve all HCX imports; `Failed initialize control` drops from 16 to 5 and `ctl_PRCOM_System` initialises. | VERIFIED | H | EXP-2026-11-22-M8.C1h-hcx-stubs O3, O4; run H1 |
+| C-8214 | With the stubs, the remaining import failures are `Cws_Apl.dll` (15 Telema*CC) and `AppTimerDll.dll` (Speech, Vehicle, Usb, PhoneBTA, CameraCC). | VERIFIED | H | EXP-2026-11-22-M8.C1h-hcx-stubs O3; run H1 |
+| C-8215 | With every control loaded, AuiApp only clears its surface (2 lists in 18 min) and paints no form, also with StartForm = `frm_PRAGR_AgreeCaution`. | VERIFIED | H | EXP-2026-11-22-M8.C1h-hcx-stubs O5; runs H1, H2 |
+| C-8216 | The AUI paint is gated by system state, most likely the power/display sequence with the audio microcontroller (link fails 3 785 times in H1, SystemCC activates the OFF source). | HYPOTHESIS | L | EXP-2026-11-22-M8.C1h-hcx-stubs O4, O6, Interpretation |

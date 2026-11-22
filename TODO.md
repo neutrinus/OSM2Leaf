@@ -4140,8 +4140,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8200–C-8209
   - Result: EXP-2026-11-22-M8.C1g-ui-layer (C-8200–C-8207), stopped on the Stop case. `ze0_ipl.py --prefer-app auiapp.exe,auirtdll.dll` runs image A's AuiApp instead of the updater's; `tools/ze0_aui.py` patches in the SkinPath default, `DllRegisterServer` of 64 control DLLs and (`--no-aui-timeout`) SystemEXE's 45 s AUI wait. The real skin chain loads (ReleaseMain.skn → Substance.skn, 36 905 skins) and the system no longer shuts down, but 16 controls incl. `ctl_PRCOM_System` fail: `HCXLog.dll`, `HCXMemory.dll`, `Cws_Apl.dll` are in the unit's flash, not on the card. `ze0-0015` adds 2DG op 0x44. Next: M8.C1h stubs.
 
-- [ ] **M8.C1h — UI layer on `-M ze0`: stub `HCXLog.dll`/`HCXMemory.dll`, image C's `AppTimerDll.dll`, first AUI form on screen**
-  - Status: in progress · Owner: task/m8.c1h-hcx-stubs · Critical: no · Pair: solo
+- [x] **M8.C1h — UI layer on `-M ze0`: stub `HCXLog.dll`/`HCXMemory.dll`, image C's `AppTimerDll.dll`, first AUI form on screen**
+  - Status: done · Owner: task/m8.c1h-hcx-stubs · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1g
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). M8.C1g got image A's AuiApp running with the real skins, but 16 controls (incl. `ctl_PRCOM_System`) fail because their DLLs import libraries that live in the unit's flash, not on the card.
@@ -4152,6 +4152,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if an HCX ordinal returns a structure whose layout cannot be read from the callers, record which and stop.
   - Falsifier: with the stubs loaded, `ctl_PRCOM_System` still returns `80020003`.
   - Claims: C-8210–C-8219
+  - Result: EXP-2026-11-22-M8.C1h-hcx-stubs (C-8210–C-8216). `ze0_stubdll.py` + `ze0_ipl.py patch --stub-dlls hcx` add stub ROM modules for `HCXLog.dll`/`HCXMemory.dll` (C++ base classes; every ordinal returns `this`, HCXMemory #23 = named file mapping), placed in gwes.exe's dropped pages. All HCX imports resolve, failed controls 16 → 5 (only Cws_Apl/AppTimerDll), `ctl_PRCOM_System` initialises. AuiApp still paints no form (only clears), also with `ze0_aui.py --start-form frm_PRAGR_AgreeCaution`; likely gated by the power/display sequence with the audio microcontroller (hypothesis). Next: M8.C1i, M8.H43–H45.
+
+- [ ] **M8.C1i — UI layer on `-M ze0`: what makes AuiApp paint its first form**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1h
+  - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). After M8.C1h every non-telematics control loads, but AuiApp only clears its surface, even with StartForm = `frm_PRAGR_AgreeCaution`.
+  - Precheck: with `ze0_ipl.py patch --prefer-app auiapp.exe,auirtdll.dll --stub-dlls hcx` + `ze0_aui.py --no-aui-timeout`, `qemu -d unimp` with `gfx-trace=on` shows only two lists targeting the AUI surface, both clears.
+  - Scope: (1) the path from form load to `CFormRender` drawing in `auirtdll.dll`/`auiapp.exe` and the condition that stops it (display state, `SYS_REQ_ACTIVATE` to `MSG_PROCESS_OFF`, ScreenStateCC); (2) whether the gate is the microcontroller start handshake (M8.H43–M8.H45) or a value the IPL patch can set; (3) `AppTimerDll.dll` from image C via `ze0_stubdll.py`-style placement; (4) screenshot.
+  - Input: EXP-2026-11-22-M8.C1h-hcx-stubs, `tools/ze0_stubdll.py`, `tools/ze0_aui.py`, `docs/format/skins.md`.
+  - Done when: a screenshot from a running guest shows at least one AUI form element drawn by AuiApp, or the EXP names the gate with the code path that checks it.
+  - Stop: if the gate is the microcontroller handshake, record the call chain and hand over to M8.H44.
+  - Falsifier: forcing the suspected gate open still leaves the AUI surface cleared only.
+  - Claims: C-8220–C-8229
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
