@@ -25,6 +25,7 @@ permissions:
   actions: read
   contents: read
   issues: write
+  pull-requests: read
 
 concurrency:
   group: main-watch
@@ -62,17 +63,37 @@ jobs:
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           exit $rc
 
+      - name: PR-head verdict (H126)
+        id: prs
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set +e
+          python .github/scripts/main_watch.py --prs \
+            --json pr-heads.json 2>&1 | tee pr-heads.txt
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          # A scheduled sweep fails the run on a stale PR head, but never masks
+          # the main verdict: the final step ORs the two exit codes.
+          exit $rc
+
       - name: Verdict summary
         if: always()
         shell: bash
         run: |
           python - <<'PY'
           import json, os
-          try:
-              with open('main-watch.json', encoding='utf-8') as f:
-                  d = json.load(f)
-          except OSError:
-              d = None
+          def load(name):
+              try:
+                  with open(name, encoding='utf-8') as f:
+                      return json.load(f)
+              except OSError:
+                  return None
+          d = load('main-watch.json')
+          p = load('pr-heads.json')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
               out.write('## Main gate watchdog (H117)\n\n')
               if d is None:
@@ -87,7 +108,21 @@ jobs:
                   out.write(f"| runs read | {c['runs']} |\n")
               out.write('\n- A **salient** red opens/updates one `[H117] fix:` issue naming the SHA and the failing step; the step fails while it is open.\n')
               out.write('- A **shadowed** red is counted, not failed: a later green run on `main` covers it. This is the count H117 watches.\n')
-              out.write('- Policy: `.github/scripts/main_watch.py` (`--selftest`, `--replay RUNS_JSON`). Not a gate-semantics tool; `tools/gate.py` is unchanged.\n')
+              out.write('\n## PR-head sweep (H126)\n\n')
+              if p is None:
+                  out.write('*no PR-head document (the sweep did not run)*\n')
+              else:
+                  c = p['counts']
+                  out.write('| quantity | value |\n| --- | --- |\n')
+                  out.write(f"| open PRs (incl. drafts) | {c['open']} |\n")
+                  out.write(f"| open non-draft PRs | {c['open_non_draft']} |\n")
+                  out.write(f"| stale heads (no completed gate check-run) | {c['stale']} |\n")
+                  stale = [v for v in p['prs'] if v['state'] == 'stale']
+                  for v in stale:
+                      out.write(f"- **#{v['number']}** head `{v['head_short']}` last tested `{str(v['last_tested_sha'])[:8]}`\n")
+              out.write('\n- An open non-draft PR head with 0 completed gate check-runs opens/updates one `[H126] fix:` issue; the sweep fails while it exists.\n')
+              out.write('- A `pending` run is not stale (the sweep waits); a draft is out of scope.\n')
+              out.write('- Policy: `.github/scripts/main_watch.py` (`--selftest`, `--replay RUNS_JSON`, `--replay-pr PR_JSON`). Not a gate-semantics tool; `tools/gate.py` is unchanged.\n')
           PY
 
       - name: Upload verdict
@@ -98,4 +133,6 @@ jobs:
           path: |
             main-watch.json
             main-watch.txt
+            pr-heads.json
+            pr-heads.txt
           if-no-files-found: warn

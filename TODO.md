@@ -1222,8 +1222,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-6590–C-6599
   - Result: EXP-2026-11-21-H125-unblock-done-target (C-6590–C-6593). `todo_check.py --strict` exits 1 and names M3.29 (Unblock M9.53 done) and M4.23 (Unblock M4.25/M4.26 archived); the class census is 5 blocked tasks / 9 refs (M3.16, M3.18, M4.51 are the same hole) = 8 prior + 9 new strict errors; default `todo_check` exit 0 and `gate.py` 4 pass / 0 fail / 0 skip (fn_audit PASS); selftest 43 checks covers done/archived ERROR + open no-error. Board repair is M3.36.
 
-- [ ] **H126 — PR checks go stale: a push to a PR head after its last run leaves zero check-runs, and nothing re-runs or refuses the merge**
-  - Status: in progress · Owner: task/h126-stale-pr-checks · Critical: yes · Pair: required
+- [x] **H126 — PR checks go stale: a push to a PR head after its last run leaves zero check-runs, and nothing re-runs or refuses the merge**
+  - Status: done · Owner: task/h126-stale-pr-checks · Critical: yes · Pair: required
   - Depends: — (H98 branch protection is the preferred fix and stays its own block; this is the mechanical half that also catches the stale case)
   - Goal: QA cycle 20 found M8.C1 #394 in the open-PR set with a head commit `99d0b54` (authored on `main` as `b90f9d47`) that has **0** check-runs: `gh api repos/neutrinus/OSM2Leaf/commits/99d0b54b88290066a5d587d5a0a9e3ecb7b946dd/check-runs -q .total_count` prints `0`, while the previous head `6b55ccd0` has 6 and both passed on-topic. The board and the reviewers therefore see "no checks reported" and a green-looking PR whose tip was never tested — the same class as H90 (a defect no local gate could see) but on `pull_request` runs instead of `main`. `gh pr checks 394` exits 1 with `no checks reported on the 'task/m8.c1-hpb-dmac' branch`. The `pull_request` trigger does fire on a pushed head, so the failure is either a skipped re-run, a force-push that GitHub coalesced, or a head that was rewritten during a rebase; the check must say which.
   - Precheck: `gh pr checks 394` prints `no checks reported` and exits 1; `gh run list --workflow "CI quality gate" --branch task/m8.c1-hpb-dmac --limit 6 --json headSha -q '.[].headSha' | sort -u` prints `6b55ccd…`, `19748d2…`, `738817d…` — never `99d0b54`; `gh api …/commits/99d0b54…/check-runs -q .total_count` prints `0`.
@@ -1234,6 +1234,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: if GitHub reports the check-run list for `99d0b54` as `pending` (not `none`) for more than one sweep, record that a re-push is required and close the task as `blocked` naming the PR — do not treat a `pending` that never completes as a pass.
   - Falsifier: an open non-draft PR whose head has 0 completed gate check-runs and the watchdog still exits 0.
   - Claims: C-6670–C-6679
+  - Result: EXP-2026-11-22-H126-stale-pr-heads (C-6670): .github/scripts/main_watch.py --prs sweeps every open non-draft PR head via gh api check-runs; 0 completed non-cancelled gate runs = stale (pending waits, cancelled-only stale, non-gate run ignored, draft out of scope); opens/updates [H126] fix: issue and exits 1, never re-runs for the author. Fixture #394: 99d0b54 has 0 check-runs, 6b55ccd0 has 6; --replay-pr prints stale #394 head 99d0b54b last tested 6b55ccd0 rc=1; selftest 34 checks; tools/gate.py 0 fail. Workflow runs the sweep from the hourly schedule/workflow_dispatch with pull-requests: read.
 
 - [x] **H127 — A red gate log names no claims_check row: the 5 red `main` runs print 2 gate lines and 40 NONRUN lines, never the failing rule**
   - Status: done · Owner: task/h127-h127-gate-log-failing-row · Critical: no · Pair: required
