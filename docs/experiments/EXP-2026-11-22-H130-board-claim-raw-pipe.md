@@ -80,7 +80,7 @@ row with != 7 cells or the guard misses a wrong cell count, the fix fails.
 
 1. **Sample and hash.** No vendor sample. Specimen: `docs/research/claims.md`
    row `C-6564` at `origin/main` (`ffa54bbb` at claim time, re-censused at
-   `ebf03377` after the round-1 rebase); copied to a scratch path before the
+   `94542813` after the round-1 rebase); copied to a scratch path before the
    precheck, so the live ledger is untouched. The precheck ran on the
    unmodified tool; the fix was written only after the precheck output below
    was captured.
@@ -156,9 +156,9 @@ Ledger cell-count census at `ffa54bbb` (precheck revision):
 `claim rows total: 3409 cells=7: 3325 cells!=7: 84`;
 `distribution: {6: 6, 7: 3325, 8: 61, 9: 4, 10: 5, 11: 3, 12: 2, 13: 2, 14: 1}`.
 
-Re-census after the round-1 rebase onto `ebf03377` (command printed):
-`claim rows total: 3542 cells=7: 3450 cells!=7: 92`;
-`distribution: {6: 6, 7: 3450, 8: 68, 9: 5, 10: 5, 11: 3, 12: 2, 13: 2, 14: 1}`.
+Re-census after the round-1 rebase onto `94542813` (command printed):
+`claim rows total: 3552 cells=7: 3460 cells!=7: 92`;
+`distribution: {6: 6, 7: 3460, 8: 68, 9: 5, 10: 5, 11: 3, 12: 2, 13: 2, 14: 1}`.
 `C-6564` on the live ledger: `7` at both revisions.
 
 (Post-fix, all quoted from the commands that printed them.)
@@ -180,7 +180,7 @@ and `claim-set`, `exit=1` each; `claim-row` with an 8-part row printed
 stayed at 9 split parts after all three refusals.
 
 `python3 tools/board.py lost --base origin/main` (re-run after the round-1
-rebase onto `ebf03377`): `TODO.md: OK tasks=0 claims=0`,
+rebase onto `94542813`): `TODO.md: OK tasks=0 claims=0`,
 `docs/research/claims.md: OK tasks=0 claims=0`, `lost exit=0`.
 `python3 tools/claims_check.py --strict --count-check`: `claims_check: OK`,
 `exit=0`. `python3 tools/todo_check.py`: `todo_check: OK`, `exit=0`.
@@ -208,15 +208,15 @@ gate: 5 pass, 0 fail, 0 skip
 gate exit=0
 ```
 
-Final clean gate after the round-1 rebase onto `ebf03377`, with `TMPDIR` on the
+Final clean gate after the round-1 rebase onto `94542813`, with `TMPDIR` on the
 home-tree scratch dir:
 
 ```
-selftest      PASS    144.88
-claims_check  PASS     17.36
-todo_check    PASS      0.08
-board_check   PASS      0.20
-fn_audit      PASS      4.48
+selftest      PASS    145.19
+claims_check  PASS     17.45
+todo_check    PASS      0.07
+board_check   PASS      0.19
+fn_audit      PASS      4.32
 gate: 5 pass, 0 fail, 0 skip
 gate exit=0
 ```
@@ -227,7 +227,7 @@ gate exit=0
   writes the row anyway, so the status/confidence/evidence cells shift by one;
   `claims_check` does not flag it.
 - **FACT:** the ledger already stores `\|` as a literal pipe and 92 rows have a
-  non-7 split at `ebf03377` (84 at `ffa54bbb`), so escaping is the existing
+  non-7 split at `94542813` (84 at `ffa54bbb`), so escaping is the existing
   convention and a global rewrite is out of scope.
 - **FACT:** after the fix the raw-pipe body is stored as `\|`, the row stays at
   7 cells and both neighbouring rows are byte-identical; a 6- or 8-cell row is
@@ -260,16 +260,17 @@ defect. The implementation was deliberately left unchanged.
   round-1 findings below.
 - **Stale base:** the branch was behind `origin/main` and `board.py lost
   --base origin/main` only held at `f39d8d9f`; against newer main it lost task
-  `M8.H72` and 70 claim rows. Rebased onto `ebf03377` (five commits replayed,
-  no conflict in `TODO.md`/`docs/research/claims.md`, so `board.py resolve` was
-  not needed). Re-ran `lost --base origin/main`: `TODO.md: OK tasks=0 claims=0`,
+  `M8.H72` and 70 claim rows. Rebased twice onto the current `origin/main`
+  `94542813` (main moved again during the round); no conflict in
+  `TODO.md`/`docs/research/claims.md`, so `board.py resolve` was not needed.
+  Re-ran `lost --base origin/main`: `TODO.md: OK tasks=0 claims=0`,
   `docs/research/claims.md: OK tasks=0 claims=0`, `lost exit=0`.
 - **Re-census:** navigator measured 3506 / 3418 / 88 (non-7) at `8e5fe216`,
   versus this EXP's 3409 / 3325 / 84 at `ffa54bbb`. Re-measured on the final
-  rebased tree at `ebf03377`: `claim rows total: 3542 cells=7: 3450 cells!=7:
+  rebased tree at `94542813`: `claim rows total: 3552 cells=7: 3460 cells!=7:
   92`; all ledger-tied numbers in the Method/Scope/Interpretation now cite the
   revision they were measured at. The documented out-of-scope limit is 92 rows
-  at `ebf03377` (84 at `ffa54bbb`), not a rewritten ledger.
+  at `94542813` (84 at `ffa54bbb`), not a rewritten ledger.
 - **Re-quoted checks:** `board selftest: OK (105 checks)` (89 base + 16 new),
   `claims_check: OK`, `todo_check: OK`, and the final gate with home-tree
   `TMPDIR`: `gate: 5 pass, 0 fail, 0 skip`.
