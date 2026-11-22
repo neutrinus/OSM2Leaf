@@ -104,3 +104,40 @@ left untouched. Partial files of returned tasks are in
 handoff: re-launch the returned tasks when the provider quota recovers;
 start with M4.81/M4.83/M8.H6 and the scratch-bearing ones (their tools are
 written and pass `--selftest`, only EXP/claims remain).
+
+--- relaunch after the model/provider switch (same TL run, later cycle)
+User switched provider; the 12 tasks that had been returned in the first
+batch were relaunched with new claims/worktrees (M5.75 was left to the other
+cycle that already held its draft PR). All 12 drivers completed this time:
+
+| task | PR | result |
+| --- | --- | --- |
+| M4.81 | #555 | inter_decode, EU 87.416 % / US 89.494 %, 14/14 |
+| M4.82 | #556 | frway_decode, EU 99.56 % / US 99.90 %, 16/16 |
+| M4.83 | #557 | icadm_decode, EU 88.98 % / US 98.06 %, claims moved to C-8360 |
+| M8.H6  | #558 | ze0_rundiff, two identical boots 4/4 channels |
+| M8.H21 | #559 | demo drive PRESENT in both 2011 builds, follow-up M8.H72 |
+| M4.91  | #560 | OPNG container decoded/encoded byte-identically; pixels stay unknown |
+| M8.H28 | #561 | kepdrv VAs and sample structure; scratch correction recorded |
+| M8.H37 | #562 | hard-key code tables with VAs |
+| M8.H69 | #563 | ze0_syms + gdb-ze0.py, 36/36, cross-build falsifier |
+| M1.37  | #564 | rom_changelog + per-module tables, control EU/US B = 0 |
+| M8.H19 | #565 | position store VAs, coord.py position_word, L3 falsifier |
+| M8.H26 | #566 | ze0_card.py, full EU card --card boot byte-identical to hand build |
+
+TL corrections during merge:
+- Two follow-up tasks issued by drivers took already-claimed blocks
+  (M8.H72 C-8340, H130 C-6980): moved to the next free blocks.
+- `board.py claim-set Evidence` appends a `Key:` inside a cell rather than
+  replacing it; the three CI failures on unpinned eu2014/eu2016 paths were
+  fixed with `board.py claim-row` (full five-cell row) plus a fetch command
+  and a pinned `archive/head256.img` sibling.
+- A rebase conflict resolver dropped reader-coverage row 14 from M4.82's
+  branch; restored from origin/main, `progress_report --selftest` green.
+- `/tmp` tmpfs filled up (100 %) during the parallel runs; cleaning stale
+  selftest dirs restored the gate. Two 60 s harness timeouts
+  (`ci_gate_repro`, `lev3456gen`) are host-load artefacts and pass alone.
+
+End state: gate 5 pass / 0 fail / 0 skip, all worktrees of this cycle removed.
+Non-draft PRs owned by other TL cycles (#575, #571, #570, #549) were left
+untouched; remaining drafts belong to those cycles too.
