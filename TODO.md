@@ -2451,7 +2451,7 @@ The 23rd-pass text is in git (`af469580`).
   - Result: EXP-2026-11-20-M4.54-section2-read-watch (C-5710–C-5717, `tools/rgd_reply_l3.py`): the reply path was driven for factory `B48R058R` section-2 record `0xb91d078` (`k=221`) — `0x004268c0` copies the block's plain 3508 B into the slot buffer and sets state 2 (a pass-through; it stored a section-1 block too), and `0x00422eac` clears the `0x0900` gate and reads `k+15` block word 236 `0x0919` (node 7 entry 1 `cls`), `k+7` word 228 `0x0717` (entry 0 `cls`), `k+6`=d word 227 `0x0008` (entry 0 `id`), `k+d` word 229 `0x003b` (entry 0 `a`), `out=7`; `k` is part-a node 7's header word 0 (`x=0x4fd`, count 3). Section-1 controls at the same `k` (`0x176a800`, `0x66700`) and a declared `k=0` all `GATE-REJECT`; second tile `B30R058R` `0x5759f4` passes (`k=78`, there `k` is an entry's `a`), `B28R070R` 0/303 has a passing `k`. Census 24,483/65,274 records pass on `B48R058R`; `d` = entry 0 `id` 4513/4513 but `k+d` = entry 0 `a` only 92/4513 (C-5715). `k`'s real source `0x00424464` and the reply's block granularity stay open — M4.40 returns to `open` with these offsets; also `map-tiles.md` word table, precheck `0x004066ac` is 145 functions not 140 (C-5718).
 
 - [ ] **M4.55 — Section-2 reader in the route path finder: drive the kind-8/`0x10` reply and read-watch unit 0**
-  - Status: blocked · Owner: task/m4.55-rpf-section2-reader · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: P2
   - Depends: M4.40 (blocked on this; requester and reply named)
   - Goal: M4.40 found that section 2 is not read by the router (`RGD_DATA` fetches section 4) but requested by the route path finder `RPF_PreMap_start` `0x00336bf0` (EU2011) with kinds 8 and `0x10`, and that the data-access task replies with pointers to units 0 and 2 of the level-1 record (C-5922, C-5923). Find the RPF code that receives that `0x14b6` reply and walks unit 0, and read the section-2 field table off it (M4.40's goal).
@@ -2466,6 +2466,7 @@ The 23rd-pass text is in git (`af469580`).
   - Blocker: The RPF reply consumer 0x003367a0 faults at 0x003367c2 on an unmodelled import STDDLL!STD_MeshPnt_isValid (thunk 0x003d1640 -> IAT 0x0055da88) before its first unit-0 read; vcard_l3.py has 81 import models and none is a STDDLL mesh export. Same exports run in poi_position_l3.py, so it is a harness binding gap, not a firmware limit.
   - Unblock: M9.65
   - Result: EXP-2026-11-21-M4.55-rpf-consumer-import-block (negative); call chain + kind-8 reply recorded, 0 unit-0 reads
+  - Note: M9.65 merged: vcard_l3 binds STDDLL's real exports via Client(... native=('STDDLL.dll', ...)); the 0x003367a0 thunk now runs. It does NOT dereference unit 0 itself (C-6745): it copies the reply entry to 0x0061a020, so the unit-0 walk is a later RPF stage. Re-run from docs/experiments/m4.55-repro.py and follow the 0x0061a020 pointer (EXP-2026-11-22-M9.65-stddll-mesh-import).
 
 - [ ] **M4.56 — Tile section 4 (route guidance) grammar from the router consumer `0x00422eac`**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -6440,8 +6441,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6690–C-6699
   - Step: tooling
 
-- [ ] **M9.65 — L3 harness: run `STDDLL` exports for `Navi.exe` import thunks (unblocks M4.55)**
-  - Status: in progress · Owner: task/m9.65-stddll-mesh-import · Critical: yes · Pair: required
+- [x] **M9.65 — L3 harness: run `STDDLL` exports for `Navi.exe` import thunks (unblocks M4.55)**
+  - Status: done · Owner: task/m9.65-stddll-mesh-import · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.24 (import binding), M9.44 (`vcard_l3.py` import dispatch)
   - Goal: `vcard_l3.py` binds every import slot, but a `Navi.exe` thunk that tail-jumps into a **second module** (`STDDLL.dll`) has no model, so a run that calls `STDDLL!STD_MeshPnt_isValid` stops `Blocked: missing import model` even though the export exists and runs elsewhere. Teach the harness to execute the real `STDDLL.dll` export (M3.34's loader `tools/poi_position_l3.py` already maps `STDDLL` and calls `STD_MeshPnt_chgMapPnt`/`isValid`/`chgLv`), so the `Navi.exe` consumer runs through the thunk instead of faulting.
@@ -6452,6 +6453,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if loading a second module's text into `vcard_l3`'s engine needs more than wiring the existing loader (e.g. a shared global map it cannot provide), record what is missing and set `blocked` on the engine change it needs.
   - Falsifier: after binding, the consumer still faults before its first unit-0 read, or the `STDDLL` call returns a different verdict than `poi_position_l3.py`.
   - Claims: C-6740–C-6749
+  - Result: EXP-2026-11-22-M9.65-stddll-mesh-import; vcard_l3 native=('STDDLL.dll',…) runs the real exports (thunk 0x003d1640 no longer faults; isValid 3/3 vs poi_position_l3); selftest ok; consumer 0x003367a0 copies the reply to 0x0061a020 and does not walk unit 0 itself (C-6745), M4.55 reopened
 
 - [x] **M9.66 — Drive the `LOC_map`/`LOC_db`/`raw_rec` tasks and find the shape walk of a served record**
   - Status: done · Owner: task/m9.66-loc-tasks-shape-walk · Critical: yes · Pair: required
