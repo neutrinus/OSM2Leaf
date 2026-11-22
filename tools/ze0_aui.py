@@ -271,7 +271,38 @@ def copy_routine(base, text):
     return asm(prog, base, [("s", (text + "\0").encode("utf-16-le"))])[0]
 
 
-def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False, start_form=""):
+# CreateThread of the module launcher class (Audio.exe fn 0x000268b8, Usb.exe
+# has the same code): ``jsr`` WaitModule (vtbl+0x1a4); ``tst r0,r0; bf next;
+# bra error``.  The ``bra`` is turned into ``bra next`` (M8.C1j).
+WAIT_CALL = bytes.fromhex("69e308433e030b4383640820018b")
+WAIT_ERROR_BRA = 0xa082
+
+
+def skip_wait_lines(app, exe):
+    """IPL line that lets ``exe``'s launcher start a thread although the
+    module it waits for (e.g. ACM module 6, the audio microcontroller) never
+    reports ready; the 30 s wait itself stays."""
+    mod = app.module(exe)
+    s = text_section(app, mod)
+    off = app.va2file(s["dataptr"])
+    blob = app.d[off:off + s["psize"]]
+    hits = []
+    i = blob.find(WAIT_CALL)
+    while i >= 0:
+        hits.append(i + len(WAIT_CALL))
+        i = blob.find(WAIT_CALL, i + 1)
+    if len(hits) != 1:
+        raise SystemExit("ze0_aui: %s: %d WaitModule call sites" % (exe, len(hits)))
+    at = hits[0]
+    if struct.unpack_from("<H", blob, at)[0] != WAIT_ERROR_BRA:
+        raise SystemExit("ze0_aui: %s: unexpected branch after WaitModule" % exe)
+    return [(ze0_ipl.phys(s["dataptr"] + at), struct.pack("<H", 0xa000),
+             "%s: launcher thread starts after a failed WaitModule (site 0x%08x, M8.C1j)"
+             % (exe, s["realaddr"] + at))]
+
+
+def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False, start_form="",
+          skip_wait=()):
     kern, app = CERom(data, kernel_off), CERom(data, app_off)
     keep_k, keep_a, _ = ze0_ipl.plan(kern, app, prefer)
     kept = {m["name"].lower() for m in keep_a}
@@ -322,6 +353,8 @@ def build(data, kernel_off, app_off, prefer, skins=(), no_timeout=False, start_f
                              % (AUI_TIMEOUT_MS, len(hits)))
         lines.append((ze0_ipl.phys(hits[0][1]), struct.pack("<I", 0xffffffff),
                       "SystemEXE: CAuiMonitorCmn wait %d ms -> INFINITE" % AUI_TIMEOUT_MS))
+    for exe in skip_wait:
+        lines += skip_wait_lines(app, exe)
     return lines, dlls
 
 
@@ -354,6 +387,9 @@ def main():
     ap.add_argument("--no-aui-timeout", action="store_true")
     ap.add_argument("--start-form", default="", help="AuiApp StartForm value (M8.C1h), "
                     "e.g. frm_PRAGR_AgreeCaution")
+    ap.add_argument("--skip-module-wait", default="", help="comma list of EXEs (audio.exe, "
+                    "usb.exe) whose launcher starts its threads after a failed WaitModule "
+                    "(M8.C1j)")
     a = ap.parse_args()
     if a.selftest:
         selftest()
@@ -365,7 +401,8 @@ def main():
     skins = [open(p, "rb").read() for p in a.skins.split(",") if p]
     prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
     lines, dlls = build(data, a.kernel_off, a.app_off, prefer, skins, a.no_aui_timeout,
-                        a.start_form)
+                        a.start_form,
+                        [n.strip() for n in a.skip_module_wait.split(",") if n.strip()])
     with open(a.out, "w") as fo:
         for p, blob, why in lines:
             fo.write("0x%08x %s  # %s\n" % (p, blob.hex(), why))
