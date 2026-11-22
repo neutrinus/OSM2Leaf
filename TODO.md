@@ -4237,8 +4237,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8230–C-8239
   - Result: EXP-2026-11-22-M8.C1i-aui-paint-gate (C-8230–C-8239). No form after `frm_PRCOM_StartUp` loads: auirtdll's draw routine (fn `0x037c5440`) polls about twice a second with nothing pending, no control is created, and AuiMonitoringCC (which sets INIT_END from its init) never exists, hence SystemEXE's 45 s watchdog. New `ze0_ipl.py patch --copy-dlls apptimer` copies `AppTimerDll.dll` from image C (moved; RW page must be in the kernel's DLL data window). Audio.exe (the `MSG_PROCESS_OFF` source SystemCC asks to activate) now starts, then waits for ACM module 6 behind the silent audio microcontroller. Gate chain handed over to M8.H43/M8.H44; M8.C1j tests the activation hypothesis without the microcontroller.
 
-- [ ] **M8.C1j — UI layer on `-M ze0`: answer the audio-source activation without the microcontroller**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1j — UI layer on `-M ze0`: answer the audio-source activation without the microcontroller**
+  - Status: done · Owner: Claude (thread Zamontuj kartę SD w QEMU) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1i
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). M8.C1i found that no form after `frm_PRCOM_StartUp` loads; the likeliest gate is SystemCC's `SYS_REQ_ACTIVATE` to `MSG_PROCESS_OFF` (Audio.exe), which Audio.exe never answers while the audio microcontroller is silent (C-8237, C-8238 HYPOTHESIS).
@@ -4250,6 +4250,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the answer needs Audio.exe's full source state machine, hand over to M8.H45.
   - Falsifier: with the answer injected and logged by SystemCC, `0x037dffdc` and `0x037def48` stay silent.
   - Claims: C-8280–C-8289
+  - Result: EXP-2026-11-22-M8.C1j-audio-activate (C-8280–C-8286; C-8238 retracted, C-8233 narrowed). Audio.exe's launcher (fn `0x000268b8`) skips its threads when WaitModule(6) fails, so `SYS_REQ_ACTIVATE` was never handled. New `ze0_aui.py --skip-module-wait audio.exe`: the exchange completes and SystemCC fires `NotifySourceChange`, but no form follows and the screen stays the map. With `--copy-dlls unitflash` auirtdll creates 18 controls early in both variants. Next: M8.C1l (what `frm_PRCOM_StartUp` waits for in the skin).
 
 - [x] **M8.C1k — UI layer on `-M ze0`: real unit-flash DLLs from NK1 instead of stubs**
   - Status: done · Owner: Claude (thread "Zamontuj kartę SD w QEMU") · Critical: no · Pair: solo
@@ -4264,6 +4265,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: with the real modules, controls fail that loaded with the stubs.
   - Claims: C-8290–C-8299
   - Result: EXP-2026-11-22-M8.C1k-unit-flash-nk1 (C-8290–C-8297). NK1, the unit-flash CE image (51 modules), is cut from Marek's NAND dump by `tools/nk1_extract.py` and committed as `firmware/unit-flash/nk1-QY7200ND.bin` (owner's decision; checked for serial, unit key, password, VIN). `ze0_ipl.py patch --copy-dlls unitflash` copies the real HCXLog/HCXMemory/AppTimerDll (moved; HCXMemory's compressed sections decoded by image B's kernel routine). The real HCXMemory runs (CreateSharedBuffer lines), failures are unchanged (16 imports: Cws_Apl, BOLERODLL; 6 controls), ScreenState now reports CC window 16 unregistered; the paint gate (Audio.exe/ACM module 6) is unchanged. Next: M8.C1j.
+
+- [ ] **M8.C1l — UI layer on `-M ze0`: what `frm_PRCOM_StartUp` waits for before the next form**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1j
+  - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). M8.C1j showed that the audio-source activation completes with `ze0_aui.py --skip-module-wait audio.exe` and SystemCC fires `NotifySourceChange`, yet no form follows `frm_PRCOM_StartUp` (C-8284); the start form's controls are created (C-8285).
+  - Precheck: run J3's configuration (`ze0_ipl.py patch --prefer-app auiapp.exe,auirtdll.dll --copy-dlls unitflash` + `ze0_aui.py --no-aui-timeout --skip-module-wait audio.exe`) shows `SYS_NOTIFY_ACTIVATE_COMPLETE` in the serial log and only the map on screen.
+  - Scope: (1) decode `ReleaseMain.skn`'s records for `frm_PRCOM_StartUp`, `act_PRCOM_SystemInit`, `var_PRCOM_SystemInitFlg`, `act_SYSCOM_NotifySysEvent` and the Show/Start records (`tools/skn_info.py`); (2) name the event or variable that moves to the next form and who raises it (SystemCC method, SystemEXE IPC, vehicle input); (3) list the 6 failing controls by CLSID and check whether one of them is on that path; (4) raise it in the guest as an emulator-only patch and take a screenshot.
+  - Input: EXP-2026-11-22-M8.C1j-audio-activate, EXP-2026-11-22-M8.C1i-aui-paint-gate, `tools/ze0_aui.py`, `tools/skn_info.py`.
+  - Done when: a screenshot shows an AUI form element, or the EXP names the input the start form waits for, with the skin record and the firmware code that would raise it.
+  - Stop: one session; if the input is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
+  - Falsifier: the start form's records contain no transition (no Show/Start of another form), i.e. the next form comes from outside the skin.
+  - Claims: C-8300–C-8309
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo

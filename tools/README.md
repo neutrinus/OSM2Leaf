@@ -1580,6 +1580,13 @@ Record: EXP-2026-11-22-M8.C1g-ui-layer.
 `--start-form NAME` (M8.C1h) also gives AuiApp a `StartForm` value, e.g.
 `frm_PRAGR_AgreeCaution`.
 
+`--skip-module-wait audio.exe` (M8.C1j) lets Audio.exe's launcher start
+its threads although WaitModule fails. Thread 1 waits for ACM module 6, the
+audio microcontroller, which is silent on ze0. The 30 s wait stays. With it,
+Audio.exe answers SystemCC's `SYS_REQ_ACTIVATE` and SystemCC fires
+`NotifySourceChange`. The call site is found by byte pattern; `usb.exe`
+has the same launcher. Record: EXP-2026-11-22-M8.C1j-audio-activate.
+
 ## `ze0_stubdll.py` — stub modules for unit-flash DLLs on `-M ze0` (M8.C1h)
 
 ```bash
