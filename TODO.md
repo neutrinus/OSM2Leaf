@@ -4658,7 +4658,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7090–C-7099
 
 - [ ] **M8.H13 — `tools/l4check.py`: one command, card image in, L4 verdict out**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m8.h13-l4check · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: L1–L3 have one-command gates; L4 is a recipe in EXP records. Wrap the boot into a gate: stage reached (F0…F5 names of `tools/l4_status.py`), launcher verdict on the card, map files opened, time to idle.
