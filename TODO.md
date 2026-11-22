@@ -4657,8 +4657,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the EU recipe works unchanged on the US card with EU constants (then nothing is build-specific and the README says so).
   - Claims: C-7090–C-7099
 
-- [ ] **M8.H13 — `tools/l4check.py`: one command, card image in, L4 verdict out**
-  - Status: in progress · Owner: task/m8.h13-l4check · Critical: yes · Pair: required
+- [x] **M8.H13 — `tools/l4check.py`: one command, card image in, L4 verdict out**
+  - Status: done · Owner: task/m8.h13-l4check · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: L1–L3 have one-command gates; L4 is a recipe in EXP records. Wrap the boot into a gate: stage reached (F0…F5 names of `tools/l4_status.py`), launcher verdict on the card, map files opened, time to idle.
@@ -4669,6 +4669,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if no log line separates 'card accepted' from 'card rejected', report the two logs side by side and stop.
   - Falsifier: the broken card and the factory card give the same verdict.
   - Claims: C-7100–C-7109
+  - Result: EXP-2026-11-22-M8.H13-l4check; exact factory exit 0 stage F5 (idle 363.07 s), broken card exit 1 stage F4 ([ERR_PRC_NAVI],[0x28]); gate 5 pass/0 fail/0 skip
 
 - [ ] **M8.H14 — CI: every push checks that the `ze0` patch series still applies**
   - Status: open · Owner: — · Critical: no · Pair: solo
