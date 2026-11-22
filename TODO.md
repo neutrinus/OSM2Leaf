@@ -6379,7 +6379,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: the shape walk is `fn 0x0041f3dc` (EU2011 build A) in `LOC_map`, reached through `fn 0x00421548`; new `tools/locmap_l3.py` runs the firmware's own chain (position message -> requester `fn 0x00425f40` -> data-access read -> `fn 0x0042613c` copy -> `LOC_map`). Loads: F 5,363 (10,726 B, 6,868 distinct), G 49 (98 B, 70 distinct); tail buffer 0. G's reference word (record word 58 = `0x0100`) points past the record; one changed reference word gives DIFFERENT on F and G; M9.58's word 59 is not read; G's shapes are counted 0 in the result table. No display code needed. EXP-2026-11-21-M9.66-loc-map-shape-walk, C-6770–C-6779; follow-ups M9.67, M5.72
 
 - [ ] **M9.67 — Host model of the `LOC_map` shape walk `fn 0x0041f3dc`, checked against the firmware trace**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.67-locmap-host-model · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.66 (done)
   - Goal: M9.66 runs the firmware's own chain (position -> request -> record -> `LOC_map`) and shows `fn 0x0041f3dc` walks the shape words: rows, shape header, points with flag-dependent extra words, one reference word per point (C-6774, C-6775). It counts shapes of the factory record into the result table `*0x00e8f5dc` and counts nothing for our generated record (C-6778). Write the walk as a host function (rule 13: the writer needs the reader's rules) and find the rule that leaves a generated shape uncounted.
