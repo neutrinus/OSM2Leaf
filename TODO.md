@@ -3748,7 +3748,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7920–C-7929
 
 - [ ] **M5.74 — Water and forests from OSM: first slice of a background writer**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.74-osm-background-writer · Critical: no · Pair: required
   - Step: P1
   - Depends: M4.70
   - Goal: A map with roads only looks empty. After M4.70 names the background record, write lakes, rivers and forests from OSM polygons into one tile.
