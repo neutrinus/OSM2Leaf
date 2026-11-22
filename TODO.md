@@ -1440,6 +1440,16 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8300–C-8309
   - Result: EXP-2026-11-22-M2.25-sd-pin-source (C-8300–C-8305). VIN alone: no. The 16-byte password is stored verbatim at PROD +0x100 (flash 0xA100; the 4 unit bytes again at +0x60); the flash loader routine VA 0x8b0232ac copies it and falls back to 99 99 99 99 + tail when PROD is not valid. No VIN in NAND/SRAM/VFlash, no code computes the bytes. Factory rule (random or from serial) unknown with one unit.
 
+- [x] **M2.26 — Does Navi.exe (or any menu field) derive the SD PIN from the serial?**
+  - Status: done · Owner: claude/project-thread-i59j9z · Critical: no · Pair: solo
+  - Depends: M2.25 (PIN stored in PROD)
+  - Goal: Answer whether a reseller could compute the PIN from a field the user reads off the menus; check the navigation application for a serial->PIN (or Confirmation-code) routine.
+  - Scope: US256 image A Navi.exe (imports, strings, decompressed data); offline test of the menu numbers vs the PIN. No PIN/serial/VIN/dump in the repo.
+  - Done when: an EXP states whether Navi.exe touches the PIN and whether any menu number maps to it.
+  - Stop: one session; do not chase the Confirmation-code routine beyond locating its owner.
+  - Claims: C-8330-C-8339
+  - Result: EXP-2026-11-22-M2.26-navi-no-pin-formula (C-8330-C-8334). No menu number equals or maps to the PIN; Navi.exe (834 imports) has no SD-lock/CMD42/password code and never touches the PIN. Confirmation code is a separate 16-bit activation value (routine outside Navi.exe). A reseller never needs the PIN - the unit locks its own card. No serial->PIN formula found.
+
 ## M3 — Reader contract
 
 - [x] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
