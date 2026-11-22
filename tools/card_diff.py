@@ -6,7 +6,8 @@ one row per file: path, size, SHA-256. ``compare A.json B.json`` groups the
 differences by top-level directory (and by second level under the system
 folders), so a reviewer sees which parts of the card are region-specific:
 files only on A, only on B, same path with equal bytes, same path with other
-bytes. ``--detail DIR`` lists the files of one group.
+bytes. ``--detail DIR`` lists the files of one group. ``--selftest`` checks
+the grouping on synthetic manifests (no card image needed).
 
 The manifests carry only names, sizes and hashes, never file content, so
 they can be committed as the review artifact of a card comparison.
@@ -98,9 +99,39 @@ def compare(a: dict, b: dict, depth: int, detail: str | None) -> str:
     return "\n".join(out)
 
 
+def selftest() -> int:
+    h = hashlib.sha256
+    assert group_of("SYSTEM/A/x.dll", 1) == "SYSTEM"
+    assert group_of("SYSTEM/A/x.dll", 2) == "SYSTEM/A"
+    assert group_of("SYSTEM/A/x.dll", 9) == "SYSTEM/A"
+    assert group_of("CMP.LST", 1) == "(root)"
+
+    def row(path, data):
+        return {"path": path, "size": len(data), "sha256": h(data).hexdigest()}
+    a = {"image": "a.img", "files": 4, "bytes": 0, "rows": [
+        row("CMP.LST", b"same"), row("SPEECH/GE/v.dat", b"ge"),
+        row("SYSTEM/A/n.exe", b"eu build"), row("SYSTEM/B/k.bin", b"kernel")]}
+    b = {"image": "b.img", "files": 4, "bytes": 0, "rows": [
+        row("cmp.lst", b"same"), row("SPEECH/US/v.dat", b"us"),
+        row("SYSTEM/A/n.exe", b"us build!"), row("SYSTEM/B/k.bin", b"kernel")]}
+    out = compare(a, b, 2, "SYSTEM/A")
+    lines = out.splitlines()
+    assert "| `(root)` | 0 / 0.0 | 0 / 0.0 | 1 / 0.0 | 0 (0.0 / 0.0) |" in lines, out
+    assert "| `SPEECH/GE` | 1 / 0.0 | 0 / 0.0 | 0 / 0.0 | 0 (0.0 / 0.0) |" in lines, out
+    assert "| `SPEECH/US` | 0 / 0.0 | 1 / 0.0 | 0 / 0.0 | 0 (0.0 / 0.0) |" in lines, out
+    assert "| `SYSTEM/B` | 0 / 0.0 | 0 / 0.0 | 1 / 0.0 | 0 (0.0 / 0.0) |" in lines, out
+    assert "diff\tSYSTEM/A/n.exe\t8\t9" in lines, out
+    # negative control: equal size, other bytes must still differ
+    b["rows"][3] = row("SYSTEM/B/k.bin", b"kernex")
+    assert "| `SYSTEM` | 0 / 0.0 | 0 / 0.0 | 0 / 0.0 | 2 (0.0 / 0.0) |" in compare(a, b, 1, None)
+    print("card_diff selftest: OK")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    sub = ap.add_subparsers(dest="cmd", required=True)
+    ap.add_argument("--selftest", action="store_true")
+    sub = ap.add_subparsers(dest="cmd")
     m = sub.add_parser("manifest", help="hash every file on a card image")
     m.add_argument("image", type=Path)
     m.add_argument("-o", "--out", type=Path, required=True)
@@ -111,6 +142,11 @@ def main(argv=None) -> int:
                    help="directory levels per group (default 1)")
     c.add_argument("--detail", help="list the files of one group")
     args = ap.parse_args(argv)
+    if args.selftest:
+        return selftest()
+    if args.cmd is None:
+        ap.print_help()
+        return 2
     if args.cmd == "manifest":
         data = manifest(args.image)
         args.out.write_text(json.dumps(data, indent=0, sort_keys=True) + "\n")
