@@ -1,0 +1,181 @@
+hw/sh4: ze0 unit record in the kernel image header: verinf=, mapdb= (TODO M8.C1c).
+
+With the card mounted (M8.C1b, F3) the EU2011 launcher logged an empty
+"VerInf:", then "Error Proc<00000050>" (DIFFERENT MAP CODE) and started
+FailSafe.exe.  Its check (AppLaunch.dll B fn 0x03bd2ad8) calls
+KernelIoControl(0x0101302C) with index 0.  nk.exe answers it in
+fn 0x88049e28 (IOCTL table row at 0x88009208, handler fn 0x8804a5dc):
+with one XIP region it returns {physfirst, physlast - physfirst} of the
+ROMHDR at *0x880030a0, i.e. ROM image B itself (phys 0x08000000).  The
+launcher reads the map code as 11 characters at header +0x60 (VerInf)
+and the map-DB window (fn 0x03bd2ce4) as big-endian u16 at +0x70 (min)
+and +0x72 (max).  The card's image B has zeros there, so on a unit the
+32 bytes +0x60..+0x7f are written before the launcher runs, by code that
+is not on the card (the IPL).
+
+Two machine options supply them, no guest code is changed:
+  verinf=STR   up to 15 characters at +0x60 (EU card: QSD-302-100)
+  mapdb=LO-HI  big-endian u16 at +0x70/+0x72 (EU card value: 16)
+Both empty (the default) keep the card bytes.  The record is written
+into the loaded image before it is registered as a ROM blob, so a reset
+keeps it.
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -173,6 +173,8 @@ struct Ze0MachineState {
+     bool sd_pwd_tofu;
+     bool sd_start_locked;
+     bool scif_stubs;
++    char *verinf;
++    char *mapdb;
+ };
+ 
+ #define ZE0_DEFAULT_KERNEL_OFF 0x3e00200u
+@@ -181,6 +183,20 @@ struct Ze0MachineState {
+ #define ZE0_ROMHDR_LEN         0x54
+ #define ZE0_TOCENTRY_LEN       32
+ 
++/*
++ * Unit record in the kernel image header (TODO M8.C1c).  The launcher
++ * (AppLaunch.dll B fn 0x03bd2ad8 / fn 0x03bd2ce4) asks the kernel with
++ * KernelIoControl(0x0101302C, index 0) for XIP region 0; the kernel
++ * (nk.exe B fn 0x88049e28) answers {physfirst, physlast - physfirst} of
++ * ROM image B, i.e. phys 0x08000000.  The launcher then reads the
++ * 11-character map code at +0x60 (VerInf) and the map-DB window as
++ * big-endian u16 at +0x70 (min) and +0x72 (max).  On the card these
++ * 32 bytes are zero; on a unit they are filled before the launcher runs
++ * (by the IPL, which is not on the card).  verinf= and mapdb= supply them.
++ */
++#define ZE0_UNIT_REC_OFF       0x60
++#define ZE0_UNIT_REC_LEN       0x20
++
+ typedef struct Ze0Reset {
+     SuperHCPU *cpu;
+     uint32_t entry;
+@@ -213,7 +229,8 @@ static void ze0_pread(int fd, void *buf, size_t len, uint64_t off,
+ 
+ /* Load one CE image; returns the nk.exe entry VA when want_entry. */
+ static uint32_t ze0_load_ce(int fd, uint64_t off, const char *what,
+-                            bool want_entry, uint64_t ram_size)
++                            bool want_entry, uint64_t ram_size,
++                            const uint8_t *unit_rec)
+ {
+     uint8_t hdr[0x4c], rh[ZE0_ROMHDR_LEN];
+     uint32_t ptoc, roff, physfirst, physlast, nummods, len, phys, entry = 0;
+@@ -280,6 +297,11 @@ static uint32_t ze0_load_ce(int fd, uint64_t off, const char *what,
+         }
+     }
+ 
++    if (unit_rec && len >= ZE0_UNIT_REC_OFF + ZE0_UNIT_REC_LEN) {
++        memcpy(buf + ZE0_UNIT_REC_OFF, unit_rec, ZE0_UNIT_REC_LEN);
++        info_report("ze0: %s image: unit record written at header +0x%x "
++                    "(verinf/mapdb)", what, ZE0_UNIT_REC_OFF);
++    }
+     rom_add_blob_fixed(name, buf, len, phys);
+     g_free(buf);
+     info_report("ze0: %s image at file 0x%" PRIx64 ": VA 0x%08x..0x%08x "
+@@ -292,9 +314,41 @@ static uint32_t ze0_load_ce(int fd, uint64_t off, const char *what,
+     return entry;
+ }
+ 
++/* Build the 32-byte unit record from verinf=/mapdb=; false if neither set. */
++static bool ze0_unit_record(Ze0MachineState *s, uint8_t *rec)
++{
++    unsigned lo, hi;
++    char tail;
++
++    memset(rec, 0, ZE0_UNIT_REC_LEN);
++    if (!s->verinf && !s->mapdb) {
++        return false;
++    }
++    if (s->verinf) {
++        if (strlen(s->verinf) > 15) {
++            error_report("ze0: verinf= is at most 15 characters");
++            exit(1);
++        }
++        memcpy(rec, s->verinf, strlen(s->verinf));
++    }
++    if (s->mapdb) {
++        if (sscanf(s->mapdb, "%u-%u%c", &lo, &hi, &tail) != 2 ||
++            lo > 0xffff || hi > 0xffff || lo > hi) {
++            error_report("ze0: mapdb= must be MIN-MAX, 0 <= MIN <= MAX "
++                         "<= 65535 (got '%s')", s->mapdb);
++            exit(1);
++        }
++        stw_be_p(rec + 0x10, lo);
++        stw_be_p(rec + 0x12, hi);
++    }
++    return true;
++}
++
+ static void ze0_load_images(Ze0MachineState *s, SuperHCPU *cpu)
+ {
+     MachineState *machine = MACHINE(s);
++    uint8_t rec[ZE0_UNIT_REC_LEN];
++    bool have_rec;
+     Ze0Reset *r;
+     int fd;
+ 
+@@ -308,10 +362,11 @@ static void ze0_load_images(Ze0MachineState *s, SuperHCPU *cpu)
+     }
+     r = g_new0(Ze0Reset, 1);
+     r->cpu = cpu;
++    have_rec = ze0_unit_record(s, rec);
+     r->entry = ze0_load_ce(fd, s->kernel_off, "kernel", true,
+-                           machine->ram_size);
++                           machine->ram_size, have_rec ? rec : NULL);
+     if (s->app_off) {
+-        ze0_load_ce(fd, s->app_off, "app", false, machine->ram_size);
++        ze0_load_ce(fd, s->app_off, "app", false, machine->ram_size, NULL);
+     }
+     close(fd);
+     qemu_register_reset(ze0_cpu_reset, r);
+@@ -630,6 +685,32 @@ static void ze0_set_sdhi_trace(Object *obj, bool value, Error **errp)
+     ZE0_MACHINE(obj)->sdhi_trace = value;
+ }
+ 
++static char *ze0_get_verinf(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->verinf ?: "");
++}
++
++static void ze0_set_verinf(Object *obj, const char *value, Error **errp)
++{
++    Ze0MachineState *s = ZE0_MACHINE(obj);
++
++    g_free(s->verinf);
++    s->verinf = *value ? g_strdup(value) : NULL;
++}
++
++static char *ze0_get_mapdb(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->mapdb ?: "");
++}
++
++static void ze0_set_mapdb(Object *obj, const char *value, Error **errp)
++{
++    Ze0MachineState *s = ZE0_MACHINE(obj);
++
++    g_free(s->mapdb);
++    s->mapdb = *value ? g_strdup(value) : NULL;
++}
++
+ static void ze0_machine_instance_init(Object *obj)
+ {
+     Ze0MachineState *s = ZE0_MACHINE(obj);
+@@ -667,6 +748,15 @@ static void ze0_machine_instance_init(Object *obj)
+     object_property_set_description(obj, "sdhi-trace",
+         "log every SD host register access with -d unimp");
+ 
++    object_property_add_str(obj, "verinf", ze0_get_verinf, ze0_set_verinf);
++    object_property_set_description(obj, "verinf",
++        "unit map code at kernel image header +0x60, read by the launcher "
++        "as VerInf (e.g. QSD-302-100; default empty, as on the card)");
++    object_property_add_str(obj, "mapdb", ze0_get_mapdb, ze0_set_mapdb);
++    object_property_set_description(obj, "mapdb",
++        "unit map-DB window MIN-MAX at kernel image header +0x70/+0x72 "
++        "(big-endian u16; default empty = 0-0, as on the card)");
++
+     s->kernel_off = ZE0_DEFAULT_KERNEL_OFF;
+     s->app_off = ZE0_DEFAULT_APP_OFF;
+     s->tmu = true;
