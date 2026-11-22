@@ -49,6 +49,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "l3_harness"))
 
 import cerom  # noqa: E402
+import ce_module  # noqa: E402
 import point_census as pc  # noqa: E402
 import point_pair_regen as regen  # noqa: E402
 import point_walk_l3 as pw  # noqa: E402
@@ -84,8 +85,8 @@ class Firmware:
 
     def __init__(self, image: bytes):
         self.rom = cerom.CERom(image, IMAGE_START)
-        self.navi_va, self.navi = pw.navi_text(image, IMAGE_START)
-        _, std_secs = pw.module_sections(image, IMAGE_START, "STDDLL.dll")
+        self.navi_va, self.navi = ce_module.text_section(image, IMAGE_START)
+        _, std_secs = ce_module.legacy_module(image, IMAGE_START, "STDDLL.dll")
         text = [(s, blob) for s, comp, blob in std_secs if not comp and s["flags"] & 0x20000000]
         if not text:
             raise Blocked("STDDLL.dll has no uncompressed code section")

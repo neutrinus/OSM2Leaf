@@ -62,6 +62,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
 import build_targets  # noqa: E402
+import ce_module  # noqa: E402
 import cerom  # noqa: E402
 from engine import (IllegalInstruction, PySh4, UnmappedAccess)  # noqa: E402
 
@@ -133,30 +134,19 @@ def model_nth(raw: bytes, n: int, escape_len: int = ESCAPE_LEN) -> int | None:
 
 
 def load_image(path: str) -> bytes:
-    with open(path, "rb") as fh:
-        return fh.read(128 << 20)
+    return ce_module.load_image(path)
 
 
 def module_sections(data: bytes, image_start: int, module: str):
-    rom = cerom.CERom(data, image_start)
-    mod = rom.module(module)
-    out = []
-    for s in rom.o32(mod):
-        comp = bool(s["flags"] & cerom.IMAGE_SCN_COMPRESSED)
-        blob = None
-        if not comp:
-            off = rom.va2file(s["dataptr"])
-            blob = data[off:off + s["psize"]]
-        out.append((s, comp, blob))
-    return rom, out
+    """Delegating wrapper (M1.47); kept so a monkeypatch of this name works.
+
+    Returns ``(rom, [(sec, compressed, blob_or_None)])`` as before.
+    """
+    return ce_module.legacy_module(data, image_start, module)
 
 
 def navi_text(data: bytes, image_start: int) -> tuple[int, bytes]:
-    _, secs = module_sections(data, image_start, "Navi.exe")
-    for s, comp, blob in secs:
-        if not comp and s["flags"] & EXEC:
-            return s["realaddr"], blob
-    raise SystemExit("Navi.exe has no uncompressed executable section")
+    return ce_module.text_section(data, image_start, "Navi.exe")
 
 
 def target(name: str) -> dict:
