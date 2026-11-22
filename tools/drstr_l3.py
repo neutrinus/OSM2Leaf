@@ -30,9 +30,12 @@ No vendor byte is stored here: the tool reads the image and file it is given.
 
 Usage:
   drstr_l3.py --selftest
-  drstr_l3.py run      IMG256 --file DRSTR001.DAT [--truncate N] [--flip OFF:XOR] [--set-u32 OFF=V] [--pad N] [--hide] [--json]
-  drstr_l3.py run      IMG256 --card-image CARD.img
-  drstr_l3.py controls IMG256 --file DRSTR001.DAT [--json OUT]
+  drstr_l3.py run      IMG256 --file DRSTR001.DAT [--truncate N] [--flip OFF:XOR] [--set-u32 OFF=V] [--pad N] [--hide] [--json] [--trace-out OUT]
+  drstr_l3.py run      IMG256 --card-image CARD.img [--trace-out OUT]
+  drstr_l3.py controls IMG256 --file DRSTR001.DAT [--json OUT] [--trace-out OUT]
+
+``--trace-out`` writes `osm2leaf.reader_trace/v1` records (`tools/reader_trace.py`,
+M9.69): one for `run`, one per control row; it does not change a verdict.
 
 Exit codes: 0 ACCEPT (run) / all controls as expected; 1 REJECT / a control
 differs; 3 BLOCKED; 2 usage or missing input.
@@ -217,7 +220,8 @@ def controls(factory: bytes) -> list[dict]:
     ]
 
 
-def run_controls(image_path: str, factory: bytes, name: str = "DRSTR001.DAT") -> list[dict]:
+def run_controls(image_path: str, factory: bytes, name: str = "DRSTR001.DAT",
+                 results: list | None = None) -> list[dict]:
     digest = hashlib.sha256(Path(image_path).read_bytes()).hexdigest()
     rows = []
     for c in controls(factory):
@@ -227,7 +231,10 @@ def run_controls(image_path: str, factory: bytes, name: str = "DRSTR001.DAT") ->
             r = run(image_path, memory_card(name, c["data"]), head_digest=digest)
             row.update(verdict=r["verdict"], r0=r["r0"], codes=r["log_codes"], stage=r["stage"])
         except Blocked as exc:
+            r = None
             row.update(verdict="BLOCKED", reason=str(exc), codes=None)
+        if results is not None:
+            results.append(r)
         ok = row["verdict"] == c["verdict"] and row["codes"] == c["codes"]
         row.update(expected_verdict=c["verdict"], expected_codes=c["codes"], ok=ok)
         rows.append(row)
@@ -255,6 +262,13 @@ def _pair(text: str, sep: str) -> tuple[int, int]:
     return int(a, 0), int(b, 0) if b else 0xFF
 
 
+def _trace_record(out: dict, input_sha256, input_size, arguments=None, reads=None) -> dict:
+    import reader_trace
+    return reader_trace.from_drstr_l3(
+        out, input_sha256=input_sha256, input_size=input_size, arguments=arguments,
+        reads=reads, build=EU2011["build"], function="%#010x" % EU2011["parse"])
+
+
 def cmd_run(args) -> int:
     if not Path(args.image).is_file():
         print("missing image: %s" % args.image, file=sys.stderr)
@@ -273,11 +287,16 @@ def cmd_run(args) -> int:
         for k, v in out.items():
             if k not in ("reads",):
                 print("%-14s %s" % (k, v))
+    if args.trace_out:
+        import reader_trace
+        reader_trace.write_trace(args.trace_out, [
+            _trace_record(out, out.get("input_sha256"), out.get("input_size"))])
     return {"ACCEPT": 0, "REJECT": 1}.get(out["verdict"], 3)
 
 
 def cmd_controls(args) -> int:
-    rows = run_controls(args.image, Path(args.file).read_bytes())
+    results = [] if args.trace_out else None
+    rows = run_controls(args.image, Path(args.file).read_bytes(), results=results)
     for r in rows:
         print("%-40s %-8s r0=%-11s codes=%-10s %s" % (r["name"], r["verdict"], r.get("r0"),
                                                      r.get("codes"), "ok" if r["ok"] else "DIFFERS"))
@@ -285,6 +304,15 @@ def cmd_controls(args) -> int:
         Path(args.json).write_text(json.dumps(rows, indent=2) + "\n")
     bad = [r for r in rows if not r["ok"]]
     print("controls: %d/%d as expected" % (len(rows) - len(bad), len(rows)))
+    if args.trace_out:
+        import reader_trace
+        records = []
+        for row, res in zip(rows, results):
+            if res is None:
+                res = dict(row)
+            records.append(_trace_record(
+                res, row["sha256"], row["size"], arguments={"case": row["name"]}))
+        reader_trace.write_trace(args.trace_out, records)
     return 0 if not bad else 1
 
 
@@ -357,10 +385,12 @@ def main(argv=None) -> int:
     r.add_argument("--pad", type=lambda s: int(s, 0))
     r.add_argument("--hide", action="store_true")
     r.add_argument("--json", action="store_true")
+    r.add_argument("--trace-out", help="write a reader_trace record (M9.69)")
     c = sub.add_parser("controls", help="factory file + mutation controls")
     c.add_argument("image")
     c.add_argument("--file", required=True)
     c.add_argument("--json")
+    c.add_argument("--trace-out", help="write one reader_trace record per control (M9.69)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
