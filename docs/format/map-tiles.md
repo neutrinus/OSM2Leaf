@@ -345,6 +345,18 @@ python3 tools/section4.py encode preserve model.json payload.out
 python3 tools/section4.py verify PAYLOAD
 ```
 
+**Generated OSM place names (M5.65).** `tools/section4_places.py build` fills a
+factory section-4 record's `d=NAME` slots from OSM `place=*` / `name` nodes
+(IMF JSONL) by substituting the name text with a CP1252-folded OSM name of
+**exactly the same byte length**, then rebuilding the record with
+`section4.encode_build` and patching only that record's zlib stream and
+directory pair in the tile. The undocumented bytes, parcel words and every
+other tile byte stay verbatim; `section4.py verify` and `harness.py info` read
+the result, and the no-input run is byte-identical. This is not a new grammar
+claim: name-list placement and `0x06..0x0f` remain UNKNOWN (C-546, C-2391),
+and no firmware reader of the generated names has been run (C-6659). See
+`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659.
+
 Road names: shape header word 4 is the name offset in the **odd partner
 record's** names section. `B30R060R` has 297/1,195 named lines; `B30R048R`
 1,972/10,667. Style bits are raw; one-way/speed mapping is a **hypothesis**
