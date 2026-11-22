@@ -5181,7 +5181,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7450–C-7459
 
 - [ ] **M8.H49 — `CAN.dll`: the UART protocol with the VCAN microcontroller and the list of vehicle signals**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h49-can-uart-protocol · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The SH-4 gets vehicle data as frames over `UAT3:`. List the frame grammar and every signal the applications read: speed, reverse, ignition/ACC, illumination, parking brake, and the EV data the Leaf screens show (state of charge, range, charging state).
