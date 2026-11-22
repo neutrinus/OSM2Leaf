@@ -518,8 +518,10 @@ def replay(path: str) -> int:
             red_tips.append((ordered[i]["createdAt"], ordered[i]["headSha"][:8],
                              tip.get("conclusion"), workflow))
     print(f"replay: {len(ordered)} runs, {len(red_tips)} red-tip moments")
+    multi = len({r.get("workflowName", "") for r in ordered}) > 1
     for created, sha, conclusion, workflow in red_tips:
-        print(f"  {created} {sha} {conclusion} [{workflow}]")
+        tag = f" [{workflow}]" if multi else ""
+        print(f"  {created} {sha} {conclusion}{tag}")
     return 0
 
 
