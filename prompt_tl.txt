@@ -34,6 +34,7 @@ Launch the subagent(s) for each task, each task in its own git worktree / branch
 - one task per PR; touch only its task's files, its EXP, its claim rows;
 - edit TODO.md and claims.md only with `tools/board.py` (claim, done, block, add-claims; `resolve` on a conflict) and check `board.py lost --base origin/main` before pushing;
 - finish with `Status: done` only if its own `Done when` passes; otherwise `blocked` with a blocker, `Unblock:` and a negative EXP;
+- keep generated cards, extracted trees, QEMU work dirs and logs in `~/projekty/leafre-work/scratch/<task>/`, never in `/tmp` (a 3.8 GiB tmpfs that fills under parallel agents); delete the scratch directory when the EXP is written;
 - do not merge — you (the TL) merge.
 
 When a subagent finishes, check its work:

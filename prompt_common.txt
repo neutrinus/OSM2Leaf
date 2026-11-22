@@ -15,6 +15,12 @@ Hard rules:
   near-term; prepare it so it is cheap when hardware returns. L4 (QEMU
   full-system emulator, M8) is the software substitute where feasible.
 - Never commit vendor data (images, .DAT, .cmp, .ind, …) — see AGENTS.md.
+- **Keep large scratch off `/tmp`.** It is a 3.8 GiB tmpfs (RAM) here and has
+  filled twice: generated card images, extracted trees, QEMU work dirs and
+  probe outputs belong in `~/projekty/leafre-work/scratch/<task>/`, deleted
+  when the task's EXP is written. Use `/tmp` only for small, short-lived files
+  the same command removes (e.g. `tempfile.TemporaryDirectory` in a selftest).
+  Never point a tool's work dir, card output or log at `/tmp` for a long run.
 - Never force-push `main`. Never edit a task another agent has
   `in progress`, except to note a dependency in your own task.
 - When your task's commits are on `origin/main` (done or blocked), close its
