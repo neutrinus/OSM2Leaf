@@ -5233,7 +5233,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7490–C-7499
 
 - [ ] **M8.H53 — `PowerMonitor`: the power state machine (ACC on/off, start handshake, shutdown and what it saves)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h53-power-monitor · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: Row C4 of the peripheral table (vehicle microcontroller / power state) was never read. Find what the unit expects at start (a 'system ready' exchange), and what happens at ACC off: which data is flushed to flash, in what order, with what timeout.
