@@ -5283,8 +5283,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7520–C-7529
   - Result: EXP-2026-11-22-M8.H55-bt-wire; C-7520–C-7529; 0 B on SCI8, falsifier fired
 
-- [ ] **M8.H56 — Bluetooth stub peer: the stack settles quickly, with the module absent or minimally present**
-  - Status: in progress · Owner: task/m8.h56-bt-peer · Critical: no · Pair: solo
+- [x] **M8.H56 — Bluetooth stub peer: the stack settles quickly, with the module absent or minimally present**
+  - Status: done · Owner: task/m8.h56-bt-peer · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H1, M8.H55
   - Goal: Implement the stub chosen in `docs/firmware/bt-wire.md` as `tools/ze0_peers/bt.py` on the `sci8` chardev and measure the effect on boot.
@@ -5295,6 +5295,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: no difference in the Bluetooth log lines with the peer attached.
   - Claims: C-7530–C-7539
+  - Result: EXP-2026-11-22-M8.H56-bt-peer; C-7530–C-7539; negative: 0 B, all BT log counts identical
 
 - [ ] **M8.H57 — USB host on `-M ze0`: the OHCI controller at `0xffe70400`**
   - Status: open · Owner: — · Critical: no · Pair: required
