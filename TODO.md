@@ -1150,8 +1150,8 @@ text of this section is in git (`13cb0cf`).
   - Result: EXP-2026-11-16-H81-close-superseded; C-4040–C-4044. Five of the seven H51-superseded blocks were `open`; they are now `done` with `Result: superseded by H51/M1.19` (history note kept, no block deleted), so the probe prints no `open` row among the seven and the board moves `open 108→103`, `done 59→64` (`blocked` unchanged at `28`). The two `blocked` ones (M1.2f, M8.E1) keep their own `Unblock:` chain, not M1.19, which would be a false unblock. `todo_check` OK; `--strict` 69→66 (M1.2e's three firmware fields drop out, nothing new). H81's own stale `grep -c` count is corrected: `10`, not `11`.
   - Claims: C-4040–C-4049
 
-- [ ] **H82 — Stamp the zlib interpreter into recompression evidence (this host's default `python3` is zlib-ng)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H82 — Stamp the zlib interpreter into recompression evidence (this host's default `python3` is zlib-ng)**
+  - Status: done · Owner: task/h82-zlib-stamp · Critical: no · Pair: solo
   - Depends: — (`tools/zlibinfo.py` exists); coordinates H58/H66 (evidence form) and every `*.cmp`/`LEV3456R` writer claim
   - Goal: on this host `python3 --version` prints `Python 3.15.0` and `python3 tools/zlibinfo.py` prints `zlib: zlib 1.3.1.zlib-ng, runtime 1.3.1.zlib-ng (zlib-ng: not the reference compressor)`, yet several EXPs in the window write `python3 3.13.1` (H76/H75/H71) or `python3 3.15.0` (M1.31/M1.26/H74) without saying which interpreter has stock zlib 1.3.1. AGENTS.md makes a byte-identical recompression claim unverifiable on zlib-ng, so the field must name the interpreter that produced the bytes, not the one that printed a log line: `python3.13` here is 1.3.2 and `python3` is zlib-ng, so neither default is the 1.3.1 the writer claims assume.
   - Precheck: `python3 tools/zlibinfo.py` exits 0 and names `zlib-ng`; `python3 tools/zlibinfo.py --require-stock-zlib` exits 3 with `needs stock zlib` (so the tool already knows, the EXPs do not use it).
@@ -1161,6 +1161,7 @@ text of this section is in git (`13cb0cf`).
   - Done when: `python3 tools/zlibinfo.py --stamp` prints nothing on a stock 1.3.1 runtime and one `WARNING` line on any other (a `--selftest` case, both injected); TEMPLATE's Tools row and `prompt_common.txt` require the `zlibinfo.py` line for any recompression claim; `python3 tools/selftest.py` stays green.
   - Stop: if a per-EXP edit of the window's six files would touch claims, ship the template/prompt/stamp half and record the EXP backfill as a one-line follow-up (never retype a tool version).
   - Claims: C-4050–C-4059
+  - Result: EXP-2026-11-22-H82-zlib-stamp; zlibinfo --stamp warns on non-1.3.1, silent on stock 1.3.1; selftest 182/0/21 green
 
 - [x] **H83 — A board-ref lint: every `TASK#ref` resolves, and a task's normative text never re-states its priority**
   - Status: done · Owner: task/h83-board-ref-lint · Critical: no · Pair: required

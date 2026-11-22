@@ -33,6 +33,7 @@ Commands::
     python3 tools/zlibinfo.py                     # one line, exit 0
     python3 tools/zlibinfo.py --json              # machine-readable
     python3 tools/zlibinfo.py --require-stock-zlib  # exit 3 when untrusted
+    python3 tools/zlibinfo.py --stamp             # nothing on stock 1.3.1, else WARNING
     python3 tools/zlibinfo.py --selftest
 
 Exit codes: ``0`` fine (or reported), ``3`` = **unverifiable** (never used for
@@ -294,8 +295,69 @@ def selftest() -> int:
     assert "zlib-ng" in buf.getvalue() and "no recompression" in buf.getvalue()
 
     assert unverifiable(ng, "tools/x.py verify", "streams differ", stream=_null()) == 3
-    print("zlibinfo selftest: OK (11 checks, fake zlib-ng strings, zlib untouched)")
+
+    # --stamp is evidence metadata: silent on the pinned stock 1.3.1 runtime,
+    # one WARNING line on any other.  Both branches are injected; zlib is never
+    # patched.  The stamp never exits 3 (that is --require-stock-zlib's job).
+    stock_buf = io.StringIO()
+    assert stamp(stock, stream=stock_buf) is None
+    assert stock_buf.getvalue() == "", stock_buf.getvalue()
+
+    for other in (ng, ng_runtime_only, older, mixed):
+        buf = io.StringIO()
+        line = stamp(other, stream=buf)
+        assert line is not None, other
+        out = buf.getvalue().splitlines()
+        assert len(out) == 1, (other, out)
+        assert out[0].startswith("WARNING: zlibinfo: "), out
+        assert "stock zlib 1.3.1" in out[0], out
+        assert str(other.build) in out[0] and str(other.runtime) in out[0], out
+
+    # CLI wiring: --stamp exits 0 and emits exactly the contract on the live
+    # runtime.  main() uses current(); the injected stamp() cases above prove
+    # the branch logic without patching zlib.
+    live_cap = io.StringIO()
+    old = sys.stdout
+    try:
+        sys.stdout = live_cap
+        live_rc = main(["--stamp"])
+    finally:
+        sys.stdout = old
+    assert live_rc == 0, live_rc
+    live_lines = [l for l in live_cap.getvalue().splitlines() if l.strip()]
+    live = current()
+    if live.reference:
+        assert live_lines == [], live_lines
+    else:
+        assert len(live_lines) == 1, live_lines
+        assert live_lines[0].startswith("WARNING: zlibinfo: "), live_lines
+        assert live.runtime in live_lines[0], live_lines
+
+    print("zlibinfo selftest: OK (21 checks, fake zlib-ng strings, zlib untouched)")
     return 0
+
+
+STAMP_WARNING = (
+    "WARNING: zlibinfo: interpreter links {build} (runtime {runtime}, {flavour}); "
+    "stock zlib {ref} is required for byte-identical recompression claims. "
+    "Record this interpreter in the EXP Tools row or rerun with stock zlib {ref}."
+)
+
+
+def stamp(runtime: Runtime | None = None, stream=None) -> str | None:
+    """Return/print one WARNING line on any non-stock-1.3.1 runtime, else nothing.
+
+    Exit status stays 0: the stamp is evidence metadata, not a gate.  Use
+    ``--require-stock-zlib`` when a command must refuse to recompress.
+    """
+    rt = runtime or current()
+    if rt.reference:
+        return None
+    line = STAMP_WARNING.format(
+        build=rt.build, runtime=rt.runtime, flavour=rt.flavour, ref=REFERENCE_VERSION
+    )
+    print(line, file=stream or sys.stdout)
+    return line
 
 
 def main(argv=None) -> int:
@@ -306,12 +368,20 @@ def main(argv=None) -> int:
         action="store_true",
         help="exit 3 (unverifiable) when this interpreter does not link stock zlib",
     )
+    ap.add_argument(
+        "--stamp",
+        action="store_true",
+        help="print nothing on stock zlib 1.3.1; otherwise print one WARNING line (exit 0)",
+    )
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
 
     rt = current()
+    if args.stamp:
+        stamp(rt)
+        return 0
     if args.json:
         print(json.dumps(rt.as_dict(), indent=2))
     else:

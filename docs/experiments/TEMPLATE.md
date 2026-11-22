@@ -7,7 +7,9 @@
   why
 - **Tools:** every tool used with its version (`python3 3.13.1 / zlib 1.3.1`,
   `capstone 5.0.7`, `qemu 8.2.7`, `objdump` from `binutils-sh4-linux-gnu`), and
-  for repo tools the path
+  for repo tools the path. For any recompression/byte-identical claim, include
+  the `python3 tools/zlibinfo.py` (or `--stamp`) line that names the
+  interpreter actually used to produce the bytes.
 - **Claims:** C-xxx, C-yyy
 - **Supersedes:** EXP-... (or `none`)
 - **Superseded by:** EXP-... (or `none`)
