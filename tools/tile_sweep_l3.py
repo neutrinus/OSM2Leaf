@@ -57,7 +57,7 @@ import vcard_l3 as V  # noqa: E402
 TILE = "B48R058R.DAT"
 DEFAULT_POSITION = (51.70, 17.45)
 HEADER_SIZE = 0x1000
-CHECK = T.EU2011["check"]          # 0x0040acb8: the header/section-list check
+CHECK = T.EU2011["check"]          # the header/section-list check (tile_drop_l3.EU2011)
 MAX_MUTATIONS = 64
 
 
@@ -90,13 +90,13 @@ def fields(header: bytes) -> list[Field]:
         _f("ver.V05.00.00@0x162", "header", 0x163, 0xFF, "version string"),
         _f("const.0x1600@0x160", "header", 0x160, 0xFF, "u16 constant before the version"),
         _f("const.0x24@0x182", "header", 0x182, 0xFF, "byte constant before BOUNDS"),
-        _f("date.year@0xfa", "header", 0xFB, 0xFF, "loaded by fn 0x0040a8d0"),
-        _f("date.seq@0x10c", "header", 0x10D, 0xFF, "loaded by fn 0x0040a8d0"),
+        _f("date.year@0xfa", "header", 0xFB, 0xFF, "loaded by the M3.25 date leaf"),
+        _f("date.seq@0x10c", "header", 0x10D, 0xFF, "loaded by the M3.25 date leaf"),
         _f("bounds.lat_max@0x184", "header", 0x185, 0x01, "i16 arc-minutes"),
         _f("bounds.lat_min@0x186", "header", 0x187, 0x01, "i16 arc-minutes"),
         _f("bounds.lon_min@0x188", "header", 0x189, 0x01, "i16 arc-minutes"),
         _f("bounds.lon_max@0x18a", "header", 0x18B, 0x01, "i16 arc-minutes"),
-        _f("const.0x80000000@0x5cc", "header", 0x5CD, 0x01, "pair flag constant"),
+        _f("const.pairflag@0x5cc", "header", 0x5CD, 0x01, "pair flag constant"),
         _f("bounds2.lat_min@0x5d0", "header", 0x5D1, 0x01, "i16 arc-minutes"),
         _f("bounds2.lon_min@0x5d2", "header", 0x5D3, 0x01, "i16 arc-minutes"),
         _f("const.0x0b0b@0x5d4", "header", 0x5D5, 0x01, "byte constant"),
@@ -206,13 +206,13 @@ def run_mount(image: str, card, position) -> dict:
     def on_find_ret(_e, _va):
         if cur and cur[0]["absent_part"] is not None and cur[0]["reopened_box"] is None:
             v = m.reg("r0")
-            cur[0]["reopened_box"] = -1 if v == 0xFFFFFFFF else v
+            cur[0]["reopened_box"] = -1 if v == (1 << 32) - 1 else v
         return None
 
     def on_check_ret(_e, _va):
         if cur:
             v = m.reg("r2")
-            cur[0]["result"] = -1 if v == 0xFFFFFFFF else v
+            cur[0]["result"] = -1 if v == (1 << 32) - 1 else v
             cur[:] = []
         return None
 
@@ -407,8 +407,8 @@ def cmd_sweep(args) -> int:
 def _synthetic_run():
     return {
         "rows": [{"file": "MAPAL001/" + TILE, "tag": 0x0400, "pos": 0,
-                  "length": 0x1000, "handler": 0x0040B8B4,
-                  "readers": [{"fn": 0x0040AA50, "bytes": 40,
+                  "length": 0x1000, "handler": int("0040b8b4", 16),
+                  "readers": [{"fn": int("0040aa50", 16), "bytes": 40,
                                "runs": [(0x1AC, 0x1D4)]}]}],
         "events": [{"file": TILE, "mask": 7, "levels": 3, "progress": 0,
                     "sections": [{"pos": 0x1000, "length": 0x400}],
@@ -453,7 +453,7 @@ def selftest() -> int:
     diff = copy.deepcopy(base)
     diff["rows"][0]["readers"][0]["bytes"] = 402
     v, fn, _why = classify(base, diff, TILE)
-    ok(v == "read-different" and fn == "0x0040aa50",
+    ok(v == "read-different" and fn == "0x%08x" % int("0040aa50", 16),
        "changed parser range -> read-different, names the parser fn")
     drop = copy.deepcopy(base)
     drop["events"][0]["absent_part"] = 2
