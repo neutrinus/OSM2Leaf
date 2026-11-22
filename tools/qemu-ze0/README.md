@@ -265,6 +265,17 @@ kept), so the next run extracts cleanly.
   (phys `0x0e700000`) as RGB565 800x480 PNGs; the display engine is not
   modelled yet, so it stays black. See
   [`EXP-2026-11-22-M8.C1d-multi-xip.md`](../../docs/experiments/EXP-2026-11-22-M8.C1d-multi-xip.md).
+- `ze0-0013` (M8.C1e): device `ze0-gfx` for the display unit (DU, phys
+  `0xfff80000`) and the 2D engine (2DG, phys `0xffe80000`), also at their
+  area-7 aliases: 60 Hz DU vblank (INTEVT `0x3e0`, SYSINTR 33) and the 2DG
+  display-list handshake (DLSAR `+0x48`, SCLR `+0x00` = 1 → SR.TRA,
+  INTEVT `0x780`, SYSINTR 34). The lists are not executed yet (M8.C1f).
+  Options `gfx=off` (control) and `gfx-trace=on` (every register access
+  with the guest PC under `-d unimp`). The same patch adds SCIF stubs for
+  channels 8-9 (`serial_scif.dll` spun on channel 8 and starved the UI
+  threads) and lets `FLDI0`/`FLDI1` run with `FPSCR.PR = 1` on this board
+  (`XGLDLL.dll` in Navi.exe). See
+  [`EXP-2026-11-22-M8.C1e-display-engine.md`](../../docs/experiments/EXP-2026-11-22-M8.C1e-display-engine.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
