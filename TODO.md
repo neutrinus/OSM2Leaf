@@ -5257,8 +5257,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the flash file is unchanged after a completed shutdown sequence.
   - Claims: C-7510–C-7519
 
-- [ ] **M8.H55 — Bluetooth module on `SCI8:`: wire protocol and what makes its start-up finish**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H55 — Bluetooth module on `SCI8:`: wire protocol and what makes its start-up finish**
+  - Status: done · Owner: task/m8.h55-bt-wire · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: `BT_FW.dll` and `BT_MGR.dll` talk to a Bluetooth module over the high-speed UART. For the emulator we need the transport (HCI H4, BCSP, or a vendor command set), whether firmware is downloaded into the module at start, and the shortest exchange that lets the stack settle (present, or cleanly absent). M1.41 maps the stack above; this task is the wire only.
@@ -5269,6 +5269,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the modules never write to the line during start (BT is started on demand only).
   - Claims: C-7520–C-7529
+  - Result: EXP-2026-11-22-M8.H55-bt-wire; C-7520–C-7529; 0 B on SCI8, falsifier fired
 
 - [ ] **M8.H56 — Bluetooth stub peer: the stack settles quickly, with the module absent or minimally present**
   - Status: open · Owner: — · Critical: no · Pair: solo
