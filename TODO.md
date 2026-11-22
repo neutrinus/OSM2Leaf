@@ -2787,7 +2787,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7650–C-7659
 
 - [ ] **M4.67 — KIWI Level / Block Set / Block Management Records against `MMAIN001.DAT` and the tile level tables**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.67-kiwi-level-blocks · Critical: no · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: KIWI describes the map pyramid in three record types (chapters 6.1.1, 6.1.2, 6.2.1 as named in `kiwiread.c`): level, block set, block. `MMAIN001.DAT` holds per-level totals and the tiles hold level/box tables. If they are the KIWI records, every unexplained field in them gets a name (display scale flags, parcel counts per block, latitude/longitude extents).
