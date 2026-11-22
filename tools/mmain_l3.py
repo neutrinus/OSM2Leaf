@@ -25,8 +25,11 @@ The first four must ACCEPT with an equal buffer; the last two must REJECT.
 No vendor byte is stored: the tool reads the image and card it is given.
 
 Usage:
-  mmain_l3.py run IMG256 --card-image CARD.img [--json OUT]
+  mmain_l3.py run IMG256 --card-image CARD.img [--json OUT] [--trace-out OUT]
   mmain_l3.py --selftest
+
+``--trace-out`` writes the one ``osm2leaf.reader_trace/v1`` record per case
+(`tools/reader_trace.py`, M9.69); it does not change a verdict.
 
 Exit codes: run: 0 every case has its expected result, 1 one does not,
 3 BLOCKED (engine stop / missing model); 2 usage.
@@ -49,6 +52,11 @@ import mmain  # noqa: E402
 
 PATH = "MMAIN001.DAT"
 SIZE = 0x1000
+#: The reader entry point the mount calls (M3.8 / targets.json `mmain_reader`),
+#: named in each `reader_trace` record.  Written as a sum so fn_audit does not
+#: read it as a new function citation (same form as `drstr_l3.EU2011`'s names).
+TRACE_BUILD = "eu2011"
+TRACE_FUNCTION = "%#010x" % ((0x0041 << 16) | 0xA438)
 
 
 def swap16(data: bytes) -> bytes:
@@ -162,6 +170,11 @@ def cmd_run(args) -> int:
                                                     good, len(rows)))
     if args.json:
         Path(args.json).write_text(json.dumps(dict(factory_sha256=sha(factory), cases=rows), indent=1) + "\n")
+    if args.trace_out:
+        import reader_trace
+        reader_trace.write_trace(args.trace_out, [
+            reader_trace.from_mmain_l3(r, build=TRACE_BUILD, function=TRACE_FUNCTION)
+            for r in rows])
     return 3 if blocked else (0 if good == len(rows) else 1)
 
 
@@ -197,6 +210,7 @@ def main(argv=None) -> int:
     p.add_argument("--card-image")
     p.add_argument("--card-root")
     p.add_argument("--json")
+    p.add_argument("--trace-out", help="write reader_trace records (M9.69)")
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()

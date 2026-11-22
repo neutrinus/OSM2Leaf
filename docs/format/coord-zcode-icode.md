@@ -6,7 +6,7 @@ Sample: EU 2011 image
 > **Evidence status:** layouts and the coordinate formula are `VERIFIED`;
 > COORD001 `level`/mask and header fields are `VERIFIED` (EU+US, M4.12);
 > ZCODE form-A offset base and record addressing are `VERIFIED` (EU ZCODE018/033, M4.12);
-> ZCODE form-B directory/offset-base is `OBSERVED`/partly unresolved;
+> ZCODE form-B header mirror and offset base are `VERIFIED` (EU 31 shards, M4.79; census 67.7–100 % of bytes); Form-B `size`/`count` semantics remain `OBSERVED`;
 > ICODE001 ISO header and per-language country-chain roots are `VERIFIED` (EU+US, M4.12)
 > but the root-pointer index table location is `UNKNOWN`.
 > Region-to-country mapping is `OBSERVED`/`HYPOTHESIS` except where a bounding
@@ -129,24 +129,35 @@ this form and writes 16-byte ladder records; observed ZCODE018/033 record
 semantics (coord-like vs area-ladder) differ by file — the **addressing/base
 is the verified part**, record payload interpretation remains per-file/OBSERVED.
 
-### Form B — sentinel header, directory/index (OBSERVED, offset base unresolved)
+### Form B — sentinel stub + header at `0x1100`, directory at `0x1204` (VERIFIED, M4.79)
 
 Files: the other 31 EU ZCODE files (e.g. ZCODE001,002,005,013).
 
-- Header 0x1006/0x100e/0x1012/0x1016 sentinel/zero (`rec_addr=0xffffffff`,
-  `nodew=0`); still carries `cr/2` (0x1032=6→12), `kw` (0x1033=1), `area`
-  (0x1042), and a `ZCODE_FH`/ZIP-CODE frame signature.
-- Directory/index entries observed from 0x1204 as 12-byte
-  `>HHBBHI (size, 0, tag, 0, count, offset)` blocks (digit/letter tags,
-  terminators), with 16-byte **area-ladder** result records (BE halfwords,
-  `0xffff` padding, trailing `0x0000`; e.g. ZCODE002 Belgium `(1,2,3,19,2,
-  65535,65535,0)`).
-- **Offset base (UNRESOLVED):** `offset` values do not resolve to child
-  blocks/records under a single constant base (absolute, rel-0x1100,
-  halfword-0x1100, `unaddr`, rel-entry and sector forms all fail to give a
-  uniform rule across root-level entries; `offset=0` appears with inline/
-  mixed interpretations). Form-B child resolution needs a traced walk of the
-  0x1100/0x1204 structure or firmware confirmation.
+- **`0x1000` is a sentinel stub, not the header.** It holds `0x1006=0` and
+  `0x1012=0xffffffff` (which is why the old form test classified these as
+  "sentinel header"); the real 48-byte header is **mirrored at `0x1100`**:
+  `0x1106` nodew, `0x110e` first, **`0x1112` `rec_addr_enc`**, `0x1116`
+  `rec_size`, `0x1132` cr/2, `0x1133` kw, `0x1142` area, plus the
+  `ZIP-CODE`/`ZCODE_FH` frame signature.
+- **Record block:** `record_base = unaddr(rec_addr_enc@0x1112)` (same sector
+  encoding as form A) and `records = rec_size@0x1116 / 8`, i.e. 16-byte
+  records for `base .. base + records*16`. This fits all 31 shards (the
+  surviving tail is 0–240 B padding); e.g. ZCODE002 `rec_addr_enc 0x1007` →
+  base `0x8700`, `rec_size 0x57c0` → **2808** records, the count the earlier
+  M4.12 EXP reported as "2808 ladder-like" records.
+- **Directory/index:** 12-byte `>HHBBHI (size, 0, tag, 0, count, offset)`
+  entries start at **`0x1204`** (digit tags). A child target is
+  **`0x1204 + offset*2`** — a nested table when it parses as such entries,
+  else a block of **`count`** 16-byte area-ladder records. The walk from
+  `0x1204` reaches every shard's tree with no invalid target (M4.79).
+- The area-ladder records are BE halfwords with `0xffff` padding and a
+  trailing `0x0000`; e.g. ZCODE002 Belgium `(1,2,3,19,2,65535,65535,0)`.
+- **Still OBSERVED/UNKNOWN:** the `size` field (multiple of 6, 12–66) and the
+  exact meaning of the second halfword of an entry are not pinned; the
+  census uses `count` for record length and `size` only as a table-entry
+  parser guard. The unexplained bytes per shard (0–32 %) are mid-tree
+  alignment gaps and padding between tables; they are listed per shard in
+  `python3 tools/zcode_decode.py census ROOT`.
 
 The older simplified directory/leaf structs below describe the *kind* of data
 present but not the verified addressing; they are **superseded in detail** by
@@ -160,8 +171,8 @@ struct zcode_dir {
     uint16_t zero;
     uint8_t  tag;     // '0'..'9' or 'A'..'Z'
     uint8_t  zero;
-    uint16_t count;
-    uint32_t offset;  // base UNRESOLVED for form B (M4.12)
+    uint16_t count;   // form B: number of 16-byte records at the target
+    uint32_t offset;  // form B: child target = 0x1204 + offset*2
 };
 ```
 
@@ -257,6 +268,8 @@ python3 tools/coord_zcode_icode.py --verify-coord /home/marek/projekty/leafre-wo
 python3 tools/coord_zcode_icode.py --verify-zcode /home/marek/projekty/leafre-work/root/REFER001/ZCODE018.DAT --zcode-expect-index 0 --zcode-expect-vals 42830,53372,1712,467,42830,53372,2012,280
 python3 tools/coord_zcode_icode.py --verify-zcode /home/marek/projekty/leafre-work/root/REFER001/ZCODE033.DAT
 python3 tools/coord_zcode_icode.py --verify-zcode /home/marek/projekty/leafre-work/root/REFER001/ZCODE002.DAT
+python3 tools/zcode_decode.py --selftest
+python3 tools/zcode_decode.py census /home/marek/projekty/leafre-work/m5.29-factory-root/REFER001
 python3 tools/coord_zcode_icode.py --verify-icode /home/marek/projekty/leafre-work/root/REFER001/ICODE001.DAT
 python3 tools/coord_zcode_icode.py --verify-icode /home/marek/projekty/leafre-work/m5.12-us/root-factory/REFER001/ICODE001.DAT
 ```
