@@ -482,7 +482,6 @@ def make_verdict(rows: list[dict], parsed: dict) -> dict:
             break
     return {
         "stage_reached": consec[-1] if consec else "none",
-
         "stages_passed": reached,
         "failed_stage": first_failed,
         "result": "PASS" if not failed else "FAIL",
