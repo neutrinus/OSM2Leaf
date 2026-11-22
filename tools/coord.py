@@ -253,6 +253,58 @@ def xy_to_latlon(x: float, y: float, origin: int = DEFAULT_ORIGIN) -> tuple[floa
     return (x - LAT_ORIGIN) / LAT_SCALE, (y - origin) / LON_SCALE
 
 
+# --------------------------------------------------------------------------
+# Point-id form: the fine position carried by POINT name records (M4.27,
+# C-2679).  The two copy-A words are not 1-unit coordinates: their low nibble
+# is ``11xx`` (two marker bits, then a 4-unit sub-cell index), and the two
+# 11-bit fields refine the sub-cell in 1/512 unit.  This form has its own
+# longitude origin (the tile origin 52736), so it is a separate function and
+# never changes ``DEFAULT_ORIGIN`` for the plain ``COORD001``/``ADDRE`` bbox.
+# --------------------------------------------------------------------------
+
+POINT_LON_ORIGIN = 52736    # fine point-id form (C-2679); NOT the bbox origin
+FINE_PER_UNIT = 512         # fine steps per packed unit
+
+
+def packed_units(word: int, fine: int) -> float:
+    """Packed units of a copy-A word plus its 11-bit fine field."""
+    return (word & ~15) + 4 * (word & 3) + fine / FINE_PER_UNIT
+
+
+def decode_point_id(
+    ax: int, ay: int, fine_lon: int, fine_lat: int
+) -> tuple[float, float]:
+    """Decode a POINT copy-A pair plus its two fine fields to ``(lat, lon)``.
+
+    ``fine_lon`` is the low 11 bits of record bytes 6-7, ``fine_lat`` of
+    bytes 8-9; the caller masks them (the firmware does, M3.34).  The
+    longitude origin is the tile origin 52736, unlike the bbox form's 52742.
+    """
+    return (
+        (packed_units(ax, fine_lat) - LAT_ORIGIN) / LAT_SCALE,
+        (packed_units(ay, fine_lon) - POINT_LON_ORIGIN) / LON_SCALE,
+    )
+
+
+def encode_point_id(lat: float, lon: float) -> tuple[int, int, int, int]:
+    """Inverse of :func:`decode_point_id`: ``(A.x, A.y, rec[6..7], rec[8..9])``.
+
+    The two words carry the ``11xx`` marker nibble and the second pair carries
+    the ``0x0800`` flag (``0x800 | fine_lon``, ``fine_lat`` as stored).
+    """
+    out = []
+    for value, origin, scale in (
+        (lat, LAT_ORIGIN, LAT_SCALE),
+        (lon, POINT_LON_ORIGIN, LON_SCALE),
+    ):
+        fixed = int(round((value * scale + origin) * FINE_PER_UNIT))
+        units, fine = divmod(fixed, FINE_PER_UNIT)
+        sub, rest = divmod(units % 16, 4)
+        out.append(((units & ~15) | 0xC | sub, rest * FINE_PER_UNIT + fine))
+    (ax, flat), (ay, flon) = out
+    return ax, ay, 0x800 | flon, flat
+
+
 def packed_origin(
     cell: str, origin: int = DEFAULT_ORIGIN
 ) -> tuple[int, int]:
@@ -981,6 +1033,42 @@ def selftest() -> int:
         poi_ok,
         f"n={len(poi_fixtures)} median lon 52742={med_coord:.0f} m, "
         f"52736={med_tile:.0f} m, lat={lat_med:.0f} m",
+    )
+
+    # 17. Point-id form (M4.61): decode/encode is its own pair of functions, the
+    #     marker nibble is 11xx, and the 52736 origin differs from the bbox one.
+    point_ok = True
+    detail = ""
+    for lat, lon in ((52.2297, 21.0122), (19.72583, -155.08667),
+                     (36.143882, -5.349857), (64.1466, -21.9426),
+                     (43.7447916667, 7.4296875)):
+        ax, ay, v6, v8 = encode_point_id(lat, lon)
+        la, lo = decode_point_id(ax, ay, v6 & 0x7FF, v8 & 0x7FF)
+        dlat = (la - lat) * 111320.0
+        dlon = (lo - lon) * 111320.0 * math.cos(math.radians(lat))
+        if (ax & 0xC) != 0xC or (ay & 0xC) != 0xC or (v6 & 0x800) == 0:
+            point_ok = False
+            detail = f"marker lost at {lat},{lon}"
+        elif math.hypot(dlat, dlon) > 2.0:
+            point_ok = False
+            detail = f"{math.hypot(dlat, dlon):.1f} m at {lat},{lon}"
+    check("point id round-trip < 2 m, nibble 11xx", point_ok, detail or "5 points")
+
+    # 18. The point-id origin is the tile origin 52736, not the bbox 52742.
+    ax, ay, v6, v8 = encode_point_id(52.2297, 21.0122)
+    lon_tile = decode_point_id(ax, ay, v6 & 0x7FF, v8 & 0x7FF)[1]
+    lon_bbox = xy_to_latlon(ax, ay, LON_ORIGIN_COORD)[1]
+    check(
+        "point id uses 52736, bbox uses 52742",
+        abs(lon_bbox - lon_tile) > 0.03
+        and abs(lon_tile - 21.0122) < 0.01,
+        f"diff {(lon_bbox - lon_tile) * 3600:.1f} arcsec",
+    )
+
+    # 19. packed_units: sub-cell 2 of the nibble-e word is 8 units past 0x8EC0.
+    check(
+        "packed_units sub-cell 2 of nibble e",
+        packed_units(0x8ECE, 1745) == 0x8EC0 + 8 + 1745 / FINE_PER_UNIT,
     )
 
     print(
