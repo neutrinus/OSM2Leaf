@@ -4571,7 +4571,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H2-serial-uat; 10/10 claims, fn_audit clean
 
 - [ ] **M8.H3 — External UART model on `-M ze0`: `UAT3:` and `UAT4:` as host chardevs**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m8.h3-ext-uart-chardev · Critical: no · Pair: required
   - Step: model
   - Depends: M8.H2
   - Goal: With the register map of M8.H2, add the two external UARTs so the VCAN peer (M8.H50) can talk to `CAN.dll`.
@@ -4582,6 +4582,22 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the chip needs a bus (CS/wait-state) register that is not modelled, record it and stop.
   - Falsifier: `CAN.dll` opens `UAT3:` successfully before the patch (then the driver did not need the chip).
   - Claims: C-7000–C-7009
+  - Blocker: UAT3 SYSINTR 0x1b has no OAL ISR in EU2011; guest driver's IST never reads the injected byte
+  - Unblock: M8.H73
+  - Result: EXP-2026-11-22-M8.H3-external-uart (negative); register model verified, RX loopback failed
+
+- [ ] **M8.H74 — Pin UAT3's SYSINTR-to-INTEVT route for the ze0 UART model**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: reader
+  - Depends: M8.H2 (done), M8.H3 (blocked)
+  - Goal: `serial_uat.dll` calls `InterruptInitialize(SYSINTR=0x1b)` for UAT3 (measured in EXP-2026-11-22-M8.H3-external-uart), but no OAL ISR in EU2011 `nk.exe` returns `0x1b`, so the QEMU `uat3` model can assert an INTEVT without ever waking the guest's IST. Find the real route: a chained ISR installed at runtime, a GPIO/sub-CPU path through `GPI1:` IOCTL `0x80092064`, or a different SYSINTR for the receive path.
+  - Precheck: `python3 tools/ze0_dbgmsg.py run --duration 15 --hook 0x39a4cd8:r4:x -- QEMU -M ze0,uat3=ze0uat3 -kernel archive/head256.img -chardev file,id=ze0uat3,path=W/tx.bin -icount shift=0,sleep=off -nographic -serial null -monitor none` prints `r4=0x0000001b`.
+  - Scope: static scan of all 51 non-default ISRs from the runtime InterruptTable dump plus a runtime correlation using `tools/ze0_uart_probe.py --patch` and `tools/ze0_dbgmsg.py`; produce the SYSINTR→INTEVT (and INT2 bit/priority) row for UAT3 and UAT4. No car, no vendor bytes in the repo.
+  - Input: `docs/firmware/serial-uat.md`, `docs/experiments/EXP-2026-11-22-M8.H3-external-uart.md`, `tools/qemu-ze0/patches/ze0-h03-ext-uart.patch`, C-6998, C-7002–C-7006.
+  - Done when: a documented VA-backed row names UAT3's SYSINTR, INTEVT, INT2 bit and priority, and the delayed-byte loopback of M8.H3's EXP makes the guest driver read `0x5a` from RBR (a `ze0-uart read idx=0` line with that value plus a hook hit in the driver's read path). EXP + claims.
+  - Stop: two sessions; if the route needs the sub-CPU firmware (not in the ROM), record that and stop as blocked.
+  - Falsifier: a byte injected on `uat3` is read by the driver without any change to the interrupt routing (then the M8.H3 blocker was wrong).
+  - Claims: C-8430–C-8439
 
 - [ ] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
   - Status: open · Owner: — · Critical: no · Pair: required

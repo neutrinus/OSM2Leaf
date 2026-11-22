@@ -70,12 +70,16 @@ Options:
   --serial SPEC       first serial port (-M ze0: the debug SCIF at 0xffe46000,
                       M8.A6): log = file:WORK/serial.log (default), none,
                       stdio, or any QEMU -serial chardev spec
-  --serial-peer N=SPEC  -M ze0: attach host chardev to SCIF N (0-8) for TX
-                      and RX (M8.H1). SPEC is unix:PATH[,opts] (a peer
-                      connects to PATH), file:PATH or stdio; it is translated
-                      to QEMU -chardev backend parameters. Repeat for several
-                      lines. The machine gets sciN=<generated chardev id>.
-                      Without this option the SCIF keeps its stub behaviour.
+  --serial-peer N=SPEC  -M ze0: attach host chardev to SCIF N (0-8) or to the
+                      external UART uat3/uat4 (M8.H1/M8.H3) for TX and RX.
+                      SPEC is unix:PATH[,opts] (a peer connects to PATH),
+                      file:PATH or stdio; it is translated to QEMU -chardev
+                      backend parameters. Repeat for several lines. The
+                      machine gets sciN=/uatN=<generated chardev id>.
+                      Without this option the line keeps its stub behaviour.
+  --uart-intevt N=HEX  -M ze0: INTEVT for uat3/uat4 (M8.H3; default 0x8c0/
+                      0x8e0). Use to sweep the OAL vector until the guest
+                      driver's receive path runs.
   --dbgmsg VA|off     -M ze0 with --image: copy the kernel debug strings to
                       the first serial port (machine option dbgmsg=VA, M8.B6;
                       needs ze0-0007). Default 0x880404f4 (EU2011 nk.exe
@@ -328,6 +332,7 @@ WORK=
 LOG=
 SERIAL=log
 SERIAL_PEERS=
+UART_INTEVT=
 DBGMSG=0x880404f4
 SD=
 VERINF=
@@ -362,7 +367,7 @@ while [ "$#" -gt 0 ]; do
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
-    --serial | --serial-peer | --dbgmsg | --icount | --sd | --verinf | \
+    --serial | --serial-peer | --uart-intevt | --dbgmsg | --icount | --sd | --verinf | \
     --mapdb | --ipl-patch | --card)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
@@ -396,10 +401,17 @@ while [ "$#" -gt 0 ]; do
         --serial) SERIAL=$_val ;;
         --serial-peer)
           case $_val in
-            sci[0-8]=?*) ;;
-            *) usage_error "--serial-peer needs sciN=SPEC with N in 0-8" ;;
+            sci[0-8]=?*|uat[34]=?*) ;;
+            *) usage_error "--serial-peer needs sciN=SPEC (N=0-8) or uat3/uat4=SPEC" ;;
           esac
           SERIAL_PEERS="${SERIAL_PEERS:+${SERIAL_PEERS}|}$_val"
+          ;;
+        --uart-intevt)
+          case $_val in
+            uat[34]=0x*) ;;
+            *) usage_error "--uart-intevt needs uat3=0xHEX or uat4=0xHEX" ;;
+          esac
+          UART_INTEVT="${UART_INTEVT:+${UART_INTEVT}|}$_val"
           ;;
         --dbgmsg) DBGMSG=$_val ;;
         --icount) ICOUNT=$_val ;;
@@ -579,6 +591,19 @@ if [ -n "$SERIAL_PEERS" ]; then
       set -- "$@" -chardev "$_backend,id=$_id"
     fi
     PEER_MOPTS="$PEER_MOPTS,$_n=$_id"
+    case $_n in
+      uat*)
+        if [ -n "$UART_INTEVT" ]; then
+          OLDIFS=$IFS
+          IFS='|'
+          for _iv in $UART_INTEVT; do
+            [ "${_iv%%=*}" = "$_n" ] && \
+              PEER_MOPTS="$PEER_MOPTS,$_n-intevt=${_iv#*=}"
+          done
+          IFS=$OLDIFS
+        fi
+        ;;
+    esac
   done
   IFS=$OLDIFS
   set +f
