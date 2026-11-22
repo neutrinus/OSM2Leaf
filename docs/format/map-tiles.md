@@ -345,6 +345,18 @@ python3 tools/section4.py encode preserve model.json payload.out
 python3 tools/section4.py verify PAYLOAD
 ```
 
+**Generated OSM place names (M5.65).** `tools/section4_places.py build` fills a
+factory section-4 record's `d=NAME` slots from OSM `place=*` / `name` nodes
+(IMF JSONL) by substituting the name text with a CP1252-folded OSM name of
+**exactly the same byte length**, then rebuilding the record with
+`section4.encode_build` and patching only that record's zlib stream and
+directory pair in the tile. The undocumented bytes, parcel words and every
+other tile byte stay verbatim; `section4.py verify` and `harness.py info` read
+the result, and the no-input run is byte-identical. This is not a new grammar
+claim: name-list placement and `0x06..0x0f` remain UNKNOWN (C-546, C-2391),
+and no firmware reader of the generated names has been run (C-6659). See
+`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659.
+
 Road names: shape header word 4 is the name offset in the **odd partner
 record's** names section. `B30R060R` has 297/1,195 named lines; `B30R048R`
 1,972/10,667. Style bits are raw; one-way/speed mapping is a **hypothesis**
@@ -362,6 +374,12 @@ Known limits:
 - streaming mode does not attach road names yet;
 - `RDSTM001`/`LCTBL001` cross-reference is still unresolved — use
   [`rdstm.md`](rdstm.md), not the viewer's incomplete negative.
+- The KIWI 7.3 Background Data Frame does **not** describe these odd records
+  (M4.70, C-7690–C-7697, `EXP-2026-11-22-M4.70-kiwi-bg-frame`): 0 of 17,659
+  odd records on three EU/US 2011 tiles fit; `u16@0` of the geometry block is
+  a ZE0 layer-table pair (0 or 26), not a KIWI `SWS` header word. A ZE0 shape
+  is also one word shorter than `mingr_t`. Use the ZE0 grammar above, not a
+  KIWI layout, in writers.
 
 ## `LEV3456R.DAT`: coarse levels 3–5
 

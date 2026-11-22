@@ -161,6 +161,24 @@ def cmd_info(path):
 
     _print_tile_census(tile)
 
+    # Section 4 is the administrative/place-name index.  Print the names the
+    # existing pinned viewer already decodes (M5.65): this is additive to the
+    # census above and uses no new grammar.
+    try:
+        import ze0_section4
+        recs = list(ze0_section4.records(path))
+        named = [r for r in recs if r['names']]
+        print('section 4 names: %d records, %d named, %d names'
+              % (len(recs), len(named), sum(len(r['names']) for r in recs)))
+        # Sample the most common country first (the tile's own country): on a
+        # border tile the lowest directory numbers can belong to a neighbour.
+        from collections import Counter
+        country = Counter(r['country'] for r in named).most_common(1)[0][0]
+        for r in [r for r in named if r['country'] == country][:5]:
+            print('  %d: %s' % (country, ', '.join(r['names'][:12])))
+    except Exception as e:
+        print('section 4 names unavailable (%r)' % (e,))
+
 
 def cmd_roundtrip(path):
     data = open(path, 'rb').read()

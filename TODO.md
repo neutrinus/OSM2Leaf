@@ -2823,8 +2823,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the KIWI field widths cannot tile our record without leftover bits.
   - Claims: C-7680–C-7689
 
-- [ ] **M4.70 — KIWI Background Data Frame (chapter 7.3) against the odd-partner background records: polygons, shape classes, minimum graphics records**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.70 — KIWI Background Data Frame (chapter 7.3) against the odd-partner background records: polygons, shape classes, minimum graphics records**
+  - Status: done · Owner: task/m4.70-kiwi-bg-frame · Critical: no · Pair: required
   - Step: P1
   - Depends: —
   - Goal: Water, forests and built-up areas are background data. KIWI stores them as typed units of 'minimum graphics records' (point, line, polygon; an 11-bit count of offset coordinates). Our tiles keep background in the odd partner record, mostly unexplained. Test the KIWI layout there.
@@ -2835,6 +2835,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: decoded polygons are not closed or leave the tile frame.
   - Claims: C-7690–C-7699
+  - Result: EXP-2026-11-22-M4.70-kiwi-bg-frame; 0/17,659 KIWI fits, synthetic control PASS, 8 claims C-7690-C-7697
 
 - [ ] **M4.71 — KIWI Name Data Frame (chapter 7.4) against tile names and section 4: name records, placement kinds, string encoding**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -3627,8 +3628,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a generated file with the "right" table code whose Polish records are not found by the firmware, or the absent-table fallback proven not to be the first table (then M5.60's "observed" line is retracted).
   - Claims: C-6610–C-6619
 
-- [ ] **M5.65 — Section 4 place-name index from OSM (M4.21's `generate` left names empty)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.65 — Section 4 place-name index from OSM (M4.21's `generate` left names empty)**
+  - Status: done · Owner: task/m5.65-section4-place-names · Critical: no · Pair: required
   - Step: P3
   - Depends: — (tooling + layout are on `main`: M4.21 built `tools/section4.py` patch/`generate`/`verify`, M3.9 decoded the index; this task supplies the names `generate` refused to invent)
   - Goal: M4.21 makes `section4.py generate` produce verify-accepted payloads for a *changed parcel set*, but it refuses every name with no `payload_hex` — a generated Poland tile therefore has the factory's place names or none, not the OSM names inside its bbox. M5.7 solved the same problem one level down for street labels (`name_off` + odd partner names section); the section-4 admin/place index is the other half and is what place lookup and the place search read (M4.36). Fill it from OSM so a generated tile names the towns it draws.
@@ -3639,6 +3640,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session. If a generated place record cannot be verified against the M3.9 model after two payload shapes, record the shapes and the model mismatch and set `blocked` with the exact field that has no source — do not loosen `verify`.
   - Falsifier: a generated tile whose `section4.py verify` passes but whose viewer `info` shows a place name from the neighbouring tile's bbox (then the record indexes the wrong parcel and the writer, not the test, is wrong).
   - Claims: C-6650–C-6659
+  - Result: EXP-2026-11-22-M5.65-osm-section4-places; 37/37 OSM names, section4 verify OK, l2check PASS, C-6650-C-6659
 
 - [ ] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -4553,8 +4555,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6980–C-6989
   - Result: EXP-2026-11-22-M8.H1-serial-chardevs; sci1+sci7 TX/RX loopback, ch7 ISR 1 hit, baseline unchanged, gate 5/5
 
-- [ ] **M8.H2 — `serial_uat.dll`: which UART chip sits at `0x19b00000`–`0x19e00000` (register map, interrupts)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H2 — `serial_uat.dll`: which UART chip sits at `0x19b00000`–`0x19e00000` (register map, interrupts)**
+  - Status: done · Owner: task/m8.h2-serial-uat-map · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: `UAT3:` carries the vehicle CAN microcontroller (`CAN.dll`), `UAT4:` has no known user. Nothing models the external UARTs, so no CAN frame can enter the emulator. Read the driver and write the register model a QEMU device needs.
@@ -4565,6 +4567,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the driver is a thin wrapper over a kernel IOCTL, name the kernel routine and stop.
   - Falsifier: the driver touches no address in `0x19b00000`–`0x19e00000` (then the address range in the hardware map is wrong).
   - Claims: C-6990–C-6999
+  - Result: EXP-2026-11-22-M8.H2-serial-uat; 10/10 claims, fn_audit clean
 
 - [ ] **M8.H3 — External UART model on `-M ze0`: `UAT3:` and `UAT4:` as host chardevs**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -4914,8 +4917,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7250–C-7259
   - Result: EXP-2026-11-22-M8.H28-kepdrv; C-7250–C-7259; 10 claims, register/sample/unit doc + hardware row
 
-- [ ] **M8.H29 — From driver to map: how a position fix travels inside `Navi.exe`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H29 — From driver to map: how a position fix travels inside `Navi.exe`**
+  - Status: done · Owner: task/m8.h29-fix-to-map · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: Find the consumer side: which module receives `navdrv` data, the message or shared structure that carries a fix, the coordinate units at each hop, and where the fix becomes the map centre (`LOC_*` code; `LOC_map` is already known from M9.67).
@@ -4926,6 +4929,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if more than one process is involved, document the first two hops and the final variable.
   - Falsifier: the position word of `tools/datask_l3.py` is never written after start (then it is a request parameter, not the vehicle position).
   - Claims: C-7260–C-7269
+  - Result: EXP-2026-11-22-M8.H29-fix-to-map; fix chain + writers of 0x00d940e4, ze0_position.py 13/13, gate 5/5
 
 - [x] **M8.H30 — `tools/ze0_peers/gps.py`: a GPS receiver peer (fixed fix, NMEA/GPX replay)**
   - Status: done · Owner: — · Critical: no · Pair: solo
@@ -4942,7 +4946,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H30-gps-peer; 27 selftests, doc frame byte-exact, GPX 5 samples; gate parts PASS except pre-existing C-6728 count
 
 - [ ] **M8.H31 — A GPS fix reaches the map: inject a position on `-M ze0` and read it back from the guest**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: — · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H30, M8.H29
   - Goal: The first end-to-end sensor test: the peer sends a fix, the firmware accepts it, the position variable follows.
@@ -4953,6 +4957,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the firmware ignores fixes without dead-reckoning inputs, record the filter condition (VA) and hand over to M8.H32.
   - Falsifier: the position follows the fix even when the frame checksum is wrong (then the parser path taken is not the one documented).
   - Claims: C-7280–C-7289
+  - Blocker: A0 00 seeding command is not a receiver fix; Navi.exe ignores it: position word and screenshots unchanged (0/128 MiB words changed)
+  - Unblock: M8.H73
+  - Result: EXP-2026-11-22-M8.H31-gps-fix-l4-negative (negative with M8.H1/H30 positive controls)
 
 - [ ] **M8.H32 — Wheel pulses, gyro and reverse on `-M ze0`, driven from the same track as the GPS**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5049,7 +5056,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H38-panel-peer; 32/32 selftest checks; tool:ze0_peers.panel PASS
 
 - [ ] **M8.H39 — A tap changes the screen: touch injection on `-M ze0`, end to end**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m8.h39-tap-l4 · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H38, M8.C1f
   - Goal: First interactive L4 test: tap a visible button and see the UI react.
@@ -5060,6 +5067,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the event arrives (breakpoint hit) but the UI does not react, record the UI state and stop.
   - Falsifier: the screen changes without any tap between the two screenshots (animation), making the comparison meaningless — then compare a named region.
   - Claims: C-7360–C-7369
+  - Blocker: PostMessageW call from the interrupted kernel context faults (0xaa -> 0x8800ebd0); process-local UI thunk 0x03a1b154 unreachable from RSP
+  - Unblock: M8.H35
+  - Result: EXP-2026-11-22-M8.H39-tap-l4 (negative); 0 UI breakpoint hits
 
 - [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5100,8 +5110,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: two runs of the walk give different hashes for the same path.
   - Claims: C-7390–C-7399
 
-- [ ] **M8.H43 — `anwdrv.dll`: the frame protocol with the audio microcontroller on `SCI1:` and the start-up handshake**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M8.H43 — `anwdrv.dll`: the frame protocol with the audio microcontroller on `SCI1:` and the start-up handshake**
+  - Status: done · Owner: task/m8.h43-anwdrv-frame-protocol · Critical: yes · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The emulator's launcher waits out about 27 module timeouts of 30 s because nobody answers on `SCI1:` (project notes 2026-11-22, EXP-2026-11-22-M8.C2a-serial-dma). The driver multiplexes several logical devices (`AUD`, `TNR`, `TMC`, `ANT`, `UPD`, `PDT`) over one framed link. Read the frame grammar and the exchange that reports a module as present.
@@ -5112,9 +5122,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; radio, CD and amplifier messages are out of scope.
   - Falsifier: the checksum rule fails on a second logged frame.
   - Claims: C-7400–C-7409
+  - Result: EXP-2026-11-22-M8.H43-anwdrv-frame-protocol; frame grammar + BCC verified on logged frame; 12/12 selftest; claims C-7400-C-7409
 
-- [ ] **M8.H44 — `tools/ze0_peers/micon.py`: audio-microcontroller peer that answers the launch handshake**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H44 — `tools/ze0_peers/micon.py`: audio-microcontroller peer that answers the launch handshake**
+  - Status: done · Owner: task/m8.h44-micon-peer · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H43
   - Goal: A host program on the `sci1` chardev that replies as `docs/firmware/anwdrv.md` requires, so the launcher stops waiting.
@@ -5125,6 +5136,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the selftest accepts a frame with a wrong checksum.
   - Claims: C-7410–C-7419
+  - Result: EXP-2026-11-22-M8.H44-micon-peer; 26/26 selftest, auto-discovered, corrupt BCC rejected; claims C-7410-C-7419
 
 - [ ] **M8.H45 — Boot without the 30-second waits: the micon peer on `-M ze0`**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5178,8 +5190,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: audio appears with no read from `SPEECH/` (TTS from ROM data).
   - Claims: C-7450–C-7459
 
-- [ ] **M8.H49 — `CAN.dll`: the UART protocol with the VCAN microcontroller and the list of vehicle signals**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H49 — `CAN.dll`: the UART protocol with the VCAN microcontroller and the list of vehicle signals**
+  - Status: done · Owner: task/m8.h49-can-uart-protocol · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The SH-4 gets vehicle data as frames over `UAT3:`. List the frame grammar and every signal the applications read: speed, reverse, ignition/ACC, illumination, parking brake, and the EV data the Leaf screens show (state of charge, range, charging state).
@@ -5190,9 +5202,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; the full signal list may stay partial if the five named signals are done.
   - Falsifier: signal names exist as strings but no decode function references them.
   - Claims: C-7460–C-7469
+  - Result: EXP-2026-11-22-M8.H49-can-uart; 10/10 claims, wire grammar honestly UNKNOWN
 
-- [ ] **M8.H50 — `tools/ze0_peers/vcan.py`: vehicle peer (ignition, speed, reverse, lights, state of charge)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H50 — `tools/ze0_peers/vcan.py`: vehicle peer (ignition, speed, reverse, lights, state of charge)**
+  - Status: done · Owner: task/m8.h50-vcan-peer · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H49
   - Goal: The VCAN microcontroller as a host program on the `uat3` chardev, sending the periodic frames of `docs/firmware/can.md` from a small vehicle state.
@@ -5203,6 +5216,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the encoder disagrees with the documented example frame.
   - Claims: C-7470–C-7479
+  - Result: EXP-2026-11-22-M8.H50-vcan-peer; 9/9 selftest, no L4 claim
 
 - [ ] **M8.H51 — Lights on, night map: ignition and illumination from the vehicle peer change the screen**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5230,8 +5244,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the range display ignores the injected value.
   - Claims: C-7490–C-7499
 
-- [ ] **M8.H53 — `PowerMonitor`: the power state machine (ACC on/off, start handshake, shutdown and what it saves)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H53 — `PowerMonitor`: the power state machine (ACC on/off, start handshake, shutdown and what it saves)**
+  - Status: done · Owner: task/m8.h53-power-monitor · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: Row C4 of the peripheral table (vehicle microcontroller / power state) was never read. Find what the unit expects at start (a 'system ready' exchange), and what happens at ACC off: which data is flushed to flash, in what order, with what timeout.
@@ -5242,6 +5256,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions.
   - Falsifier: no code path leads from an ACC-off input to a flash write.
   - Claims: C-7500–C-7509
+  - Result: EXP-2026-11-22-M8.H53-powermonitor-static; scan --check 14/14 strings, 9/9 xrefs, 19/19 IOCTLs, 5/5 immediates, selftest 5/5
 
 - [ ] **M8.H54 — Clean shutdown at L4: ACC off, data saved to the flash file, restored at the next boot**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5256,8 +5271,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the flash file is unchanged after a completed shutdown sequence.
   - Claims: C-7510–C-7519
 
-- [ ] **M8.H55 — Bluetooth module on `SCI8:`: wire protocol and what makes its start-up finish**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H55 — Bluetooth module on `SCI8:`: wire protocol and what makes its start-up finish**
+  - Status: done · Owner: task/m8.h55-bt-wire · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: `BT_FW.dll` and `BT_MGR.dll` talk to a Bluetooth module over the high-speed UART. For the emulator we need the transport (HCI H4, BCSP, or a vendor command set), whether firmware is downloaded into the module at start, and the shortest exchange that lets the stack settle (present, or cleanly absent). M1.41 maps the stack above; this task is the wire only.
@@ -5268,6 +5283,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the modules never write to the line during start (BT is started on demand only).
   - Claims: C-7520–C-7529
+  - Result: EXP-2026-11-22-M8.H55-bt-wire; C-7520–C-7529; 0 B on SCI8, falsifier fired
 
 - [ ] **M8.H56 — Bluetooth stub peer: the stack settles quickly, with the module absent or minimally present**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5388,7 +5404,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7610–C-7619
 
 - [ ] **M8.H65 — `DebugShell.dll` on `SCI6:`: the command list, and typing commands into the running emulator**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h65-debugshell · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: The firmware carries a debug shell on the console line. If it accepts commands in the retail build, the emulator gets a control channel inside the guest (process list, memory, perhaps file and map commands) once serial RX works (M8.H1).
@@ -5399,6 +5415,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the command table has no reference from any code (dead data).
   - Claims: C-7620–C-7629
+  - Blocker: Live command reply on sci6 not obtained: four boots with --serial-peer sci6=... captured no >> prompt and no command output; SCI6 RX arming is M8.H66 scope
+  - Unblock: M8.H66
+  - Result: EXP-2026-11-22-M8.H65-debugshell (static result complete: 13 commands + start condition in docs/firmware/debugshell.md; negative live result O7); C-7620-C-7629
 
 - [ ] **M8.H66 — `serial_scif.dll` receive path: per channel, interrupt or DMA, and what an emulator must raise**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5509,6 +5528,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: after the change the screenshot loses map pixels or the guest error count grows.
   - Claims: C-8390–C-8399
   - Result: EXP-2026-11-22-M8.C1o-2dg-line-variants (C-8390–C-8395). ze0-0016 draws 2DG op 0xb1 (6-word header + inline vertices, count in word 4 low half) and 0xb3 (pointer form [op,N,OFF], vertices at op+OFF, colour from reg 0xf0) as polylines with exact lengths; both layouts read from build-A XGLDLL.dll fn 0x031204ac/0x031205a4 and build-B auirtdll.dll fn 0x03d0b408/0x03d0b502 and checked against a gfx-trace dump. L4 map boot: 2676 drawn / 0 skipped (was 2669 drawn / 7 skipped, C-6936); 342/384000 screenshot pixels differ (0.09%), no map pixels lost. UI layer and 0xb2/0xb4-0xb7 remain open.
+
+- [ ] **M8.H73 — Receiver fix frame: what frame from `SCI7:` actually moves `OBJ_CarPos`?**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: reader
+  - Depends: M8.H27, M8.H29, M8.H30
+  - Goal: Derive the layout of the frame `navdrv.dll` forwards from `SCI7:` as a position fix — the record whose u16s at `+28`/`+34` are decoded by `Navi.exe` function `0x003752e8` — so a host peer can make the map centre move.
+  - Precheck: `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x3752e8 --count 400` prints the FPU decode; `grep -n 'fix frame' docs/firmware/navdrv.md` shows the current gap.
+  - Scope: static EU2011 (build A + build B), then one L4 rerun of M8.H31 if a frame can be built. The `A0 00` TestMode seeding command is known NOT to be that frame (EXP-2026-11-22-M8.H31-gps-fix-l4-negative O2); do not re-test it.
+  - Input: `docs/firmware/navdrv.md`, `docs/experiments/EXP-2026-11-22-M8.H29-fix-to-map.md`, `tools/ze0_peers/gps.py`, `tools/ze0_position.py`, `tools/sh4fpu.py`, `tools/sh4dis.py`.
+  - Done when: `docs/firmware/navdrv.md` has a fix-frame table (field, record offset, unit, decoder VA) and one hand-built frame whose checksum validates; M8.H31 is re-run and `ze0_position.py read` returns the injected position; EXP + claims.
+  - Stop: if the layout needs a chip vendor datasheet that is not in the repo, record the sync bytes and exact FPU operations, mark blocked, and name the datasheet in `Unblock:`.
+  - Falsifier: the hand-built frame leaves the position word and both screenshots unchanged (the M8.H31 negative).
+  - Claims: C-8420–C-8429
 
 ---
 
