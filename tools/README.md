@@ -1643,6 +1643,49 @@ python3 tools/nk1_extract.py NAND.bin -o firmware/unit-flash/nk1-QY7200ND.bin \
         --sha256 b4b3542bb95d336c55ed11e1a4854be2c5f3dce1b60e074629d2b185f3b9fb00
 ```
 
+## `ze0_ui.py` — scripted L4 scenarios against a live `-M ze0` guest (M8.H7)
+
+Runs a scenario file (one step per line) against the QEMU monitor and the peer
+control sockets, so an L4 test is a file and not a shell history. Exit `0` all
+steps passed, `1` an expectation failed, `2` usage error, `3` nothing runnable
+(a step's endpoint does not exist — SKIP is never PASS).
+
+Step grammar (arguments split on whitespace; `wait-log` takes the rest of the
+line as its regex, `#` starts a comment):
+
+```
+wait-log REGEX          wait until REGEX matches a line of --log
+sleep-guest SECONDS     wait SECONDS of guest time (QMP guest-clock word)
+tap X Y                 send a tap at screen pixel X Y to the panel peer
+key NAME                send a hard key by name to the panel peer
+gps LAT LON             send a decimal position to the GPS peer
+shot NAME               save the screen to SHOT_DIR/NAME.png (ze0_screenshot)
+expect-hash NAME SHA    require sha256(SHOT_DIR/NAME.png) == SHA
+```
+
+```bash
+python3 tools/ze0_ui.py run scenario.txt \
+    --qmp WORK/qmp.sock --hmp WORK/hmp.sock --log WORK/serial.log \
+    --panel-sock WORK/panel.sock --gps-sock WORK/gps.sock --shot-dir shots \
+    --guest-clock 0x09e41888
+python3 tools/ze0_ui.py --selftest
+```
+
+`shot` reuses `tools/ze0_screenshot.py screen` (the 2DG/DU plane composer,
+M8.C1f); `--hmp` is an HMP socket (`-monitor unix:…`), `--qmp` a QMP socket.
+`--guest-clock` is the physical word the guest time counts in (EU2011 `CurMSec`
+`0x09e41888`); without it `sleep-guest` falls back to a wall-clock sleep.
+`tap`/`key`/`gps` call the peer when its socket exists and exit `3` when it does
+not, so a scenario degrades to "nothing runnable" instead of a false pass.
+Peers answer one line starting with `OK` (`docs/research/qemu-connectors.md`
+rule 5). The `--selftest` is fully synthetic: a fake QMP server, fake peer
+servers and a fake screenshot command.
+
+Records: EXP-2026-11-22-M8.H7-ui-scenario.
+
+
+
+
 ## `board.py` — edit `TODO.md` and `claims.md` by line operations (H123)
 
 Every change to the board files is one splice; a guard refuses a write that

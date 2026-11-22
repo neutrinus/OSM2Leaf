@@ -1146,9 +1146,9 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M1.50-us-unit-position-kentucky; position to OpenCARWINGS = head unit OBJ_CarPos via Vehicle.exe→DCM_API!SetVehicleData; coordinate not a firmware constant; held last position most likely; follow-ups M1.51, M1.52
 
 - [ ] **M1.51 — `Navi.exe`: does it accept a GPS fix far from the current car position?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: open · Owner: — · Critical: yes · Pair: solo
   - Depends: —
-  - Goal: side track for Marek's car (EXP-2026-11-22-M1.50, hypothesis H2): decide whether a valid fix 8 000 km from the stored car position is taken, delayed, or rejected, so the measurement on the diagnosis page can be read either way.
+  - Goal: side track for Marek's car (EXP-2026-11-22-M1.50 update): the receiver has a valid fix in Wrocław but a 2007 date (1024-week rollover), while the navigation car position stays in Kentucky. Find the check between OBJ_GpsInfo and OBJ_CarPos that drops the fix: a date comparison (H2a), a distance/jump limit (H2b) or map matching (H2c).
   - Precheck: `python3 tools/sh4xref.py archive/us256.img OBJDLL.dll --image-start 0x200200 --to 0x0346dd7c` names the user of the `LAST` string.
   - Scope: static, US2011: the writers of `OBJ_GpsInfo` and `OBJ_CarPos` in `Navi.exe`/`OBJDLL.dll`, the comparison between fix and dead-reckoned position (distance threshold, count of agreeing fixes, off-map check), what `navdrv!SetFilterConfig` sets.
   - Input: EXP-2026-11-22-M1.50, `tools/sh4xref.py`, `tools/callgraph.py`, M8.H29 if merged.
@@ -1429,6 +1429,16 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: an error in the catalogue is unreachable by any card mutation tried.
   - Claims: C-8060–C-8069
+
+- [x] **M2.25 — Where do the 4 unit bytes of the SD password come from (VIN, serial, or stored)?**
+  - Status: done · Owner: claude/project-thread-i59j9z · Critical: no · Pair: solo
+  - Depends: — (M6.18 dump: PROD, NAND, SRAM, VFlash of the owner's unit)
+  - Goal: The owner asks whether the SD card PIN can be worked out from the VIN alone. Say where the unit takes the 4 bytes from and what a person needs to learn them.
+  - Scope: search the four dumps for the PIN, serial and VIN; disassemble the flash loader routine that uses the tail literal. No PIN bytes, no serial, no dump in the repo.
+  - Done when: an EXP names the storage offset, the routine (VA) that reads it, and answers "VIN alone: yes/no".
+  - Stop: one session.
+  - Claims: C-8300–C-8309
+  - Result: EXP-2026-11-22-M2.25-sd-pin-source (C-8300–C-8305). VIN alone: no. The 16-byte password is stored verbatim at PROD +0x100 (flash 0xA100; the 4 unit bytes again at +0x60); the flash loader routine VA 0x8b0232ac copies it and falls back to 99 99 99 99 + tail when PROD is not valid. No VIN in NAND/SRAM/VFlash, no code computes the bytes. Factory rule (random or from serial) unknown with one unit.
 
 ## M3 — Reader contract
 
@@ -2931,8 +2941,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7800–C-7809
   - Result: EXP-2026-11-22-M4.79-zcode-decode; 33/33 EU shards censused (Form A 2, Form B 31), 96.45% of bytes explained, min 67.7% (ZCODE015); US has 0 ZCODE; Form-B header at 0x1100 + base 0x1204+off*2 verified
 
-- [ ] **M4.80 — `ICODE001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.80 — `ICODE001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
+  - Status: done · Owner: task/m4.80-icode-decode · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: Row 9 of `docs/research/reader-coverage.md` says the `ICODE001` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
@@ -2943,6 +2953,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; unexplained fields are listed with their value histogram, not guessed.
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7810–C-7819
+  - Result: EXP-2026-11-22-M4.80-icode-census; EU 110597896/111378432 B 99.299%, US 6059118/6071808 B 99.791%, 8 EU chains, negative control 99.791%->49.905%
 
 - [ ] **M4.81 — `INTER0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2983,8 +2994,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7840–C-7849
 
-- [ ] **M4.84 — `ZIPFR001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.84 — `ZIPFR001`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
+  - Status: done · Owner: task/m4.84-zipfr-decode · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: Row 15 of `docs/research/reader-coverage.md` says the `ZIPFR001` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
@@ -2995,6 +3006,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; unexplained fields are listed with their value histogram, not guessed.
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7850–C-7859
+  - Result: EXP-2026-11-22-M4.84-zipfr-decode; zipfr_decode census 100.0 % on EU2011/2014/2016, US2011 absent; selftest OK
 
 - [ ] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3727,8 +3739,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: bytes do not fall as tolerance rises (the cost is elsewhere — record where).
   - Claims: C-7940–C-7949
 
-- [ ] **M5.76 — A synthetic OSM town for tests without network: deterministic generator with roads, names, one-ways, POIs, water**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.76 — A synthetic OSM town for tests without network: deterministic generator with roads, names, one-ways, POIs, water**
+  - Status: done · Owner: task/m5.76-osm-synth · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The Claude sandbox cannot fetch OSM data (rule 12), so compiler tasks stall or test on three hand-made ways. A deterministic generator gives every compiler task the same realistic input.
@@ -3739,6 +3751,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Falsifier: two runs with the same seed differ.
   - Claims: C-7950–C-7959
+  - Result: EXP-2026-11-22-M5.76-osm-synth-town; osm_synth selftest 24/24, deterministic seed, one-tile pipeline L1/L2
 
 - [ ] **M5.77 — Dolnośląskie in numbers: per-tile feature counts and slot-budget overflow from the real extract**
   - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
@@ -4500,8 +4513,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the runs differ with `-icount` on and no host-clock device in the machine.
   - Claims: C-7030–C-7039
 
-- [ ] **M8.H7 — `tools/ze0_ui.py`: a scenario runner for L4 (wait, tap, key, position, screenshot, expect)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H7 — `tools/ze0_ui.py`: a scenario runner for L4 (wait, tap, key, position, screenshot, expect)**
+  - Status: done · Owner: task/m8.h7-ui-scenario · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: L4 tests should be files, not shell history. A scenario is a list of steps (`wait-log REGEX`, `sleep-guest S`, `tap X Y`, `key NAME`, `gps LAT LON`, `shot NAME`, `expect-hash NAME SHA`), run against QMP and the peer sockets of `docs/research/qemu-connectors.md`.
@@ -4512,6 +4525,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: a scenario with a failing expectation exits 0.
   - Claims: C-7040–C-7049
+  - Result: EXP-2026-11-22-M8.H7-ui-scenario; ze0_ui selftest 20/20, wrong-hash exit 1, exit-3 paths, real boot 3 steps exit 0
 
 - [ ] **M8.H8 — Which card files does the firmware read, and where: SD block trace mapped to file and offset**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -4721,8 +4735,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: samples are uniformly spread over one idle loop in both phases (then sampling by PC alone is useless and the EXP says what else is needed).
   - Claims: C-7200–C-7209
 
-- [ ] **M8.H24 — Emulator quick start for a human: build, boot a card, take a screenshot, in one page**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H24 — Emulator quick start for a human: build, boot a card, take a screenshot, in one page**
+  - Status: done · Owner: task/m8.h24-emulator-quickstart · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The knowledge to run `-M ze0` is spread over thirteen EXP records and a long README. Marek wants to start it and look. One page with the commands that work today and the known limits.
@@ -4733,6 +4747,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: a command on the page fails on a clean checkout.
   - Claims: C-7210–C-7219
+  - Result: EXP-2026-11-22-M8.H24-emulator-quickstart; 7 claims C-7210–C-7216; every page command exit 0, 382721-pixel PNG at ~20 s
 
 - [ ] **M8.H25 — Boot-time budget: from start to the idle UI, where the wall-clock minutes go**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5333,6 +5348,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the changed card shows the old name (the label comes from another file) or the map stops drawing (a record check the format docs do not know).
   - Claims: C-8220–C-8229
   - Result: EXP-2026-11-22-M8.H70-street-rename-l4; AIR STREET -> ARI/TIR STREET drawn by Navi.exe at L4, OSM STREET dropped (label wider than segment); tile_rename.py selftest 14/14
+
+- [x] **M8.H71 — OSM roads on the emulated screen: one level-1 London parcel generated from OSM, factory vs generated card at L4**
+  - Status: done · Owner: claude/project-thread-66ezlk · Critical: yes · Pair: solo
+  - Step: tooling
+  - Depends: M8.H70 (done)
+  - Goal: Marek (2026-11-22): "jak byśmy sobie wygenerowali mapę z OSM, to moglibyśmy ją testować w Qemu - na obszarze londynu ... tak, ruszaj". The `-M ze0` start position is central London; until a GPS connector moves it, a generated London parcel is the only way to put our own geometry on the real `Navi.exe` screen.
+  - Precheck: M8.H70 recipe boots the EU 2011 card to the London map; `download.bbbike.org/osm/bbbike/London/London.osm.pbf` is reachable from the sandbox.
+  - Scope: EU 2011, tile `B48R068R`, level-1 directory `(77,923)`, the parcel under the start screen; `one_tile_pipeline.py --level 1 --clip` (roads only, `--no-names`, provisional-v0 classes), tile + `DRSTR001.DAT` patched with `imgpatch.py`; screenshots kept out of the repo.
+  - Input: `tools/one_tile_pipeline.py`, `tools/imgpatch.py`, `tools/ze0_screenshot.py`, EXP-2026-11-22-M8.H70-street-rename-l4.
+  - Done when: the generated card boots to the same position and the screenshot shows the OSM road network in the parcel; L1 (`cardcheck --image`, `imgpatch --check-diff --allow-metadata` outside 0) passes; the EXP records card SHA-256, changed pairs and what differs on screen.
+  - Stop: one session; if the map stops drawing, record the last serial line and stop.
+  - Falsifier: the screen shows the factory roads (the renderer does not read the changed parcel) or no roads in the parcel (records rejected).
+  - Claims: C-8310–C-8319
+  - Result: EXP-2026-11-22-M8.H71-osm-roads-l4; OSM London parcel drawn by Navi.exe at L4 (no names: --no-names); L1 PASS; pipeline negative-lon bbox fix
 
 ---
 
