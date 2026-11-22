@@ -4789,8 +4789,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6880–C-6889
   - Result: EXP-2026-11-22-M8.C1c-launcher-verinf (C-6880–C-6886). `VerInf` is not a NAND record: `KernelIoControl(0x0101302C)` (nk.exe B `fn 0x88049e28`) returns start and length of XIP region `index`; the launcher asks for index 0 = ROM image B, so `VerInf` = header `+0x60` (11 chars) and the map-DB window = `+0x70`/`+0x72` (BE u16), phys `0x08000060`. The card has zeros there, so a unit writes them after loading image B (IPL, hypothesis). Patch `ze0-0010`: `-M ze0,verinf=QSD-302-100,mapdb=16-16` (`run.sh --verinf/--mapdb`) passes both checks, no `Error Proc`, no FailSafe; controls give `0x50` and `0x51`. Next stop: `CInaiProtocol` `WriteFile` (6:0) loop = serial DMA, row C2.
 
-- [ ] **M8.C2a — Serial DMA on `-M ze0`: HPB-DMAC channels 1/3/7 (receive) and 10 (transmit) for SCIF1/3/7**
-  - Status: in progress · Owner: Claude (task/m8.c2a-serial-dma) · Critical: no · Pair: solo
+- [x] **M8.C2a — Serial DMA on `-M ze0`: HPB-DMAC channels 1/3/7 (receive) and 10 (transmit) for SCIF1/3/7**
+  - Status: done · Owner: Claude (task/m8.c2a-serial-dma) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1c
   - Goal: with the launcher checks passed (M8.C1c, C-6883) the first application failure is the audio-network protocol: `CInaiProtocol` `WriteFile` returns 0 of 6 bytes (`Write size disagreement. (6:0)`) in a loop (C-6886). `serial_scif.dll` sends through HPB-DMAC channel 10 (RAM `0xa999a000` → SCIF1 FTDR `0xffe4100c`) and receives through channels 1/3/7 (SCIF1/3/7 FRDR → two 0x80-byte RAM buffers each); the `ze0-0009` model only stores those registers. Model the transmit path end to end (bytes reach the SCIF, the channel completes, its interrupt fires) and the receive channels as armed-without-data, and record what the protocol does next.
@@ -4801,6 +4801,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if a transmit completes only with a reply from the peer (micon/audio unit), record the protocol bytes and stop (row C4, F4 decision M8.D2).
   - Falsifier: `WriteFile` still returns 0 with channel 10 completing and its interrupt delivered.
   - Claims: C-6900–C-6909
+  - Result: EXP-2026-11-22-M8.C2a-serial-dma (C-6900–C-6905). `serial_scif.dll` sends through HPB-DMAC channel 10 (RAM `0xa999a000` → SCIF1 FTDR) and receives through 1/3/7 (SCIF1/3/7 FRDR → two RAM planes); their ISRs (INTEVT `0xb80`/`0xbc0`/`0xc40`/`0xca0`) return SYSINTR `0x13`. Patch `ze0-0011` (`hpbdmac-serial`, default on): channel 10 moves each frame to SCIF1 and completes, the driver takes each interrupt (9 675 frames `10 02 02 08 00 10 03 19` in 330 s). The protocol still fails at `GetWriteResult … failed wait response`, with and without the transmit (control `hpbdmac-serial=off`): it waits for the audio unit at the other end — stop condition, F4 (M8.D2). Next: receive path + SCIF1 chardev so a host script can answer.
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
