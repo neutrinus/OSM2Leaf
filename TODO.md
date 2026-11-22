@@ -6215,7 +6215,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6370–C-6379
 
 - [ ] **M9.63 — US-build map client on an EU card: record what already runs at L3, so M9.61 is one small PR**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.63-us-client-boundary · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M1.22b (EU→US function map, done), M9.14 (US2011 file layer, done), M9.53 (EU2011 record read, done). **Does not wait on M9.61** (it is its first slice); M9.61 then keeps the remaining layers.
   - Goal: M9.61 is the cheapest software answer to "does Marek's US unit read a Poland card" but it is one `Pair: required` session covering four runs and a `--build` flag on `datask_l3.py`. Half of that surface already runs on `main` under the US build — `vcard_l3.py boot US256 --build us2011` (C-4651) and the US POI reader `runner.py run poi_record_decode` (M9.10) — while `datask_l3.py mount` has no `--build` at all (`python3 tools/datask_l3.py mount --help | grep -c -- --build` = 0, M9.61's own Precheck). Nobody has written down which layer of the US map client is already exercised and on what input, so M9.61 starts by rediscovering it and its Done-when mixes layers that are already green with one that is not. Record that boundary once, with a run per layer.
