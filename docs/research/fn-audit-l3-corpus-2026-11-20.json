@@ -523,7 +523,6 @@
   "tools/l3_harness/targets.json",
  ],
  "summary": {"files": 516, "citations": 1558, "unique_va": 409, "start": 1381, "inside": 75, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 12, "unmapped": 2},
- "summary": {"files": 515, "citations": 1555, "unique_va": 406, "start": 1378, "inside": 75, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 12, "unmapped": 2},
  "rows": [
   {"file": "TODO.md", "va": "0x003ad440", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x003ad680", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
