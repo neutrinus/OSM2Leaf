@@ -1,0 +1,47 @@
+role: driver (pair with navigator), task M4.61
+model: opencode/deepseek-v4.1-flash-free
+start: 2026-11-22 07:45 UTC   end: 2026-11-22 09:10 UTC
+origin/main at start: 9ee75013 (claim), later rebased onto af469580
+
+inputs read: AGENTS.md, prompt_common.txt, TODO.md rules 1-17, M4.61 block,
+  EXP-2026-11-20-M4.27-point-census-fine-position, EXP-2026-11-06-M4.19-addre-point-coords,
+  docs/format/refer.md (POINT fine position, ADDRE), tools/point_census.py,
+  tools/coord.py, tools/addre.py, tools/coord_zcode_icode.py, docs/experiments/TEMPLATE.md
+
+actions (in order):
+1. Precheck point_census refs -> "fine position model holds" (16 rows) before any edit.
+2. Round 1 plan; navigator returned CHANGES (COORD001 has no fine field, ADDRE
+   premise probably false, broad fine search, real M4.27 falsifiers, name real
+   tools, single source for the formula, one claim per finding).
+3. Verified the navigator's spot numbers by hand first (COORD001 132/132, 44/44;
+   ADDRE001 1041/1041, ADDRE003 82165/95433, ADDRE017 57/609, US ADDRE001
+   1733427/1768406) - all reproduced.
+4. commit 7642d36b: coord.packed_units/decode_point_id/encode_point_id (52736)
+   + point_census delegates + equality selftest (22/22 and 33 checks).
+5. commit aa86c395: new tools/refer_id_census.py (ids + fine + --selftest).
+6. Found my first fine predicate wrong: POINT record bytes 6-9 are
+   (0x800|flon, raw flat), not two 0x800 words. Fixed fine_pair.
+7. Tested the rigorous decode candidate: id+8 "pairs" decode 2-6 km from the
+   plain coord -> not a sub-cell refinement.
+8. commit bcb443d9: added --control (plain vs marker-stripped id, and plain ids
+   vs plain vs stripped COORD001 box). Discriminating shards: ADDRE017 57/57
+   plain vs 0/57 stripped, ADDRE032 9/9 vs 0/9 -> the nibble is position.
+9. Full census both cards (12 min): EU ADDRE 16,539,516/17,409,252,
+   US 32,719,161/32,981,740; 10 EU + 4 US 0xc1 shards unreadable (M4.9).
+10. docs/format/refer.md "Which files use the 11xx nibble (M4.61)"; EXP;
+    claims C-6560-C-6569 via board.py add-claims.
+
+decisions:
+- COORD001/ADDRE stay on the plain formula, 52742 default untouched (nav 1).
+- point form is a separate pair of functions, 52736; point_census delegates so
+  the formula is not pasted twice.
+- ADDRE fine field: reported absent with the offset test that can fail, not a
+  "no 11-bit pair" claim only.
+
+problems / time sinks:
+- fsync: `git stash -u` briefly captured the docs work; restored from
+  stash@{0} (the other stashes belong to other branches - not touched).
+- 0xc1-framed shards stop split_records (existing M4.9); the tool names them.
+- full-card census is slow (12 min) because parse_record runs per record.
+
+handoff: rebase on af469580, board.py done, push, report PR + EXP.
