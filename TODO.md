@@ -4166,7 +4166,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: a screenshot from a running guest shows at least one AUI form element drawn by AuiApp, or the EXP names the gate with the code path that checks it.
   - Stop: if the gate is the microcontroller handshake, record the call chain and hand over to M8.H44.
   - Falsifier: forcing the suspected gate open still leaves the AUI surface cleared only.
-  - Claims: C-8220–C-8229
+  - Claims: C-8230–C-8239
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
