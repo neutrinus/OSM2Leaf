@@ -3096,8 +3096,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the 2014 card has no more Polish detail than the 2011 card (same tile sizes for the Poland tiles).
   - Claims: C-7900–C-7909
 
-- [ ] **M4.90 — Road numbers and shields: how the factory map stores `A4`, `E40`, `B6` and which shield the renderer draws**
-  - Status: in progress · Owner: task/m4.90-road-shields · Critical: no · Pair: solo
+- [x] **M4.90 — Road numbers and shields: how the factory map stores `A4`, `E40`, `B6` and which shield the renderer draws**
+  - Status: done · Owner: task/m4.90-road-shields · Critical: no · Pair: solo
   - Step: P2
   - Depends: —
   - Goal: The first emulator screenshots show road shields. For Poland we need `A4`, `S8`, `DK94`, `E40` to appear correctly: find where a road's reference number lives, how the shield type is chosen, and which shield types exist.
@@ -3108,6 +3108,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: the shield type is derived from the road class alone (no separate field) — then say so with the class table.
   - Claims: C-7910–C-7919
+  - Result: EXP-2026-11-22-M4.90-road-shields (C-7910-C-7916); field layout 00ff 2800 0000 0000 len + text 1=NAME;2=REF, w4 points to entry; 11-family shield table; A4:E40 129, A4 0, E40 0, B6 4, 94 19, DK94 0, ZZZ999 0; class-alone falsifier not triggered; Polish ref mapping in docs/research/osm-pipeline.md
 
 - [x] **M4.91 — The opening picture: format of the image the launcher shows at start, decoded and re-encoded**
   - Status: done · Owner: task/m4.91-opening-picture · Critical: no · Pair: solo
