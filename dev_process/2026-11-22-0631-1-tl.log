@@ -1,0 +1,47 @@
+---
+role: TL
+model: iceman-free (opencode/zen_sidecar)
+start: 2026-11-22 06:31Z
+end: 2026-11-22 08:40Z (approx)
+origin/main at start: 9ee75013
+origin/main at end: af469580 (local main stale behind origin; ff'd in worktrees)
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md Priorities+rules, dev_process/2026-11-21-2150-9-tl.log, gh pr list
+---
+
+actions taken, in order:
+- ff main; no open PRs. Selected 10 deps-satisfied tasks (no hardware/non-Claude blocker): H82, M1.40, M3.37, H129, M9.64, H66, H83, M9.62, M9.18, M9.65. Deferred M4.61 (refer.md conflict with M3.37), H98 (Marek admin decision), heavy M5.72/M9.67.
+- Created worktrees+claim commits+pushed draft PRs for all 10 (#468-#477).
+- Launched solo subagents for H82, M1.40, M3.37; pair driver/navigator for H129, M9.64, H66, H83. M9.62/M9.18/M9.65 agents interrupted by provider errors (no work produced).
+- H82: completed, rebased, checks green, merged (#468, b3d00ffd).
+- M1.40: completed, rebased, merged (#469, 95413006).
+- H129: driver+navigator cycle; fixed board.py claim-set Supersedes to cell 2; rebased, checks/gate green, merged (#471, af3454c2).
+- M3.37: blocked (root descent needs seeded request state); renumbered claims to C-6970-C-6979 to avoid C-691x collision; cleaned bad rebase; pushed, merged as blocked (#470, af469580).
+- Closed draft PRs and released claims for 6 unworked tasks (M9.64,H66,H83 wrong-release fixed,H9.62,M9.18,M9.65). Cleanup PR #495 closed after gate failure from pre-existing todo_check selftest/board inconsistency on branch; final release on main not landed.
+
+task outcomes:
+- H82 solo, rounds 1, done, PR #468 merged, EXP-2026-11-22-H82-zlib-stamp
+- M1.40 solo, rounds 1, done, PR #469 merged, EXP-2026-11-22-M1.40-hw-map-ii
+- M3.37 solo, rounds 1, blocked (Unblock M3.38/seeded request state), PR #470 merged, EXP-2026-11-22-M3.37-poi-search-setup
+- H129 pair(required), rounds 1 nav review then CHANGES on stale-branch/lost-ids fixed by rebase, done, PR #471 merged, EXP-2026-11-22-H129-board-claim-set-supersedes-cell
+- M9.64 pair, 0, returned/released (agent interrupted, no work)
+- H66 pair, 0, returned/released (agent interrupted, no work)
+- H83 pair, 0, returned/released (was already done on main; wrongly touched by cleanup, restored)
+- M9.62 pair, 0, returned/released (agent interrupted)
+- M9.18 pair, 0, returned/released (agent interrupted)
+- M9.65 pair, 0, returned/released (agent interrupted)
+
+decisions:
+- Merged M3.37 as blocked with honest EXP/claims rather than ghost-claiming; renumbered C-691x->C-697x to avoid main collision.
+- Did not force-merge cleanup PR #495 after gate failure; closed it. Board release for 5 tasks remains pending a clean PR.
+- Treated H98 as Marek/admin action, not launched.
+
+problems / dead ends:
+- M3.37 first rebase attempt corrupted claims/TODO by blind C-691x rename; recovered by resetting to claim commit and reapplying work files.
+- Provider SSE errors interrupted 3 pair task agents before work.
+- Board-loss signal: PRs #469/#470/#471 are MERGED and merge commits are ancestors of origin/main, but their EXP files are absent from current origin/main tree and TODO statuses for M1.40/M3.37/H129 show open on main. Likely later merge overwrote tree/board. Needs TL repair PR (restore files+TODO statuses+claims) using board.py/explicit cherry-picks - do not trust current TODO for these three.
+- todo_check selftest on release branch failed with M3.37 Unblock:M3.38 ghost; main todo_check --selftest passes but main currently shows M3.37 open, indicating board inconsistency.
+
+handoff:
+- First: repair board/file loss for merged #469,#470,#471 (verify merge commits vs tree; restore EXP/docs/claims/TODO statuses). Run board.py lost and claims/todo checks.
+- Then release M9.64,H66,M9.62,M9.18,M9.65 to open on a clean branch (H83 already done).
+- Re-launch easiest remaining open deps-satisfied tasks: M9.64, H66, H129 already done? (H129 merged but TODO shows open on main - fix first), M9.62, M9.18, M9.65, M1.40/M3.37 status repair, M4.61, M9.63. Pick disjoint files and obey rule 1.

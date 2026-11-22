@@ -346,8 +346,8 @@ of its Status line, named by no live `Depends`/`Unblock`/`Re-opens`, no
 `fn 0x…` line); a stale second copy of the preamble and of the 21st-pass
 Priorities (328 lines, left by `d0f7ba8`) removed; TODO.md 5910 → 4351 lines
 before the new tasks. Added **120 tasks**: M8.H1–M8.H69, M4.64–M4.92,
-M3.38–M3.41, M5.73–M5.80, M9.68–M9.70, M2.21–M2.24, M6.22, M6.23, M1.49
-(claims C-6980–C-8189). Board defect fixed: M4.63 and M8.C1b both held
+M3.38–M3.42, M5.73–M5.80, M9.68–M9.70, M2.21–M2.24, M6.22, M6.23, M1.49
+(claims C-6980–C-8189). Board repair 2026-11-22 (TL): the KIWI MDP parcel task duplicated `M3.38` with #498's seeded-request task; it is now **M3.42** (C-7780–C-7789) and M3.39 `Depends:` follows; the seeded-request task moved to C-8190–C-8199 because M8.H1 (this pass) already holds C-6980–C-6989. Board defect fixed: M4.63 and M8.C1b both held
 C-6870–C-6879 (M8.C1b's rows are in `claims.md`), so M4.63 now has
 C-8100–C-8109. `Step:` set on M4.63, M5.67, M9.64. Rule 15: 0 re-opened (not
 re-audited this pass). The 22nd-pass text of this section is in git
@@ -1995,7 +1995,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Done when: one search from the root returns a leaf in L3 with the seeded request (no hand-written base/levels), or the missing field is named; the mode that sets `*0x005638ec` is named or reported unknown. EXP + claims.
   - Stop: one session.
   - Falsifier: with every field the builders write seeded, STEP still faults at the same address.
-  - Claims: C-6980–C-6989
+  - Claims: C-8190–C-8199
 
 - [x] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
   - Status: done · Owner: task/m5.62-l2-tile-section-list · Critical: no · Pair: solo
@@ -2033,7 +2033,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: a `blocked` task left in the class after the merge (H125's checker still names it), or a status flip that `board.py` reports as lost IDs — the edit target is wrong, revert it with `git checkout -- TODO.md` and redo through the tool.
   - Claims: C-6640–C-6649
 
-- [ ] **M3.38 — `MDP_*RcvParcel`: the parcel receive queue in the firmware — who fills it and what a 'parcel' is there**
+- [ ] **M3.42 — `MDP_*RcvParcel`: the parcel receive queue in the firmware — who fills it and what a 'parcel' is there**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Step: reader
   - Depends: —
@@ -2049,7 +2049,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
 - [ ] **M3.39 — The order in which the firmware reads a tile, compared with `kiwiread`'s parse order**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Step: reader
-  - Depends: M3.38
+  - Depends: M3.42
   - Goal: If our tile is KIWI main-map data, the firmware should walk it in the specification's order: management header, then road, background and name frames by their offsets. The read-watch tools can print the firmware's order; compare.
   - Precheck: `python3 tools/read_watch_l3.py --help` works and `python3 tools/datask_l3.py mount --help` runs the map client.
   - Scope: EU2011, one level-1 tile: sequence of first-touch offsets grouped by our section/directory names; the same tile's structure as M4.66–M4.71 name it.

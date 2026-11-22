@@ -1,0 +1,41 @@
+---
+role: TL
+model: Airouter Strong (airouter/strong)
+start: 2026-11-22 09:05Z
+origin/main at start: a92f5a9b
+inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md rules 1-17 + Priorities 23rd pass, dev_process/2026-11-22-0631-1-tl.log, dev_process/2026-11-22-0641-2-tl.log
+---
+
+Goal: user asked for the TL prompt in-thread, then 20 developers as
+subagents, easiest tasks first, repeated until TODO has no takeable task.
+Worktrees via worktrunk (`wt`), one task per branch/PR, TL merges.
+
+Queue at start (4 non-draft PRs, 9 draft claims, 27 worktrees):
+- #499 H66, #492 H126, #490 M4.61, #479 M1.47 are non-draft.
+  #499/#490 fail CI on `todo_check` (duplicate M3.38) - a board defect on
+  `main`, not their work. #479 is CONFLICTING (TODO/claims).
+- The 0641-2 run's log ends mid-wave-2; its 9 draft PRs are claim-only.
+- Primary checkout carried stale local edits that revert merged M1.40 docs;
+  stashed instead of committing (`git stash list`, "pre-TL stale ...").
+
+actions:
+1. `git pull --ff-only` refused on an untracked EXP also added by #469;
+   stashed the 3 stale paths, pulled to a92f5a9b.
+2. Fixed the red board first (`tl/board-finish-2026-11-22`): the KIWI MDP
+   parcel task (PO #497) and the seeded-POI task (#498) were both `M3.38`;
+   M8.H1 and #498's task both held C-6980-C-6989. MDP task -> M3.42 with
+   C-7780-C-7789, M3.39 `Depends:` follows, seeded task -> C-8190-C-8199.
+   `todo_check` 2 errors -> 0; `claims_check --strict` OK; `board.py check
+   HEAD --base origin/main` exit 0.
+
+decisions:
+- A board defect that turns `main` red outranks the PR queue: every queued
+  PR fails CI until it is fixed, so it lands first (rule 4 keeps work off
+  `main` direct; TL still needs a PR).
+- Only header/field/reference lines were rewritten, through a one-ID-at-a-
+  time splice that guards line count and loses no ID; `board.py field` was
+  tried first but refuses a duplicate ID by design, which is the point.
+
+problems:
+- `git pull` on a dirty primary checkout: two interrupted runs left
+  uncommitted docs and an uncommitted EXP that a merged PR already added.
