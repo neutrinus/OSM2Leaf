@@ -5102,8 +5102,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: two runs of the walk give different hashes for the same path.
   - Claims: C-7390–C-7399
 
-- [ ] **M8.H43 — `anwdrv.dll`: the frame protocol with the audio microcontroller on `SCI1:` and the start-up handshake**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M8.H43 — `anwdrv.dll`: the frame protocol with the audio microcontroller on `SCI1:` and the start-up handshake**
+  - Status: done · Owner: task/m8.h43-anwdrv-frame-protocol · Critical: yes · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The emulator's launcher waits out about 27 module timeouts of 30 s because nobody answers on `SCI1:` (project notes 2026-11-22, EXP-2026-11-22-M8.C2a-serial-dma). The driver multiplexes several logical devices (`AUD`, `TNR`, `TMC`, `ANT`, `UPD`, `PDT`) over one framed link. Read the frame grammar and the exchange that reports a module as present.
@@ -5114,6 +5114,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; radio, CD and amplifier messages are out of scope.
   - Falsifier: the checksum rule fails on a second logged frame.
   - Claims: C-7400–C-7409
+  - Result: EXP-2026-11-22-M8.H43-anwdrv-frame-protocol; frame grammar + BCC verified on logged frame; 12/12 selftest; claims C-7400-C-7409
 
 - [ ] **M8.H44 — `tools/ze0_peers/micon.py`: audio-microcontroller peer that answers the launch handshake**
   - Status: open · Owner: — · Critical: no · Pair: solo
