@@ -3722,7 +3722,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6820–C-6829
 
 - [ ] **M5.72 — Road writer: point reference words the `LOC_map` walk accepts**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m5.72-locmap-ref-words · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.66 (done)
   - Goal: the generated road record of M9.53 (`tilewriter.py --factory`, `fa_encode.py`) has `0x0100` in the word the firmware treats as a point's reference to another point (record word 58, shape-buffer byte `0x48`); the walk `fn 0x0041f3dc` follows it 330 bytes past the end of the 184 B record and loads stale pool bytes (C-6776). The writer must emit this word as the firmware reads it: a word index of another point inside the record, or `0xffff`.
