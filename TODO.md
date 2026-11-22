@@ -1146,8 +1146,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8240–C-8249
   - Result: EXP-2026-11-22-M1.50-us-unit-position-kentucky; position to OpenCARWINGS = head unit OBJ_CarPos via Vehicle.exe→DCM_API!SetVehicleData; coordinate not a firmware constant; held last position most likely; follow-ups M1.51, M1.52
 
-- [ ] **M1.51 — `Navi.exe`: does it accept a GPS fix far from the current car position?**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M1.51 — `Navi.exe`: does it accept a GPS fix far from the current car position?**
+  - Status: done · Owner: task/m1.51-gps-distance-rule · Critical: yes · Pair: solo
   - Depends: —
   - Goal: side track for Marek's car (EXP-2026-11-22-M1.50 update): the receiver has a valid fix in Wrocław but a 2007 date (1024-week rollover), while the navigation car position stays in Kentucky. Find the check between OBJ_GpsInfo and OBJ_CarPos that drops the fix: a date comparison (H2a), a distance/jump limit (H2b) or map matching (H2c).
   - Precheck: `python3 tools/sh4xref.py archive/us256.img OBJDLL.dll --image-start 0x200200 --to 0x0346dd7c` names the user of the `LAST` string.
@@ -1157,6 +1157,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; if the rule sits in another process, name the message and stop.
   - Falsifier: the car position is written from the fix unconditionally.
   - Claims: C-8250–C-8254
+  - Result: EXP-2026-11-22-M1.51-gps-distance-rule; no distance rule found (falsifier fires); C-8250-C-8254
 
 - [ ] **M1.52 — TestMode GPS initialisation: how to seed the receiver with a Polish position and the date**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2745,8 +2746,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Step: tooling
   - Result: EXP-2026-11-22-M4.63-kiwi-map; 0/4 header fits on 3 files, 8 structures mapped, negative verdict; gate 5/5
 
-- [ ] **M4.64 — KIWI lineage in the firmware: every string and symbol that names a KIWI concept (parcel, level, block, Xanavi)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.64 — KIWI lineage in the firmware: every string and symbol that names a KIWI concept (parcel, level, block, Xanavi)**
+  - Status: done · Owner: task/m4.64-kiwi-lineage · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: Marek's hypothesis (2026-11-22): Clarion described the maps in the KIWI format, so a public specification could replace reverse engineering from zero. Clarion took over Xanavi, a KIWI-W member, and the ROM still says so: a raw scan of `IMG256` finds `xglXtpDrawXanaviCharacter`, `NOT XANAVI    : %d` and `MDP_pushRcvParcel` (`grep -a -c` below). Collect the full vocabulary and map each term to its module and function, so the other KIWI tasks start from names the firmware itself uses.
@@ -2757,6 +2758,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: the `Parcel`/`Xanavi` strings belong to a module unrelated to map data (a telematics or font module only) — then they are no evidence for the map format.
   - Claims: C-7630–C-7639
+  - Result: EXP-2026-11-22-M4.64-kiwi-lineage; glossary started, 149 modules/134MB scanned, 7 claims C-7630-C-7636
 
 - [ ] **M4.65 — KIWI public sources: which specification versions exist, what each chapter covers, and what can be cited**
   - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
@@ -2810,8 +2812,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the KIWI parcel sizes are not an integer multiple or divisor of ours at any level.
   - Claims: C-7670–C-7679
 
-- [ ] **M4.69 — KIWI Road Data Frame (chapter 7.2) against tile section 1: distribution header, display classes, multilink header**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M4.69 — KIWI Road Data Frame (chapter 7.2) against tile section 1: distribution header, display classes, multilink header**
+  - Status: done · Owner: task/m4.69-kiwi-road-frame · Critical: yes · Pair: required
   - Step: P1
   - Depends: —
   - Goal: Section 1 of a tile carries the drawn roads; our writer uses 'provisional classes' because the class field is fitted. KIWI's road frame has a distribution header, display-class management records and multilinks with typed attributes. Test the layout on real section-1 bytes; a match names the road class codes and the attribute bits.
@@ -2822,6 +2824,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; stop after the multilink header if the display-class level already fails.
   - Falsifier: the KIWI field widths cannot tile our record without leftover bits.
   - Claims: C-7680–C-7689
+  - Result: EXP-2026-11-22-M4.69-kiwi-road-frame; 0/6000 KIWI road fits, positive control PASS, 5 claims C-7680-C-7684
 
 - [x] **M4.70 — KIWI Background Data Frame (chapter 7.3) against the odd-partner background records: polygons, shape classes, minimum graphics records**
   - Status: done · Owner: task/m4.70-kiwi-bg-frame · Critical: no · Pair: required
@@ -2850,8 +2853,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the decoded strings are not the names `tools/name_strings.py` already extracts from the same tile.
   - Claims: C-7700–C-7709
 
-- [ ] **M4.72 — KIWI route-planning data against tile section 2 and `LEV3456R`: nodes, links, costs, upper-level links**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M4.72 — KIWI route-planning data against tile section 2 and `LEV3456R`: nodes, links, costs, upper-level links**
+  - Status: done · Owner: task/m4.72-kiwi-route-planning · Critical: yes · Pair: required
   - Step: P3
   - Depends: —
   - Goal: The routing graph is the longest blocked chain on the board (M4.24, M4.40, M4.55, M5.57): section 2 framing is known, attributes are not. KIWI defines route-planning records (node, link, link cost, regulation, correspondence to the upper level). `kiwiread` does not parse them, so this task works from the specification index of M4.65 if present, else from the concepts alone.
@@ -2862,6 +2865,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; without the specification text, stop at the concept table and say which chapter is needed.
   - Falsifier: a proposed 'link length' field does not correlate with geometry length over one tile (state r and n from a command).
   - Claims: C-7710–C-7719
+  - Result: EXP-2026-11-22-M4.72-kiwi-route-concepts; Stop branch, r=0.1035 length vs geometry, no field confirmed, 5 claims C-7710-C-7714
 
 - [ ] **M4.73 — KIWI route-guidance data against tile section 4 (guidance) and `INTER`/`FRWAY`: intersection names, signposts, lane data**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3092,8 +3096,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the 2014 card has no more Polish detail than the 2011 card (same tile sizes for the Poland tiles).
   - Claims: C-7900–C-7909
 
-- [ ] **M4.90 — Road numbers and shields: how the factory map stores `A4`, `E40`, `B6` and which shield the renderer draws**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.90 — Road numbers and shields: how the factory map stores `A4`, `E40`, `B6` and which shield the renderer draws**
+  - Status: done · Owner: task/m4.90-road-shields · Critical: no · Pair: solo
   - Step: P2
   - Depends: —
   - Goal: The first emulator screenshots show road shields. For Poland we need `A4`, `S8`, `DK94`, `E40` to appear correctly: find where a road's reference number lives, how the shield type is chosen, and which shield types exist.
@@ -3104,6 +3108,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: the shield type is derived from the road class alone (no separate field) — then say so with the class table.
   - Claims: C-7910–C-7919
+  - Result: EXP-2026-11-22-M4.90-road-shields (C-7910-C-7916); field layout 00ff 2800 0000 0000 len + text 1=NAME;2=REF, w4 points to entry; 11-family shield table; A4:E40 129, A4 0, E40 0, B6 4, 94 19, DK94 0, ZZZ999 0; class-alone falsifier not triggered; Polish ref mapping in docs/research/osm-pipeline.md
 
 - [x] **M4.91 — The opening picture: format of the image the launcher shows at start, decoded and re-encoded**
   - Status: done · Owner: task/m4.91-opening-picture · Critical: no · Pair: solo
@@ -3132,8 +3137,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the file lists services without any country or table field (then coverage is decided elsewhere — name where).
   - Claims: C-8180–C-8189
 
-- [ ] **M4.93 — Section-4 wide rows: the `0x1146`–`0x1946` directories left unexplained by the `0x2046` row model**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.93 — Section-4 wide rows: the `0x1146`–`0x1946` directories left unexplained by the `0x2046` row model**
+  - Status: done · Owner: task/m4.93-section4-wide · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: `tools/tile_unknown.py` shows that section 1's wide rows are already modelled by `s1_wide_dir.py` (M5.53/M5.54), but `B48R058R` still has 366,814 B in 36 gaps after that model. Every one is a section-4 level-1 `0x0009` place-name record in a `0x1146`–`0x1946` directory — the same wide-row family with a `0x1046` base that `s1_wide_dir.py` does not handle. Generalise the row model so those records have an owner instead of being copied verbatim.
@@ -3143,7 +3148,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Done when: a `--selftest`-covered tool (new `tools/section4_wide.py` or an extension of `s1_wide_dir.py`) parses every section-4 level-1 directory of `B48R058R` with size/record checks, and adding its spans to `tools/tile_unknown.py` drops the `still unexplained` figure to 0 B or prints a per-block shape for anything it cannot model; an EXP names the count and the record grammar.
   - Stop: one session.
   - Falsifier: the residual bytes are not wide-row records (no size/record rule fits) — then say so with the counted gaps and their shapes.
-  - Claims: C-8310–C-8319
+  - Claims: C-8420–C-8429
+  - Result: EXP-2026-11-22-M4.93-section4-wide-rows; 64/64 dirs, residual 366814 B -> 1326 B (2 tables)
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
@@ -3722,7 +3728,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6820–C-6829
 
 - [ ] **M5.72 — Road writer: point reference words the `LOC_map` walk accepts**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m5.72-locmap-ref-words · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.66 (done)
   - Goal: the generated road record of M9.53 (`tilewriter.py --factory`, `fa_encode.py`) has `0x0100` in the word the firmware treats as a point's reference to another point (record word 58, shape-buffer byte `0x48`); the walk `fn 0x0041f3dc` follows it 330 bytes past the end of the 184 B record and loads stale pool bytes (C-6776). The writer must emit this word as the firmware reads it: a word index of another point inside the record, or `0xffff`.
@@ -3733,6 +3739,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the reference needs the result of M9.67 (the rule for counted shapes) to be testable, write the in-window part and set `blocked` on M9.67 for the rest.
   - Falsifier: factory records carry reference words that leave the record too; then the word is not a plain in-record index and the EXP must show the counter-examples.
   - Claims: C-6850–C-6859
+  - Blocker: 95% explanation of carried reference words needs M9.67 host model of the LOC_map shape walk (66.2% mutual among y13 carriers)
+  - Unblock: M9.67
+  - Result: EXP-2026-11-22-M5.72-locmap-ref-words (in-window fix PASS, census negative)
 
 - [ ] **M5.73 — OSM tag → POI category table for the unit's category codes**
   - Status: open · Owner: — · Critical: no · Pair: solo

@@ -14,6 +14,8 @@ instead of guessing:
 * a second pass adds the ``s1_wide_dir`` row-block spans (M5.53/M5.54), which
   are real records the 512-byte ``clarion_tile`` reader steps over, to separate
   "already modelled" from "genuinely unexplained";
+* a third pass adds the ``section4_wide`` row-block spans (M4.93), the 768-byte
+  wide rows of section 4 the section-1 model does not cover;
 * each range is attributed to a directory (section, level, kind) and an
   even/odd record using the wide-row record parts where available, else the
   slot-index parity; the first bytes are *described* (zlib signature, inflated
@@ -130,6 +132,19 @@ def _wide_models(data: bytes, tile: dict) -> dict | None:
     return models
 
 
+def _s4_spans(data: bytes, tile: dict) -> list[tuple[int, int]]:
+    """Section-4 level-1 row-block spans (M4.93); empty when the tool is absent.
+
+    Kept separate from ``_wide_models`` so the baseline and s1-wide figures
+    reported by M4.86 stay unchanged.
+    """
+    try:
+        import section4_wide as s4  # noqa: E402
+        return s4.row_block_spans(data, tile)
+    except Exception:
+        return []
+
+
 def _context_marks(tile: dict, models: dict | None):
     """Sorted ``(offset, context)`` marks for nearest-preceding attribution.
 
@@ -230,8 +245,11 @@ def analyze(data: bytes) -> dict[str, Any]:
         for row in model["rows"]:
             if "block_off" in row and row["block_end"] > row["block_off"]:
                 wide_spans.append((row["block_off"], row["block_end"]))
-    full_merged = merge_spans(baseline_spans(tile) + wide_spans)
-    explained_wide = sum(_nonzero(data, a, b) for a, b in full_merged)
+    wide_merged = merge_spans(baseline_spans(tile) + wide_spans)
+    explained_wide = sum(_nonzero(data, a, b) for a, b in wide_merged)
+    s4_spans = _s4_spans(data, tile)
+    full_merged = merge_spans(baseline_spans(tile) + wide_spans + s4_spans)
+    explained_full = sum(_nonzero(data, a, b) for a, b in full_merged)
     remaining = nonzero_gaps(data, full_merged)
 
     marks = _context_marks(tile, models)
@@ -270,17 +288,27 @@ def analyze(data: bytes) -> dict[str, Any]:
             "start": a, "end": b, "span": b - a, "bytes": nz,
             "section": ctx[0], "level": ctx[1], "kind": ctx[2],
             "record": gap_parity(a, b, ctx[3]), "part": ctx[4],
-            "modelled": "s1_wide_dir" if any(ws < b and a < we for ws, we in wide_spans)
-                        else "unmodelled",
+            "modelled": ("s1_wide_dir" if any(ws < b and a < we for ws, we in wide_spans)
+                         else "section4_wide" if any(ss < b and a < se for ss, se in s4_spans)
+                         else "unmodelled"),
             "shape": describe_shape(data, a, b),
         })
     ranges.sort(key=lambda r: (-r["bytes"], r["start"]))
 
+    # Section tables are read by clarion_tile but are not directory/slot spans;
+    # name them so a small residual is not mislabelled as a wide-row record.
+    tables = [(section["taddr"], section["taddr"] + 2 * section["table_words"],
+               section["id"]) for section in tile["sections"]]
     rem = []
     for a, b in remaining:
+        ctx = attribute(a, marks)
+        for ta, tb, sid in tables:
+            if ta < b and a < tb:
+                ctx = (sid, 0, "table", "other", "section table")
+                break
         rem.append({
             "start": a, "end": b, "bytes": _nonzero(data, a, b),
-            "context": attribute(a, marks),
+            "context": ctx,
             "shape": describe_shape(data, a, b),
         })
     rem.sort(key=lambda r: -r["bytes"])
@@ -293,6 +321,9 @@ def analyze(data: bytes) -> dict[str, Any]:
         "wide_row_blocks": len(wide_spans),
         "explained_with_wide": explained_wide,
         "wide_percent": round(100.0 * explained_wide / total, 3) if total else 0.0,
+        "s4_row_blocks": len(s4_spans),
+        "explained_with_s4": explained_full,
+        "s4_percent": round(100.0 * explained_full / total, 3) if total else 0.0,
         "gaps": len(gaps),
         "gap_bytes": sum(r["bytes"] for r in ranges),
         "remaining_gaps": len(remaining),
@@ -340,11 +371,13 @@ def render_text(result: dict, groups: list[dict], top: int) -> str:
         "unexplained %d B in %d ranges" % (
             result["baseline_explained"], result["baseline_percent"],
             result["gap_bytes"], result["gaps"]),
-        "with s1_wide_dir row blocks (%d): explained %d B (%.3f%%), "
+        "with s1_wide_dir row blocks (%d): explained %d B (%.3f%%)" % (
+            result["wide_row_blocks"], result["explained_with_wide"], result["wide_percent"]),
+        "with s1 + section4_wide row blocks (%d + %d): explained %d B (%.3f%%), "
         "still unexplained %d B in %d ranges" % (
-            result["wide_row_blocks"], result["explained_with_wide"],
-            result["wide_percent"], result["remaining_bytes"],
-            result["remaining_gaps"]),
+            result["wide_row_blocks"], result["s4_row_blocks"],
+            result["explained_with_s4"], result["s4_percent"],
+            result["remaining_bytes"], result["remaining_gaps"]),
         "",
         "TOP %d GROUPS  (section, level, kind, even/odd  ->  bytes / ranges)" % top,
         "rank  sec  lvl  kind     rec    bytes      rng  modelled        shape of largest range",
@@ -354,7 +387,7 @@ def render_text(result: dict, groups: list[dict], top: int) -> str:
             n, g["section"], g["level"], g["kind"], g["record"],
             g["bytes"], g["ranges"], g["modelled"], g["shape"]))
     lines.append("")
-    lines.append("STILL UNEXPLAINED after s1_wide_dir (top 8):")
+    lines.append("STILL UNEXPLAINED after s1 + section4_wide (top 8):")
     for r in result["remaining"][:8]:
         ctx = r["context"]
         lines.append("  %#x..%#x  %8d B  sec%s L%s %s %s  %s" % (
@@ -399,6 +432,10 @@ def selftest() -> int:
         chk(covered, "positive control: a directory span is covered by an explained interval")
         chk(all(r["bytes"] < 64 for r in base["ranges"]),
             "positive control: clean synthetic tile has only tiny (<64 B) gaps")
+        chk(base["explained_with_s4"] >= base["explained_with_wide"],
+            "positive control: section-4 spans never reduce explained bytes")
+        chk(base["remaining_bytes"] <= base["gap_bytes"],
+            "positive control: the section-4 pass never adds unexplained bytes")
 
         # Negative control: inject one 4096-byte nonzero block in the trailing
         # free region; it must be ranked first, ahead of the small real gaps.

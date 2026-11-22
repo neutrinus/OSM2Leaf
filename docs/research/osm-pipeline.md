@@ -130,6 +130,28 @@ correctly. The falsifier was checked — the factory `LCTBL001.DAT` does store
 Polish diacritics (20,294 Polish-only letters), so the font, not the data, is
 the limit for the 10 missing letters.
 
+## Road numbers and shields: proposed Polish `ref` mapping (M4.90, EU2011)
+
+Evidence: EXP-2026-11-22-M4.90-road-shields (claims C-7910–C-7919). The factory
+map stores a road number only as the `2=` part of the `;`-separated text
+`1=NAME;2=REF` of a name entry in the odd partner record's names section; the
+even road-shape record's shape word `w4` is the word offset of that entry. The
+entry words are constant (`00ff 2800 0000 0000 ln`), so there is **no separate
+shield-type field**: the shield family is read from the reference syntax, and
+the shape class/`w3` tracks the road category, not the national/European
+choice. On the Polish part of the EU2011 cross-border tile `A4` and `E40`
+together occur only as one colon-joined string `2=A4:E40` (129 occurrences;
+bare `A4` 0, bare `E40` 0), while `94` (19) and `B6`/`S8` (4 each) occur bare
+and `DK94` never does (0). **Compiler proposal:** write Polish `ref` as
+`2=<digits>` with the `DK` prefix dropped (`DK94` → `2=94`); write motorway and
+expressway refs with their letter (`A4` → `2=A4`, `S8` → `2=S8`); append an
+`int_ref` European number to the national ref with a colon rather than
+emitting it alone (`A4`+`E40` → `2=A4:E40`, `94`+`E40` → `2=94:E40`), using
+further colon-separated terms for multiple E routes (the factory section 4
+contains `2=A8:E56:E552`); keep `1=NAME` optional in the same text. This is a
+data-side mapping, not a firmware-confirmed shield selection (rule 13): the
+renderer's glyph choice for each family still needs an L3/L4 run.
+
 ## Open questions
 
 1. **Charset** — answered for the glyph table by M4.87 (8/18 present); still

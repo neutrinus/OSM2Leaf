@@ -89,7 +89,10 @@ def shape_words(chain, nodes, name_off=0xffff, level=1, cls=None, styles=None, d
     out += [0x0800 | sx, 0x2800 | sy | dirbits(0)]
     npts = 1
     for n, (lid, a, b, inner) in enumerate(chain):
-        if level == 1: out += [styles[n], 0x0100, lid] if fresh[n] else [0x0100, lid]
+        # M5.72: the word the LOC_map walk follows is a *point reference*
+        # (C-6775), not a constant.  Start with "none"; build_record patches
+        # mutual in-record pairs once every point's word index is known.
+        if level == 1: out += [styles[n], 0xFFFF, lid] if fresh[n] else [0xFFFF, lid]
         else: out += [style_word(None, oneway=dirs[n] != 0), lid] if n == 0 else [lid]
         pts = list(inner) + [nodes[b]]
         for k, (x, y) in enumerate(pts):
@@ -147,6 +150,34 @@ def tail_of(plain):
     tail = w[2 * off: 2 * off + 2 * cnt]
     return tail[1], list(tail[8:8 + tail[1]])
 
+def patch_point_refs(unit, at, chains, level, styles):
+    """M5.72: the LOC_map reference word exists only in a link header, i.e.
+    before the first point of each link (C-6775).  Replace the writer's
+    0xffff placeholder with a mutual in-record pair of link starts; an
+    unpaired start keeps 0xffff.  Indices are shape-buffer relative, as the
+    firmware reads them.
+    """
+    if level != 1:
+        return 0
+    patched = 0
+    for i, c in enumerate(chains):
+        words = point_words(c, level, styles[i])
+        starts = [at[i] + o for j, (o, _lid, role) in enumerate(words)
+                  if role == 'start' or (j and words[j - 1][2] == 'end' and j < len(words) - 1)]
+        def slot(p):
+            return p + ((unit[p + 1] >> 13) & 1) + 2
+        for p, q in zip(starts[0::2], starts[1::2]):
+            sp, sq = slot(p), slot(q)
+            if sp < len(unit) and sq < len(unit) and unit[sp] == 0xFFFF and unit[sq] == 0xFFFF:
+                unit[sp], unit[sq] = q, p
+                patched += 1
+        for p in starts[len(starts) // 2 * 2:]:
+            sp = slot(p)
+            if sp < len(unit) and unit[sp] == 0xFFFF:
+                unit[sp] = 0xFFFF
+    return patched
+
+
 def build_record(level, y0, x0, row, col, nodes, chains, layer=None, name_off=0xffff, name_offs=None, hws=None,
                  styles=None, country=None, dirs=None):
     """A level-1 or level-2 road-shape record and its compressed form, shapes grouped by layer."""
@@ -168,6 +199,7 @@ def build_record(level, y0, x0, row, col, nodes, chains, layer=None, name_off=0x
         if len(unit) % 2: unit.append(0)   # a group of odd word count is padded, as shipped units are
         order += grp
     if len(unit) % 2: unit.append(0)
+    build_record.refs_patched = patch_point_refs(unit, at, chains, level, styles)
     per_row, per_col = {1: (32, 32), 2: (8, 8)}[level]
     code = clarion_bg.parcel_code(level, y0 * per_row + row, x0 * per_col + col)
     nlinks = sum(len(c) for c in chains)
