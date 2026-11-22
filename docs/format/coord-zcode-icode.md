@@ -190,7 +190,7 @@ struct zcode_rec16 {
 EU ICODE001 is 111 MB decompressed (US 6.1 MB). `REFER001/ICODE001.DAT` and
 `REFER002/ICODE001.DAT` exist; this section describes REFER001.
 
-### ISO table at 0x1000 (VERIFIED, M4.12)
+### ISO table at 0x1000 (VERIFIED, M4.12; C-7814)
 
 ```
 0x1000  u16 size_halfwords   (table byte size / 2)
@@ -200,28 +200,35 @@ EU ICODE001 is 111 MB decompressed (US 6.1 MB). `REFER001/ICODE001.DAT` and
 
 EU: `(7625 halfwords = 15250 B, 33 countries)` covering `0x1000..0x4b92`.
 US: `(464 halfwords = 928 B, 2 countries)`. First ISO-entry field is a
-462-byte stride in halfwords (`0x00e7=231`). Tier labels use a `2=`/`3=`
-prefix and UTF-8 (per `icode_io`).
+462-byte stride in halfwords (`0x00e7=231`). Each 462-byte entry is
+`u16 stride + u16 iso + 7 × 64-byte tier-label slots + 10 × 0xff pad`; the
+tier-label slots carry `2=`/`3=`-prefixed Latin-1 text (not UTF-8: e.g.
+Hungary `2=TELEPÜLÉS` stores a lone `0xDC`, C-7813) and NUL padding.
 
 ### Area-name tree and trie roots (VERIFIED roots, index table UNKNOWN)
 
 The name tree is chains of 12-byte-header + name rows (`icode_io`: `>HHIHH` =
 `rlen|nosub, nlen, roff, cnt, idx` + name field). **Within a chain, `roff`
 and sizes are halfwords relative to the start of that language's own country
-chain** (`icode_io`).
+chain** (`icode_io`). A row with `nlen == 0` and `roff != 0xffffffff` is a
+redirect/container row (it has no name but points at a child chain); the chain
+terminator is `nlen == 0, roff == 0xffffffff, cnt == 0xffff` (C-7810).
 
 **Per-language country-chain roots** (byte offsets of the first country row,
 `idx==0`, `nosub==0`, chain of `country_count` top-level rows) located by
-chain tracing (M4.12, `tools/coord_zcode_icode.py --verify-icode`):
+chain tracing and reproduced by `tools/icode_decode.py census ROOT`
+(C-7810–C-7812, C-7817):
 
 | image | languages found | root byte offsets (hex) | first chain entries |
 | --- | --- | --- | --- |
-| EU | 7 | 0x4d00, 0x1a91900, 0x27d7f00, 0x351e500, 0x4264a00, 0x4fab000, 0x5cf1600 | ANDORRA + 32 countries, localized per language |
-| US | 2 | 0x1500, 0x2e5d00 | CANADA, UNITED STATES |
+| EU | 8 | 0x4d00, 0xd4b200, 0x1a91900, 0x27d7f00, 0x351e500, 0x4264a00, 0x4fab000, 0x5cf1600 | ANDORRA + 32 countries, localized per language (DE/FR/EN/IT/NL/ES/PT/mixed) |
+| US | 2 | 0x1500, 0x2e5d00 | CANADA, UNITED STATES / ÉTATS-UNIS |
 
 EU refer header 0x18c lists 8 active language codes
-(`05,04,02,07,0a,06,08,14`), while 7 full 33-country chains were located by
-ANDORRA/chain tracing; the 8th mapping is not resolved here.
+(`05,04,02,07,0a,06,08,14`); the 8 chains above match that count (C-7811
+resolved the earlier 7-of-8 trace: the French chain at `0xd4b200` starts
+with `ANDORRE`, not `ANDORRA`). The mapping from language code to root is
+not resolved here.
 
 **Root-pointer index table: UNKNOWN (not located).** Refer header slots for
 ICODE001 are only 4 (EU `addr=512,blk=60` → 0x20000; US `addr=512,blk=4`) and
@@ -229,12 +236,14 @@ ICODE001 are only 4 (EU `addr=512,blk=60` → 0x20000; US `addr=512,blk=4`) and
 raw byte-offset or sector-address root table matching the verified roots was
 found in the refer header or 0x0000–0x50000. The firmware may resolve roots
 via a slot/frame structure not yet decoded; the **root offsets themselves** are
-the verified result.
+the verified result (and `tools/icode_decode.py` recovers them by iterating
+the uncovered non-zero runs).
 
 Refer header slots (EU): `(4,(512,60)), (13,(2308,1))`. US: `(4,(512,4)), (13,(516,1))`.
 
-Open: root-pointer index table location; the 8th EU language mapping; the
-partly remapped charset in names.
+Open: root-pointer index table location; the language-code-to-root mapping;
+the partly remapped Latin-1 charset in names (C-7813 names the high bytes but
+not the full code page).
 
 ## Region numbering
 
@@ -272,6 +281,9 @@ python3 tools/zcode_decode.py --selftest
 python3 tools/zcode_decode.py census /home/marek/projekty/leafre-work/m5.29-factory-root/REFER001
 python3 tools/coord_zcode_icode.py --verify-icode /home/marek/projekty/leafre-work/root/REFER001/ICODE001.DAT
 python3 tools/coord_zcode_icode.py --verify-icode /home/marek/projekty/leafre-work/m5.12-us/root-factory/REFER001/ICODE001.DAT
+python3 tools/icode_decode.py --selftest
+python3 tools/icode_decode.py census /home/marek/projekty/leafre-work/m4.8b-eu              # 99.299 %
+python3 tools/icode_decode.py census /home/marek/projekty/leafre-work/m5.12-us/root-factory  # 99.791 %
 ```
 
 Supporting modules: `tools/cmpind.py`, `tools/coord.py`,
