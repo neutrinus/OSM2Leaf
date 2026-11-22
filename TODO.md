@@ -2965,8 +2965,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7810–C-7819
   - Result: EXP-2026-11-22-M4.80-icode-census; EU 110597896/111378432 B 99.299%, US 6059118/6071808 B 99.791%, 8 EU chains, negative control 99.791%->49.905%
 
-- [ ] **M4.81 — `INTER0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.81 — `INTER0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
+  - Status: done · Owner: task/m4.81-inter-decode · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: Row 12 of `docs/research/reader-coverage.md` says the `INTER0nn` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
@@ -2977,6 +2977,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; unexplained fields are listed with their value histogram, not guessed.
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7820–C-7829
+  - Result: EXP-2026-11-22-M4.81-inter-decode; inter_decode tool+census, 44/44 shards, 88.301% explained, C-7820-C-7829
 
 - [ ] **M4.82 — `FRWAY0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
   - Status: open · Owner: — · Critical: no · Pair: solo

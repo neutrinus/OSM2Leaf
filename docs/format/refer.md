@@ -443,6 +443,44 @@ encode_position` is the inverse for a writer.
   `4000 0000 XXXX` (node ref) or `0000 a b` (attribute).
 - `key` and `length` meanings are `UNKNOWN`.
 
+### Offline field census (M4.81, C-7820–C-7829)
+
+**FACT (tool):** `python3 tools/inter_decode.py --selftest` and
+`census ROOT` reproduce the big-endian table above from a committed tool
+(`>HHBBHHH` fields, `0xffff` key terminator, `u16@+2 == 0` on every record of
+all shards). The census covers **33 EU shards / 976 records / 303,629,312 B**
+and **11 US shards / 385 records / 225,175,552 B** (44 shards, 1,361 records,
+528,804,864 B total). See
+`EXP-2026-11-22-M4.81-inter-decode.md`.
+
+| Field | EU range (nonzero) | US range (nonzero) |
+| --- | --- | --- |
+| `key` (+0) | `0x0..0xde` (912/976) | `0x0..0xde` (384/385) |
+| `id` (+4) | `0x2f..0x5a` (976/976) | `0x30..0x5a` (385/385) |
+| `flag` (+5) | `0x0..0x7` (23/976) | `0x0..0x1` (6/385) |
+| `length` (+6) | `0x1..0xf7f0` (976/976) | `0x2..0xf878` (385/385) |
+| `b8` (+8) | `0x0..0xb3` (504/976) | `0x0..0x47` (281/385) |
+| `offset` (+10) | `0x0..0xff60` (943/976) | `0x0..0xfed8` (374/385) |
+
+`id` is always nonzero; `flag` and `b8` are the sparse variant fields. Every
+`offset` fits inside its own file, so it indexes an in-file structure.
+
+**FACT (bytes explained):** the census reaches **87.416 % EU / 89.494 % US /
+88.301 % both** of the bytes (worst shard 80.62 % EU INTER001, 80.88 % US
+INTER011), well above the < 50 % falsifier. It counts the 512-byte header,
+the table run, every `4e20 0000` index chain and standalone zlib page whose
+streams inflate to `eof`, and zero/`0xff` fill. A mutated `u16@+2` byte
+(`census ... --mutate-byte 0x1112`) drops EU INTER001 from 21 records to 0 and
+its table span from 272 B to 8 B, so the walk detects a broken layout.
+
+**HYPOTHESIS (not decoded):** the unexplained residue — EU 38,207,922 B
+(12.584 %), US 23,655,988 B (10.506 %), dominated by bytes `0x01`, `0x0c`,
+`0x02`, `0x12` — is the post-table region of 12-byte locator records and 6-byte
+blob elements described above. Its field meanings are still `UNKNOWN` (M3.16,
+C-2217–C-2219); the census names and histograms it, never guesses it. No
+field-consuming firmware reader is located (see below), so the access-path
+FACT below still covers file-level resolution only.
+
 > **The pre-M3.16 little-endian layout is refuted (C-2216).** `refer.md` had
 > written `u8 id, u16 n, u16 0, u16 offset, u16 length (6*k), u16 0` as
 > **little-endian** (that sums to 11 bytes, not 12), with the `0xffff`
