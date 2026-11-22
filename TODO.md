@@ -5155,7 +5155,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8130–C-8139
 
 - [ ] **M8.H69 — Breakpoints by name: a symbol file for the guest from `.pdata` and exports**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h69-symbols · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: Debugging the guest means typing VAs from EXP records. Generate a symbol table (module + export name, or `module!fn_VA`) for every module of a card's ROM images so gdb scripts and coverage reports use names.
