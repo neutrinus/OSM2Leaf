@@ -1,0 +1,331 @@
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -35,6 +35,8 @@
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties-system.h"
+ #include "chardev/char.h"
++#include "chardev/char-fe.h"
++#include "qemu/log.h"
+ #include "hw/sh4/ze0_sdhi.h"
+ #include "hw/sh4/ze0_hpbdmac.h"
+ #include "hw/sh4/ze0_gfx.h"
+@@ -178,6 +180,8 @@
+     bool sd_start_locked;
+     bool scif_stubs;
+     char *sci_chardev[9];           /* M8.H1: chardev id per SCIF 0-8 */
++    char *uart_chardev[2];         /* M8.H3: UAT3/UAT4 chardev ids */
++    uint16_t uart_intevt[2];       /* M8.H3: INTEVT for each source */
+     char *verinf;
+     char *mapdb;
+     char *ipl_patch;
+@@ -504,6 +508,197 @@
+     }
+     qemu_register_reset(ze0_cpu_reset, r);
+ }
++
++
++/* ------------------------------------------------------------------------
++ * M8.H3: external UARTs UAT3/UAT4 (serial_uat.dll, docs/firmware/serial-uat.md)
++ *
++ * The chip is 16550-like but the driver uses 16-bit READ/WRITE_PORT_USHORT
++ * at a 2-byte stride: the eight classic registers live at base+0,+2,...,+0xe
++ * and two vendor registers at +0x1a/+0x1c.  Bytes written to THR go to the
++ * host chardev; bytes read from that chardev fill a 64-byte RX FIFO and
++ * assert the INTC line (SYSINTR 0x1b measured for UAT3).
++ * ------------------------------------------------------------------------ */
++#define ZE0_UART_BASE3    0x19b00000u
++#define ZE0_UART_BASE4    0x19e00000u
++#define ZE0_UART_SIZE     0x1000u
++#define ZE0_UART_FIFO     64
++
++typedef struct Ze0Uart {
++    MemoryRegion mmio;
++    CharFrontend chr;
++    qemu_irq irq;
++    uint16_t regs[8];
++    uint16_t divisor;
++    bool dlab;
++    uint8_t rx[ZE0_UART_FIFO];
++    unsigned rx_head;
++    unsigned rx_count;
++    bool irq_asserted;
++} Ze0Uart;
++
++static void ze0_uart_update_irq(Ze0Uart *u)
++{
++    bool level = u->rx_count > 0;
++
++    if (level != u->irq_asserted) {
++        u->irq_asserted = level;
++        qemu_set_irq(u->irq, level);
++    }
++}
++
++static int ze0_uart_can_read(void *opaque)
++{
++    Ze0Uart *u = opaque;
++
++    return u->rx_count < ZE0_UART_FIFO ? 64 : 0;
++}
++
++static void ze0_uart_chr_read(void *opaque, const uint8_t *buf, int size)
++{
++    Ze0Uart *u = opaque;
++    int i;
++
++    for (i = 0; i < size && u->rx_count < ZE0_UART_FIFO; i++) {
++        u->rx[(u->rx_head + u->rx_count) % ZE0_UART_FIFO] = buf[i];
++        u->rx_count++;
++    }
++    qemu_log_mask(LOG_UNIMP, "ze0-uart chr read %d bytes, fifo=%u, irq=%d\n",
++                  size, u->rx_count, u->irq_asserted);
++    ze0_uart_update_irq(u);
++}
++
++static void ze0_uart_chr_event(void *opaque, QEMUChrEvent event)
++{
++}
++
++static uint64_t ze0_uart_read(void *opaque, hwaddr addr, unsigned size)
++{
++    Ze0Uart *u = opaque;
++    unsigned idx = (addr & 0xff) >> 1;
++    uint16_t val;
++
++    if (idx >= 8) {
++        return 0;
++    }
++    qemu_log_mask(LOG_UNIMP, "ze0-uart read idx=%u addr=0x%x\n", idx,
++                  (unsigned)(addr & 0xff));
++    if (u->dlab && idx < 2) {
++        return idx ? (u->divisor >> 8) : (u->divisor & 0xff);
++    }
++    switch (idx) {
++    case 0: /* RBR */
++        val = 0;
++        if (u->rx_count) {
++            val = u->rx[u->rx_head];
++            u->rx_head = (u->rx_head + 1) % ZE0_UART_FIFO;
++            u->rx_count--;
++            ze0_uart_update_irq(u);
++        }
++        break;
++    case 2: /* IIR: no interrupt pending encoded (line is separate) */
++        val = 1;
++        break;
++    case 5: /* LSR: data ready in bit 0 */
++        val = u->rx_count ? 1 : 0;
++        break;
++    default:
++        val = u->regs[idx];
++        break;
++    }
++    return val;
++}
++
++static void ze0_uart_write(void *opaque, hwaddr addr, uint64_t val,
++                           unsigned size)
++{
++    Ze0Uart *u = opaque;
++    unsigned idx = (addr & 0xff) >> 1;
++    uint8_t byte = val & 0xff;
++
++    if (idx >= 8) {
++        return;
++    }
++    qemu_log_mask(LOG_UNIMP, "ze0-uart write idx=%u val=0x%x\n", idx,
++                  (unsigned)val);
++    if (u->dlab && idx < 2) {
++        if (idx == 0) {
++            u->divisor = (u->divisor & 0xff00) | byte;
++        } else {
++            u->divisor = (u->divisor & 0x00ff) | ((uint16_t)byte << 8);
++        }
++        return;
++    }
++    switch (idx) {
++    case 0: /* THR */
++        qemu_chr_fe_write(&u->chr, &byte, 1);
++        break;
++    case 2: /* FCR: driver caches and masks the self-clearing bits */
++        u->regs[2] = val & 0xfff9;
++        break;
++    case 3: /* LCR, DLAB = bit 7 */
++        u->dlab = !!(val & 0x80);
++        u->regs[3] = val;
++        break;
++    default:
++        u->regs[idx] = val;
++        break;
++    }
++}
++
++static const MemoryRegionOps ze0_uart_ops = {
++    .read = ze0_uart_read,
++    .write = ze0_uart_write,
++    .endianness = DEVICE_LITTLE_ENDIAN,
++    .valid = { .min_access_size = 2, .max_access_size = 2 },
++    .impl = { .min_access_size = 2, .max_access_size = 2 },
++};
++
++static Ze0Uart *ze0_uart_create(Ze0MachineState *zm, const char *id,
++                                hwaddr base, qemu_irq irq, uint16_t intevt)
++{
++    Ze0Uart *u = g_new0(Ze0Uart, 1);
++    Chardev *chr = qemu_chr_find(id);
++
++    if (!chr) {
++        error_report("ze0: uart: no chardev with id '%s'", id);
++        exit(1);
++    }
++    qemu_chr_fe_init(&u->chr, chr, &error_fatal);
++    qemu_chr_fe_set_handlers(&u->chr, ze0_uart_can_read,
++                             ze0_uart_chr_read, ze0_uart_chr_event,
++                             NULL, u, NULL, true);
++    u->irq = irq;
++    memory_region_init_io(&u->mmio, NULL, &ze0_uart_ops, u,
++                          g_strdup_printf("ze0-uart-%s", id), ZE0_UART_SIZE);
++    memory_region_add_subregion_overlap(get_system_memory(), base, &u->mmio, 2);
++    return u;
++}
++
++#define ZE0_UART_PROPS(n)                                                      \
++    static char *ze0_get_uart##n(Object *obj, Error **errp)                    \
++    {                                                                          \
++        return g_strdup(ZE0_MACHINE(obj)->uart_chardev[n] ?: "");              \
++    }                                                                          \
++    static void ze0_set_uart##n(Object *obj, const char *value, Error **errp)  \
++    {                                                                          \
++        char **slot = &ZE0_MACHINE(obj)->uart_chardev[n];                      \
++        g_free(*slot);                                                         \
++        *slot = *value ? g_strdup(value) : NULL;                               \
++    }                                                                          \
++    static char *ze0_get_uart##n##_intevt(Object *obj, Error **errp)           \
++    {                                                                          \
++        return g_strdup_printf("0x%x", ZE0_MACHINE(obj)->uart_intevt[n]);      \
++    }                                                                          \
++    static void ze0_set_uart##n##_intevt(Object *obj, const char *value,       \
++                                         Error **errp)                         \
++    {                                                                          \
++        ZE0_MACHINE(obj)->uart_intevt[n] =                                     \
++            (uint16_t)g_ascii_strtoull(value, NULL, 0);                        \
++    }
++
++ZE0_UART_PROPS(0)
++ZE0_UART_PROPS(1)
+ 
+ static void ze0_init(MachineState *machine)
+ {
+@@ -820,6 +1015,26 @@
+                                      "ze0-gfx-du-a7", r, 0, ZE0_GFX_SIZE);
+             memory_region_add_subregion_overlap(sysmem,
+                                                 gbase[gi] & ZE0_A7_MASK, al, 2);
++        }
++    }
++
++    /* M8.H3: UAT3/UAT4 as host chardevs (no property = old catch-all). */
++    {
++        static const hwaddr ubase[2] = { ZE0_UART_BASE3, ZE0_UART_BASE4 };
++        static const int uirq[2] = { ZE0_IRQ_UAT3, ZE0_IRQ_UAT4 };
++        int ui;
++
++        for (ui = 0; ui < 2; ui++) {
++            const char *id = ZE0_MACHINE(machine)->uart_chardev[ui];
++
++            if (!id || !*id) {
++                continue;
++            }
++            ze0_intc_set_vec(intc, uirq[ui],
++                             ZE0_MACHINE(machine)->uart_intevt[ui]);
++            ze0_uart_create(ZE0_MACHINE(machine), id, ubase[ui],
++                            ze0_intc_irq(intc, uirq[ui]),
++                            ZE0_MACHINE(machine)->uart_intevt[ui]);
+         }
+     }
+ 
+@@ -1105,6 +1320,17 @@
+     ZE0_ADD_SCI_PROP(7);
+     ZE0_ADD_SCI_PROP(8);
+ 
++    object_property_add_str(obj, "uat3", ze0_get_uart0, ze0_set_uart0);
++    object_property_set_description(obj, "uat3",
++        "chardev id for UAT3 (0x19b00000), TX and RX");
++    object_property_add_str(obj, "uat4", ze0_get_uart1, ze0_set_uart1);
++    object_property_set_description(obj, "uat4",
++        "chardev id for UAT4 (0x19e00000), TX and RX");
++    object_property_add_str(obj, "uat3-intevt", ze0_get_uart0_intevt,
++                            ze0_set_uart0_intevt);
++    object_property_add_str(obj, "uat4-intevt", ze0_get_uart1_intevt,
++                            ze0_set_uart1_intevt);
++
+     object_property_add_str(obj, "verinf", ze0_get_verinf, ze0_set_verinf);
+     object_property_set_description(obj, "verinf",
+         "unit map code at kernel image header +0x60, read by the launcher "
+--- a/hw/sh4/ze0_intc.c
++++ b/hw/sh4/ze0_intc.c
+@@ -70,7 +70,7 @@
+ 
+ #define ZE0_PRI_FIXED   0xff    /* pri_shift is the level itself */
+ 
+-static const Ze0IntcSource ze0_sources[ZE0_INTC_NR_SOURCES] = {
++static Ze0IntcSource ze0_sources[ZE0_INTC_NR_SOURCES] = {
+     [ZE0_IRQ_TMU0] = { "TMU0", 0x400, 1, 0, 16 },
+     [ZE0_IRQ_TMU1] = { "TMU1", 0x420, 1, 0, 8 },
+     [ZE0_IRQ_TMU2] = { "TMU2", 0x440, 1, 0, 0 },
+@@ -111,6 +111,14 @@
+      */
+     [ZE0_IRQ_DU] = { "DU", 0x3e0, 0, ZE0_PRI_FIXED, 4 },
+     [ZE0_IRQ_2DG] = { "2DG", 0x780, 12, ZE0_PRI_FIXED, 4 },
++    /*
++     * M8.H3: external UARTs.  The INTEVT of UAT3 has not been pinned
++     * (SYSINTR 0x1b measured by ze0_dbgmsg); int2_bit 0xff bypasses the
++     * INT2 mask until the OAL bit is known, and the vector is set from
++     * the machine property uat3-intevt / uat4-intevt at init time.
++     */
++    [ZE0_IRQ_UAT3] = { "UAT3", 0x8c0, 0xff, ZE0_PRI_FIXED, 11 },
++    [ZE0_IRQ_UAT4] = { "UAT4", 0x8e0, 0xff, ZE0_PRI_FIXED, 11 },
+ };
+ 
+ struct Ze0IntcState {
+@@ -143,7 +151,8 @@
+ 
+     for (n = 0; n < ZE0_INTC_NR_SOURCES; n++) {
+         struct intc_source *is = &s->desc.sources[n];
+-        int masked = (s->int2[INT2MSKR / 4] >> ze0_sources[n].int2_bit) & 1;
++        int masked = (ze0_sources[n].int2_bit == 0xff) ? 0 :
++            (s->int2[INT2MSKR / 4] >> ze0_sources[n].int2_bit) & 1;
+         int level = ze0_intc_level(s, n);
+ 
+         is->vect = ze0_sources[n].intevt;
+@@ -289,6 +298,15 @@
+     ze0_intc_reset(dev);
+ }
+ 
++void ze0_intc_set_vec(Ze0IntcState *s, int n, uint16_t intevt)
++{
++    Ze0IntcSource *src = (Ze0IntcSource *)&ze0_sources[n];
++
++    src->intevt = intevt;
++    s->desc.sources[n].vect = intevt;
++    ze0_intc_update(s);
++}
++
+ qemu_irq ze0_intc_irq(Ze0IntcState *s, int n)
+ {
+     return s->irqs[n];
+--- a/include/hw/sh4/ze0_intc.h
++++ b/include/hw/sh4/ze0_intc.h
+@@ -27,10 +27,13 @@
+     ZE0_IRQ_HPBDMAC10,
+     ZE0_IRQ_DU,             /* display (M8.C1e) */
+     ZE0_IRQ_2DG,
++    ZE0_IRQ_UAT3,           /* M8.H3: external UARTs */
++    ZE0_IRQ_UAT4,
+     ZE0_INTC_NR_SOURCES
+ };
+ 
+ qemu_irq ze0_intc_irq(Ze0IntcState *s, int n);
++void ze0_intc_set_vec(Ze0IntcState *s, int n, uint16_t intevt);
+ struct intc_desc *ze0_intc_handle(Ze0IntcState *s);
+ 
+ #endif
