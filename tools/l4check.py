@@ -14,10 +14,12 @@ Usage::
                              [--ipl-patch FILE]
     python3 tools/l4check.py --selftest
 
-Exit codes: ``0`` every stage passed, ``1`` a stage failed (the failed stage
-and the log line are named), ``2`` usage error, ``3`` not runnable — no card,
-no firmware head, or no QEMU with ``-M ze0``.  An absent prerequisite is
-**never** a pass.  The gate never edits the standing ``gate.py`` checks.
+Exit codes: ``0`` every card-verdict stage F0..F4 passed, ``1`` a stage failed
+(the failed stage and the log line are named), ``2`` usage error, ``3`` not
+runnable — no card, no firmware head, or no QEMU with ``-M ze0``.  An absent
+prerequisite is **never** a pass.  F5 (idle) is informational: a slow host may
+not reach it inside the run window; that does not reject the card.  The gate
+never edits the standing ``gate.py`` checks.
 
 Stage names F0..F4 are imported from ``tools/l4_status.py``; F5 (idle) is an
 l4check extension, named here because l4_status.py has no F5 row today.  The
@@ -414,9 +416,13 @@ def score_stages(parsed: dict, boot: dict) -> list[dict]:
         if reject_detail:
             status, detail = "FAIL", reject_detail
         elif not reached:
-            status = "FAIL"
+            # F5 is informational: a slow host may not reach idle inside the
+            # run window, which is not a card rejection.  F0..F4 are the gate.
+            status = "NOT RUN" if stage == "F5" else "FAIL"
             detail = spec["fail_detail"] + ((" (no marker before the %d s window)"
                                              % boot["timeout_s"]) if boot.get("timeout_s") else "")
+            if stage == "F5":
+                detail += " (idle is informational, not a card verdict)"
         else:
             status = "PASS"
         rows.append({
@@ -455,7 +461,9 @@ def _count_key_from_label(name: str) -> str:
 def make_verdict(rows: list[dict], parsed: dict) -> dict:
     """Aggregate stage rows into stage_reached / failed_stage / verdict."""
     reached = [r["stage"] for r in rows if r["status"] == "PASS"]
-    failed = [r for r in rows if r["status"] == "FAIL"]
+    # F5 (idle) is reported but is not a card verdict: a loaded host may not
+    # reach it inside the window.  F0..F4 decide PASS/FAIL.
+    failed = [r for r in rows if r["status"] == "FAIL" and r["stage"] != "F5"]
     first_failed = failed[0]["stage"] if failed else None
     # "stage reached" = highest consecutive passing stage before the first fail.
     consec = []
@@ -750,6 +758,16 @@ def selftest() -> int:
     bad_by = {r["stage"]: r for r in bad_rows}
     chk(bad_by["F4"]["status"] == "FAIL" and
         "0x28" in bad_by["F4"]["detail"], "broken log: F4 FAIL names the 0x28 line")
+    chk(bad_by["F5"]["status"] == "NOT RUN",
+        "broken log: F5 idle NOT RUN, not a second card failure")
+    no_idle = FACTORY_LOG.replace("AppLch >> Finish Launch Threads!\n", "")
+    ni_parsed = parse_serial(no_idle)
+    ni_rows = score_stages(ni_parsed, boot)
+    ni_verdict = make_verdict(ni_rows, ni_parsed)
+    chk(ni_verdict["result"] == "PASS" and
+        ni_verdict["stage_reached"] == "F4" and
+        {r["stage"]: r["status"] for r in ni_rows}["F5"] == "NOT RUN",
+        "no idle in window: card verdict still PASS, stage reached F4")
     chk(bad_verdict["failed_stage"] == "F4" and
         bad_verdict["stage_reached"] == "F3",
         "broken verdict: failed stage F4, reached F3")
