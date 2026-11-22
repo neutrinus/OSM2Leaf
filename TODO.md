@@ -5203,7 +5203,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H49-can-uart; 10/10 claims, wire grammar honestly UNKNOWN
 
 - [ ] **M8.H50 — `tools/ze0_peers/vcan.py`: vehicle peer (ignition, speed, reverse, lights, state of charge)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h50-vcan-peer · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H49
   - Goal: The VCAN microcontroller as a host program on the `uat3` chardev, sending the periodic frames of `docs/firmware/can.md` from a small vehicle state.
