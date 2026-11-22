@@ -4543,7 +4543,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7020–C-7029
 
 - [ ] **M8.H6 — Determinism: two boots with `-icount` give the same log and the same screen**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h6-run-determinism · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: An L4 regression gate needs repeatable runs. Measure whether two identical boots are bit-identical in what we compare (serial log, DBGMSG log, SD read order, VRAM hash at a fixed guest time), and name each source of difference.
