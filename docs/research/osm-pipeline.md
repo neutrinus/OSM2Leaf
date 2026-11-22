@@ -97,10 +97,43 @@ Use the **Poland** extract, not a voivodeship cut, for the final build:
 Dolnośląskie borders Germany and Czechia, and a voivodeship cut severs the
 cross-border roads that cross-border routing depends on.
 
+## Polish glyph coverage (M4.87, EU2011)
+
+The map text renderer does **not** draw all Polish letters. Evidence:
+EXP-2026-11-22-M4.87-polish-glyphs (claims C-7880–C-7889).
+
+- The named `xglXtpDrawXanaviCharacter` export of `XGLDLL.dll` is a 2-byte
+  no-op (`rts; mov #0,r0` at VA `0x030fd118`) — it draws nothing. Real names go
+  through `XGLDLL` → `RASTERIZER_DLL.dll` `DCW_Raster`; the name font is the
+  FDL blob `dig_pfont_ucs_iso88591_hei_wx` at VA `0x03431020` (magic
+  `FDL Font`), returned by `DCW_Font_getNamFontAddr` (`0x0344fb08`).
+- Its cmap at VA `0x034310f4` covers **U+0001..U+011F only**. Per letter:
+
+  | Keep (glyph present) | Transliterate (no glyph) |
+  | --- | --- |
+  | `Ą ą` U+0104/0105 | `Ł ł` U+0141/0142 → `L l` |
+  | `Ć ć` U+0106/0107 | `Ń ń` U+0143/0144 → `N n` |
+  | `Ę ę` U+0118/0119 | `Ś ś` U+015A/015B → `S s` |
+  | `Ó ó` U+00D3/00F3 | `Ź ź` U+0179/017A → `Z z` |
+  | | `Ż ż` U+017B/017C → `Z z` |
+
+  A code point past U+011F is a cmap miss (notdef); `DCWx_findFontData`
+  returns 0 at `0x03451ede`. Reproduce with
+  `python3 tools/fdl_font.py archive/head256.img --font-va 0x03431020 --image-start 0x200200`.
+
+**Compiler recommendation:** drive transliteration from this 10-letter table in
+one place (M5.80), leave the 8 present letters unchanged, and keep the factory
+strings' ISO-8859-2 encoding (M4.13). **Open risk:** the byte→Unicode conversion
+between the card's single-byte text and this Unicode cmap was not located; until
+an L3/L4 run confirms it, cmap presence does not prove the letter renders
+correctly. The falsifier was checked — the factory `LCTBL001.DAT` does store
+Polish diacritics (20,294 Polish-only letters), so the font, not the data, is
+the limit for the 10 missing letters.
+
 ## Open questions
 
-1. **Charset**: can the unit render `ą ć ę ł ń ó ś ź ż`? This decides the
-   string-table design and whether transliteration is needed.
+1. **Charset** — answered for the glyph table by M4.87 (8/18 present); still
+   open: the byte→Unicode conversion into the FDL cmap (see above).
 2. **Turn restrictions**: does the format have a slot for them? 3,987
    restriction relations exist in one voivodeship alone.
 3. **Tile granularity**: profiles currently ship whole tiles. See
