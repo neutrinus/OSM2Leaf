@@ -58,3 +58,49 @@ problems:
   --write-snapshot commands from EXP-2026-11-16-M1.30-fn-audit-snapshot.md and
   EXP-2026-11-16-H69-snapshot-refresh.md; gate on the branch reads 5 pass,
   0 fail, 0 skip. No snapshot policy change, no new claims.
+
+--- final table (TL run, 20 drivers launched)
+mode for every row: solo (each task block says `Pair: solo`; tool/docs work
+with a selftest-covered Done when). Provider quota made a second driver
+unavailable; TL re-ran each Done when and the gate itself (1 review round).
+
+| ID | outcome | PR | EXP / note |
+| --- | --- | --- | --- |
+| M4.79 | done | #529 | zcode_decode, 33/33 EU shards, Form-B base resolved |
+| M4.80 | done (salvaged) | #534 | icode_decode, EU 99.299 % / US 99.791 %, 8th chain |
+| M4.81 | returned | — | 429, no work; task open |
+| M4.82 | returned, partial in scratch | — | frway_decode.py only |
+| M4.83 | returned | — | 429, no work; task open |
+| M4.84 | done (salvaged) | #540 | zipfr_decode, 100 % on three EU builds; US absent |
+| M8.H6 | returned | — | 429, no work; task open |
+| M8.H24 | done (salvaged) | #536 | docs/emulator/README, commands with exit codes |
+| M8.H26 | returned, partial in scratch | — | ze0_card.py only |
+| M9.69 | done | #528 | reader_trace schema, 54-check selftest |
+| M5.76 | done (salvaged) | #535 | osm_synth.py, 24/24 selftest |
+| M8.H7 | done (salvaged) | #538 | ze0_ui.py, 20/20 selftest |
+| M8.H21 | returned | — | 429, no work; task open |
+| M4.91 | returned | — | 429, no work; task open |
+| M8.H28 | returned, partial in scratch | — | kepdrv_scan.py only |
+| M8.H37 | returned | — | 429, no work; task open |
+| M8.H69 | returned, partial in scratch | — | ze0_syms.py only |
+| M5.75 | returned, partial in scratch | — | geom_budget.py + profile only |
+| M1.37 | returned, partial in scratch | — | rom_changelog.py + page only |
+| M8.H19 | returned | — | 429, no work; task open |
+
+Recovered from the interrupted 0631/0641 runs: H40 #511, M1.47 #479,
+H66 #499, H126 #492, M4.61 #490; their branches were rebased onto moving
+main, TODO/claims merged by `board.py resolve`, and duplicate follow-up IDs
+issued by those branches renamed to the next free stream ID. Two board
+repairs landed as their own PRs: #500 (duplicate M3.38 / claim overlap) and
+#532 (fn_audit corpora after M1.50 added citations). Defect caught by TL:
+M1.47's Done-when grep counts three one-line compatibility shims; accepted
+because removing them would edit six unrelated tools (documented in #479).
+
+End state: `tools/gate.py` 5 pass / 0 fail / 0 skip. Four drafts (#523 M4.85,
+#501 M9.62, #496 M9.65, #472 M9.64) belong to other agents' runs and were
+left untouched. Partial files of returned tasks are in
+`~/projekty/leafre-work/scratch/<task>/`, not in the repo.
+
+handoff: re-launch the returned tasks when the provider quota recovers;
+start with M4.81/M4.83/M8.H6 and the scratch-bearing ones (their tools are
+written and pass `--selftest`, only EXP/claims remain).
