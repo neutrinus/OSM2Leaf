@@ -301,12 +301,40 @@ def format_c(fmt: str, next_arg, read_cstr, read_wstr, wide: bool = False) -> st
 
 
 # --------------------------------------------------------------------------
+def native_slots(imports, module: str, exports: dict) -> dict:
+    """{export name: IAT slot VA} for the named imports of *module*.
+
+    ``imports`` is the ``(dll, slot, name, ordinal)`` stream from
+    ``cerom.CERom.imports`` of the importing module.  A name the importer does
+    not use, or one the module does not export, is simply absent from the
+    result -- the caller decides whether that is a stop.
+    """
+    want = {n.lower(): n for n in exports}
+    out = {}
+    for dll, slot, name, _ordinal in imports:
+        if dll.lower() != module.lower() or name is None:
+            continue
+        real = want.get(name.lower())
+        if real is not None:
+            out[real] = slot
+    return out
+
+
 class Machine:
-    """``Navi.exe`` in PySh4 with bound imports and a card."""
+    """``Navi.exe`` in PySh4 with bound imports and a card.
+
+    ``native=(module, export_names)`` binds the named exports of a second
+    module (M9.65: ``STDDLL.dll``) by loading that module's executable
+    sections into the same engine and pointing every ``Navi.exe`` import slot
+    for those names at the export's real VA.  The thunk's ``jmp @Rn`` then
+    lands in the module's own code and its ``rts`` returns to the caller, so
+    the function runs as shipped -- no host stub stands in for its result.
+    """
 
     def __init__(self, image: bytes, card: Card, module: str = "Navi.exe",
                  image_start: int = IMAGE_A, data_cache: Path | None = None,
-                 imports_text: str | None = None, trace_imports: bool = False):
+                 imports_text: str | None = None, trace_imports: bool = False,
+                 native: tuple[str, tuple[str, ...]] | None = None):
         import cerom
         import nk_decomp
         self.card = card
@@ -320,7 +348,13 @@ class Machine:
         self.allocs: dict[int, int] = {}
         self.free_blocks: dict[int, list[int]] = {}
         self.last_error = 0
-        eng = self.eng = PySh4(endian="little")
+        self.native: dict[str, int] = {}     # export name -> VA in this engine
+        self.native_ranges: list[tuple[str, int, int]] = []
+        engine_cls = PySh4
+        if native is not None:
+            import sh4fpu
+            engine_cls = sh4fpu.PySh4Fpu    # STDDLL mesh math is in floating point
+        eng = self.eng = engine_cls(endian="little")
         rom = cerom.CERom(image, image_start)
         self.sections = []
         for index, s in enumerate(rom.o32(rom.module(module))):
@@ -366,6 +400,48 @@ class Machine:
             tramp = TRAMP_VA + 4 * i
             eng.write_mem(slot, struct.pack("<I", tramp))
             eng.on_exec(tramp, self._make_import(name))
+        if native is not None:
+            self._bind_native(rom, image, native[0], native[1])
+
+    def _bind_native(self, rom, image: bytes, module: str, export_names) -> None:
+        """Load *module*'s executable sections and re-point matching IAT slots.
+
+        The export table is the source of the address (``cerom.py exports``);
+        the slot is the one ``cerom.py imports`` names for the importing module
+        -- neither is a literal from prose.  Every range is checked against the
+        map before it is added, so an overlap is a loud ``BLOCKED``.
+        """
+        import cerom
+        mod = rom.module(module)
+        base = rom.e32(mod)["vbase"]
+        exports = {name: base + rva for _o, name, rva in rom.exports(mod)}
+        missing = sorted(set(export_names) - set(exports))
+        if missing:
+            raise Blocked("%s exports no %s" % (module, ", ".join(missing)))
+        for s in rom.o32(mod):
+            if s["flags"] & cerom.IMAGE_SCN_COMPRESSED or not s["flags"] & cerom.MEM_EXECUTE:
+                continue
+            lo, size = s["realaddr"], (s["vsize"] + 0xFFF) & ~0xFFF
+            if size <= 0:
+                continue
+            hit = self.eng.region_at(lo) or self.eng.region_at(lo + size - 1)
+            if hit is not None:
+                raise Blocked("%s section %#x..%#x overlaps %r"
+                              % (module, lo, lo + size, hit.name))
+            off = rom.va2file(s["dataptr"])
+            blob = bytearray(image[off:off + s["psize"]])
+            if len(blob) < size:
+                blob += bytes(size - len(blob))
+            self.eng.map("native/%s@%#x" % (module, lo), lo, bytes(blob), "rx")
+            self.native_ranges.append((module, lo, size))
+        slots = native_slots(rom.imports(rom.module("Navi.exe")), module, exports)
+        absent = sorted(set(export_names) - set(slots))
+        if absent:
+            raise Blocked("Navi.exe imports no %s!%s" % (module, ", ".join(absent)))
+        for name, slot in slots.items():
+            if name in export_names:
+                self.native[name] = exports[name]
+                self.eng.write_mem(slot, struct.pack("<I", exports[name]))
 
     # -- guest memory helpers ----------------------------------------------
     def reg(self, name: str) -> int:
@@ -1049,10 +1125,11 @@ SECTOR = 2048
 class Session:
     """One virtual card in one virtual unit: boot it, then ask for files."""
 
-    def __init__(self, image_path: str, card: Card, trace: bool = False, build: dict = EU2011):
+    def __init__(self, image_path: str, card: Card, trace: bool = False, build: dict = EU2011,
+                 native: tuple[str, tuple[str, ...]] | None = None):
         self.b = build
         self.card = card
-        self.m = load_machine(image_path, card, trace)
+        self.m = load_machine(image_path, card, trace, native=native)
         card.set_mount(self.m.wstr(build["volume_root_w"]))
         self.fwlog: list[dict] = []
         self.m.eng.on_exec(build["logger"], self._on_log)
@@ -1278,7 +1355,8 @@ def make_card(root: str | None, image: str | None, mods: dict | None = None, sou
 
 
 def boot_report(image: str, card: Card, trace: bool = False,
-                build: dict | None = None) -> tuple[dict, "Session | None"]:
+                build: dict | None = None,
+                native: tuple[str, tuple[str, ...]] | None = None) -> tuple[dict, "Session | None"]:
     build = build or EU2011
     out = {"build": build["build"]}
     digest = hashlib.sha256(Path(image).read_bytes()).hexdigest()
@@ -1287,7 +1365,7 @@ def boot_report(image: str, card: Card, trace: bool = False,
                    % (digest[:8], build["build"], build["head_sha256"][:8]))
         return out, None
     try:
-        s = Session(image, card, trace, build)
+        s = Session(image, card, trace, build, native=native)
     except Blocked as exc:
         out.update(verdict="BLOCKED", blocked=str(exc))
         return out, None
@@ -1593,7 +1671,8 @@ def cmd_call(args) -> int:
     return 0
 
 
-def load_machine(image_path: str, card: Card, trace: bool = False) -> Machine:
+def load_machine(image_path: str, card: Card, trace: bool = False,
+                 native: tuple[str, tuple[str, ...]] | None = None) -> Machine:
     image = Path(image_path).read_bytes()
     digest = hashlib.sha256(image[:1 << 20]).hexdigest()[:16]
     cache = Path(image_path).resolve().parent / "work" / ("vcard_navi_sec1_%s.bin" % digest)
@@ -1614,7 +1693,8 @@ def load_machine(image_path: str, card: Card, trace: bool = False) -> Machine:
             parts[2] = tables[dll].get(parts[2], parts[2])
             line = " ".join(parts)
         lines.append(line)
-    return Machine(image, card, data_cache=cache, imports_text="\n".join(lines), trace_imports=trace)
+    return Machine(image, card, data_cache=cache, imports_text="\n".join(lines),
+                   trace_imports=trace, native=native)
 
 
 def main(argv=None) -> int:
@@ -1764,6 +1844,24 @@ def selftest() -> int:
     check("printf subset", text == "n=7 h=00001234 s=str@100")
     check("signed 32-bit helper", _s32(0xFFFFFFF4) == -12 and _s32(5) == 5)
     check("every import model is callable", all(callable(f) for f in MODELS.values()) and len(MODELS) > 60)
+
+    # M9.65: the native second-module slot map (no vendor data needed)
+    fake_imports = [
+        ("STDDLL.dll", 0x0055DA88, "STD_MeshPnt_isValid", None),
+        ("STDDLL.dll", 0x0055DA90, "STD_MeshPnt_chgLv", None),
+        ("STDDLL.dll", 0x0055DA84, "STD_MeshPnt_initPrm", None),
+        ("OBJDLL.dll", 0x0055D800, "OBJ_PlugInPnt_isValid", None),
+        ("STDDLL.dll", 0x0055DAEC, None, 104),          # by ordinal: excluded
+        ("STDDLL.dll", 0x0055DA00, "STD_NotExported", None),
+    ]
+    exps = {"STD_MeshPnt_isValid": 0x3473940, "STD_MeshPnt_chgLv": 0x3473A68,
+            "STD_MeshPnt_initPrm": 0x34736B8}
+    got = native_slots(fake_imports, "STDDLL.dll", exps)
+    check("native binding resolves the three named slots",
+          got == {"STD_MeshPnt_isValid": 0x0055DA88, "STD_MeshPnt_chgLv": 0x0055DA90,
+                  "STD_MeshPnt_initPrm": 0x0055DA84})
+    check("native binding ignores another DLL, ordinals and unexported names",
+          native_slots(fake_imports, "STDDLL.dll", exps).keys() == exps.keys())
 
     def mem(words):
         return lambda va: words.get(va)
