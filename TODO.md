@@ -5156,7 +5156,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H44-micon-peer; 26/26 selftest, auto-discovered, corrupt BCC rejected; claims C-7410-C-7419
 
 - [ ] **M8.H45 — Boot without the 30-second waits: the micon peer on `-M ze0`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h45-micon-boot · Critical: no · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H44
   - Goal: Measure the launch with the peer attached: the module waits should succeed at once.
