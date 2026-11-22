@@ -5680,6 +5680,17 @@ into three printed classes.
 | C-8405 | On NK1 + A in `-M ze0`, `CreateProcessW` for Navi.exe and Telema.exe returns 0 (`Launch Process Not Create`) with both the patched EU card and the unchanged US card, so it is not a region effect. | OBSERVED | M | EXP-2026-11-22-M8.C1r-nk1-boot O6 |
 | C-8406 | NK1's SDHC driver prints the 16 bytes of the SD lock password on the debug serial line at every boot; serial logs of NK1 runs must not be committed or shared. | OBSERVED | H | EXP-2026-11-22-M8.C1r-nk1-boot O7 |
 
+## M8.C1q — Navi.exe on NK1 + image A (C-8410–C-8419)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8410 | On NK1 + A, the LastError 14 of `CreateProcessW` for Navi.exe and Telema.exe comes from nk.exe's section loader (the function at `0x88026b80`, exit at `0x88026c26`): the code section maps, then `VirtualAlloc(…, MEM_COMMIT, PAGE_EXECUTE_READWRITE)` for the compressed `.data` (call at `0x88026c90`) fails. | VERIFIED | H | EXP-2026-11-22-M8.C1q-navi-on-nk1 O1; runs Q1, Q2 |
+| C-8411 | At that moment the kernel's page-free count (KData `+0x310`) is about 500–800 pages; Telema.exe needs 1,701 pages and Navi.exe 4,082. About a few hundred serial lines later it is over 40,000. | VERIFIED | H | EXP-2026-11-22-M8.C1q-navi-on-nk1 O2, O3; runs Q4, Q5, Q6 |
+| C-8412 | NK1's memory-init hook (`0x8804a878`) moves the kernel's free list onto a deferred list (`0x89e6489c`) and keeps it there when the boot type's low nibble (`0x89e43c8c`) is 0; otherwise it frees all but `0x402` pages at once. Deferred pages are cleared and freed by the routine at `0x8804a714`, reached through `KernelIoControl` `0x0101305C` (N pages) and `0x01013050` (all); `0x01013060` returns the deferred count. | OBSERVED | H | EXP-2026-11-22-M8.C1q-navi-on-nk1 O4, O5; run Q8 |
+| C-8413 | NK1's AppLaunch.dll releases the deferred RAM from a `MemClearThread` (priority 90, `Sleep(5)`, 8,192 pages per `0x0101305C`, then `0x01013050`), in parallel with the launch thread that creates the processes. | OBSERVED | M | EXP-2026-11-22-M8.C1q-navi-on-nk1 O6 |
+| C-8414 | With the memory-init hook's call to the boot-type test replaced by `mov #0,r0` (phys `0x0804a88a`, now emitted by `ze0_ipl.py patch --nk`), Navi.exe and Telema.exe are created on NK1 + A and Navi draws its first map: US card (Los Angeles) and EU card with `card_mapcode.py` changes (London), with Marek's unit flash. | VERIFIED | H | EXP-2026-11-22-M8.C1q-navi-on-nk1 O7; runs Q9, USn, EUn |
+| C-8415 | On the real unit the same race is hidden by timing (module waits before the Navi/Telema creates, slower SD reads) or by a non-zero boot type. | HYPOTHESIS | L | EXP-2026-11-22-M8.C1q-navi-on-nk1 Interpretation |
+| C-8416 | The failing step is not a timing-independent loader limit: the same images start once RAM is free. Supersedes the "not a timing race" reading in the M8.C1q precheck, which measured the free count after the release. | VERIFIED | M | EXP-2026-11-22-M8.C1q-navi-on-nk1 O3, O7 |
+
 ## M8.H29 — From navdrv to the map (C-7260–C-7269)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |

@@ -53,6 +53,11 @@ What the patch holds (each line is ``PHYS HEXBYTES  # why``):
    then only the XIPCHAIN block at that address and ``ulRAMEnd`` below the
    opening-image buffer.  NK1 reads image A from the card itself at boot,
    so lines that poke into image A are overwritten on ``-M ze0``.
+11. With ``--nk`` (M8.C1q) one more line makes NK1's memory-init hook
+   release all RAM at init.  Unpatched, NK1 parks ~160 MB on a deferred list
+   that AppLaunch's MemClearThread clears in 32 MB steps, and the launcher
+   creates Navi.exe/Telema.exe first: their .data ``VirtualAlloc`` fails with
+   ERROR_OUTOFMEMORY.  ``--keep-deferred-ram`` leaves it out.
 
 Usage::
 
@@ -209,6 +214,46 @@ def u32_at_va(rom, va):
     return struct.unpack_from("<I", rom.d, rom.va2file(va))[0]
 
 
+# M8.C1q: NK1's memory-init hook asks a boot-type test (fn body below) and,
+# when the boot type's low nibble is 0, keeps all RAM on a deferred list that
+# AppLaunch's MemClearThread clears and hands to the kernel in 32 MB steps.
+# On -M ze0 the launcher creates Navi.exe/Telema.exe before that, and their
+# .data VirtualAlloc fails (ERROR_OUTOFMEMORY).  The patch makes the hook take
+# the other branch: the kernel releases the RAM at init.
+BOOTTYPE_TEST = bytes.fromhex("03d20fe3226239222822" "0b002900")
+
+
+def find_deferred_ram_call(kern):
+    """VA of the ``jsr`` that calls the boot-type test from the memory-init
+    hook (followed by ``nop; tst r0,r0; bf``), or None."""
+    nk = kern.module("nk.exe")
+    sec = next(s for s in kern.o32(nk) if s["flags"] & 0x20)
+    off = kern.va2file(sec["realaddr"])
+    code = kern.d[off: off + sec["psize"]]
+    base = sec["realaddr"]
+    fn = code.find(BOOTTYPE_TEST)
+    if fn < 0 or fn % 2:
+        return None
+    fn_va = base + fn
+    for k in range(0, len(code) - 9, 2):
+        op = struct.unpack_from("<H", code, k)[0]
+        if op & 0xff00 != 0xd300:          # mov.l @(disp,pc),r3
+            continue
+        ea = ((base + k) & ~3) + 4 + (op & 0xff) * 4
+        if not base <= ea < base + len(code) - 3:
+            continue
+        if struct.unpack_from("<I", code, ea - base)[0] != fn_va:
+            continue
+        nxt = struct.unpack_from("<4H", code, k + 2)
+        # the hook first moves the kernel's free list onto the deferred list:
+        # mov.l @r2,r3; mov.l r3,@r4; mov #0,r3; mov.l r3,@r2
+        pre = struct.unpack_from("<4H", code, k - 8) if k >= 8 else ()
+        if (nxt[0] == 0x430b and nxt[1] == 0x0009 and nxt[2] == 0x2008 and nxt[3] >> 8 == 0x8b
+                and pre == (0x6322, 0x2432, 0xe300, 0x2232)):
+            return base + k + 2
+    return None
+
+
 def xip_entry(addr, length, order, name):
     e = struct.pack("<IIIHHI", addr, length, length, order, ROMXIP_OK_TO_LOAD, 0)
     e += name.encode("ascii").ljust(32, b"\0")
@@ -216,7 +261,7 @@ def xip_entry(addr, length, order, name):
 
 
 def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=None, nk1=None,
-          kernel_data=None):
+          kernel_data=None, release_ram=True):
     """``kernel_data`` (M8.C1r): the kernel image comes from its own file (NK1
     from the unit flash, ``-M ze0,nk=FILE``) instead of ``data`` at
     ``kernel_off``."""
@@ -256,6 +301,14 @@ def build(data, kernel_off, app_off, chain_at, prefer=(), stubs=None, copies=Non
     if kh["ulRAMEnd"] > ram_end:
         poke(kern.ptoc + 0x1c, struct.pack("<I", ram_end),
              "kernel ROMHDR ulRAMEnd 0x%08x -> 0x%08x (below image A)" % (kh["ulRAMEnd"], ram_end))
+    if unit_chain and release_ram:
+        jsr = find_deferred_ram_call(kern)
+        if jsr is None:
+            raise SystemExit("ze0_ipl: NK1 memory-init boot-type call not found "
+                             "(use --keep-deferred-ram to skip)")
+        poke(jsr, struct.pack("<H", 0xe000),
+             "NK1 memory init: boot-type test -> 0, release RAM at init instead of "
+             "deferring it to AppLaunch MemClearThread (M8.C1q)")
     # rule 4 only where the two DLL windows overlap (B + A); NK1 + A were
     # built as a pair, A's window ends where NK1's starts
     if (ah["dlllast"] >> 16) > (kh["dllfirst"] & 0xffff):
@@ -328,6 +381,27 @@ def selftest():
     assert [m["name"] for m in ka] == ["auiapp.exe", "auirtdll.dll"]
     txt = render([(0x100, b"\x01\x02", "x")])
     assert "0x00000100 0102  # x" in txt
+    # M8.C1q finder on a synthetic nk.exe code section
+    code = bytearray(0x40)
+    code[0x20:0x20 + len(BOOTTYPE_TEST)] = BOOTTYPE_TEST
+    struct.pack_into("<HHHHHHHHH", code, 0x0, 0x6322, 0x2432, 0xe300, 0x2232,
+                     0xd303, 0x430b, 0x0009, 0x2008, 0x8b08)
+    struct.pack_into("<I", code, 0x18, 0x88001020)   # literal: fn VA
+    struct.pack_into("<HHHHH", code, 0x30, 0xd302, 0x430b, 0x0009, 0x2008, 0x8b08)  # other caller
+    struct.pack_into("<I", code, 0x3c, 0x88001020)
+
+    class FakeK:
+        d = bytes(code)
+
+        def module(self, n):
+            return {}
+
+        def o32(self, m):
+            return [dict(flags=0x20, realaddr=0x88001000, psize=len(code))]
+
+        def va2file(self, va):
+            return va - 0x88001000
+    assert find_deferred_ram_call(FakeK()) == 0x8800100a
     print("ze0_ipl selftest: ok")
 
 
@@ -352,6 +426,9 @@ def main():
         p.add_argument("--nk", default=None, metavar="FILE",
                        help="kernel image from its own file (NK1, -M ze0,nk=FILE; M8.C1r) "
                             "instead of the SD image at --kernel-off")
+        p.add_argument("--keep-deferred-ram", action="store_true",
+                       help="with --nk: do not patch NK1's deferred RAM release (M8.C1q); "
+                            "Navi.exe/Telema.exe then fail with ERROR_OUTOFMEMORY")
         p.add_argument("--nk1", default=None,
                        help="unit-flash kernel image (default firmware/unit-flash/nk1-QY7200ND.bin)")
         if name == "patch":
@@ -366,7 +443,8 @@ def main():
     prefer = [n.strip() for n in a.prefer_app.split(",") if n.strip()]
     lines, notes, info = build(data, a.kernel_off, a.app_off, a.chain_at, prefer,
                               a.stub_dlls or None, a.copy_dlls or None, a.nk1,
-                              open_image(a.nk) if a.nk else None)
+                              open_image(a.nk) if a.nk else None,
+                              release_ram=not a.keep_deferred_ram)
     print("chain pointer var 0x%08x (template 0x%08x%s), XIPCHAIN at phys 0x%08x, RAM end 0x%08x"
           % (info["chain_var"], info["template"],
              ", set in the image" if info["unit_chain"] else "",
