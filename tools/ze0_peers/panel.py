@@ -8,8 +8,12 @@ planes are behind one interface:
 * **touch** — the 6-byte ``LCD1: IOCTL 0x800b205c`` record
   ``{u16 x, u16 y, u8 status ASCII '0'/'1', u8 unused}``.  The GUI receives it
   as ``PostMessageW(WM_MOUSEMOVE / WM_LBUTTONDOWN / WM_LBUTTONUP,
-  (y<<16)|x)`` (build B ``0x3a17020``).  The SCI3 frame grammar is not known
-  yet (M8.H35), so the peer emits the decoded record, not a serial frame.
+  (y<<16)|x)`` (build B ``0x3a17020``).
+* **display unit on SCI3** (``--sci3 PATH``, M8.H35) — the peer connects to
+  the QEMU chardev of ``sci3``, answers ``lcddrv.dll``'s start-up handshake
+  and sends touch as the frame ``51 xh xl yh yl status``
+  (``docs/firmware/lcddrv.md``).  This is the path the firmware really uses;
+  the 6-byte record lines on ``--out`` are still written for the record.
 * **keys** — the ``{raw, vk}`` pairs of ``kepdrv.dll``'s KeyType 3 table
   (``docs/firmware/keys.md`` §3.1, table at ``0x01f421b4``); the peer emits
   virtual-key down/up pairs for the same message-level injection plane.
@@ -29,6 +33,7 @@ Usage:
   panel.py --out events.txt drag 100 100 200 200
   panel.py --out events.txt key MAP --long
   panel.py --control SOCK --out events.txt
+  panel.py --sci3 R.sci3 --control SOCK --forever      # live, with QEMU
 
 Stdlib only.  Claims C-7350-C-7359; method and results in
 ``docs/experiments/EXP-2026-11-22-M8.H38-panel-peer.md``.
@@ -41,6 +46,10 @@ import select
 import socket
 import struct
 import sys
+import time
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import anw_frames  # noqa: E402  (same DLE STX ... DLE ETX BCC framing)
 
 SCREEN_W = 800
 SCREEN_H = 480
@@ -198,6 +207,150 @@ def control_commands(line, state):
     return "ERR unknown command: %s" % cmd
 
 
+# --------------------------------------------------------------------------
+# SCI3 display-unit link (M8.H35, docs/firmware/lcddrv.md)
+# --------------------------------------------------------------------------
+
+ACK = b"\x10\x06"
+NAK = b"\x10\x15"
+CMD_TOUCH = 0x51
+# What the display unit answers to each driver command (lcddrv.dll, NK1):
+# 0x23 asks for the unit's identity (phase 0, answered by a 0x24 frame of
+# 14 bytes); 0x25 ends the handshake (ACK only); 0x71 is the periodic poll
+# (phase 2, answered by a 0x71 frame).  Every valid frame is ACKed.
+DISPLAY_REPLIES = {
+    0x23: bytes.fromhex("24") + bytes(13),
+    0x71: bytes.fromhex("71"),
+}
+
+
+def touch_frame_payload(record):
+    """SCI3 payload for one decoded 6-byte record: ``51 xh xl yh yl st``.
+
+    The wire carries big-endian coordinates (lcddrv.dll copies frame bytes
+    +1..+5 into its touch slot, NK1 function at 0x03d16300, and the IOCTL
+    handler at 0x03d17258 assembles them high byte first).
+    """
+    x, y, st, _ = struct.unpack("<HHsB", record)
+    return bytes((CMD_TOUCH,)) + struct.pack(">HH", x, y) + st
+
+
+class DisplayUnit:
+    """Byte-stream model of the display unit; feed() returns bytes to send."""
+
+    def __init__(self, replies=None):
+        self.replies = dict(DISPLAY_REPLIES if replies is None else replies)
+        self.buf = b""
+        self.seen = []          # decoded driver commands, in order
+        self.acks = 0           # ACKs received from the driver
+        self.naks = 0
+
+    def feed(self, data):
+        self.buf += data
+        out = b""
+        while self.buf:
+            if self.buf.startswith(ACK):
+                self.acks += 1
+                self.buf = self.buf[2:]
+                continue
+            if self.buf.startswith(NAK):
+                self.naks += 1
+                self.buf = self.buf[2:]
+                continue
+            i = self.buf.find(b"\x10\x02")
+            if i < 0:
+                self.buf = self.buf[-1:] if self.buf.endswith(b"\x10") else b""
+                break
+            if i > 0:
+                self.buf = self.buf[i:]
+            end = self._frame_end()
+            if end is None:
+                break
+            frame, self.buf = self.buf[:end], self.buf[end:]
+            try:
+                payload = anw_frames.parse_frame(frame)
+            except anw_frames.FrameError:
+                out += NAK
+                continue
+            self.seen.append(payload[0])
+            out += ACK
+            reply = self.replies.get(payload[0])
+            if reply is not None:
+                out += anw_frames.build_frame(reply)
+        return out
+
+    def _frame_end(self):
+        """Index after the BCC of the frame at buf[0], or None if partial."""
+        j = 2
+        while True:
+            k = self.buf.find(b"\x10", j)
+            if k < 0 or k + 1 >= len(self.buf):
+                return None
+            nxt = self.buf[k + 1]
+            if nxt == 0x10:
+                j = k + 2
+                continue
+            if nxt == 0x03:
+                return k + 3 if k + 2 < len(self.buf) else None
+            j = k + 1
+
+
+class Sci3Link:
+    """The QEMU ``sci3`` chardev socket driven by a DisplayUnit."""
+
+    def __init__(self, path, log=None, connect_s=30.0):
+        self.unit = DisplayUnit()
+        self.log = log
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        deadline = time.time() + connect_s
+        while True:
+            try:
+                self.sock.connect(path)
+                break
+            except OSError:
+                if time.time() > deadline:
+                    raise
+                time.sleep(0.2)
+        self.sock.setblocking(False)
+
+    def _log(self, *a):
+        if self.log:
+            print("sci3:", *a, file=self.log, flush=True)
+
+    def pump(self, timeout=0.0):
+        """Read what the driver sent and answer at once (guest time runs on)."""
+        ready, _, _ = select.select([self.sock], [], [], timeout)
+        if not ready:
+            return
+        data = self.sock.recv(4096)
+        if not data:
+            raise ConnectionError("sci3 peer closed")
+        before = len(self.unit.seen)
+        reply = self.unit.feed(data)
+        if reply:
+            self.sock.sendall(reply)
+        for cmd in self.unit.seen[before:]:
+            if cmd != 0x71:
+                self._log("driver cmd 0x%02x" % cmd)
+
+    def send_payload(self, payload):
+        self.sock.sendall(anw_frames.build_frame(payload))
+        self._log("sent", payload.hex())
+
+    def play(self, lines):
+        """Send touch records of ``touch HEX after_ms`` lines, keeping time."""
+        for line in lines:
+            parts = line.split()
+            if parts[0] == "touch":
+                delay = int(parts[2]) / 1000.0
+                end = time.time() + delay
+                while time.time() < end:
+                    self.pump(min(0.02, max(0.0, end - time.time())))
+                self.send_payload(touch_frame_payload(bytes.fromhex(parts[1])))
+            elif parts[0] == "frame":
+                self.send_payload(bytes.fromhex(parts[1]))
+
+
 class Out:
     """Text event stream; '-' is stdout, otherwise a file or AF_UNIX socket."""
 
@@ -282,10 +435,31 @@ def run(args):
         ctrl.listen(1)
         ctrl.settimeout(0.1)
 
+    link = None
+    if getattr(args, "sci3", None):
+        link = Sci3Link(args.sci3, log=sys.stdout)
+
     def apply(line):
+        if line.strip().lower().startswith("frame "):
+            # raw SCI3 payload, e.g. a key frame "frame 3401" (M8.H35)
+            try:
+                payload = bytes.fromhex(line.split(None, 1)[1].strip())
+                if not payload:
+                    raise ValueError("empty")
+            except ValueError as exc:
+                answer = "ERR bad frame hex: %s" % exc
+            else:
+                if link is not None:
+                    link.send_payload(payload)
+                out.write("frame %s 0" % payload.hex())
+                answer = "OK frame %s" % payload.hex()
+            print("panel: %s -> %s" % (line.strip(), answer))
+            return answer
         answer = control_commands(line, state)
         for pending in state["events"]:
             out.write(pending)
+        if link is not None:
+            link.play(state["events"])
         state["events"] = []
         print("panel: %s -> %s" % (line.strip(), answer))
         if answer.startswith("ERR"):
@@ -295,9 +469,17 @@ def run(args):
     try:
         for line in args.commands or []:
             apply(line)
-        deadline = None if args.forever else 0.0
-        while ctrl is not None and (deadline is None or True):
-            ready, _, _ = select.select([ctrl], [], [], 0.1)
+        deadline = None if (args.forever or link is not None) else 0.0
+        while (ctrl is not None or link is not None) and (deadline is None or True):
+            socks = [ctrl] if ctrl is not None else []
+            if link is not None:
+                link.pump(0.0)
+                socks.append(link.sock)
+            ready, _, _ = select.select(socks, [], [], 0.1)
+            if link is not None and link.sock in ready:
+                link.pump(0.0)
+            if ctrl is None or ctrl not in ready:
+                ready = []
             if ready:
                 conn, _ = ctrl.accept()
                 with conn:
@@ -306,9 +488,15 @@ def run(args):
                         conn.sendall((apply(line) + "\n").encode("utf-8"))
             if deadline is not None:
                 break
+    except ConnectionError as exc:
+        print("panel: %s" % exc)
     finally:
         if ctrl is not None:
             ctrl.close()
+        if link is not None:
+            print("panel: sci3 driver commands %d, ACKs %d, NAKs %d" %
+                  (len(link.unit.seen), link.unit.acks, link.unit.naks))
+            link.sock.close()
         out.close()
     return 1 if errors else 0
 
@@ -395,6 +583,31 @@ def selftest():
     check("bad argv grouping refused",
           rejected(lambda: group_commands(["tap", "400"])), True)
 
+    # SCI3 display unit (M8.H35): the handshake bytes of the R24 run.
+    unit = DisplayUnit()
+    check("0x23 -> ACK + 0x24 frame",
+          unit.feed(bytes.fromhex("100223100330")).hex(),
+          "1006" + "10022400000000000000000000000000100337")
+    check("0x25 -> ACK only", unit.feed(bytes.fromhex("100225100336")).hex(), "1006")
+    check("0x71 poll -> ACK + 0x71", unit.feed(bytes.fromhex("100271100362")).hex(),
+          "1006100271100362")
+    check("driver ACK is not answered", unit.feed(ACK), b"")
+    check("driver ACK counted", unit.acks, 1)
+    part = bytes.fromhex("1002423131310931100358")
+    check("split frame waits", unit.feed(part[:5]), b"")
+    check("split frame completes", unit.feed(part[5:]).hex(), "1006")
+    check("commands seen", unit.seen, [0x23, 0x25, 0x71, 0x42])
+    check("bad BCC -> NAK", unit.feed(bytes.fromhex("100271100363")).hex(), "1015")
+    check("bad frame not recorded", unit.seen[-1], 0x42)
+    check("touch payload 400,240 press",
+          touch_frame_payload(encode_sample(400, 240, "1")).hex(), "51019000f031")
+    check("touch frame on the wire",
+          anw_frames.build_frame(touch_frame_payload(
+              encode_sample(400, 240, "1"))).hex(), "100251019000f031100312")
+    check("DLE in a coordinate is doubled",
+          anw_frames.build_frame(touch_frame_payload(
+              encode_sample(16, 240, "0"))).hex()[:14], "10025100101000")
+
     print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -406,6 +619,9 @@ def main(argv=None):
     ap.add_argument("--out", default="-",
                     help="event stream: '-' stdout, PATH file, unix:PATH socket")
     ap.add_argument("--control", help="AF_UNIX control socket for ze0_ui.py")
+    ap.add_argument("--sci3", metavar="PATH",
+                    help="QEMU chardev socket of sci3: act as the display unit "
+                         "(handshake + touch frames, M8.H35)")
     ap.add_argument("--forever", action="store_true",
                     help="keep the control socket open instead of one batch")
     ap.add_argument("commands", nargs="*",

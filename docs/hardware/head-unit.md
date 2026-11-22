@@ -71,7 +71,7 @@ the modules that hold the device name as a string (C-6413).
 | `SCI0:` | no active open/use recovered; UTF-16LE string present in `AppLaunch.dll` .text | string only at file `0x41390d4` (VA `0x03bb3ed4`); active user unknown | string VERIFIED, user open |
 | `SCI1:` | `anwdrv.dll` (the "audio network" driver: `AUD`, `TNR` radio, `TMC`, `ANT` antitheft, `UPD` update, `PDT` product test devices) | audio microcontroller link. Baud 38400 evidenced (M1.39/C-6413 context; M1.40 required row). | port VERIFIED, baud OBSERVED, peer HYPOTHESIS |
 | `SCI2:` | `dtvdrv.dll`, and `Navi.exe` | TV tuner module (Japan only); what Navi does with it is unknown | port VERIFIED |
-| `SCI3:` | `lcddrv.dll` | display unit (brightness, touch or keys) | port VERIFIED, peer HYPOTHESIS |
+| `SCI3:` | `lcddrv.dll` | display unit: handshake, touch (command `51`), keys (`34`/`36`/`37`/`3f`); `docs/firmware/lcddrv.md` | port VERIFIED, protocol VERIFIED at L4 under `-M ze0` (M8.H35) |
 | `SCI5:` | `bcndrv.dll` | beacon receiver (Japanese VICS); not fitted outside Japan | HYPOTHESIS |
 | `SCI6:` | `DebugShell.dll`; kernel debug SCIF same channel (`0xffe46000`) | **debug console**. Baud 38400 evidenced (required row). | VERIFIED (two independent finds), baud OBSERVED |
 | `SCI7:` | `navdrv.dll` | GPS receiver (gyro/speed pulse via `navdrv`/`kepdrv`). Baud 19200 evidenced (required row). | port VERIFIED, baud OBSERVED, peer HYPOTHESIS |
