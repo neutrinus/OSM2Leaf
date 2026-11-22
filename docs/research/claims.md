@@ -6003,12 +6003,40 @@ into three printed classes.
 ## M4.93 — Section-4 wide rows accounted for (C-8420–C-8429)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
+
+## M1.54 — EU vs US 2011 card diff (C-8420–C-8429)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+<<<<<<< ours
 | C-8420 | `tools/section4_wide.py census /home/marek/projekty/leafre-work/m5.4/card-factory/MAPAL001/B48R058R.DAT` prints 64 section-4 level-1 directories by kind: `0x1046=30 0x1146=13 0x1246=6 0x1346=6 0x1446=3 0x1546=2 0x1646=1 0x1746=2 0x1946=1`; sample SHA-256 `e9c9cb2236f6b53ad4fe9687a18a351afe80a46a63c0a1f18dc46d6c8af3ff52`. | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O1, O4 |
+=======
+| C-8420 | Of the files on the EU 2011 and US 2011 cards' FAT32 partitions (480 and 248), only `CMP.LST` has the same bytes on both; all other files are regional or the same name with other bytes. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O1, O2; `docs/research/card-manifests/` |
+>>>>>>> theirs
+<<<<<<< ours
 | C-8421 | Section-4 row grammar is OBSERVED: header `kind,a,b,y,x,typ` with `b=32`; narrow row = 4-byte tag + 256 B body (32 columns × 8 B `(u32 ln, u32 X)`); wide row = 4-byte tag + 768 B body (32 columns × 24 B: `(ln, X)` + four `u16` compressed + four `u16` inflated sub sizes); bit 31 of the first body word marks a wide row and `kind = 0x1046 + 0x100·n_wide` (row stride 260 B narrow / 772 B wide). | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O2; `probe_words.py`/`probe_raw.py` command output quoted there |
+=======
+| C-8421 | Before the FAT partition the two cards differ only in ROM A (and its copy), 39 bytes after ROM C's `physlast` (`0x058685d9`–`0x058685ff`, outside every ROM C module and file), the padding after the `BASSB` blob (`0x00` EU, `0xff` US from `0x05d88600`) and the raw `HDD_INFO` copy at `0x06000000`. ROM B, its copy and ROM C are the same bytes. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O6 |
+>>>>>>> theirs
+<<<<<<< ours
 | C-8422 | All 64 section-4 directories pass `size == 2·kind`, the wide-row rule and `encode(parse)` byte identity, and every record is an `X`-word zlib stream: `size_ok=64 wide_ok=64 roundtrip_ok=64 wide_rows=94 records=3091 records_bad=0`. | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O4; `python3 tools/section4_wide.py census .../B48R058R.DAT` |
+=======
+| C-8422 | The voice folders do not overlap: EU `SPEECH/{BE,DU,FR,GE,IT,PT,SP}`, US `SPEECH/{US,CF}`, each with `GID`, `TTS` and `VR` files. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O3 |
+>>>>>>> theirs
+<<<<<<< ours
 | C-8423 | The 94 wide rows yield 1,044 section-4 record-block spans with `block_overlaps=0`: they do not overlap the section-1/slot spans already modelled by `s1_wide_dir`, so the task falsifier does not fire. | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O4–O5; census and `probe_remaining.py` |
+=======
+| C-8423 | `HDD_INFO.TXT`: EU `QSD-302-100`, `QSD-309-101`, `02-110100-00`, `SDC08-EVEUR`, `11-05`, `470323501005`; US `QSD-301-100`, `QSD-301-103`, `02-100100-00`, `SDC08-EVNAM`, `10-30`, `470282203030`. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O5 |
+>>>>>>> theirs
+<<<<<<< ours
 | C-8424 | M4.86's precheck is unchanged and reproduced: `tile_unknown.py` reports `still unexplained 366814 B in 36 ranges` before this change; the section-4 gaps are `0x0009` place-name records under kinds `0x1146`–`0x1946`. | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O1, O5; M4.86 EXP O |
+=======
+| C-8424 | The opening image is `OIXXEVNI.001` (EU) / `OIXXNVNI.001` (US), same size; NK1 and ROM B hold the pattern `OIXXXXXX`, so the region letters in the name most likely do not matter. | OBSERVED | M | EXP-2026-11-22-M1.54-eu-us-card-diff O4 |
+>>>>>>> theirs
+<<<<<<< ours
 | C-8425 | Adding the 1,044 section-4 spans to `tile_unknown.py` moves the explained total from 286,075,159 B (99.872 %) to 286,440,647 B (100.000 %) and the residual from 366,814 B / 36 ranges to 1,326 B / 2 ranges. | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O5; `python3 tools/tile_unknown.py .../B48R058R.DAT --top 12` |
+=======
+| C-8425 | After `card_mapcode.py`, the regional gap left for an EU card in a US unit, radio aside, is the voices (no `US`/`CF` folder). Whether the firmware then asks for a missing folder is not known (M1.55). | HYPOTHESIS | M | EXP-2026-11-22-M1.54-eu-us-card-diff Interpretation |
+>>>>>>> theirs
 | C-8426 | The baseline and section-1 figures are unchanged by the new pass: 76.286 % / 67,928,024 B in 71 ranges and 99.872 % with 2,176 `s1_wide_dir` row blocks; `tile_unknown.py` labels the section-4 groups `section4_wide` (e.g. `0x1146 even 57814 B / 7 ranges`). | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O5; same command as C-8425 |
 | C-8427 | The two residual ranges are section tables, not wide-row records: `0xaec5edc..0xaec6300` 686 B (section-2 table `0xaec5f00`) and `0x1128ca48..0x1128cf00` 640 B (section-4 table `0x1128cb00`); each is printed with its own byte shape, satisfying the Done-when's per-block branch. | VERIFIED (tool, real data) | H | EXP-2026-11-22-M4.93-section4-wide-rows O5–O6; `probe_gaps.py` output quoted there |
 | C-8428 | `python3 tools/section4_wide.py --selftest` passes 17/17 checks including three negative controls (corrupted record, forged wide marker, over-long sub-record); `python3 tools/tile_unknown.py --selftest` passes with 0 failures and two new assertions that the section-4 pass never reduces explained bytes. | VERIFIED (tool, synthetic) | H | EXP-2026-11-22-M4.93-section4-wide-rows O3; `python3 tools/selftest.py --only section4_wide`/`--only tile_unknown` |

@@ -1120,6 +1120,32 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: another `_l3.py` that still decodes a section itself after this (`vcard_l3.py:324`, out of scope by shape) — if the helper cannot express its loader-total shape, say so in the EXP rather than special-casing it.
   - Claims: C-8270–C-8279
 
+- [x] **M1.54 — EU 2011 card vs US 2011 card: every difference, radio aside**
+  - Status: done · Owner: claude/project-thread-xfjq5p · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: Marek (2026-11-22): "jakie tam były jeszcze różnice miedzy obrazami sd? (nie licząc radia)", then "tak, chcę byś zrobił porównanie i je udokumentował". After the two region checks (M8.C1m, M8.C1r), list what else differs between the EU and US 2011 cards and what could still stop an EU card in a US unit.
+  - Precheck: both 8 GB images under `archive/sd-images/`.
+  - Scope: (1) a manifest (path, size, SHA-256) of every file on both FAT partitions and a grouped compare; (2) the system area before the partition, block by block; (3) a page in `docs/research/`.
+  - Input: `tools/cardcheck.py` (`Fat32Image`), `tools/cerom.py`, EXP-2026-11-20-M1.36-module-census-4-images, `docs/research/us-eu-region.md`.
+  - Done when: `docs/research/eu-us-card-diff.md` and an EXP with the commands; follow-ups added.
+  - Stop: one session; no file content committed, only names, sizes, hashes.
+  - Falsifier: a difference in ROM B/C or in a non-regional file.
+  - Claims: C-8420–C-8429
+  - Result: EXP-2026-11-22-M1.54-eu-us-card-diff, `docs/research/eu-us-card-diff.md`, `tools/card_diff.py`, `docs/research/card-manifests/`; ROM B/C same bytes, only `CMP.LST` same on the map partition; voices do not overlap (EU 7 languages, US `US`/`CF`) → M1.55.
+
+- [ ] **M1.55 — Which `SPEECH` language folder does a US unit ask for with the EU card?**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: static
+  - Depends: M1.54
+  - Goal: the EU 2011 card has voices `BE, DU, FR, GE, IT, PT, SP`, the US card `US, CF`; none overlap (C-8422). Find how the firmware picks the `SPEECH/<ll>` folder (unit language setting, area, or a list on the card), which languages the setup screen offers on a US unit with the EU card, and what happens when the folder is missing (silence, error, fallback).
+  - Precheck: `SPEECH` paths found so far are only the voice-recognition work paths `\UserSD\SPEECH\VR\...` in ROM A; the `GID`/`TTS` open path is not located.
+  - Scope: (1) locate the code that builds `\SystemSD\SPEECH\<ll>\GID\S<ll>00000.GID` (Speech.exe, SpeechCC, TTS DLLs) and where `<ll>` comes from; (2) the language table (codes and the area that offers them); (3) if a QEMU run is cheap, start the EU card on NK1 + A with the language set to US English and read the debug log.
+  - Input: EXP-2026-11-22-M1.54-eu-us-card-diff, `docs/research/eu-us-card-diff.md`, `tools/cerom.py`, `tools/sh4xref.py`, `tools/ce_strfind.py`.
+  - Done when: an EXP that names the function and the source of the language code, and says whether copying `SPEECH/US` onto the EU card is needed for voice guidance.
+  - Stop: one session.
+  - Falsifier: the language list comes from the card (then an EU card offers only European languages and nothing is missing).
+  - Claims: C-8430–C-8439
+
 - [x] **M1.47 — `tools/ce_module.py`: one CE module/section reader for the L3 tools (they each carry their own copy of the ROMHDR → section → bytes path)**
   - Status: done · Owner: task/m1.47-ce-module · Critical: no · Pair: solo
   - Depends: — (tooling; rule 17 allows it because every map L3 task in the window pays the duplication tax — M3.34 and M9.10 both touched the same three helpers)
