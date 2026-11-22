@@ -276,6 +276,15 @@ kept), so the next run extracts cleanly.
   threads) and lets `FLDI0`/`FLDI1` run with `FPSCR.PR = 1` on this board
   (`XGLDLL.dll` in Navi.exe). See
   [`EXP-2026-11-22-M8.C1e-display-engine.md`](../../docs/experiments/EXP-2026-11-22-M8.C1e-display-engine.md).
+- `ze0-0014` (M8.C1f): `hw/sh4/ze0_2dg.c` executes each 2DG display list
+  when SCLR = 1 is written (property `exec`, default on): register writes,
+  calls, filled boxes, alpha glyphs, stencil polygons, polylines and
+  textured quads, (A)RGB1555 pixels. With `gfx-trace=on` every list logs
+  `ze0-2dg: list ADDR: N drawn, M skipped, S steps`.
+  `tools/ze0_screenshot.py screen --monitor SOCK -o FILE.png` composes the
+  DU planes into the 800x480 screen; within 15 minutes the EU 2011
+  card shows the map. See
+  [`EXP-2026-11-22-M8.C1f-2dg-interpreter.md`](../../docs/experiments/EXP-2026-11-22-M8.C1f-2dg-interpreter.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

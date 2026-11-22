@@ -4112,8 +4112,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6920–C-6929
   - Result: EXP-2026-11-22-M8.C1e-display-engine (C-6920–C-6927). `ze0-0013` adds device `ze0-gfx` (DU phys `0xfff80000`, 2DG `0xffe80000`, `gfx-trace=on`): 60 Hz vblank (INTEVT `0x3e0`, SYSINTR 33) and the 2DG start/end handshake (DLSAR + SCLR = 1 → SR.TRA, INTEVT `0x780`, SYSINTR 34). Two more blockers fixed: `serial_scif.dll` spun on SCIF channel 8 and starved the UI (stubs now 0–9), and Navi.exe died on `fldi1` with `FPSCR.PR = 1` in XGLDLL (board flag `sh4_fldi_any_pr`). The UI now runs to idle, starts 2DG display lists and writes bitmaps/glyphs into VRAM, but no screen frame exists until the lists are executed (Stop case); list format in O9 → M8.C1f. `Engine = 0` is no shortcut.
 
-- [ ] **M8.C1f — 2DG display-list interpreter on `-M ze0`, so `ze0_screenshot.py` shows the UI**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1f — 2DG display-list interpreter on `-M ze0`, so `ze0_screenshot.py` shows the UI**
+  - Status: done · Owner: Claude (task/m8.c1f-2dg-interpreter) · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1e
   - Goal: Marek wants to boot the emulator and take a screenshot after a while (2026-11-22). After M8.C1e the UI submits 2DG display lists (DLSAR + SCLR) and uploads glyphs/bitmaps into VRAM, but nothing executes the lists, so no screen frame exists (C-6925).
@@ -4124,6 +4124,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the matrix commands turn out to be a general textured-polygon rasteriser, implement fills and axis-aligned blits only, record the rest, and stop.
   - Falsifier: with fills executed, the DU plane memory stays zero after the lists that fill it.
   - Claims: C-6930–C-6939
+  - Result: EXP-2026-11-22-M8.C1f-2dg-interpreter (C-6930–C-6936). `ze0-0014` adds `hw/sh4/ze0_2dg.c`: each 2DG display list runs on the host when SCLR = 1 is written (boxes, alpha glyphs, stencil-then-cover polygons, polylines, textured quads; pixels are (A)RGB1555, not 565). `tools/ze0_screenshot.py screen` composes the DU planes (plane 4 = map on a 2368-wide surface, plane 2 = keyed UI). Within 15 minutes the EU 2011 card shows the London map; 2669 commands drawn, 7 skipped (`0xb3007602`, `0xb10038c2`). The UI layer is still empty.
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo

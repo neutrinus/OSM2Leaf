@@ -11,9 +11,21 @@ shows up without knowing its offset in advance.
 
 Start QEMU with ``-monitor unix:SOCK,server,nowait``, then::
 
+    ze0_screenshot.py screen --monitor SOCK -o shot.png    # what the panel shows
     ze0_screenshot.py grab --monitor SOCK -o shot          # shot_0000000.png ...
     ze0_screenshot.py render vram.bin -o shot              # from a saved dump
     ze0_screenshot.py --selftest
+
+``screen`` (M8.C1f) composes the display unit's planes the way the DU
+registers describe them (phys 0x1ff80000, plane n at +0x100 * n):
++0x00 mode (0x1000 = colour key on, 0x4000 = opaque; the pixels of both
+modes are (A)RGB1555 although the registry names "565": the map land
+colour 0x6f7a is light grey only as 1555), +0x04
+stride (pixels), +0x10/+0x14 width/height (0 = off), +0x20 address,
++0x30/+0x34 x/y of the window in the plane, +0x48 colour key (15-bit RGB).
+Higher plane numbers are drawn first, plane 1 last (on top).  The layout
+is read from the firmware's register writes (EXP-2026-11-22-M8.C1f), not
+from a data sheet.
 
 Exit status 0 and "no non-zero pixel" when nothing has been drawn yet.
 """
@@ -103,6 +115,77 @@ def grab(sock_path, out_bin, phys=VRAM_PHYS, size=VRAM_SIZE):
         return f.read()
 
 
+DU_PHYS = 0x1ff80000
+
+
+def hmp_words(sock_path, phys, count):
+    """Read COUNT 32-bit words of guest physical memory with HMP xp."""
+    out = hmp(sock_path, "xp /%dwx 0x%x" % (count, phys), settle=0.2)
+    words = []
+    for line in out.decode(errors="replace").splitlines():
+        if ":" in line:
+            head, _, rest = line.partition(":")
+            try:
+                int(head.strip().split()[-1], 16)
+            except (ValueError, IndexError):
+                continue
+            words += [int(x, 16) for x in rest.split() if x.startswith("0x")]
+    return words[:count]
+
+
+def du_planes(regs):
+    """Decode plane n from the DU register words (index = offset / 4)."""
+    planes = []
+    for n in (1, 2, 3, 4):
+        r = lambda off: regs[(0x100 * n + off) // 4]
+        mode, stride, w, h, addr = r(0x00), r(0x04), r(0x10), r(0x14), r(0x20)
+        if not (w and h and addr and stride):
+            continue
+        planes.append({"n": n, "mode": mode, "stride": stride, "w": w, "h": h,
+                       "addr": addr & 0x1fffffff, "sx": r(0x30), "sy": r(0x34),
+                       "key": r(0x48) & 0x7fff})
+    return planes
+
+
+def compose(planes, fetch):
+    """Return 800 x 480 RGB bytes; fetch(addr, size) gives plane memory."""
+    out = bytearray(WIDTH * HEIGHT * 3)
+    for p in sorted(planes, key=lambda p: -p["n"]):
+        w, h = min(p["w"], WIDTH), min(p["h"], HEIGHT)
+        base = p["addr"] + (p["sy"] * p["stride"] + p["sx"]) * 2
+        data = fetch(base, ((h - 1) * p["stride"] + w) * 2)
+        keyed = (p["mode"] & 0xf000) == 0x1000
+        for y in range(h):
+            row = data[y * p["stride"] * 2:(y * p["stride"] + w) * 2]
+            for x, (px,) in enumerate(struct.iter_unpack("<H", row)):
+                o = 3 * (y * WIDTH + x)
+                if keyed and (px & 0x7fff) == p["key"]:
+                    continue
+                out[o] = (px >> 10 & 0x1f) << 3
+                out[o + 1] = (px >> 5 & 0x1f) << 3
+                out[o + 2] = (px & 0x1f) << 3
+    return bytes(out)
+
+
+def screen(sock_path, out_png):
+    planes = du_planes(hmp_words(sock_path, DU_PHYS, 0x500 // 4))
+
+    def fetch(addr, size):
+        return grab(sock_path, out_png + ".bin", addr, size)
+
+    rgb = compose(planes, fetch)
+    if os.path.exists(out_png + ".bin"):
+        os.unlink(out_png + ".bin")
+    with open(out_png, "wb") as f:
+        f.write(png_bytes(rgb, WIDTH, HEIGHT))
+    for p in planes:
+        print("plane %d: mode 0x%04x %dx%d at 0x%08x stride %d window (%d,%d)"
+              % (p["n"], p["mode"], p["w"], p["h"], p["addr"], p["stride"],
+                 p["sx"], p["sy"]))
+    print("%s: %d non-black pixels" % (out_png, sum(
+        1 for i in range(0, len(rgb), 3) if rgb[i:i + 3] != b"\0\0\0")))
+
+
 def report(written, total):
     if not written:
         print("no non-zero pixel in %d bytes of VRAM" % total)
@@ -121,6 +204,20 @@ def selftest():
         assert png.startswith(b"\x89PNG") and b"IEND" in png
         assert rgb565_to_rgb(struct.pack("<H", 0xf800)) == b"\xf8\x00\x00"
         assert render(bytes(FRAME), os.path.join(d, "z")) == []
+        # compose: opaque plane 4 under a keyed plane 2 (key 0x03ff), 1555
+        regs = [0] * (0x500 // 4)
+        for n, mode, addr in ((2, 0x1002, 0x1000), (4, 0x4002, 0x2000)):
+            regs[(0x100 * n) // 4] = mode
+            regs[(0x100 * n + 4) // 4] = WIDTH
+            regs[(0x100 * n + 0x10) // 4] = WIDTH
+            regs[(0x100 * n + 0x14) // 4] = HEIGHT
+            regs[(0x100 * n + 0x20) // 4] = addr
+        regs[(0x248) // 4] = 0x03ff
+        mem = {0x2000: struct.pack("<H", 0x7c00) * (WIDTH * HEIGHT),
+               0x1000: struct.pack("<H", 0x83ff) + struct.pack("<H", 0x001f) * (WIDTH * HEIGHT - 1)}
+        rgb = compose(du_planes(regs), lambda a, n: mem[a][:n])
+        assert rgb[0:3] == b"\xf8\x00\x00", rgb[0:3]       # key: plane 4 shows
+        assert rgb[3:6] == b"\x00\x00\xf8", rgb[3:6]       # plane 2 blue on top
     print("ze0_screenshot selftest: ok")
 
 
@@ -134,12 +231,18 @@ def main():
     g.add_argument("--phys", type=lambda s: int(s, 0), default=VRAM_PHYS)
     g.add_argument("--size", type=lambda s: int(s, 0), default=VRAM_SIZE)
     g.add_argument("--keep-bin", action="store_true", help="keep PREFIX.vram.bin")
+    c = sub.add_parser("screen", help="compose the DU planes into one 800x480 PNG")
+    c.add_argument("--monitor", required=True, help="HMP unix socket path")
+    c.add_argument("-o", "--out", required=True, help="PNG file")
     r = sub.add_parser("render", help="render a saved VRAM dump")
     r.add_argument("dump")
     r.add_argument("-o", "--out", required=True)
     a = ap.parse_args()
     if a.selftest:
         selftest()
+        return 0
+    if a.cmd == "screen":
+        screen(a.monitor, a.out)
         return 0
     if a.cmd == "grab":
         binpath = a.out + ".vram.bin"
