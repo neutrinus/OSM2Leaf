@@ -2730,7 +2730,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-6620–C-6629
 
 - [ ] **M4.63 — KIWI (`kiwiread`) jako wzorzec: zmapować struktury KIWI/KWI na rekordy naszej karty**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.63-kiwi-map · Critical: no · Pair: solo
   - Depends: — (źródło zewnętrzne; host `github.com/jharg/kiwiread` dozwolony, klonuje się z sandboxa)
   - Goal: `jharg/kiwiread` (GPL-3, C, 2014) czyta format KIWI (`ALLDATA.KWI`/`LOADING.KWI` z samochodowych DVD nawigacji, np. Audi) i nazywa pola po numerach rozdziałów specyfikacji KIWI (np. „6.1.1 Level Management Record”, „7.2.1 Road Distribution Header”). Nasze rekordy (parcela, katalog poziomu 1, linki RDSTM, POINT, LCTBL) używają tych samych pojęć bez nazw. Zadanie sprawdza, które struktury KIWI mają odpowiednik w bajtach karty ZE0 i w czytnikach firmware, tak żeby nazwy i układ pól ze specyfikacji KIWI mogły trafić do `docs/format/` — albo żeby zamknąć ten trop jako „tylko wspólne pojęcia, inny format”.
   - Precheck: `git clone --depth 1 https://github.com/jharg/kiwiread` działa (commit `74741c5b`); `python3 tools/parcel_census.py --help` i `python3 tools/rdstm_record.py --help` działają; obraz US/EU z rule 11 pobrany. Jeśli pierwsza struktura z listy niżej (nagłówek wolumenu `datavol_t` / katalog z 4-znakowymi magikami i `offset*2+0x800`) nie ma żadnego kandydata w karcie, to jest wynik (negatywny), nie porażka.
