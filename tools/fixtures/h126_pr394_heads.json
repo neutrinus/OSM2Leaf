@@ -1,0 +1,18 @@
+[
+  {
+    "note": "H126 #394 at the moment QA found it: the current head 99d0b54 was authored on main (b90f9d47) and has 0 check-runs; the newest branch run is 6b55ccd0. Later heads (453d9d5b, ce1a35cc) are deliberately absent so the replay reproduces the historical verdict (stale, head 99d0b54, last tested 6b55ccd0).",
+    "pr": {
+      "number": 394,
+      "title": "[M8.C1] HPB DMAC model for SD data path",
+      "headRefOid": "99d0b54b88290066a5d587d5a0a9e3ecb7b946dd",
+      "isDraft": false,
+      "headRefName": "task/m8.c1-hpb-dmac"
+    },
+    "check_runs": [],
+    "branch_runs": [
+      {"headSha": "6b55ccd0cccccccccccccccccccccccccccccccc", "conclusion": "success"},
+      {"headSha": "19748d2577777777777777777777777777777777", "conclusion": "success"},
+      {"headSha": "738817d08888888888888888888888888888888888", "conclusion": "success"}
+    ]
+  }
+]

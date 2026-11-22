@@ -509,6 +509,7 @@
   "docs/experiments/EXP-2026-11-21-M9.60-card-gate-first-slice.md",
   "docs/experiments/EXP-2026-11-21-M9.61-us-build-eu-card.md",
   "docs/experiments/EXP-2026-11-21-M9.66-loc-map-shape-walk.md",
+  "docs/experiments/EXP-2026-11-22-H126-stale-pr-heads.md",
   "docs/experiments/EXP-2026-11-22-H129-board-claim-set-supersedes-cell.md",
   "docs/experiments/EXP-2026-11-22-H40-generated-fixture-contract.md",
   "docs/experiments/EXP-2026-11-22-H66-json-parity.md",
@@ -533,7 +534,7 @@
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json",
  ],
- "summary": {"files": 527, "citations": 1587, "unique_va": 429, "start": 1406, "inside": 75, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 16, "unmapped": 2},
+ "summary": {"files": 528, "citations": 1587, "unique_va": 429, "start": 1406, "inside": 75, "corrected": 5, "gap": 83, "leaf": 83, "ambiguous": 16, "unmapped": 2},
  "rows": [
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
