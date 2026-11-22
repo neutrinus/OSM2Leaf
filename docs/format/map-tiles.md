@@ -394,6 +394,12 @@ Known limits:
   code, not a KIWI `SWS` header. No KIWI road-type table was produced, so
   the class mapping here stays provisional.
 
+KIWI route-planning concepts likewise name no section-2 field (M4.72,
+C-7710–C-7714, `EXP-2026-11-22-M4.72-kiwi-route-concepts`): word `b` has
+r=0.1035 against drawn link length over 130,212 links, so no link-cost field
+is confirmed; the section-2 attribute table still awaits the firmware reader
+(M4.40/M4.55).
+
 ## `LEV3456R.DAT`: coarse levels 3–5
 
 `LEV3456R.DAT` is the **whole-database** coarse file. Section 1 holds levels 6,

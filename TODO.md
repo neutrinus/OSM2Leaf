@@ -2851,8 +2851,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the decoded strings are not the names `tools/name_strings.py` already extracts from the same tile.
   - Claims: C-7700–C-7709
 
-- [ ] **M4.72 — KIWI route-planning data against tile section 2 and `LEV3456R`: nodes, links, costs, upper-level links**
-  - Status: in progress · Owner: task/m4.72-kiwi-route-planning · Critical: yes · Pair: required
+- [x] **M4.72 — KIWI route-planning data against tile section 2 and `LEV3456R`: nodes, links, costs, upper-level links**
+  - Status: done · Owner: task/m4.72-kiwi-route-planning · Critical: yes · Pair: required
   - Step: P3
   - Depends: —
   - Goal: The routing graph is the longest blocked chain on the board (M4.24, M4.40, M4.55, M5.57): section 2 framing is known, attributes are not. KIWI defines route-planning records (node, link, link cost, regulation, correspondence to the upper level). `kiwiread` does not parse them, so this task works from the specification index of M4.65 if present, else from the concepts alone.
@@ -2863,6 +2863,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; without the specification text, stop at the concept table and say which chapter is needed.
   - Falsifier: a proposed 'link length' field does not correlate with geometry length over one tile (state r and n from a command).
   - Claims: C-7710–C-7719
+  - Result: EXP-2026-11-22-M4.72-kiwi-route-concepts; Stop branch, r=0.1035 length vs geometry, no field confirmed, 5 claims C-7710-C-7714
 
 - [ ] **M4.73 — KIWI route-guidance data against tile section 4 (guidance) and `INTER`/`FRWAY`: intersection names, signposts, lane data**
   - Status: open · Owner: — · Critical: no · Pair: solo
