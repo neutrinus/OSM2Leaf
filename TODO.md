@@ -4542,8 +4542,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: after `loadvm` the guest hangs or faults at the first interrupt (state missing).
   - Claims: C-7020–C-7029
 
-- [ ] **M8.H6 — Determinism: two boots with `-icount` give the same log and the same screen**
-  - Status: in progress · Owner: task/m8.h6-run-determinism · Critical: no · Pair: solo
+- [x] **M8.H6 — Determinism: two boots with `-icount` give the same log and the same screen**
+  - Status: done · Owner: task/m8.h6-run-determinism · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: An L4 regression gate needs repeatable runs. Measure whether two identical boots are bit-identical in what we compare (serial log, DBGMSG log, SD read order, VRAM hash at a fixed guest time), and name each source of difference.
@@ -4554,6 +4554,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session of measurement; do not rewrite device models for determinism here.
   - Falsifier: the runs differ with `-icount` on and no host-clock device in the machine.
   - Claims: C-7030–C-7039
+  - Result: EXP-2026-11-22-M8.H6-run-determinism; ze0_rundiff E/F exit 0 (4/4 channels), G/H exit 0; C-7030-C-7039
 
 - [x] **M8.H7 — `tools/ze0_ui.py`: a scenario runner for L4 (wait, tap, key, position, screenshot, expect)**
   - Status: done · Owner: task/m8.h7-ui-scenario · Critical: no · Pair: solo
