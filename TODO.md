@@ -6441,7 +6441,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Step: tooling
 
 - [ ] **M9.65 — L3 harness: run `STDDLL` exports for `Navi.exe` import thunks (unblocks M4.55)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.65-stddll-mesh-import · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.24 (import binding), M9.44 (`vcard_l3.py` import dispatch)
   - Goal: `vcard_l3.py` binds every import slot, but a `Navi.exe` thunk that tail-jumps into a **second module** (`STDDLL.dll`) has no model, so a run that calls `STDDLL!STD_MeshPnt_isValid` stops `Blocked: missing import model` even though the export exists and runs elsewhere. Teach the harness to execute the real `STDDLL.dll` export (M3.34's loader `tools/poi_position_l3.py` already maps `STDDLL` and calls `STD_MeshPnt_chgMapPnt`/`isValid`/`chgLv`), so the `Navi.exe` consumer runs through the thunk instead of faulting.
