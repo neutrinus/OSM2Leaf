@@ -26,6 +26,8 @@ Usage:
   python3 tools/slot_budget.py calibrate --pairs DIR [--json OUT]
   python3 tools/slot_budget.py build --pairs DIR --outdir OUT \
       [--headroom N] [--image IMG] [--json OUT]
+  python3 tools/slot_budget.py geom TOWN.jsonl --profile PROFILE.toml --check
+  python3 tools/slot_budget.py geom-stats FACTORY_TILE.DAT --dir Y,X
   python3 tools/slot_budget.py --selftest
 """
 
@@ -43,6 +45,10 @@ import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# The geometry-budget sweep (M5.75) uses the checked-in ZE0 writer's model.
+_ZE0_DIR = Path(__file__).resolve().parent / "ze0-viewer" / "tools_ze0"
+if str(_ZE0_DIR) not in sys.path:
+    sys.path.insert(0, str(_ZE0_DIR))
 import cmpind_codec  # noqa: E402
 
 CHUNK = cmpind_codec.CHUNK
@@ -450,6 +456,358 @@ def cmd_verify(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# geometry budget (M5.75)
+#
+# The name-page slot model above has a direct analogue in parcel geometry: a
+# generated 0x00fa road record must stay inside its parcel's fixed slot, or the
+# tile writer has to append a new block (tilewriter.splice_factory's `appended`
+# branch).  This section measures the trade between Douglas-Peucker tolerance
+# and the real bytes `tilewriter.build_road_record` produces, on a synthetic
+# town only.  No vendor bytes are read here; `geom-stats` reads a factory tile
+# outside the repo solely to calibrate the byte budget.
+
+
+#: Road levels that ``tilewriter.PARCEL_DEG`` maps to parcels.  Levels 3-5 are
+#: land/coast levels whose simplify is in degrees (profile ``[land]``), so a
+#: metre-based parcel-geometry budget does not apply to them.
+GEOM_LEVELS = (1, 2)
+#: Base tolerances in metres at level 1; level 2 scales them by the parcel-width
+#: ratio derived from ``clarion_bg.parcel_geo``.
+GEOM_TOLERANCES = (0.0, 0.5, 1.0, 2.0, 2.5, 3.0, 5.0, 8.0, 12.0, 20.0)
+DEFAULT_GEOM_CELL = "B50R058R"
+#: Mean earth radius and degrees->metres at the equator, for the DP metric.
+EARTH_RADIUS_M = 6_371_008.8
+METRES_PER_DEG = 111_320.0
+
+
+class BudgetError(ValueError):
+    """A geometry invariant of the sweep or the budget check was broken."""
+
+
+def _haversine_m(a: tuple[float, float], b: tuple[float, float]) -> float:
+    lat1, lon1 = math.radians(a[1]), math.radians(a[0])
+    lat2, lon2 = math.radians(b[1]), math.radians(b[0])
+    h = (math.sin((lat2 - lat1) / 2.0) ** 2
+         + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2.0) ** 2)
+    return 2.0 * EARTH_RADIUS_M * math.asin(min(1.0, math.sqrt(h)))
+
+
+def _xy_m(point: tuple[float, float], lat0: float) -> tuple[float, float]:
+    """Local equirectangular metres; adequate for a one-town sweep."""
+    return (point[0] * METRES_PER_DEG * math.cos(math.radians(lat0)),
+            point[1] * METRES_PER_DEG)
+
+
+def _perp_m(a: tuple[float, float], b: tuple[float, float],
+            p: tuple[float, float]) -> float:
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    if dx == 0.0 and dy == 0.0:
+        return math.hypot(p[0] - a[0], p[1] - a[1])
+    t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)
+    t = min(1.0, max(0.0, t))
+    return math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy))
+
+
+def dp_simplify(points, tolerance_m: float):
+    """Douglas-Peucker on lon/lat; return (kept points, max error in metres).
+
+    The first and last point are always kept (a closed ring keeps its repeated
+    endpoint).  ``max error`` is the largest perpendicular distance of any
+    *removed* vertex to the segment that replaced it, so it is a directly
+    reportable "visible deviation" in metres.
+    """
+    pts = list(points)
+    if tolerance_m <= 0.0 or len(pts) <= 2:
+        return pts, 0.0
+    lat0 = sum(p[1] for p in pts) / len(pts)
+    metric = [_xy_m(p, lat0) for p in pts]
+    keep = {0, len(pts) - 1}
+    stack = [(0, len(pts) - 1)]
+    errors: list[float] = []
+    while stack:
+        first, last = stack.pop()
+        worst, index = -1.0, None
+        for k in range(first + 1, last):
+            distance = _perp_m(metric[first], metric[last], metric[k])
+            if distance > worst:
+                worst, index = distance, k
+        if index is None:
+            continue
+        if worst > tolerance_m:
+            keep.add(index)
+            stack.append((first, index))
+            stack.append((index, last))
+        else:
+            errors.append(worst)
+    return [pts[i] for i in sorted(keep)], (max(errors) if errors else 0.0)
+
+
+def densify(points, step_m: float, wiggle_m: float):
+    """Insert deterministic sinusoidal curvature into a polyline.
+
+    The seed-1 town's ways are 2-point segments (EXP M5.76), so Douglas-Peucker
+    alone has no interior vertex to remove.  This transform is the synthetic
+    "street grid with curves" the sweep needs: one sine wiggle of amplitude
+    ``wiggle_m`` per ``step_m`` of arc.  It is a pure function of the input.
+    """
+    pts = list(points)
+    if step_m <= 0.0 or wiggle_m <= 0.0:
+        return pts
+    out: list[tuple[float, float]] = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        length = _haversine_m(a, b)
+        count = max(1, int(math.ceil(length / step_m)))
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        norm = math.hypot(dx, dy)
+        px, py = (-dy / norm, dx / norm) if norm else (0.0, 0.0)
+        lat0 = (a[1] + b[1]) / 2.0
+        for step in range(1, count):
+            fraction = step / count
+            offset = wiggle_m * math.sin(2.0 * math.pi * fraction) / METRES_PER_DEG
+            out.append((
+                a[0] + dx * fraction + px * offset / math.cos(math.radians(lat0)),
+                a[1] + dy * fraction + py * offset,
+            ))
+        out.append(b)
+    return out
+
+
+def _toml_scalars(text: str, section: str) -> dict[str, str]:
+    """Read scalar ``key = value`` lines of one TOML section.
+
+    The compiler profile only uses flat scalars in the two sections we need; a
+    small reader keeps this tool Python 3.10 compatible (``tomllib`` is 3.11+).
+    """
+    out: dict[str, str] = {}
+    active = False
+    for line in text.splitlines():
+        item = line.strip()
+        if not item or item.startswith("#"):
+            continue
+        if item.startswith("[") and item.endswith("]"):
+            active = item[1:-1].strip() == section
+            continue
+        if not active or "=" not in item:
+            continue
+        key, value = item.split("=", 1)
+        out[key.strip()] = value.split(" #", 1)[0].strip()
+    return out
+
+
+def read_geom_profile(path: str | Path) -> dict[str, float | int]:
+    """Load the chosen tolerances and byte budget from a compiler profile."""
+    text = Path(path).read_text(encoding="utf-8")
+    roads = _toml_scalars(text, "roads")
+    budget = _toml_scalars(text, "geometry_budget")
+    return {
+        "level_1_m": float(roads["simplify_metres"]),
+        "level_2_m": float(roads["l2_simplify_metres"]),
+        "max_record_bytes": int(budget["max_record_bytes"]),
+        "densify_step_m": float(budget["densify_step_m"]),
+        "densify_wiggle_m": float(budget["densify_wiggle_m"]),
+    }
+
+
+def level_scale(cell: str, level: int) -> float:
+    """Parcel-width ratio ``width(level) / width(1)`` from ``parcel_geo``."""
+    import clarion_bg  # noqa: E402  (lazy: only the geom subcommand needs it)
+    import tilewriter  # noqa: E402
+
+    y0, x0 = tilewriter.cell_mesh(cell)
+
+    def width(which: int) -> float:
+        _lon, lat, span, _height = clarion_bg.parcel_geo(which, y0, x0, 0, 0)
+        return span * METRES_PER_DEG * math.cos(math.radians(lat))
+
+    return width(level) / width(1)
+
+
+def geom_rows(ways, cell: str, tolerances, profile: dict,
+              levels=GEOM_LEVELS, country: int = 616) -> list[dict]:
+    """One row per (level, base tolerance) with real writer byte counts."""
+    import tilewriter  # noqa: E402
+
+    table, _source = tilewriter.load_class_table(None)
+    scales = {level: level_scale(cell, level) for level in levels}
+    dense = []
+    for way in ways:
+        curved = dict(way)
+        curved["points"] = densify(
+            way["points"], profile["densify_step_m"],
+            profile["densify_wiggle_m"])
+        dense.append(curved)
+    rows: list[dict] = []
+    for level in levels:
+        scale = scales[level]
+        for base in tolerances:
+            simplified, max_error = [], 0.0
+            for way in dense:
+                points, error = dp_simplify(way["points"], base * scale)
+                max_error = max(max_error, error)
+                item = dict(way)
+                item["points"] = points
+                simplified.append(item)
+            runs = tilewriter.ways_to_runs(simplified, level, table, cell)
+            kept = total = largest = parcels = over = 0
+            for parcel in sorted(runs):
+                built = tilewriter.build_road_record(
+                    level, parcel, runs[parcel], table, country,
+                    write_names=False)
+                if built is None:
+                    continue
+                info = built[3]
+                parcels += 1
+                kept += info["points"]
+                total += info["compressed_bytes"]
+                largest = max(largest, info["compressed_bytes"])
+                over += int(info["compressed_bytes"] > profile["max_record_bytes"])
+            rows.append({
+                "level": level,
+                "scale": scale,
+                "tol_base": float(base),
+                "tol_m": base * scale,
+                "kept_vertices": kept,
+                "total_bytes": total,
+                "max_parcel_bytes": largest,
+                "max_error_m": max_error,
+                "parcels": parcels,
+                "over_budget": over,
+            })
+    return rows
+
+
+def check_monotonic(rows) -> None:
+    """Falsifier guard: bytes must not rise as tolerance rises."""
+    for level in sorted({row["level"] for row in rows}):
+        seq = [row["total_bytes"] for row in sorted(
+            (r for r in rows if r["level"] == level),
+            key=lambda r: r["tol_base"])]
+        for low, high in zip(seq, seq[1:]):
+            if high > low:
+                raise BudgetError(
+                    f"level {level}: bytes rose with tolerance ({low} -> {high})")
+
+
+def check_budget(rows, budget: int | None = None) -> None:
+    """Fail loudly when any parcel exceeds the record budget."""
+    bad = [row for row in rows if row["over_budget"]]
+    if bad:
+        first = bad[0]
+        raise FitError(
+            f"{len(bad)} sweep row(s) over budget: first level {first['level']} "
+            f"tol {first['tol_m']:g} m, max parcel {first['max_parcel_bytes']} B "
+            f"> {budget} B")
+
+
+def render_geom_table(rows, profile: dict) -> str:
+    budget = profile["max_record_bytes"]
+    out = [
+        f"geometry budget: profile max_record_bytes={budget} B; "
+        f"levels {','.join(str(level) for level in sorted({r['level'] for r in rows}))}",
+        "lvl scale tol_base   tol_m  kept total_B max_parcel_B max_err_m parcels over_budget",
+    ]
+    for row in rows:
+        chosen = profile["level_1_m"] if row["level"] == 1 else profile["level_2_m"]
+        default = row["tol_m"] == chosen
+        out.append(
+            "%3d %5g %8g %7g %5d %7d %12d %9.2f %7d %10d%s" % (
+                row["level"], row["scale"], row["tol_base"], row["tol_m"],
+                row["kept_vertices"], row["total_bytes"], row["max_parcel_bytes"],
+                row["max_error_m"], row["parcels"], row["over_budget"],
+                "  <- default" if default else ""))
+    for level in sorted({row["level"] for row in rows}):
+        first = next((r for r in sorted(
+            (r for r in rows if r["level"] == level), key=lambda r: r["tol_base"])
+            if r["over_budget"] == 0), None)
+        point = f"{first['tol_m']:g} m (base {first['tol_base']:g} m)" if first else "none in sweep"
+        out.append(f"overflow point level {level}: {point}")
+    return "\n".join(out)
+
+
+def cmd_geom(args) -> int:
+    import tilewriter  # noqa: E402
+
+    profile = read_geom_profile(args.profile)
+    if args.budget is not None:
+        profile["max_record_bytes"] = int(args.budget)
+    if args.step is not None:
+        profile["densify_step_m"] = float(args.step)
+    if args.wiggle is not None:
+        profile["densify_wiggle_m"] = float(args.wiggle)
+    tolerances = ([float(value) for value in args.tolerances.split(",")]
+                  if args.tolerances else list(GEOM_TOLERANCES))
+    ways, stats = tilewriter.load_imf(args.town, args.cell)
+    rows = geom_rows(ways, args.cell, tolerances, profile)
+    for row in rows:
+        row["budget"] = profile["max_record_bytes"]
+    print(render_geom_table(rows, profile))
+    print(f"input ways={stats['ways']} nodes={stats['nodes']} cell={args.cell}")
+    try:
+        check_monotonic(rows)
+        print("monotonic: PASS (bytes never rise with tolerance)")
+    except BudgetError as exc:
+        print(f"monotonic: FAIL ({exc})")
+        return 1
+    rc = 0
+    if args.check:
+        try:
+            check_budget(rows, profile["max_record_bytes"])
+            print(f"budget check: PASS (all parcels <= {profile['max_record_bytes']} B)")
+        except FitError as exc:
+            print(f"budget check: FAIL ({exc})")
+            rc = 1
+    if args.json:
+        Path(args.json).write_text(
+            json.dumps({"profile": profile, "rows": rows}, indent=2),
+            encoding="utf-8")
+        print(f"json: {args.json}")
+    return rc
+
+
+def cmd_geom_stats(args) -> int:
+    """One-off calibration: even-pair road blocks of a factory directory."""
+    import clarion_tile  # noqa: E402
+    import tilewriter  # noqa: E402
+
+    y_text, x_text = args.dir.split(",")
+    want = (int(y_text, 0), int(x_text, 0))
+    tile = clarion_tile.read_tile(Path(args.tile).read_bytes())
+    lengths: list[int] = []
+    for section in tile["sections"]:
+        if section["id"] != 1:
+            continue
+        for entry in section["levels"]:
+            if entry["level"] != 1:
+                continue
+            for directory in entry["dirs"]:
+                if (directory["y"], tilewriter.dir_x0(directory)) != want:
+                    continue
+                for slot in directory["slots"].values():
+                    for record in slot["recs"]:
+                        if record["k"] % 2 == 0:
+                            lengths.append(len(record["raw"]))
+    if not lengths:
+        print(f"error: no level-1 road records at dir {want}", file=sys.stderr)
+        return 1
+    lengths.sort()
+    count = len(lengths)
+    stats = {
+        "tile": str(args.tile), "dir": list(want), "count": count,
+        "min": lengths[0], "q1": lengths[count // 4],
+        "median": (lengths[count // 2 - 1] + lengths[count // 2]) / 2,
+        "q3": lengths[3 * count // 4], "max": lengths[-1],
+        "mean": round(sum(lengths) / count, 1),
+        "le_256": sum(1 for value in lengths if value <= 256),
+        "le_q1": sum(1 for value in lengths if value <= lengths[count // 4]),
+    }
+    print("factory road block lengths: "
+          + " ".join(f"{key}={value}" for key, value in stats.items()))
+    if args.json:
+        Path(args.json).write_text(json.dumps(stats, indent=2), encoding="utf-8")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # selftest
 
 
@@ -551,6 +909,62 @@ def selftest() -> int:
           [(o, n) for o, n, _ in got] == [(page_a, len(stream_a)), (page_b, len(stream_b))],
           str([(hex(o), n) for o, n, _ in got]))
 
+    # -- geometry budget (M5.75): pure-function controls and a tiny sweep ----
+    base_line = [(17.0, 51.0), (17.004, 51.0)]
+    curved = densify(base_line, 25.0, 12.0)
+    check("geom: densify is deterministic and adds curvature",
+          len(curved) > 2 and curved == densify(base_line, 25.0, 12.0),
+          f"{len(curved)} points")
+    check("geom: zero tolerance is the identity", dp_simplify(curved, 0.0)[0] == curved)
+    kept, error = dp_simplify(curved, 20.0)
+    check("geom: DP keeps endpoints and bounds the error",
+          kept[0] == curved[0] and kept[-1] == curved[-1] and error <= 20.0 + 1e-6,
+          f"{len(curved)}->{len(kept)} err {error:.2f} m")
+    sample_profile = (
+        "[roads]\nsimplify_metres = 3\nl2_simplify_metres = 12\n"
+        "[geometry_budget]\nmax_record_bytes = 372\n"
+        "densify_step_m = 25\ndensify_wiggle_m = 12\n")
+    check("geom: profile scalar reader",
+          _toml_scalars(sample_profile, "roads").get("simplify_metres") == "3"
+          and _toml_scalars(sample_profile, "geometry_budget").get("max_record_bytes") == "372")
+    ok_row = {"level": 1, "over_budget": 0, "tol_m": 3.0, "tol_base": 3.0,
+              "max_parcel_bytes": 300, "total_bytes": 100}
+    check_budget([ok_row], 372)
+    check("geom: within-budget parcel passes the guard", True)
+    try:
+        check_budget([dict(ok_row, over_budget=1, max_parcel_bytes=500)], 372)
+        check("geom: over-budget parcel fails the guard", False)
+    except FitError as exc:
+        check("geom: over-budget parcel fails the guard", "500 B > 372 B" in str(exc))
+    try:
+        check_monotonic([dict(ok_row, total_bytes=100), dict(ok_row, total_bytes=101)])
+        check("geom: rising bytes fail the falsifier guard", False)
+    except BudgetError:
+        check("geom: rising bytes fail the falsifier guard", True)
+
+    import clarion_bg  # noqa: E402
+    import tilewriter  # noqa: E402
+    cell = DEFAULT_GEOM_CELL
+    y0, x0 = tilewriter.cell_mesh(cell)
+    lon0, lat0, span, height = clarion_bg.parcel_geo(1, y0, x0, 16, 16)
+    town_way = {
+        "id": "wtest", "highway": "residential", "name": "",
+        "points": densify([(lon0 + 0.1 * span, lat0 + 0.5 * height),
+                           (lon0 + 0.9 * span, lat0 + 0.5 * height)], 25.0, 12.0),
+    }
+    tiny_profile = {"level_1_m": 20.0, "level_2_m": 80.0, "max_record_bytes": 100,
+                    "densify_step_m": 25.0, "densify_wiggle_m": 12.0}
+    tiny = geom_rows([town_way], cell, (0.0, 20.0), tiny_profile)
+    check("geom: sweep produces one row per level and tolerance", len(tiny) == 4)
+    check("geom: bytes fall as tolerance rises (positive control)",
+          tiny[0]["total_bytes"] > tiny[1]["total_bytes"],
+          f"{tiny[0]['total_bytes']} -> {tiny[1]['total_bytes']} B")
+    check("geom: dense parcel trips the budget guard (negative control)",
+          tiny[0]["over_budget"] > 0 and tiny[2]["over_budget"] > 0,
+          f"over {tiny[0]['over_budget']}/{tiny[2]['over_budget']}")
+    check("geom: level scale comes from parcel geometry",
+          abs(level_scale(cell, 2) - 4.0) < 1e-9, f"scale {level_scale(cell, 2):g}")
+
     ok = all(results)
     print(f"selftest: {sum(results)}/{len(results)} checks passed")
     return 0 if ok else 1
@@ -580,6 +994,22 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--image")
     b.add_argument("--jobs", type=int, default=3)
     b.add_argument("--json")
+    g = sub.add_parser("geom", help="sweep simplification tolerance against parcel bytes (M5.75)")
+    g.add_argument("town", help="synthetic town JSONL (tools/osm_synth.py output)")
+    g.add_argument("--profile", required=True, help="compiler profile with [roads] and [geometry_budget]")
+    g.add_argument("--cell", default=DEFAULT_GEOM_CELL)
+    g.add_argument("--tolerances", help="comma-separated level-1 tolerances in metres")
+    g.add_argument("--budget", type=int, help="override the profile's max_record_bytes")
+    g.add_argument("--step", type=float, help="override the densify step in metres")
+    g.add_argument("--wiggle", type=float, help="override the densify amplitude in metres")
+    g.add_argument("--check", action="store_true",
+                   help="exit 1 when any parcel exceeds the record budget")
+    g.add_argument("--json")
+    s = sub.add_parser("geom-stats", help="calibrate the budget from a factory tile")
+    s.add_argument("tile", help="path to a factory MAPAL001/BxxRyyR.DAT outside the repo")
+    s.add_argument("--cell", default=DEFAULT_GEOM_CELL)
+    s.add_argument("--dir", default="84,940", help="directory Y,X (default %(default)s)")
+    s.add_argument("--json")
     return ap
 
 
@@ -593,6 +1023,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_verify(args)
     if args.cmd == "build":
         return cmd_build(args)
+    if args.cmd == "geom":
+        return cmd_geom(args)
+    if args.cmd == "geom-stats":
+        return cmd_geom_stats(args)
     build_parser().print_help()
     return 2
 
