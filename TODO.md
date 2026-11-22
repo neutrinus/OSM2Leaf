@@ -2786,8 +2786,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: a table 'fits' on one card and fails on the other.
   - Claims: C-7650–C-7659
 
-- [ ] **M4.67 — KIWI Level / Block Set / Block Management Records against `MMAIN001.DAT` and the tile level tables**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.67 — KIWI Level / Block Set / Block Management Records against `MMAIN001.DAT` and the tile level tables**
+  - Status: done · Owner: task/m4.67-kiwi-level-blocks · Critical: no · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: KIWI describes the map pyramid in three record types (chapters 6.1.1, 6.1.2, 6.2.1 as named in `kiwiread.c`): level, block set, block. `MMAIN001.DAT` holds per-level totals and the tiles hold level/box tables. If they are the KIWI records, every unexplained field in them gets a name (display scale flags, parcel counts per block, latitude/longitude extents).
@@ -2798,6 +2798,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session.
   - Falsifier: a field passes only because its value is 0 or 1 on every sample (no information) — count such fields separately.
   - Claims: C-7660–C-7669
+  - Result: EXP-2026-11-22-M4.67-kiwi-level-blocks; 0/4 KIWI header checks on both cards, 5 claims C-7660-C-7664
 
 - [ ] **M4.68 — KIWI Parcel ID and coordinates against tile names and `coord.py` (normalised units, parcel division per level)**
   - Status: open · Owner: — · Critical: no · Pair: solo
