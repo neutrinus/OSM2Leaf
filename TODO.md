@@ -1430,6 +1430,16 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: an error in the catalogue is unreachable by any card mutation tried.
   - Claims: C-8060–C-8069
 
+- [x] **M2.25 — Where do the 4 unit bytes of the SD password come from (VIN, serial, or stored)?**
+  - Status: done · Owner: claude/project-thread-i59j9z · Critical: no · Pair: solo
+  - Depends: — (M6.18 dump: PROD, NAND, SRAM, VFlash of the owner's unit)
+  - Goal: The owner asks whether the SD card PIN can be worked out from the VIN alone. Say where the unit takes the 4 bytes from and what a person needs to learn them.
+  - Scope: search the four dumps for the PIN, serial and VIN; disassemble the flash loader routine that uses the tail literal. No PIN bytes, no serial, no dump in the repo.
+  - Done when: an EXP names the storage offset, the routine (VA) that reads it, and answers "VIN alone: yes/no".
+  - Stop: one session.
+  - Claims: C-8300–C-8309
+  - Result: EXP-2026-11-22-M2.25-sd-pin-source (C-8300–C-8305). VIN alone: no. The 16-byte password is stored verbatim at PROD +0x100 (flash 0xA100; the 4 unit bytes again at +0x60); the flash loader routine VA 0x8b0232ac copies it and falls back to 99 99 99 99 + tail when PROD is not valid. No VIN in NAND/SRAM/VFlash, no code computes the bytes. Factory rule (random or from serial) unknown with one unit.
+
 ## M3 — Reader contract
 
 - [x] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
