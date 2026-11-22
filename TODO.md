@@ -4156,7 +4156,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.C1h-hcx-stubs (C-8210–C-8216). `ze0_stubdll.py` + `ze0_ipl.py patch --stub-dlls hcx` add stub ROM modules for `HCXLog.dll`/`HCXMemory.dll` (C++ base classes; every ordinal returns `this`, HCXMemory #23 = named file mapping), placed in gwes.exe's dropped pages. All HCX imports resolve, failed controls 16 → 5 (only Cws_Apl/AppTimerDll), `ctl_PRCOM_System` initialises. AuiApp still paints no form (only clears), also with `ze0_aui.py --start-form frm_PRAGR_AgreeCaution`; likely gated by the power/display sequence with the audio microcontroller (hypothesis). Next: M8.C1i, M8.H43–H45.
 
 - [ ] **M8.C1i — UI layer on `-M ze0`: what makes AuiApp paint its first form**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.c1i-aui-paint · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1h
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). After M8.C1h every non-telematics control loads, but AuiApp only clears its surface, even with StartForm = `frm_PRAGR_AgreeCaution`.
