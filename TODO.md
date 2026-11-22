@@ -2713,6 +2713,18 @@ text of this section is in git (`13cb0cf`).
   - Unblock: M3.38
   - Result: EXP-2026-11-22-M3.37-poi-search-setup; C-6970-C-6979; writer fn 0x003f2f98 named, census {63:2631890,6:3414,4:3356,5:3064,10:3061,7:2866,2:2803,8:2761} 4945 same-pos multi-code, US twins listed, root-load sets base block 0xd77 but step BLOCKED
 
+- [ ] **M3.38 — Seeded search request for the POI tree: run the root loader and an upper-level driver through a real tree in L3 (EU2011)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M3.37
+  - Goal: M3.37 ran the root loader `fn 0x0040f674` on POINT010 tree 0 (it sets `*0x00d5b858`), but the root descent and the upper-level driver stop with UnmappedAccess on STEP, because the tool starts them from a minimal context instead of the request object the firmware builds. Seed that object so the whole nearest-POI search runs from the root without hand-written tree base and levels.
+  - Precheck: `python3 tools/point_tree_l3.py --selftest` passes; the M3.37 run of `ROOT_LOAD` sets base block `0xd77` and then STEP is BLOCKED (EXP-2026-11-22-M3.37-poi-search-setup).
+  - Scope: EU2011 static + L3 with `tools/point_tree_l3.py`. (1) Read the request builders `fn 0x003f4658` and `fn 0x003f4948` and list the fields they write; (2) add a seeded request object to `point_tree_l3.py` with those fields; (3) run `ROOT_LOAD` and `DRIVER_A` (`fn 0x00411fd4`) on POINT010 tree 0 until the first leaf is returned; (4) trace callers of the `*0x005638ec` writer `fn 0x003f2f98` to name the UI or search mode that sets the leaf code.
+  - Input: EXP-2026-11-22-M3.37-poi-search-setup (C-6970–C-6979), EXP-2026-11-21-M3.35-point-spatial-tree-reader, `tools/point_tree_l3.py`.
+  - Done when: one search from the root returns a leaf in L3 with the seeded request (no hand-written base/levels), or the missing field is named; the mode that sets `*0x005638ec` is named or reported unknown. EXP + claims.
+  - Stop: one session.
+  - Falsifier: with every field the builders write seeded, STEP still faults at the same address.
+  - Claims: C-6980–C-6989
+
 - [x] **M5.62 — `l2check`: refuse a generated tile that lists fewer than three sections**
   - Status: done · Owner: task/m5.62-l2-tile-section-list · Critical: no · Pair: solo
   - Step: P1
