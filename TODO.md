@@ -3129,6 +3129,19 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the file lists services without any country or table field (then coverage is decided elsewhere — name where).
   - Claims: C-8180–C-8189
 
+- [ ] **M4.93 — Section-4 wide rows: the `0x1146`–`0x1946` directories left unexplained by the `0x2046` row model**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P3
+  - Depends: —
+  - Goal: `tools/tile_unknown.py` shows that section 1's wide rows are already modelled by `s1_wide_dir.py` (M5.53/M5.54), but `B48R058R` still has 366,814 B in 36 gaps after that model. Every one is a section-4 level-1 `0x0009` place-name record in a `0x1146`–`0x1946` directory — the same wide-row family with a `0x1046` base that `s1_wide_dir.py` does not handle. Generalise the row model so those records have an owner instead of being copied verbatim.
+  - Precheck: `python3 tools/tile_unknown.py /home/marek/projekty/leafre-work/m5.4/card-factory/MAPAL001/B48R058R.DAT --top 12` prints `still unexplained 366814 B in 36 ranges` (a byte count, not a line number).
+  - Scope: EU2011 `B48R058R` section 4: 64 level-1 directories (30 `0x1046`, 13 `0x1146`, 6 `0x1246`, 6 `0x1346`, 3 `0x1446`, 2 `0x1546`, 1 `0x1646`, 2 `0x1746`, 1 `0x1946`) and the 36 residual gaps; no firmware run, no writer.
+  - Input: `tools/s1_wide_dir.py`, `tools/tile_unknown.py`, `docs/format/map-tiles.md` §"Section 4, road names and streaming", EXP-2026-11-22-M4.86-tile-unknown-ranking.
+  - Done when: a `--selftest`-covered tool (new `tools/section4_wide.py` or an extension of `s1_wide_dir.py`) parses every section-4 level-1 directory of `B48R058R` with size/record checks, and adding its spans to `tools/tile_unknown.py` drops the `still unexplained` figure to 0 B or prints a per-block shape for anything it cannot model; an EXP names the count and the record grammar.
+  - Stop: one session.
+  - Falsifier: the residual bytes are not wide-row records (no size/record rule fits) — then say so with the counted gaps and their shapes.
+  - Claims: C-8310–C-8319
+
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
 Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
