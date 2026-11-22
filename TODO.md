@@ -4571,7 +4571,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H2-serial-uat; 10/10 claims, fn_audit clean
 
 - [ ] **M8.H3 — External UART model on `-M ze0`: `UAT3:` and `UAT4:` as host chardevs**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h3-ext-uart-chardev · Critical: no · Pair: required
   - Step: model
   - Depends: M8.H2
   - Goal: With the register map of M8.H2, add the two external UARTs so the VCAN peer (M8.H50) can talk to `CAN.dll`.
