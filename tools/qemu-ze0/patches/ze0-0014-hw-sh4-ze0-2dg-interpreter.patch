@@ -1,0 +1,612 @@
+hw/sh4: ze0 2D engine display-list interpreter (TODO M8.C1f).
+
+After ze0-0013 the UI submits 2DG display lists (DLSAR + SCLR = 1) but
+nothing executed them, so no frame reached the screen planes.  The new
+hw/sh4/ze0_2dg.c runs a list synchronously when SCLR = 1 is written,
+before SR.TRA is raised.  The command set is reconstructed from the
+lists the firmware builds (auirtdll.dll) and covers what the map and
+the boot screens use: calls/returns, register writes (direct and from
+inline data), inline data blocks, sync, end, filled boxes, 8-bit alpha
+glyphs, stencil polygons with cover fill, polylines (inline vertices or
+by pointer) and textured quads (nearest sampling).  Pixels are
+(A)RGB1555.  Unknown commands are skipped up to the next command word
+and counted.
+
+New ze0-gfx property exec (default on); with gfx-trace=on each list
+logs "ze0-2dg: list ADDR: N drawn, M skipped, S steps".
+
+
+diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
+index 716e500ff..afa2c23d2 100644
+--- a/hw/sh4/meson.build
++++ b/hw/sh4/meson.build
+@@ -6,6 +6,6 @@ sh4_ss.add(when: 'CONFIG_SH7750', if_true: files(
+ sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
+ sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
+ 
+-sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c', 'ze0_gfx.c'))
++sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c', 'ze0_gfx.c', 'ze0_2dg.c'))
+ hw_arch += {'sh4': sh4_ss}
+ sh4_ss.add(files('ze0_stubs.c'))
+diff --git a/hw/sh4/ze0_2dg.c b/hw/sh4/ze0_2dg.c
+new file mode 100644
+index 000000000..dc305bf0d
+--- /dev/null
++++ b/hw/sh4/ze0_2dg.c
+@@ -0,0 +1,496 @@
++/*
++ * ZE0 2D engine display-list interpreter (TODO M8.C1f).
++ *
++ * The command set is reconstructed from the lists the firmware builds
++ * (auirtdll.dll emitters at 0x03d07a14/0x03d07a70/0x03d07b20, EXP-2026-
++ * 11-22-M8.C1e O9 and EXP-2026-11-22-M8.C1f).  Words are little-endian
++ * u32; a coordinate word is x << 16 | y (signed 16-bit halves); colours
++ * are (A)RGB1555.  Only what the boot screens use is implemented:
++ *
++ *   0x30xxxxxx OFF        call: push return, pc = op address + OFF
++ *   0x38xxxxxx 0          return
++ *   0x40xxxxxx XY         local coordinate offset
++ *   0x18000600 N<<16|R OFF  write N+1 registers from R, data at op + OFF
++ *   0x18xxxxxx N<<16|R V0..VN  write N+1 registers from R
++ *   0x28xxxxxx LEN        skip LEN bytes (inline data)
++ *   0x08xxxxxx            sync
++ *   0x12000195 0          end of list; other 0x12 words: trap, ignored
++ *   0xa0xxxxxx ROP C P0 P1 P2      filled parallelogram (bounding box)
++ *   0xa8xxxxxx C 0 PIVOT HALF XY   8-bit alpha glyph from reg 0x4c,
++ *                                  stride reg 0x58, colour C (see glyph())
++ *   0xe0xxxxxx MIN MAX             start a stencil polygon
++ *   0xd0xxxxxx N MIN MAX V0..VN-1  polygon outline (even-odd)
++ *   0x80xxxxxx C P0 P1 P2 P3       cover: fill the polygon with C
++ *   0xb0xxxxxx C<<16|N W V0..VN-1  polyline, width W (roads)
++ *   0xb0xx4xxx C<<16|N W OFF       polyline, vertices at op + OFF
++ *   0x82xxxxxx OFF WH 0 P0..P3     textured quad (see texquad())
++ *   0xb1-0xb7, others              skipped up to the next command word
++ *
++ * Render target: reg 0x50 (address), reg 0x5c (stride in pixels).
++ * Clip: regs 0xd4/0xd8 (surface) and 0xdc/0xe0 (user), min/max inclusive.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#include "qemu/osdep.h"
++#include <math.h>
++#include "qemu/log.h"
++#include "system/address-spaces.h"
++#include "system/memory.h"
++#include "hw/sh4/ze0_gfx.h"
++
++#define DL_MAX_WORDS   (1 << 20)
++#define DL_MAX_VERTS   4096
++
++typedef struct Dl {
++    Ze0GfxState *s;
++    uint32_t *r;          /* 2DG register file (s->regs[1]) */
++    int lx, ly;           /* local offset */
++    int nv;
++    int vx[DL_MAX_VERTS], vy[DL_MAX_VERTS];
++    int done, skipped;
++} Dl;
++
++static uint32_t dl_rd(uint32_t a)
++{
++    uint32_t v;
++
++    address_space_read(&address_space_memory, a & 0x1fffffffu,
++                       MEMTXATTRS_UNSPECIFIED, &v, 4);
++    return le32_to_cpu(v);
++}
++
++static uint32_t reg(Dl *d, uint32_t off)
++{
++    return ldl_le_p((uint8_t *)d->r + off);
++}
++
++static void reg_set(Dl *d, uint32_t off, uint32_t v)
++{
++    if (off < ZE0_GFX_SIZE - 4) {
++        stl_le_p((uint8_t *)d->r + off, v);
++    }
++}
++
++/*
++ * Is w the first word of a command?  Coordinate words have x < 0x1000 in
++ * the top half (top byte <= 0x0f), so only an exact 0x08000000 counts as
++ * sync there.
++ */
++static bool is_op(uint32_t w)
++{
++    switch (w >> 24) {
++    case 0x08:
++        return w == 0x08000000;
++    case 0x12: case 0x18: case 0x28: case 0x30: case 0x38: case 0x40:
++    case 0x80: case 0x82: case 0xa0: case 0xa8: case 0xd0: case 0xe0:
++    case 0xb0: case 0xb1: case 0xb2: case 0xb3:
++    case 0xb4: case 0xb5: case 0xb6: case 0xb7:
++        return true;
++    }
++    return false;
++}
++
++/* Skip an undecoded command: advance to the next word that starts one. */
++static uint32_t resync(uint32_t pc)
++{
++    int i;
++
++    for (i = 1; i < 4096; i++) {
++        if (is_op(dl_rd(pc + 4 * i))) {
++            return pc + 4 * i;
++        }
++    }
++    return 0;
++}
++
++static void xy(Dl *d, uint32_t w, int *x, int *y)
++{
++    *x = (int16_t)(w >> 16) + d->lx;
++    *y = (int16_t)w + d->ly;
++}
++
++static void clip_box(Dl *d, int *x0, int *y0, int *x1, int *y1)
++{
++    int cx0, cy0, cx1, cy1;
++
++    cx0 = (int16_t)(reg(d, 0xd4) >> 16);
++    cy0 = (int16_t)reg(d, 0xd4);
++    cx1 = (int16_t)(reg(d, 0xd8) >> 16);
++    cy1 = (int16_t)reg(d, 0xd8);
++    *x0 = MAX(cx0, (int16_t)(reg(d, 0xdc) >> 16));
++    *y0 = MAX(cy0, (int16_t)reg(d, 0xdc));
++    *x1 = MIN(cx1, (int16_t)(reg(d, 0xe0) >> 16));
++    *y1 = MIN(cy1, (int16_t)reg(d, 0xe0));
++    if (*x0 < 0) {
++        *x0 = 0;
++    }
++    if (*y0 < 0) {
++        *y0 = 0;
++    }
++}
++
++/* Fill [x0, x1] on row y with colour c (inclusive, clipped). */
++static void span(Dl *d, int y, int x0, int x1, uint16_t c)
++{
++    int cx0, cy0, cx1, cy1, n, i;
++    uint16_t buf[4096];
++    hwaddr a;
++
++    clip_box(d, &cx0, &cy0, &cx1, &cy1);
++    if (y < cy0 || y > cy1) {
++        return;
++    }
++    x0 = MAX(x0, cx0);
++    x1 = MIN(x1, cx1);
++    n = x1 - x0 + 1;
++    if (n <= 0 || n > 4096) {
++        return;
++    }
++    for (i = 0; i < n; i++) {
++        buf[i] = cpu_to_le16(c);
++    }
++    a = (reg(d, 0x50) & 0x1fffffffu) + ((hwaddr)y * reg(d, 0x5c) + x0) * 2;
++    address_space_write(&address_space_memory, a, MEMTXATTRS_UNSPECIFIED,
++                        buf, n * 2);
++}
++
++static void fill_box(Dl *d, int x0, int y0, int x1, int y1, uint16_t c)
++{
++    int y;
++
++    if (x0 > x1) {
++        int t = x0; x0 = x1; x1 = t;
++    }
++    if (y0 > y1) {
++        int t = y0; y0 = y1; y1 = t;
++    }
++    for (y = y0; y <= y1; y++) {
++        span(d, y, x0, x1, c);
++    }
++}
++
++static int cmp_int(const void *a, const void *b)
++{
++    return *(const int *)a - *(const int *)b;
++}
++
++/* Even-odd scanline fill of the stored polygon, sampled at pixel centres. */
++static void fill_poly(Dl *d, uint16_t c)
++{
++    int ymin = INT_MAX, ymax = INT_MIN, y, i, j, n;
++    int xs[DL_MAX_VERTS];
++
++    if (d->nv < 3) {
++        return;
++    }
++    for (i = 0; i < d->nv; i++) {
++        ymin = MIN(ymin, d->vy[i]);
++        ymax = MAX(ymax, d->vy[i]);
++    }
++    for (y = ymin; y <= ymax; y++) {
++        double sy = y + 0.5;
++
++        n = 0;
++        for (i = 0, j = d->nv - 1; i < d->nv; j = i++) {
++            double y0 = d->vy[j], y1 = d->vy[i];
++
++            if ((y0 <= sy && y1 > sy) || (y1 <= sy && y0 > sy)) {
++                double x = d->vx[j] + (sy - y0) * (d->vx[i] - d->vx[j]) /
++                           (y1 - y0);
++                xs[n++] = (int)floor(x + 0.5);
++            }
++        }
++        qsort(xs, n, sizeof(int), cmp_int);
++        for (i = 0; i + 1 < n; i += 2) {
++            span(d, y, xs[i], xs[i + 1] - 1, c);
++        }
++    }
++}
++
++/* Pixels are (A)RGB1555: colours such as 0x739c (grey 224) and 0x6f7a
++ * (map land) only make sense that way. */
++static uint16_t blend(uint16_t dst, uint16_t c, unsigned a)
++{
++    unsigned r = (((c >> 10) & 31) * a + ((dst >> 10) & 31) * (255 - a)) / 255;
++    unsigned g = (((c >> 5) & 31) * a + ((dst >> 5) & 31) * (255 - a)) / 255;
++    unsigned b = ((c & 31) * a + (dst & 31) * (255 - a)) / 255;
++
++    return (dst & 0x8000) | r << 10 | g << 5 | b;
++}
++
++/*
++ * Glyph: [op, C, 0, PIVOT, HALF, POS].  HALF = hx << 16 | hy: the source
++ * bitmap is (2hy + 1) rows of reg 0x58 bytes (consecutive glyph sources
++ * are exactly that far apart: 0x170 for hy = 11, 0x1b0 for hy = 13).
++ * PIVOT (stride/2 - 1, stride/2) is presumably the rotation centre for
++ * the matrix in regs 0x100+; rotation is not modelled, the bitmap is
++ * placed with its top-left corner at POS.
++ */
++static void glyph(Dl *d, uint16_t c, uint32_t wh, uint32_t pos)
++{
++    int w = 2 * (int16_t)(wh >> 16) + 1, h = 2 * (int16_t)wh + 1, x0, y0, x, y;
++    int cx0, cy0, cx1, cy1;
++    uint32_t src = reg(d, 0x4c) & 0x1fffffffu, sstr = reg(d, 0x58);
++    hwaddr dst = reg(d, 0x50) & 0x1fffffffu;
++    uint32_t dstr = reg(d, 0x5c);
++    uint8_t row[512];
++    uint16_t px[512];
++
++    xy(d, pos, &x0, &y0);
++    clip_box(d, &cx0, &cy0, &cx1, &cy1);
++    w = MIN(w, (int)sstr);
++    if (w <= 0 || w > 512 || h <= 0 || sstr > 4096) {
++        return;
++    }
++    for (y = 0; y < h; y++) {
++        int yy = y0 + y, xa = MAX(x0, cx0), xb = MIN(x0 + w - 1, cx1);
++
++        if (yy < cy0 || yy > cy1 || xa > xb) {
++            continue;
++        }
++        address_space_read(&address_space_memory, src + y * sstr,
++                           MEMTXATTRS_UNSPECIFIED, row, w);
++        address_space_read(&address_space_memory,
++                           dst + ((hwaddr)yy * dstr + xa) * 2,
++                           MEMTXATTRS_UNSPECIFIED, px, (xb - xa + 1) * 2);
++        for (x = xa; x <= xb; x++) {
++            unsigned a = row[x - x0];
++            uint16_t *p = &px[x - xa];
++
++            if (a) {
++                *p = cpu_to_le16(blend(le16_to_cpu(*p), c, a));
++            }
++        }
++        address_space_write(&address_space_memory,
++                            dst + ((hwaddr)yy * dstr + xa) * 2,
++                            MEMTXATTRS_UNSPECIFIED, px, (xb - xa + 1) * 2);
++    }
++}
++
++/* Thick line: stamp a w x w square at every Bresenham step. */
++static void line(Dl *d, int x0, int y0, int x1, int y1, int w, uint16_t c)
++{
++    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
++    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
++    int err = dx + dy, h = (w - 1) / 2, steps = 0;
++
++    if (w < 1) {
++        w = 1;
++    }
++    for (;;) {
++        fill_box(d, x0 - h, y0 - h, x0 - h + w - 1, y0 - h + w - 1, c);
++        if ((x0 == x1 && y0 == y1) || steps++ > 8192) {
++            break;
++        }
++        int e2 = 2 * err;
++        if (e2 >= dy) {
++            err += dy;
++            x0 += sx;
++        }
++        if (e2 <= dx) {
++            err += dx;
++            y0 += sy;
++        }
++    }
++}
++
++static void polyline(Dl *d, uint32_t verts, int n, int w, uint16_t c)
++{
++    int i, x0, y0, x1, y1;
++
++    xy(d, dl_rd(verts), &x0, &y0);
++    for (i = 1; i < n && i < DL_MAX_VERTS; i++) {
++        xy(d, dl_rd(verts + 4 * i), &x1, &y1);
++        line(d, x0, y0, x1, y1, w, c);
++        x0 = x1;
++        y0 = y1;
++    }
++}
++
++/*
++ * Textured quad: [op, OFF, W << 16 | H, 0, P0 P1 P2 P3].  The texture is
++ * W x H 16-bit pixels at op + OFF (inside a 0x28 data block); it is
++ * stretched (nearest) over the bounding box of the corners.  Texels with
++ * bit 15 clear are treated as transparent when op bit 11 is set.
++ */
++static void texquad(Dl *d, uint32_t pc)
++{
++    uint32_t op = dl_rd(pc), tex = pc + dl_rd(pc + 4), sz = dl_rd(pc + 8);
++    int tw = sz >> 16, th = sz & 0xffff, x, y, i;
++    int xa = INT_MAX, ya = INT_MAX, xb = INT_MIN, yb = INT_MIN;
++    int cx0, cy0, cx1, cy1;
++    hwaddr dst = reg(d, 0x50) & 0x1fffffffu;
++    uint32_t dstr = reg(d, 0x5c);
++
++    if (tw <= 0 || th <= 0 || tw > 1024 || th > 1024) {
++        return;
++    }
++    for (i = 0; i < 4; i++) {
++        xy(d, dl_rd(pc + 16 + 4 * i), &x, &y);
++        xa = MIN(xa, x); xb = MAX(xb, x);
++        ya = MIN(ya, y); yb = MAX(yb, y);
++    }
++    if (yb == ya) {
++        yb = ya + th - 1;
++    }
++    if (xb == xa) {
++        xb = xa + tw - 1;
++    }
++    clip_box(d, &cx0, &cy0, &cx1, &cy1);
++    for (y = MAX(ya, cy0); y <= MIN(yb, cy1); y++) {
++        int ty = (int64_t)(y - ya) * th / (yb - ya + 1);
++
++        for (x = MAX(xa, cx0); x <= MIN(xb, cx1); x++) {
++            int tx = (int64_t)(x - xa) * tw / (xb - xa + 1);
++            uint16_t t;
++
++            address_space_read(&address_space_memory,
++                               (tex + 2 * (ty * tw + tx)) & 0x1fffffffu,
++                               MEMTXATTRS_UNSPECIFIED, &t, 2);
++            t = le16_to_cpu(t);
++            if ((op & 0x800) && !(t & 0x8000)) {
++                continue;
++            }
++            t = cpu_to_le16(t);
++            address_space_write(&address_space_memory,
++                                dst + ((hwaddr)y * dstr + x) * 2,
++                                MEMTXATTRS_UNSPECIFIED, &t, 2);
++        }
++    }
++}
++
++void ze0_2dg_run(Ze0GfxState *s, uint32_t list)
++{
++    Dl *d = g_new0(Dl, 1);
++    uint32_t pc = list, stack[8];
++    int sp = 0, steps = 0, i, x0, y0, x1, y1, x2, y2;
++
++    d->s = s;
++    d->r = (uint32_t *)s->regs[1];
++    while (steps++ < DL_MAX_WORDS) {
++        uint32_t op = dl_rd(pc), w1 = dl_rd(pc + 4);
++
++        uint32_t top = op >> 24;
++
++        switch (top) {
++        case 0x30:
++            if (sp < 8) {
++                stack[sp++] = pc + 8;
++            }
++            pc += w1;
++            continue;
++        case 0x38:
++            if (!sp) {
++                goto out;
++            }
++            pc = stack[--sp];
++            continue;
++        case 0x40:
++            d->lx = (int16_t)(w1 >> 16);
++            d->ly = (int16_t)w1;
++            pc += 8;
++            continue;
++        case 0x18: {
++            uint32_t n = (w1 >> 16) + 1, r = w1 & 0xffff;
++
++            if ((op & 0x600) == 0x600) {
++                uint32_t src = pc + dl_rd(pc + 8);
++
++                for (i = 0; i < n; i++) {
++                    reg_set(d, r + 4 * i, dl_rd(src + 4 * i));
++                }
++                pc += 12;
++            } else {
++                for (i = 0; i < n; i++) {
++                    reg_set(d, r + 4 * i, dl_rd(pc + 8 + 4 * i));
++                }
++                pc += 8 + 4 * n;
++            }
++            continue;
++        }
++        case 0x28:
++            pc += w1 ? w1 : 8;
++            continue;
++        case 0x08:
++            pc += 4;
++            continue;
++        case 0x12:
++            if (op == 0x12000195) {
++                goto out;
++            }
++            pc += 4;
++            continue;
++        case 0xa0:
++            xy(d, dl_rd(pc + 12), &x0, &y0);
++            xy(d, dl_rd(pc + 16), &x1, &y1);
++            xy(d, dl_rd(pc + 20), &x2, &y2);
++            fill_box(d, MIN(MIN(x0, x1), x2), MIN(MIN(y0, y1), y2),
++                     MAX(MAX(x0, x1), x2), MAX(MAX(y0, y1), y2),
++                     dl_rd(pc + 8));
++            d->done++;
++            pc += 24;
++            continue;
++        case 0xa8:
++            glyph(d, w1, dl_rd(pc + 16), dl_rd(pc + 20));
++            d->done++;
++            pc += 24;
++            continue;
++        case 0xe0:
++            d->nv = 0;
++            pc += 12;
++            continue;
++        case 0xd0: {
++            uint32_t n = MIN(w1, DL_MAX_VERTS);
++
++            for (i = 0; i < n; i++) {
++                xy(d, dl_rd(pc + 16 + 4 * i), &d->vx[i], &d->vy[i]);
++            }
++            d->nv = n;
++            pc += 16 + 4 * w1;
++            continue;
++        }
++        case 0x80:
++            fill_poly(d, w1);
++            d->done++;
++            pc += 24;
++            continue;
++        case 0xb0:
++            if (op & 0x4000) {
++                /* [op, C << 16 | N, W, OFF]: vertices at op + OFF */
++                polyline(d, pc + dl_rd(pc + 12), w1 & 0xffff,
++                         dl_rd(pc + 8) ? dl_rd(pc + 8) : 1, w1 >> 16);
++                pc += 16;
++            } else {
++                /* [op, C << 16 | N, W, V0..VN-1] */
++                polyline(d, pc + 12, w1 & 0xffff, dl_rd(pc + 8), w1 >> 16);
++                pc += 12 + 4 * (w1 & 0xffff);
++            }
++            d->done++;
++            continue;
++        case 0x82:
++            texquad(d, pc);
++            d->done++;
++            pc += 32;
++            continue;
++        default:
++            /*
++             * 0xb1-0xb7 (0xb3007602 and 0xb10038c2 seen: line variants
++             * whose operand layout is not known) and anything new.
++             */
++            d->skipped++;
++            pc = resync(pc);
++            if (!pc) {
++                qemu_log_mask(LOG_UNIMP, "ze0-2dg: list 0x%08x: lost at op "
++                              "0x%08x, list abandoned\n", list, op);
++                goto out;
++            }
++            continue;
++        }
++    }
++out:
++    if (s->trace) {
++        qemu_log_mask(LOG_UNIMP, "ze0-2dg: list 0x%08x: %d drawn, %d skipped, "
++                      "%d steps\n", list, d->done, d->skipped, steps);
++    }
++    g_free(d);
++}
+diff --git a/hw/sh4/ze0_gfx.c b/hw/sh4/ze0_gfx.c
+index 9974a6d98..788378a23 100644
+--- a/hw/sh4/ze0_gfx.c
++++ b/hw/sh4/ze0_gfx.c
+@@ -32,6 +32,8 @@
+ #include "target/sh4/cpu.h"
+ #include "hw/sh4/ze0_gfx.h"
+ #include "qemu/timer.h"
++#include "system/address-spaces.h"
++#include "system/memory.h"
+ 
+ /* DU registers (offsets seen in the gdisubdrv.dll init and the OAL ISR). */
+ #define DU_DSYSR    0x00
+@@ -73,6 +75,27 @@ static void ze0_gfx_vblank(void *opaque)
+               NANOSECONDS_PER_SECOND / 60);
+ }
+ 
++/* Dump a display list (trace=on): words until the end command. */
++static void ze0_2dg_dump(Ze0GfxState *s, uint32_t addr)
++{
++    uint32_t w[8];
++    int i, n, end = 0;
++
++    for (n = 0; n < 16384 && !end; n += 8) {
++        address_space_read(&address_space_memory, (addr & 0x1fffffffu) + n * 4,
++                           MEMTXATTRS_UNSPECIFIED, w, sizeof(w));
++        qemu_log_mask(LOG_UNIMP, "ze0-2dl: %08x:", addr + n * 4);
++        for (i = 0; i < 8; i++) {
++            uint32_t v = le32_to_cpu(w[i]);
++            qemu_log_mask(LOG_UNIMP, " %08x", v);
++            if (v == 0x12000195) {
++                end = 1;
++            }
++        }
++        qemu_log_mask(LOG_UNIMP, "\n");
++    }
++}
++
+ static uint64_t ze0_gfx_rd(Ze0GfxState *s, int blk, hwaddr off, unsigned size)
+ {
+     uint8_t *m = s->regs[blk] + off;
+@@ -126,6 +149,12 @@ static void ze0_gfx_wr(Ze0GfxState *s, int blk, hwaddr off, uint64_t v,
+          * InterruptDone(34) handshake completes.
+          */
+         s->g2_kicks++;
++        if (s->trace) {
++            ze0_2dg_dump(s, ze0_reg(s, 1, 0x48));
++        }
++        if (s->exec) {
++            ze0_2dg_run(s, ze0_reg(s, 1, 0x48));
++        }
+         s->g2_sr |= G2_TRA;
+         stl_le_p(m, v & ~1u);
+     }
+@@ -191,6 +220,7 @@ static void ze0_gfx_reset(DeviceState *dev)
+ 
+ static const Property ze0_gfx_props[] = {
+     DEFINE_PROP_BOOL("trace", Ze0GfxState, trace, false),
++    DEFINE_PROP_BOOL("exec", Ze0GfxState, exec, true),
+ };
+ 
+ static void ze0_gfx_class_init(ObjectClass *oc, const void *data)
+diff --git a/include/hw/sh4/ze0_gfx.h b/include/hw/sh4/ze0_gfx.h
+index e0e691c21..bc0d3052c 100644
+--- a/include/hw/sh4/ze0_gfx.h
++++ b/include/hw/sh4/ze0_gfx.h
+@@ -17,10 +17,13 @@ struct Ze0GfxState {
+     MemoryRegion mmio[2];
+     qemu_irq irq[2];
+     bool trace;
++    bool exec;          /* run display lists (M8.C1f) */
+     uint8_t regs[2][ZE0_GFX_SIZE];
+     QEMUTimer *vbl;
+     uint32_t du_sr, g2_sr;
+     uint64_t vblanks, g2_kicks;
+ };
+ 
++void ze0_2dg_run(Ze0GfxState *s, uint32_t list);
++
+ #endif
