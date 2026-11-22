@@ -1,7 +1,7 @@
 # EXP-2026-11-21-H127: a red gate log names the failing rule
 
 - **Status:** done (2026-11-21: re-ran the done-when — `tools/gate.py --selftest`
-  OK (16 checks, 0 failed); a synthetic `MISSING C-2953 docs/format/absent-fixture.md`
+  OK (20 checks, 0 failed); a synthetic `MISSING C-2953 docs/format/absent-fixture.md`
   row survives the old 40-line cap and appears first under
   `--- claims_check output (failures) ---` with `genuine missing evidence paths: 1`
   and `claims_check: FAILED`; a task that loses `Claims` surfaces
@@ -50,7 +50,7 @@ contains no line naming the failing claim/path/rule.
 
    ```bash
    # the new helper's own checks
-   python3 tools/gate.py --selftest          # OK (16 checks), rc=0
+   python3 tools/gate.py --selftest          # OK (20 checks), rc=0
 
    # end-to-end claims_check case: a temp ledger row citing an absent docs path
    cp docs/research/claims.md /tmp/claims.bak
@@ -93,7 +93,7 @@ ok   todo_check FAIL tail keeps ERROR and FAILED
 ok   unknown gate keeps the blind 40-line tail
 ok   claims_check FAIL without a hint line keeps the tail
 ok   hint flood is capped with an elision marker
-gate selftest: OK (16 checks, 0 failed)
+gate selftest: OK (20 checks, 0 failed)
 ```
 
 End-to-end (synthetic absent path):
@@ -149,6 +149,6 @@ Done-when conditions hold.
 
 ```bash
 git clone <repo> && cd <repo>
-python3 tools/gate.py --selftest    # OK (16 checks)
+python3 tools/gate.py --selftest    # OK (20 checks)
 python3 tools/gate.py               # 4 pass, 0 fail, 0 skip
 ```
