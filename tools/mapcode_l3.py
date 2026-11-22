@@ -78,6 +78,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
 import cerom  # noqa: E402
+import ce_module  # noqa: E402
 from engine import EngineError, PySh4, StubReturn  # noqa: E402
 
 IMAGE_START = 0x3E00200
@@ -134,18 +135,12 @@ def unit_code_from(hdd_info: bytes) -> bytes:
 
 
 def module_layout(image: bytes):
-    """[(section dict, compressed, bytes or None)] for AppLaunch.dll build B."""
-    rom = cerom.CERom(image, IMAGE_START)
-    mod = rom.module(MODULE)
-    out = []
-    for sec in rom.o32(mod):
-        comp = bool(sec["flags"] & cerom.IMAGE_SCN_COMPRESSED)
-        blob = None
-        if not comp:
-            off = rom.va2file(sec["dataptr"])
-            blob = image[off:off + sec["psize"]]
-        out.append((sec, comp, blob))
-    return out
+    """[(section dict, compressed, bytes or None)] for AppLaunch.dll build B.
+
+    M1.47: the ROMHDR -> section step lives in :mod:`ce_module`; this stays a
+    thin name so the selftest can keep monkeypatching it.
+    """
+    return ce_module.legacy_sections(image, IMAGE_START, MODULE)
 
 
 def resolve_thunks(image: bytes) -> dict[int, tuple[str, int]]:
