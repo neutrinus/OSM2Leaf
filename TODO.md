@@ -2824,7 +2824,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7680–C-7689
 
 - [ ] **M4.70 — KIWI Background Data Frame (chapter 7.3) against the odd-partner background records: polygons, shape classes, minimum graphics records**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m4.70-kiwi-bg-frame · Critical: no · Pair: required
   - Step: P1
   - Depends: —
   - Goal: Water, forests and built-up areas are background data. KIWI stores them as typed units of 'minimum graphics records' (point, line, polygon; an 11-bit count of offset coordinates). Our tiles keep background in the odd partner record, mostly unexplained. Test the KIWI layout there.
