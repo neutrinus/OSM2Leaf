@@ -4939,7 +4939,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7320–C-7329
 
 - [ ] **M8.H36 — Where touch comes from: from the panel to the UI message (path, coordinates, calibration)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m8.h36-touch-path · Critical: yes · Pair: required
   - Step: reader
   - Depends: —
   - Goal: Marek wants touch input in the emulator. Find the source of touch samples (display unit frames on `SCI3:`, an ADC behind `kepdrv`, a CE touch driver, or the audio microcontroller), the coordinate range and calibration, and the message that reaches the UI (`auiapp`).
