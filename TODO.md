@@ -4938,8 +4938,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the driver only writes and never reads the line (then input comes from elsewhere: M8.H36).
   - Claims: C-7320–C-7329
 
-- [ ] **M8.H36 — Where touch comes from: from the panel to the UI message (path, coordinates, calibration)**
-  - Status: in progress · Owner: task/m8.h36-touch-path · Critical: yes · Pair: required
+- [x] **M8.H36 — Where touch comes from: from the panel to the UI message (path, coordinates, calibration)**
+  - Status: done · Owner: task/m8.h36-touch-path · Critical: yes · Pair: required
   - Step: reader
   - Depends: —
   - Goal: Marek wants touch input in the emulator. Find the source of touch samples (display unit frames on `SCI3:`, an ADC behind `kepdrv`, a CE touch driver, or the audio microcontroller), the coordinate range and calibration, and the message that reaches the UI (`auiapp`).
@@ -4950,6 +4950,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; if two paths exist (touch and a remote), document touch only.
   - Falsifier: no code path delivers coordinates to the UI process (then the unit has no touch and the EXP says what the 2011 unit uses).
   - Claims: C-7330–C-7339
+  - Result: EXP-2026-11-22-M8.H36-touch-path; C-7330–C-7339; touch.md §1–7
 
 - [ ] **M8.H37 — Hard keys and the rotary knob: source, key codes, and the table of names**
   - Status: open · Owner: — · Critical: no · Pair: solo
