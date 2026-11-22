@@ -3757,8 +3757,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the map client rejects or skips the record (L3 verdict differs from the factory tile).
   - Claims: C-7930–C-7939
 
-- [ ] **M5.75 — Geometry budget per level: simplification tolerance against the slot budget, measured on a synthetic town**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.75 — Geometry budget per level: simplification tolerance against the slot budget, measured on a synthetic town**
+  - Status: done · Owner: task/m5.75-geom-budget · Critical: no · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: A parcel has a fixed slot budget (`tools/slot_budget.py`); dense OSM geometry overflows it. Measure the trade: Douglas–Peucker tolerance per level against bytes used and against visible error, and pick defaults.
@@ -3769,6 +3769,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Falsifier: bytes do not fall as tolerance rises (the cost is elsewhere — record where).
   - Claims: C-7940–C-7949
+  - Result: EXP-2026-11-22-M5.75-geom-budget; 20-row sweep, defaults 3m/12m at 372B, slot_budget selftest 25/25, guard PASS/FAIL 0/1
 
 - [x] **M5.76 — A synthetic OSM town for tests without network: deterministic generator with roads, names, one-ways, POIs, water**
   - Status: done · Owner: task/m5.76-osm-synth · Critical: no · Pair: solo
