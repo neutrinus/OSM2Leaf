@@ -5103,7 +5103,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7390–C-7399
 
 - [ ] **M8.H43 — `anwdrv.dll`: the frame protocol with the audio microcontroller on `SCI1:` and the start-up handshake**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m8.h43-anwdrv-frame-protocol · Critical: yes · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The emulator's launcher waits out about 27 module timeouts of 30 s because nobody answers on `SCI1:` (project notes 2026-11-22, EXP-2026-11-22-M8.C2a-serial-dma). The driver multiplexes several logical devices (`AUD`, `TNR`, `TMC`, `ANT`, `UPD`, `PDT`) over one framed link. Read the frame grammar and the exchange that reports a module as present.
