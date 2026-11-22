@@ -44,7 +44,10 @@ There are 33 numbered shards, matching the 33 regions:
 ```
 
 `COORD001`, `ICODE001` and `ZIPFR001` are global; `ADDRE`, `POINT`, `INTER`,
-`ICADM` and `ZCODE` share the 33-way split. `FRWAY` has only 24 numbers.
+`ICADM` and `ZCODE` share the 33-way split. `FRWAY` has **26** numbers on
+EU2011 (missing `001,006,013,014,017,024,032`) and **11** on US2011 (`001..011`),
+per `python3 tools/frway_decode.py census ROOT` (C-7837/C-7838; the older
+"24 numbers" figure was a miscount).
 `REFER002` is **not** duplicate data — it carries the longer EV schema
 (xy-coordinates, plug info, parking capacity).
 
@@ -524,15 +527,38 @@ is not the same record form. See
 
 ## `FRWAY0nn` — freeways/routes
 
-- Same 12-byte big-endian table (corrected layout above), then blob 1 = route
-  refs (`A1`, `E70`, `E773`…), and blob 2 = main table.
-- Records end with `u16, u16 0, u8 serial, text\0` and repeat a 4-byte **mesh
-  id** (`9f be da 1e`, `a0 6f db cf`…). Encoding unresolved.
+- Same 12-byte big-endian table (corrected layout above): an 8-byte block
+  header at `0x1108`, then records from `0x1110` (`u16 key`, `u16 0`, `u8 id`,
+  `u8 0`, `u16 length`, `u16 0`, `u16 offset`), `ffff` key = terminator
+  (C-2215/C-7832). A name-initial directory of 12-byte rows starts at
+  `terminator+0x10` (`u8 code`, `u8 0`, `u16 count`, `u16 block`, `u16 offset`,
+  `u16 length`, `u16 tail`) (C-7833).
+- Before the table: a 512-byte CLAR header, the shared `0x200..0xfff` fill, and
+  a 0x108-byte type block at `0x1000` whose marker words `u16@+0=ffff`,
+  `+4=0201`, `+0x10=4d40`, `+0x32=0601` hold in all 37 factory shards
+  (C-7831). After it: zlib streams with `4e 20 00 00 | u32` headers, one index
+  stream, one route stream (`A1`, `E70`, `E773`…, records tagged `0xa0`) and
+  1…25 main streams framed by `2*(u16 & 0x3ff)`; a schema dictionary decodes to
+  `["area code", "route number"]` in every shard; two `0x100` blocks end the
+  file (C-7834/C-7835).
+- `tools/frway_decode.py census ROOT` reproduces the walk, the record counts,
+  the per-field value ranges and the byte accounting: EU2011 26 shards,
+  101 table/94,040 main/1,322 route records, 2,908,874/2,921,728 B explained
+  (99.56 %); US2011 11 shards, 58/162,124/3,000 records,
+  5,136,449/5,141,760 B explained (99.90 %). Its `--selftest` is synthetic and
+  is discovered by `tools/selftest.py` (C-7830/C-7837/C-7838).
+- Exactly one byte per shard remains unexplained, always at
+  `table-terminator+0x0d`, with a value that is a multiple of 6 (EU 14 such
+  bytes, US 11); the tool prints its histogram and assigns no meaning
+  (C-7836). A 4-byte **mesh id** (`9f be da 1e`, `a0 6f db cf`…) and the
+  `u16, u16 0, u8 serial, text\0` tail of a main record are observed but not
+  decoded; field semantics stay UNKNOWN (C-7835).
 
 Firmware access path / reader search: see `INTER0nn` above and
 `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` / `EXP-2026-11-20-M3.16-inter-frway.md`
 (M3.16, negative for content reader VAs/consumed fields; shared REFER001 access
-path and corrected record layout confirmed, C-2210–C-2219).
+path and corrected record layout confirmed, C-2210–C-2219). Offline decode:
+`EXP-2026-11-22-M4.82-frway-decode.md` (C-7830–C-7839).
 
 ## `ICADM0nn` — administrative country data
 

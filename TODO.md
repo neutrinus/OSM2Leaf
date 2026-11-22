@@ -2979,8 +2979,8 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7820–C-7829
   - Result: EXP-2026-11-22-M4.81-inter-decode; inter_decode tool+census, 44/44 shards, 88.301% explained, C-7820-C-7829
 
-- [ ] **M4.82 — `FRWAY0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.82 — `FRWAY0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
+  - Status: done · Owner: task/m4.82-frway-decode · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: Row 13 of `docs/research/reader-coverage.md` says the `FRWAY0nn` decode is 'claim-only': it was done outside the repo and no committed tool reproduces it. Rule 16 wants a command. Write the decoder and count how much of the file it explains.
@@ -2991,6 +2991,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: one session; unexplained fields are listed with their value histogram, not guessed.
   - Falsifier: the decode explains under half of the bytes of the file (then the claimed layout is wrong or partial — say which part).
   - Claims: C-7830–C-7839
+  - Result: EXP-2026-11-22-M4.82-frway-decode (C-7830-C-7839); EU 26/33 99.56%, US 11/33 99.90%; 16/16 selftest
 
 - [x] **M4.83 — `ICADM0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
   - Status: done · Owner: task/m4.83-icadm-decode · Critical: no · Pair: solo
