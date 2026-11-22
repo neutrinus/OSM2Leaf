@@ -4832,8 +4832,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the driver reads no serial data at all (position arrives pre-computed from another processor).
   - Claims: C-7240–C-7249
 
-- [ ] **M8.H28 — `kepdrv.dll`: speed pulse, reverse signal and gyro — the dead-reckoning inputs**
-  - Status: in progress · Owner: task/m8.h28-kepdrv · Critical: no · Pair: solo
+- [x] **M8.H28 — `kepdrv.dll`: speed pulse, reverse signal and gyro — the dead-reckoning inputs**
+  - Status: done · Owner: task/m8.h28-kepdrv · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: Between GPS fixes the unit dead-reckons from wheel pulses, a gyro and the reverse signal. A position that jumps without matching pulses may be filtered out, so the emulator needs these inputs too.
@@ -4844,6 +4844,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; calibration constants learned at run time are named, not derived.
   - Falsifier: the driver has no timer-capture code (then pulses arrive over CAN: cross-check with M8.H49).
   - Claims: C-7250–C-7259
+  - Result: EXP-2026-11-22-M8.H28-kepdrv; C-7250–C-7259; 10 claims, register/sample/unit doc + hardware row
 
 - [ ] **M8.H29 — From driver to map: how a position fix travels inside `Navi.exe`**
   - Status: open · Owner: — · Critical: no · Pair: required
