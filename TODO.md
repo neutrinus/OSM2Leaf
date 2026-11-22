@@ -5051,7 +5051,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H38-panel-peer; 32/32 selftest checks; tool:ze0_peers.panel PASS
 
 - [ ] **M8.H39 — A tap changes the screen: touch injection on `-M ze0`, end to end**
-  - Status: in progress · Owner: task/m8.h39-tap-l4 · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m8.h39-tap-l4 · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H38, M8.C1f
   - Goal: First interactive L4 test: tap a visible button and see the UI react.
@@ -5062,6 +5062,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the event arrives (breakpoint hit) but the UI does not react, record the UI state and stop.
   - Falsifier: the screen changes without any tap between the two screenshots (animation), making the comparison meaningless — then compare a named region.
   - Claims: C-7360–C-7369
+  - Blocker: PostMessageW call from the interrupted kernel context faults (0xaa -> 0x8800ebd0); process-local UI thunk 0x03a1b154 unreachable from RSP
+  - Unblock: M8.H35
+  - Result: EXP-2026-11-22-M8.H39-tap-l4 (negative); 0 UI breakpoint hits
 
 - [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
   - Status: open · Owner: — · Critical: no · Pair: solo
