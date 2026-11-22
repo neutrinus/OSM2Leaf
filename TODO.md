@@ -4348,7 +4348,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7030–C-7039
 
 - [ ] **M8.H7 — `tools/ze0_ui.py`: a scenario runner for L4 (wait, tap, key, position, screenshot, expect)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h7-ui-scenario · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: L4 tests should be files, not shell history. A scenario is a list of steps (`wait-log REGEX`, `sleep-guest S`, `tap X Y`, `key NAME`, `gps LAT LON`, `shot NAME`, `expect-hash NAME SHA`), run against QMP and the peer sockets of `docs/research/qemu-connectors.md`.
