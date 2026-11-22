@@ -4773,8 +4773,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6870–C-6879
   - Result: EXP-2026-11-21-M8.C1b-hpb-dmac-model (C-6870–C-6879). Patch `ze0-0009` (8.2.10 and 11.1.3): HPB-DMAC model at `0xffc08000` (status/clear/enable `+0x80c`/`+0x810`/`+0x814`; channels 8/9 = SD ports, INTEVT `0xc60`/`0xc80`, INT2 bit 19), DMA side of the SD host, card password by trust-on-first-use, three fixes of QEMU's card model (CMD6 status, CMD42 length checks), PIO gate fix, debug-SCIF area-7 alias. Boot on the EU card: `End(OK`, no `EventID = 2 Timeout`, 47 DMA transfers, 42 of 42 block reads equal to the card image (shifted control 0 of 42), LOCK+UNLOCK pass, opening image loaded, `Store Mgr Ready! [DSK1:]`, two partitions mounted: **F3 reached**. Controls: `hpbdmac=off` brings the timeout back; a card with no password is refused. Next stop: `VerInf` empty, `Error Proc<00000050>`, `FailSafe.exe` (M8.C1c). New: `tools/qemu-ze0/mkoverlay.py`, `ze0_sdhost.py dmatrace`.
 
-- [ ] **M8.C1c — Launcher after the mount: where `VerInf` comes from and what `Error Proc<00000050>` tests**
-  - Status: in progress · Owner: Claude (task/m8.c1c-launcher-verinf) · Critical: no · Pair: solo
+- [x] **M8.C1c — Launcher after the mount: where `VerInf` comes from and what `Error Proc<00000050>` tests**
+  - Status: done · Owner: Claude (task/m8.c1c-launcher-verinf) · Critical: no · Pair: solo
   - Step: reader
   - Depends: M8.C1b
   - Goal: with the card mounted under `-M ze0` (F3, C-6875) the EU2011 launcher logs `VerInf: / HddInf:QSD-302-100` with an empty `VerInf`, then `AppLch >> Error Proc<00000050>!!` and starts `FailSafe.exe` instead of `Navi.exe` (C-6877). This is the unit's own accept/reject decision for a card, in situ. Find the code, name both inputs (which file gives `HddInf`, what gives `VerInf`: flash, registry, micon?) and the comparison, and say what the emulator must provide for the applications to start.
@@ -4785,6 +4785,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if `VerInf` comes from the micon or the NOR flash user area with no static default, record the access and stop (rows C4/C8 of M8.C).
   - Falsifier: the launcher reaches `Error Proc<00000050>` on a path that does not read `VerInf` or `HddInf`.
   - Claims: C-6880–C-6889
+  - Result: EXP-2026-11-22-M8.C1c-launcher-verinf (C-6880–C-6886). `VerInf` is not a NAND record: `KernelIoControl(0x0101302C)` (nk.exe B `fn 0x88049e28`) returns start and length of XIP region `index`; the launcher asks for index 0 = ROM image B, so `VerInf` = header `+0x60` (11 chars) and the map-DB window = `+0x70`/`+0x72` (BE u16), phys `0x08000060`. The card has zeros there, so a unit writes them after loading image B (IPL, hypothesis). Patch `ze0-0010`: `-M ze0,verinf=QSD-302-100,mapdb=16-16` (`run.sh --verinf/--mapdb`) passes both checks, no `Error Proc`, no FailSafe; controls give `0x50` and `0x51`. Next stop: `CInaiProtocol` `WriteFile` (6:0) loop = serial DMA, row C2.
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo

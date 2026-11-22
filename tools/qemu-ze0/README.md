@@ -244,6 +244,12 @@ kept), so the next run extracts cleanly.
   `tools/ze0_sdhost.py dmatrace LOG --card CARD.img` compares every block
   read with the card image. See
   [`EXP-2026-11-21-M8.C1b-hpb-dmac-model.md`](../../docs/experiments/EXP-2026-11-21-M8.C1b-hpb-dmac-model.md).
+- `ze0-0010` (M8.C1c): `verinf=STR` and `mapdb=LO-HI` write the unit record
+  the launcher reads at kernel image header `+0x60` (map code) and
+  `+0x70`/`+0x72` (map-DB window, big-endian u16); `run.sh --verinf/--mapdb`.
+  The card has zeros there, so without them the launcher logs an empty
+  `VerInf:` and starts `FailSafe.exe`. For the EU 2011 card:
+  `verinf=QSD-302-100,mapdb=16-16`.
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

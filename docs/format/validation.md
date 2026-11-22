@@ -82,7 +82,7 @@ content of the HDD_INFO file).
 | --- | --- |
 | B function / VAs | `fn 0x03bd2ad8` (C `fn 0x03bb2858`); unit read `KernelIoControl(0x0101302C)` `0x03bd2b2c` (pool `0x0101302c`/thunk `0x03bca3e8`), copy unit `+0x60` at `0x03bd2b36–0x03bd2b56` (C `0x03bb28bc`, `add #96`); copy card slot 0 `0x03bd2c06–0x03bd2c1e`; 11-byte compare `0x03bd2c1e–0x03bd2c3e`; mismatch log `VerInf:%s / HddInf:%s` (`pool 0x03bc9330`) |
 | HDD_INFO source | line **1** (`base_code`, M2.3 C-740), **slot 0** bytes **0–10** = first **11 bytes** of the stripped line content. In the file this is **file offset `0x00`, length 11** for a standard 11-char line 1 (e.g. `QSD-302-100` = `51 53 44 2d 33 30 32 2d 31 30 30`); compared byte-for-byte as 11 bytes. |
-| Unit-side source | `KernelIoControl(IOCTL 0x0101302C)` output, **offset `+0x60` (+96)**, **11 bytes** (NAND/system/kernel target-info record). |
+| Unit-side source | `KernelIoControl(IOCTL 0x0101302C)` output, **offset `+0x60` (+96)**, **11 bytes**. Since M8.C1c (C-6880, C-6881) this is ROM image B's own header in RAM (phys `0x08000060`): the IOCTL returns start and length of XIP region 0 = image B. Zero on the card; a unit fills it after loading the image (C-6882). |
 | Verdict | mismatch → log `VerInf:%s / HddInf:%s\r\n`, return 0 → `DIFFERENT MAP CODE`. Match → proceed to check 2. |
 
 #### Check 2 — `MAP DATA BASE UNMATCH` (error `0x51`)
@@ -91,11 +91,11 @@ content of the HDD_INFO file).
 | --- | --- |
 | B function / VAs | `fn 0x03bd2ce4` (C `fn 0x03bb2a64`); unit read `KernelIoControl(0x0101302C)` (pool `0x0101302c`/thunk `0x03bca3e8`), unit `+114` (16-bit BE) read at `0x03bd2d38` (`add #114`) stored `r15+0x24`, unit `+112` (16-bit BE) read at `0x03bd2d8a` (`add #112`) stored `r15+0x20`; card MapDBVer extract `0x03bd2e3a–0x03bd2e68` (C `0x03bb2bba`); range `0x03bd2e6c–0x03bd2e7a`; log `MapDBVer : %d <= [%d] <= %d` (`pool 0x03bc9360`, `0x03bd2e7c–0x03bd2e82`). |
 | HDD_INFO source | line **3** (`build`, M2.3 C-740, **slot 2** at global offset 32), **stripped-line positions 5, 6, 7** (0-based, global offsets 37/38/39). Each byte is converted by `fn 0x03bd2a40` (B; 22-char table `0-9a-fA-F` → 0–15, not-found → 0) and combined as **3 nibbles**: `MapDBVer = ((d5*16)+d6)*16 + d7`. For factory EU 2011 line 3 `02-110100-00` (file offset 26, content `30 32 2d 31 31 30 31 30 30 30 2d 30 30`) positions 5,6,7 are `'0','1','0'` (file offsets 31–33) → `0x010` = 16. |
-| Unit-side source | `KernelIoControl(IOCTL 0x0101302C)` output, **offset `+112` (+0x70)** = 16-bit big-endian **minimum** and **offset `+114` (+0x72)** = 16-bit big-endian **maximum** (NAND/system/kernel target-info record). |
+| Unit-side source | `KernelIoControl(IOCTL 0x0101302C)` output, **offset `+112` (+0x70)** = 16-bit big-endian **minimum** and **offset `+114` (+0x72)** = 16-bit big-endian **maximum**: image B's header in RAM, phys `0x08000070`/`0x08000072` (M8.C1c, C-6881). |
 | Verdict | `target[+112] <= MapDBVer <= target[+114]` (unsigned) → pass; run in L3 on the 89 variants, 89/89 = `hddinfo.py classify` check 2 under two declared bounds pairs (M2.19, C-5296). Otherwise log `MapDBVer : %d <= [%d] <= %d\r\n` (min, value, max; L3 run: `MapDBVer : 17 <= [16] <= 20`) and return 0 → `MAP DATA BASE UNMATCH`. |
 
-**The deciding inputs for these two launcher checks are the NAND/system kernel
-target-info record (`0x0101302C` +96/+112/+114) compared against the card's
+**The deciding inputs for these two launcher checks are image B's header in RAM
+(M8.C1c, C-6881; earlier called the NAND/system kernel target-info record) (`0x0101302C` +96/+112/+114) compared against the card's
 `\SystemSD\VER_INFO\HDD_INFO.TXT` parsed line 1 (bytes 0–10) and line 3
 (positions 5–7). They are NOT the `0x06000000` raw HDD_INFO copy and NOT an
 HDD_INFO text record stored in NAND** (C-766, EXP-2026-11-06-M2.5,

@@ -75,6 +75,9 @@ MARKERS = [
     ("part_mounted", "Mount Time of Part"),
     ("applch_error", "AppLch >> Error Proc<"),
     ("failsafe_start", "*** FailSafe.exe Start ***"),
+    ("verinf_mismatch", "VerInf:"),
+    ("mapdb_out_of_range", "MapDBVer : "),
+    ("launch_not_create", "Launch Process Not Create!!!"),
 ]
 
 CMD_RE = re.compile(r"ze0-sdhi(\d): wr\d+ \+0x00 = 0x([0-9a-f]+)")
