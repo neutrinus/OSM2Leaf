@@ -3100,7 +3100,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-7910–C-7919
 
 - [ ] **M4.91 — The opening picture: format of the image the launcher shows at start, decoded and re-encoded**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.91-opening-picture · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The launcher loads an opening image from the card before anything else (seen at L4 in EXP-2026-11-21-M8.C1b-hpb-dmac-model). It is the cheapest visible proof that a self-made card runs: a changed picture at power-on, in the emulator and in the car. M4.59 (skins) is blocked; this file is simpler.
