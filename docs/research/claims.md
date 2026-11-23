@@ -6364,3 +6364,17 @@ into three printed classes.
 | C-8793 | Class 4 draws main roads in the same brown as class 5; class 2 draws them red and wide. | OBSERVED | M | EXP-2026-11-23-M5.97-road-shields runs D, F |
 | C-8794 | `tile_from_zero.py` with the default `--class-override primary=4,primary_link=4,secondary=4,secondary_link=4` draws the A400, A40, A401, A4 and A3201 shields on the from-zero London start screen with no new error line (`c5bae8aa…49550ba`). | VERIFIED | H | EXP-2026-11-23-M5.97-road-shields run F |
 | C-8795 | Where a road shape shows a shield the firmware does not draw its street name. | OBSERVED | M | EXP-2026-11-23-M5.97-road-shields run C |
+
+## M5.91 — Z6 level 2 from zero (C-8710–C-8719)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8710 | EU2011 `B48R068R` section 1 level 2 (London): background layer 0 `0x502b` urban, layer 1 `0x5012` sea, lines `0x5001`/`0x500a`, no park or water polygons; roads layer 6 classes 4–7 and layer 7 classes 1/2; empty level-2 pairs `0xffffffff` (even and odd). | OBSERVED | M | EXP-2026-11-23-M5.91-level2-from-zero Inputs |
+| C-8711 | `datask_l3 mount --request` of a level-2 parcel code on the from-zero card reads exactly our level-2 road record (zlib stream inflates to that code) and replies sub 3, like the factory card for the same code; a level-2 parcel left empty replies sub 9 with no record read. | VERIFIED | H | EXP-2026-11-23-M5.91-level2-from-zero L3 table |
+| C-8712 | A 230,708-byte level-2 road record (85,441 B compressed, 3.7× the factory record of the same parcel) is read and inflated whole at L3. | VERIFIED | H | EXP-2026-11-23-M5.91-level2-from-zero L3 `0xa6afcdf2` |
+| C-8713 | With every highway (tertiary to residential) one London level-2 unit passes 65,535 dwords and the 16-bit unit offset word overflows; tertiary-and-up with 10 m Douglas-Peucker fits (max 230,708 B). | OBSERVED | M | EXP-2026-11-23-M5.91-level2-from-zero Observations |
+| C-8714 | Adding 97 level-2 records leaves the from-zero level-1 London start screen pixel-identical (`c5bae8aa…49550ba`) and its error set equal to the factory's. | VERIFIED | H | EXP-2026-11-23-M5.91-level2-from-zero L4 level 1 |
+| C-8715 | Section 4 does not draw the level-1 place labels: the from-zero tile has an empty section 4 and its place labels draw from the level-1 odd records (layer 25 + `0xc068`), consistent with C-2393. | OBSERVED | M | EXP-2026-11-23-M5.91-level2-from-zero Interpretation; EXP-2026-11-23-M5.90 |
+| C-8716 | Whether the zoomed-out screen draws our level-2 roads and urban area is not known: zoom needs NK1 + `--ui-start` + the unit flash dump, absent from the sandbox (M5.99). | UNKNOWN | — | EXP-2026-11-23-M5.91-level2-from-zero Scope |
+| C-8717 | reserved (M5.91). | UNKNOWN | — | — |
+| C-8718 | reserved (M5.91). | UNKNOWN | — | — |
+| C-8719 | reserved (M5.91). | UNKNOWN | — | — |

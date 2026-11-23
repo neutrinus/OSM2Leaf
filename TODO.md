@@ -3809,8 +3809,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8700–C-8709
   - Result: Street names and place labels from OSM drawn in the from-zero tile (EXP-2026-11-23-M5.90, C-8700–C-8706); shields → M5.97, class table → M5.98
 
-- [ ] **M5.91 — Z6: level 2 and section-4 place names in the from-zero London tile, checked zoomed out**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.91 — Z6: level 2 and section-4 place names in the from-zero London tile, checked zoomed out**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: Z6
   - Depends: M5.88
   - Goal: zooming out leaves level 1; a map needs the level-2 records and the place index of the tile, both from OSM.
@@ -3820,6 +3820,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: L3 mount parses level-2 and section-4 directories; the L4 zoomed-out screenshot shows our level-2 roads (and place names, if section 4 is what draws them — else record what does).
   - Stop: one session; the level-2 even-slot defect (M5.70) is not this task's.
   - Claims: C-8710–C-8719
+  - Result: Level 2 from OSM in the from-zero London tile (tile_from_zero --level2: 48 road + 49 urban/name records, 0 factory); L1 PASS; L3: firmware reads and inflates our level-2 records (sub 3, up to 230,708 B), empty parcel sub 9; level-1 L4 unchanged. Zoomed-out L4 not reachable without the flash dump → M5.99. Section 4 does not draw place labels (C-8715). EXP-2026-11-23-M5.91-level2-from-zero, C-8710–C-8716.
 
 - [ ] **M5.92 — Capacity probe: the largest record, shape and point count the firmware draws**
   - Status: open · Owner: — · Critical: yes · Pair: solo
@@ -3905,6 +3906,18 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has the `highway → (layer, cls)` table with counts, a new class table file, and an L4 screenshot of the start screen with it next to the factory's (by-eye notes).
   - Stop: one session.
   - Claims: C-8800–C-8809
+
+- [ ] **M5.99 — Z6b: zoomed-out L4 screenshot of the from-zero London tile (level 2 from OSM)**
+  - Status: open · Owner: — · Critical: no · Pair: solo · Runner: Marek (needs the unit flash dump)
+  - Step: Z6
+  - Depends: M5.91
+  - Goal: M5.91 put 97 OSM level-2 records into the from-zero tile and passed L3; whether the zoomed-out screen draws them is UNKNOWN (C-8716). The zoom buttons need NK1 + `--ui-start`, which needs `nand.bin` (never in the repo or the sandbox).
+  - Precheck: `python3 tools/tile_from_zero.py --selftest`; the factory EU card zooms out on `ze0_launch.py --flash nand.bin --gdb P --ui-start` (`docs/emulator/running.md` §2).
+  - Scope: build the M5.91 tile (EXP Reproduction), the M5.87 card, then on the NK1 run tap ZOOM OUT until the map leaves level 1; same taps on the factory card; `ze0_screenshot.py plane -n 1` for buttons.
+  - Input: EXP-2026-11-23-M5.91-level2-from-zero, `tools/ze0_launch.py`, `tools/ze0_screenshot.py`.
+  - Done when: the EXP has the factory and from-zero zoomed-out screenshots (from-zero one attached, not committed if it shows factory data), serial `MeshDtChk`/error lines of both runs, and by-eye notes: our level-2 roads and urban area drawn or not; if record size matters, a run with a smaller `LEVEL2_TOLERANCE_M`/`LEVEL2_KEEP`.
+  - Stop: one session.
+  - Claims: C-8810–C-8819
 
 ## M6 — L5 bench/car: hardware and safety
 
