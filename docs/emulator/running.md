@@ -47,13 +47,13 @@ in `serial.log`).
 | Line | Device on the real unit | Peer (`--peer`) | State |
 | --- | --- | --- | --- |
 | `sci3` | display unit (touch, keys, brightness) | `panel` (default): `tools/ze0_peers/panel.py --sci3` | **real protocol**: handshake and touch frames from `docs/firmware/lcddrv.md`; the driver accepts them |
-| `sci7` | GPS receiver | `gps`: `tools/ze0_peers/gps.py --no-fix` | **real report frame** (36-byte `A0`, `docs/firmware/navdrv.md` "Receiver frames"): it reaches `OBJ_GpsInfo` with the sent position; the car position and the map do not follow it yet (M8.H78). Control: `gps LAT LON`, `on`, `speed`, `heading`, `alt`, `stat HEX`, `sats N` on `gps.ctl` |
+| `sci7` | GPS receiver | `gps`: `tools/ze0_peers/gps.py --no-fix` | **real report frame** (36-byte `A0`, `docs/firmware/navdrv.md` "Receiver frames"): it reaches `OBJ_GpsInfo` with the sent position; the car and the map follow it when the peer drives (`drive on`, §5). Control: `gps LAT LON`, `on`, `speed`, `heading`, `alt`, `stat HEX`, `sats N`, `drive on|off` on `gps.ctl` |
 | `sci1` | audio/system microcontroller (micon) | `micon`: `tools/ze0_peers/micon.py` | model: replies are not accepted yet (`invalid TXT size`, M8.H45) |
 | `sci8` | Bluetooth module | `bt`: `tools/ze0_peers/bt.py --mode absent` | stub |
 | `uat3` | VCAN sub-micro (ACC, power, vehicle CAN) | `vcan`: `tools/ze0_peers/vcan.py` | model on the `ze0-h03` external UART: frames of `docs/firmware/can.md`, wire framing still open (M8.H49); UAT3's INTEVT is not pinned yet |
 | `uat4` | second external UART | `uat4`: `tools/ze0_peers/uart.py` (raw bytes, guest TX in `uat4.tx`) | raw |
 
-Gyro and wheel pulses (dead reckoning) are not modelled (M8.H32).
+Wheel pulses and gyro words are the QEMU object `/machine/dr` (§5).
 
 **`--peer vcan` stops the NK1 boot today** (2026-11-23; `--peer uat4` alone boots): the
 kernel log ends at `[1] : start: 90000000…`. `ze0-h03` raises the UART
@@ -110,8 +110,18 @@ printf 'qom-get /machine/dr irqs\n' | socat - UNIX-CONNECT:$W/live/mon.sock
 
 `pulses-milli` is pulses per 100 ms tick × 1000 (0 = standing still).
 `gyro0`…`gyro7` are the raw ADC words (zero and scale unknown, default 0).
-The locator moves the car to the GPS only with good fixes: keep the GPS
-peer's stat at 0x00 (its default). Record:
+The locator moves the car to a far GPS position only when the reports
+agree with each other for five seconds at more than 10 km/h (C-8791). Let
+the peer drive, so position, speed and heading match:
+
+```bash
+for c in "fix 41.8781 -87.75" "speed 30" "heading 45" "drive on" "on"; do
+  printf '%s\n' "$c" | socat - UNIX-CONNECT:$W/live/gps.ctl
+done
+```
+
+Keep the GPS peer's stat at 0x00 (its default). About 40 s later the map
+shows the new place and follows the fix. Record:
 [`EXP-2026-11-23-M8.H32-trailer-test`](../experiments/EXP-2026-11-23-M8.H32-trailer-test.md).
 
 Debugger: add `--gdb 1240` and use `tools/ze0_gdb.py` (see
@@ -153,7 +163,7 @@ logs the DMA side.
   does not show yet (M8.C1t). To see them, use
   `ze0_screenshot.py plane --monitor $W/live/mon.sock -n 1 -o $W/p1.png`.
   It writes both pages of the buffer; the UI is in rows 0–479.
-- GPS: the 36-byte `A0` report reaches `OBJ_GpsInfo`; the car position and the map do not follow it yet (M8.H78).
+- GPS: the 36-byte `A0` report reaches `OBJ_GpsInfo`; with `drive on` and wheel pulses the car and the map follow it (EXP M8.H32 O13).
 
 ## 7. Without the launcher
 
