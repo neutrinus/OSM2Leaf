@@ -2355,6 +2355,26 @@ def selftest():
                                      "parcels": [[72, 936, 4, 5]]}), encoding="utf-8")
         check("M5.71 guard: declared-parcels JSON round-trips",
               load_declared_parcels(str(gpath)) == {(72, 936, 4, 5)})
+        # prompt_tl (d): a lost duplicate must not read "unchanged".  Write the
+        # SAME record bytes at two parcels, then leave the second at factory; a
+        # value-set comparison would see one distinct stream and miss the loss,
+        # but the position-keyed walk names the parcel that lost its record.
+        dup = {(72, 936, 4, 5): dict(plain=grec[0], comp=grec[1], names_sec=None),
+               (72, 936, 4, 6): dict(plain=grec[0], comp=grec[1], names_sec=None)}
+        dblob, _dcont = splice_factory(factory, 1, dup)
+        half = {(72, 936, 4, 5): dict(plain=grec[0], comp=grec[1], names_sec=None)}
+        hblob, _hcont = splice_factory(factory, 1, half)
+        hmsg = ""
+        try:
+            check_declared_parcels(factory, hblob, 1, {(72, 936, 4, 5), (72, 936, 4, 6)})
+        except CheckFailed as exc:
+            hmsg = str(exc)
+        check("M5.71 guard: a lost duplicate stream is caught, names the parcel",
+              "72,936,4,6" in hmsg and "byte-identical to factory" in hmsg, hmsg)
+        check("M5.71 guard: two identical streams at two parcels both count",
+              check_declared_parcels(factory, dblob, 1,
+                                     {(72, 936, 4, 5), (72, 936, 4, 6)})
+              == dict(declared=2, changed=2))
 
     failed = [name for name, ok, _detail in checks if not ok]
     print("tilewriter selftest: %s (%d/%d checks)"
