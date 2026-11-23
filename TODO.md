@@ -3938,7 +3938,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Step: Z6
   - Depends: M5.100
   - Goal: the zoomed-out from-zero London map draws (M5.100) but keeps every suburb label (overlapping) and every small park (red outlines), and has no rail/river lines (C-8824). Match the factory's level-2 choices.
-  - Precheck: `python3 tools/tile_from_zero.py --selftest`; the M5.100 run recipe (needs the unit flash dump; the Claude sandbox has it only when Marek uploads it).
+  - Precheck: first separate emulator artefacts from data: blocky water also appears on the factory screen; put only small OSM parks into the factory tile (graft) and compare their fill with a large park, so no data change chases a 2DG-interpreter defect. Then `python3 tools/tile_from_zero.py --selftest` and the M5.100 run recipe (needs the unit flash dump).
   - Scope: census of factory level-2 place labels (which OSM `place=*`/postal districts), minimum polygon area per kind, layers 8–11 line types; write them; re-run the M5.100 zoom steps 2–3.
   - Input: EXP-2026-11-23-M5.100-level2-zoom-out, `tools/tile_from_zero.py`, `tools/osm_areas.py`.
   - Done when: the EXP has the factory level-2 label/area/line census with counts and the zoomed-out screenshots with no overlapping labels (by-eye notes next to the factory's).
