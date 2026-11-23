@@ -155,13 +155,40 @@ def _import_clarion_tile():
     return ct
 
 
-def tile_explained_percent(data: bytes, ct) -> float:
-    """Percent of nonzero bytes past 0x1000 that fall inside directory+slot spans.
+def count_table_spans(data: bytes, tile) -> list[tuple[int, int]]:
+    """Section header-table spans ``[taddr, taddr + 2*u16@taddr)`` (M4.99).
 
-    This is the exact arithmetic of the Priorities M3 snippet: union every
-    directory ``(off, end)`` and every slot ``(block_off, block_end)``, merge
-    overlapping intervals, then count nonzero bytes inside them over the total
-    nonzero bytes in ``d[0x1000:]``.
+    ``clarion_tile.read_tile`` reads ``u16@taddr`` as the table's word count
+    (``clarion_tile.py:39-41``); the span it describes is a real, count-word
+    bounded block, not padding.  ``tile_explained_percent`` previously counted
+    only directory+slot spans, so these bytes were the whole M4.96 class-d
+    residual.  The count word is load-bearing: overwriting it makes
+    ``read_tile`` raise, which is the falsifier for this classification.
+    """
+    import struct
+    spans: list[tuple[int, int]] = []
+    for section in tile["sections"]:
+        taddr = section["taddr"]
+        count = struct.unpack_from(">H", data, taddr)[0]
+        spans.append((taddr, taddr + 2 * count))
+    return spans
+
+
+def tile_explained_percent(data: bytes, ct, detail: bool = False):
+    """Percent of nonzero bytes past 0x1000 that fall inside explained spans.
+
+    The span union has two kinds (M4.99):
+
+    * directory ``(off, end)`` and slot ``(block_off, block_end)`` spans — the
+      original Priorities-snippet arithmetic from M4.86;
+    * section header-table spans ``[taddr, taddr + 2*u16@taddr)`` (M4.99) — a
+      count-word bounded block read by ``clarion_tile.read_tile``.  These were
+      the whole M4.96 class-d residual; M4.96's follow-up nominated counting
+      them so the headline stops excluding a parsed block.
+
+    Intervals are merged, then nonzero bytes inside them are counted over the
+    total nonzero bytes in ``d[0x1000:]``.  With ``detail=True`` also return
+    the pre-table percent and the last delta, so the number's move is quotable.
     """
     tile = ct.read_tile(data)
     intervals = []
@@ -171,20 +198,35 @@ def tile_explained_percent(data: bytes, ct) -> float:
                 intervals.append((directory["off"], directory["end"]))
                 intervals += [(slot["block_off"], slot["block_end"])
                               for slot in directory["slots"].values()]
-    intervals.sort()
-    merged = []
-    for start, end in intervals:
-        if merged and start <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
-        else:
-            merged.append((start, end))
-    tail = data[0x1000:]
-    nonzero_all = sum(1 for byte in tail if byte)
-    nonzero_in = sum(sum(1 for byte in data[start:end] if byte)
-                     for start, end in merged)
-    if not nonzero_all:
-        return 0.0
-    return 100.0 * nonzero_in / nonzero_all
+    intervals = sorted(intervals)
+
+    def _merged_pct(spans):
+        merged = []
+        for start, end in sorted(intervals + spans):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        tail = data[0x1000:]
+        nonzero_all = sum(1 for byte in tail if byte)
+        nonzero_in = sum(sum(1 for byte in data[start:end] if byte)
+                         for start, end in merged)
+        if not nonzero_all:
+            return 0.0, 0, nonzero_all
+        return 100.0 * nonzero_in / nonzero_all, nonzero_in, nonzero_all
+
+    old_pct, old_in, total = _merged_pct([])
+    tabs = count_table_spans(data, tile)
+    new_pct, new_in, total = _merged_pct(tabs)
+    if detail:
+        return {
+            "percent": new_pct,
+            "baseline_percent": old_pct,
+            "delta_bytes": new_in - old_in,
+            "nonzero_tail": total,
+            "table_spans": tabs,
+        }
+    return new_pct
 
 
 def signal_tile_bytes(factory_root: Path, names: tuple[str, ...] = TILE_NAMES) -> dict:
@@ -440,6 +482,36 @@ def selftest() -> int:
             ct = _import_clarion_tile()
             pct = tile_explained_percent(tile_path.read_bytes(), ct)
             chk(0.0 <= pct <= 100.0, f"synthetic tile explained percent in [0,100] ({pct:.2f}%)")
+
+            # M4.99: section-table spans are count-word bounded (u16@taddr)
+            # and read by clarion_tile.read_tile.  The positive case: the span
+            # covers the still-unexplained class-d bytes and moves the number.
+            det = tile_explained_percent(tile_path.read_bytes(), ct, detail=True)
+            chk(det["percent"] >= det["baseline_percent"],
+                "positive control: table span never lowers tile_bytes percent")
+            chk(bool(det["table_spans"]), "positive control: section-table spans enumerated")
+            import struct
+            raw = bytearray(tile_path.read_bytes())
+            for ta, tb in det["table_spans"]:
+                chk(struct.unpack_from(">H", raw, ta)[0] == (tb - ta) // 2,
+                    "positive control: u16@taddr == table_words (count word bounds span)")
+
+            # Mandatory negative mutation: overwrite the count word with 1 so
+            # the span no longer bounds the real table words.  The verdict
+            # must change — either read_tile raises (count word is load-bearing
+            # to the parser) or the span stops covering the table's nonzero
+            # bytes so delta_bytes drops.
+            mut = bytearray(raw)
+            ta0, tb0 = det["table_spans"][0]
+            struct.pack_into(">H", mut, ta0, 1)
+            flipped = False
+            try:
+                mut_det = tile_explained_percent(bytes(mut), ct, detail=True)
+                flipped = mut_det["delta_bytes"] < det["delta_bytes"]
+            except (IndexError, struct.error, ValueError):
+                flipped = True
+            chk(flipped,
+                "negative control: corrupting the count word changes the span verdict")
         except Exception as exc:  # pragma: no cover - fixture guard
             chk(False, f"synthetic tile read failed: {exc}")
         absent_tiles = signal_tile_bytes(tmp / "no-factory")
