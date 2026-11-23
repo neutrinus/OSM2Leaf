@@ -47,9 +47,18 @@ in `serial.log`).
 | `sci7` | GPS receiver | `gps`: `tools/ze0_peers/gps.py --no-fix` | model: the position frame is not known yet (M8.H73), so the map does not follow it |
 | `sci1` | audio/system microcontroller (micon) | `micon`: `tools/ze0_peers/micon.py` | model: replies are not accepted yet (`invalid TXT size`, M8.H45) |
 | `sci8` | Bluetooth module | `bt`: `tools/ze0_peers/bt.py --mode absent` | stub |
-| `UAT3:` | VCAN sub-micro (ACC, power, vehicle CAN) | `tools/ze0_peers/vcan.py` exists | **cannot attach**: QEMU has no `UAT3:` model yet (M8.H3); the launcher refuses `--peer vcan` |
+| `uat3` | VCAN sub-micro (ACC, power, vehicle CAN) | `vcan`: `tools/ze0_peers/vcan.py` | model on the `ze0-h03` external UART: frames of `docs/firmware/can.md`, wire framing still open (M8.H49); UAT3's INTEVT is not pinned yet |
+| `uat4` | second external UART | `uat4`: `tools/ze0_peers/uart.py` (raw bytes, guest TX in `uat4.tx`) | raw |
 
 Gyro and wheel pulses (dead reckoning) are not modelled (M8.H32).
+
+**`--peer vcan` stops the NK1 boot today** (2026-11-23; `--peer uat4` alone boots): the
+kernel log ends at `[1] : start: 90000000…`. `ze0-h03` raises the UART
+interrupt on INTEVT `0x8c0`, which on NK1 is SCIF0's vector and is not
+maskable for this source. On NK1 the board UARTs most likely come through
+the external interrupt controller behind INTEVT `0x240` (ISR `0x8803ec74`,
+registers at `0xb9300000`); modelling it is TODO M8.H75. Use `vcan`
+with the EU kernel B (README.md) until then.
 
 ## 4. The work directory
 
@@ -59,7 +68,7 @@ Gyro and wheel pulses (dead reckoning) are not modelled (M8.H32).
 | `qemu.out` | QEMU's own messages |
 | `mon.sock` | HMP monitor |
 | `sciN.sock` | the chardev socket of each line a peer is on |
-| `panel.ctl`, `gps.ctl`, `micon.ctl` | peer control sockets (one command line in, `OK …` back) |
+| `panel.ctl`, `gps.ctl`, `micon.ctl`, `vcan.ctl`, `uat4.ctl` | peer control sockets (one command line in, `OK …` back) |
 | `panel.log`, `panel.events` | what the panel peer did; `events` holds the decoded touch records |
 | `ipl.txt` | the IPL patch |
 

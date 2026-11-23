@@ -4644,6 +4644,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: a byte injected on `uat3` is read by the driver without any change to the interrupt routing (then the M8.H3 blocker was wrong).
   - Claims: C-8430–C-8439
 
+- [ ] **M8.H75 — External interrupt controller at `0x19300000`: route UAT3/UAT4 (and other board IRQs) to their SYSINTR on NK1**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.H3
+  - Goal: `vcan` on `uat3` cannot be used with NK1 yet: with `ze0-h03`'s default INTEVT `0x8c0` (unmaskable, same vector as SCIF0) the NK1 boot stops after the memory sections line. NK1's interrupt table (VA `0x88005bc8`, 47 rows, the table of C-6998) has no fixed SYSINTR `0x1b`; the board IRQ row INTEVT `0x240` → ISR `0x8803ec74` (SYSINTR computed) reads an external controller at P2 `0xb9300000`–`0xb9300024` (status/mask halfwords) and `0xb9800000`, so the UARTs are probably demultiplexed there.
+  - Precheck: `python3 tools/ze0_launch.py --card US.img --flash nand.bin --peer vcan` stalls at `[1] : start: 90000000…` in `serial.log`; the same run with only `--peer panel` boots (EXP-2026-11-23 note in `docs/emulator/running.md`).
+  - Scope: decode the ISR at `0x8803ec74` (which status bit gives which SYSINTR, how it is acknowledged); model the controller in `ze0` (patch `ze0-h75`), route UAT3/UAT4 through it on INTEVT `0x240`, drop the `0x8c0` default.
+  - Input: `docs/firmware/serial-uat.md`, EXP-2026-11-22-M8.H3-external-uart, `firmware/unit-flash/nk1-QY7200ND.bin`, `tools/ze0_gdb.py`.
+  - Done when: NK1 boots with `--peer vcan`, `serial_uat.dll`'s IST (`InterruptDone(0x1b)` path) runs on a byte from the peer (breakpoint hit), and the status-bit table is in `docs/firmware/serial-uat.md`; EXP + claims.
+  - Stop: one session; if the demux needs the FPGA at `0x19800000` too, document its registers and stop.
+  - Falsifier: the ISR at `0x8803ec74` never returns `0x1b` for any status bit (then UAT3 is on another line).
+  - Claims: C-8470–C-8479
+
 - [ ] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Step: model
