@@ -353,8 +353,11 @@ read only by `MapUpdate.exe`, not by `Navi.exe` at boot.
 - One exception, decided by the repository owner (2026-11-22, M8.C1k):
   `firmware/unit-flash/nk1-QY7200ND.bin`, the unit-flash kernel image NK1,
   so that `-M ze0` runs without a unit dump. Its README says what was cut
-  out and checked. No other part of a unit dump (rest of the NAND, `SRAM`,
-  `VFlash`, `PROD`) and no card image is committed.
+  out and checked. No other part of a real unit dump (rest of the NAND,
+  `SRAM`, `VFlash`, `PROD`) and no card image is committed. The
+  `*-anon.bin` files next to it (2026-11-23, M6.24) are not parts of a dump:
+  a fictitious product record and the firmware's default stores, made by
+  `tools/unitflash_anon.py` from a boot on erased flash.
 - Code is GPL-3.0-or-later; OSM-derived data is ODbL-1.0. Link to
   incompatible projects instead of copying code.
 - The original SD card is read-only: back up, verify the hash, test on a
