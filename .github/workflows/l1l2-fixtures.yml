@@ -72,6 +72,33 @@ jobs:
           PY
           exit $rc
 
+      - name: L1/L2 per-file/per-feature matrix and baseline (H41)
+        id: l1l2-matrix
+        shell: bash
+        run: |
+          python tools/l1l2_matrix.py --input l1l2.json \
+            --json l1l2-matrix.json --md l1l2-matrix.md --no-stdout-md
+          python tools/l1l2_matrix.py --input l1l2-matrix.json \
+            --check-baseline tools/fixtures/l1l2-matrix-baseline.json \
+            --no-stdout-md
+          python - <<'PY'
+          import json, os
+          r = json.load(open('l1l2-matrix.json', encoding='utf-8'))
+          s = r['summary']
+          line = (f"runnable {s['runnable_pass']} PASS / {s['runnable_fail']} FAIL / "
+                  f"{s['runnable_skip']} SKIP; rows={s['total']}; "
+                  f"key={'|'.join(r['key'])}")
+          print('l1l2_matrix:', line)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## L1/L2 per-file/per-feature matrix (H41)\n\n')
+              out.write(f"**{line}**\n\n")
+              out.write('- SKIP / NOT_COVERED / NOT_RUNNABLE are never PASS.\n')
+              out.write('- Baseline regression (status drop or missing key) fails the step; '
+                        'FAIL->PASS is an improvement, not an error.\n\n')
+              with open('l1l2-matrix.md', encoding='utf-8') as f:
+                  out.write(f.read())
+          PY
+
       - name: Upload L1/L2 matrix artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -80,6 +107,8 @@ jobs:
           path: |
             l1l2.json
             l1l2.md
+            l1l2-matrix.json
+            l1l2-matrix.md
           if-no-files-found: warn
 
       - name: Gate policy
