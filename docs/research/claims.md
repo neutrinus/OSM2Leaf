@@ -6513,3 +6513,17 @@ into three printed classes.
 | C-6747 | `tools/vcard_l3.py --selftest` covers the native binding without vendor data: `native_slots` maps three named `STDDLL` slots, ignores another DLL's slot, an ordinal-only import and an unexported name, and the suite reports `ok`. | VERIFIED (tool) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 tools/vcard_l3.py --selftest` |
 | C-6748 | The native engine is `sh4fpu.PySh4Fpu` when `native=` is given (the `STDDLL` mesh math uses the FPU); without `native=` the engine stays `PySh4`, so no existing run changes. `MODELS` is unchanged at 82 entries with no `Mesh*` key: native exports are not host stubs. | VERIFIED (tool) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 -c "import sys;sys.path.insert(0,'tools');import vcard_l3 as V;print(len(V.MODELS),[k for k in V.MODELS if 'Mesh' in k])"` |
 | C-6749 | Scope and limits: EU2011 build A only; `STDDLL.dll's one uncompressed executable section (four compressed sections unmapped); six `STDDLL` imports bound by name (the task's five plus `STD_MeshID_getAny`, the next the consumer calls). Not run: M4.55's downstream unit-0 walker, US2011, the `STDDLL` data exports. | OBSERVED | high | EXP-2026-11-22-M9.65-stddll-mesh-import |
+
+## M3.43 — L4 zoom-out INTER/FRWAY reader observation (C-8850–C-8859)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8850 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8851 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8852 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8853 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8854 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8855 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8856 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8857 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8858 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8859 | reserved (M3.43). | UNKNOWN | — | — |
