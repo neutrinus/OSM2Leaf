@@ -3252,7 +3252,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2050–C-2059
 
 - [ ] **M5.16 — `LEV3456R.DAT` generator: levels 3–6 from OSM (H11 G4)**
-  - Status: blocked · Owner: task/m5.16-lev3456-generator · Critical: no
+  - Status: in progress · Owner: task/m5.16-factory-reencode · Critical: no
   - Step: P2
   - Depends: M4.11, M5.4
   - Goal: `lev3456.py` re-encodes factory records byte-identically but nothing
