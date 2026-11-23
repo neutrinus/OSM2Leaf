@@ -614,7 +614,8 @@ def merge_names_section(bg_plain: bytes, section: bytes) -> bytes:
     return clarion_bg.build_record(record)
 
 
-def build_road_record(level, parcel, runs, table, country, write_names=True):
+def build_road_record(level, parcel, runs, table, country, write_names=True,
+                      allow_oversize=False):
     """One ``0x00fa`` record.
 
     Returns ``(plain, comp, names_section, info)`` or ``None`` when empty.
@@ -693,6 +694,19 @@ def build_road_record(level, parcel, runs, table, country, write_names=True):
     tag = struct.unpack_from(">H", plain, 4)[0]
     if tag != ROAD_TAG:
         raise CheckFailed("built record tag 0x%04x is not 0x%04x" % (tag, ROAD_TAG))
+    # The directory stores a record's inflated length in a u16 word count and
+    # the checked-in reader stops the pair table at any value > 0x10000
+    # (clarion_tile.read_dir).  A record that crosses that bound is not
+    # readable: its own pair is unreachable and every later pair in the slot
+    # is skipped, which is what surfaced as "no record at ... pair 6" and as
+    # records "changed but not regenerated" on the real B50R050R build
+    # (M5.70).  Refuse it here so the driver's drop rule drops whole ways
+    # (loudly, counted) instead of writing a slot the reader cannot walk.
+    if len(plain) // 2 > 0x10000 and not allow_oversize:
+        raise CheckFailed(
+            "parcel %r record is %d words, above the 0x10000 the directory "
+            "pair table can address" % (parcel, len(plain) // 2)
+        )
     _code, _unit, shapes = fa_encode.parse_record(plain, level)
     if not shapes or not all(shape["ok"] for shape in shapes):
         raise CheckFailed(
@@ -764,6 +778,106 @@ def road_level(tile, level):
         if entry["level"] == level:
             return entry
     return None
+
+
+def l2_slot_census(tile):
+    """Count level-2 parcels without an even (road) pair, by slot-table presence.
+
+    A level-2 directory is 32 rows x 32 columns of parcels and stores one pair
+    per parcel in a slot row.  A row absent from ``directory["slots"]`` (its
+    slot tag is ``0xffffffff``) still has 32 parcels the firmware reads: the
+    directory read length is ``0x100 * 0x141`` = ``0x14100`` bytes for kind
+    ``0x91`` (``dir_read_len.py``), which covers all 32 rows.
+
+    Returns three counts and the parcel list, so the two M5.61 numbers cannot
+    be confused::
+
+        present_rows  parcels whose row is in the slot table and whose even
+                      pair is missing (M5.61's rule, ``m5_61_build_tile.py``)
+        absent_rows   parcels in a row absent from the slot table (invisible
+                      to M5.61's rule, still read by the firmware)
+        total         present_rows + absent_rows (the Done-when set)
+
+    ``missing`` is the full list of ``(y, x, row, col)``.
+    """
+    entry = road_level(tile, 2)
+    present = 0
+    absent = 0
+    missing = []
+    if entry is None:
+        return dict(present_rows=0, absent_rows=0, total=0, missing=missing)
+    for directory in entry["dirs"]:
+        y0, x0 = directory["y"], dir_x0(directory)
+        for row in range(directory["nslots"]):
+            slot = directory["slots"].get(row)
+            have = {r["k"] for r in slot["recs"]} if slot else set()
+            for col in range(32):
+                if 2 * col + PAIR_ROAD in have:
+                    continue
+                missing.append((y0, x0, row, col))
+                if slot is None:
+                    absent += 1
+                else:
+                    present += 1
+    return dict(present_rows=present, absent_rows=absent,
+                total=len(missing), missing=missing)
+
+
+def l2_oversize_records(imf_path, cell, table, level=2, country=616):
+    """Parcels whose built record exceeds 0x10000 inflated words.
+
+    The directory stores a record's inflated length in a u16 word count and
+    ``clarion_tile.read_dir`` stops the pair table above 0x10000, so such a
+    record makes its own pair and every later pair in the slot unreachable
+    (M5.70).  Returns ``[(parcel, words, runs, comp_words), ...]``.
+    """
+    ways, _stats = load_imf(imf_path, cell)
+    runs = ways_to_runs(ways, level, table, cell)
+    out = []
+    for parcel in sorted(runs):
+        try:
+            result = build_road_record(level, parcel, runs[parcel], table, country,
+                                       write_names=False, allow_oversize=True)
+        except CheckFailed:
+            continue
+        if result is None:
+            continue
+        plain, comp, _names, _info = result
+        words = len(plain) // 2
+        if words > 0x10000:
+            out.append((parcel, words, len(runs[parcel]), len(comp) // 2))
+    return out
+
+
+def l2_written_without_slot(tile, imf_path, cell, table, level=2, country=616):
+    """Parcels the builder would write that have no even (road) pair in ``tile``.
+
+    The Done-when's "0 parcels left without a slot" is about the parcels a
+    build writes, not every parcel of the directory: a parcel OSM never
+    populates keeps the factory's gap and is not written.  This walks the IMF
+    the same way ``build`` does (``build_road_record`` per parcel, a record it
+    refuses -- e.g. above 0x10000 words -- is not written), then looks each
+    written parcel's even pair up in ``tile``.  Returns ``(parcels, missing)``.
+    """
+    ways, _stats = load_imf(imf_path, cell)
+    runs = ways_to_runs(ways, level, table, cell)
+    written = []
+    for parcel in sorted(runs):
+        try:
+            result = build_road_record(level, parcel, runs[parcel], table, country,
+                                       write_names=False)
+        except CheckFailed:
+            continue
+        if result is None:
+            continue
+        written.append(parcel)
+    missing = []
+    for y0, x0, row, col in written:
+        try:
+            find_record(tile, level, y0, x0, row, 2 * col + PAIR_ROAD)
+        except CheckFailed:
+            missing.append((y0, x0, row, col))
+    return written, missing
 
 
 def sector_fingerprint(tile, section_id):
@@ -1275,8 +1389,8 @@ def verify_factory(factory: bytes, blob: bytes, level: int, built, container=Non
                 "row-model directory y=%d x=%d does not read back: %s"
                 % (info["y0"], info["x0"], errors[:1] or "size/kind")
             )
-    old = records_by_position(before, 1)
-    new = records_by_position(after, 1)
+    old = records_by_position(before, 1, level=level)
+    new = records_by_position(after, 1, level=level)
     if container and "changed_pairs" in container:
         changed = set(tuple(k) for k in container["changed_pairs"])
     else:
@@ -1294,6 +1408,22 @@ def verify_factory(factory: bytes, blob: bytes, level: int, built, container=Non
             )
     if declared is not None:
         check_declared_parcels(factory, blob, level, declared)
+    # The levels this splice did not write must be byte-identical record for
+    # record.  Records at the same (y, x, row, pair) in two levels are common
+    # (B50R050R: 4230 shared level-1/level-2 keys), so a map without ``level=``
+    # lets one level's record mask the other's (M5.70 N2).
+    sec1_before = _section(before, 1)
+    for other in (e["level"] for e in (sec1_before["levels"] if sec1_before else ())):
+        if other == level:
+            continue
+        old_o = records_by_position(before, 1, level=other)
+        new_o = records_by_position(after, 1, level=other)
+        for key in set(old_o) | set(new_o):
+            if old_o.get(key) != new_o.get(key):
+                raise CheckFailed(
+                    "level-%d record at %r changed by a level-%d splice"
+                    % (other, key, level)
+                )
     return check_section4(after, strict=False)
 
 
@@ -1826,6 +1956,208 @@ def _fixture_imf(cell="B48R058R"):
                         tiles=["B50R058R"], nodes=["n1101", "n1001"],
                         tags={"highway": "primary"}))
     return records
+
+
+def _make_level2_factory(cell, yb, xb):
+    """A synthetic factory with a level-1 and a level-2 directory at one (y,x).
+
+    The level-2 directory has ONE present slot row, row 0, holding an odd
+    partner only in column 0 (the null-even-pair-with-partner case); rows 1..31
+    are absent (``0xffffffff`` slot tags, the ``(80,948)``-style factory gap).
+    The level-1 directory holds a road record at ``(row 4, pair 6)``, the same
+    ``(row, pair)`` a level-2 write of parcel ``(4, 3)`` changes, so a
+    level-blind comparison masks it (M5.70 N2).
+    """
+    background = _background_record([(300, 400), (340, 440), (300, 440)])
+    bg_comp = compress(background)
+    road = [(0x40 + 8 * i, 0x40 + 6 * i) for i in range(40)]
+    with _class_mapping(default_class_table()):
+        road_plain, _ = fa_encode.build_record(
+            1, yb, xb, 4, 6, road, [[(1, 0, 39, road[1:39])]],
+            hws=["secondary"], country=616)
+    road_comp = compress(road_plain)
+    l1_slots = {4: _slot(road_comp, len(road_plain) // 2, 512, pair=6, level=1)}
+    l2_row0 = [_empty_pair(k, 2) for k in range(512 // 8)]
+    l2_row0[1] = struct.pack(">II", len(bg_comp) // 2, len(background) // 2)
+    l2_slots = {
+        0: dict(tag=0, body=b"".join(l2_row0),
+                recs=[dict(k=1, raw=bg_comp, words=len(background) // 2, flag=0)],
+                block_off=0, block_end=0),
+    }
+    sec4_plain = _section4_payload()
+    sec4_comp = compress(sec4_plain)
+    sections = [
+        dict(id=1, count=0, levels=[
+            dict(level=lvl, typ=typ,
+                 dirs=([_directory(1, yb, xb, l1_slots)]
+                       if lvl == 1 else [_directory(2, yb, xb, l2_slots)]
+                       if lvl == 2 else []))
+            for lvl, typ in tile_header.LEVELS[1]]),
+        dict(id=2, count=0, levels=[dict(level=lvl, typ=typ, dirs=[])
+                                    for lvl, typ in tile_header.LEVELS[2]]),
+        dict(id=4, count=0, levels=[
+            dict(level=lvl, typ=typ,
+                 dirs=([_section4_directory(yb, xb, {
+                     0: _slot(sec4_comp, len(sec4_plain) // 2, 256, pair=0, level=1)})]
+                       if lvl == 1 else []))
+            for lvl, typ in tile_header.LEVELS[4]]),
+    ]
+    tile = dict(sections=sections)
+    for sec in tile["sections"]:
+        words, _offsets, _groups = clarion_tile.table_words(sec)
+        sec["count"] = -(-2 * words // 256)
+    boxes = [(1, [(1, 0, cell_db_bounds(cell))])]
+    tile["header"] = tile_header.author(tile_header.level_groups(tile), boxes,
+                                       cell_db_bounds(cell), "11/01/01/01")
+    return clarion_tile.write_tile(tile)
+
+
+def _m570_created_slot(check, root, cell):
+    """M5.70: level-2 even slots are created; the census and N2 are honest.
+
+    Cases:
+    * build all 32 x 32 level-2 parcels: the null even pair (row 0, col 0, an
+      odd partner exists) and the 31 absent rows are created;
+      ``l2_slot_census`` on the output is 0 and ``verify_factory`` passes
+      (positive control);
+    * the level-1 record at the level-2 write's ``(row, pair)`` is unchanged
+      (N2: a level-blind comparison hides a level-1 change);
+    * leaving one parcel out makes ``l2_slot_census`` name it (negative
+      control);
+    * a level-1 change at the shared key is rejected (N2 negative).
+    """
+    yb, xb = cell_mesh(cell)
+    factory = _make_level2_factory(cell, yb, xb)
+    factory_path = root / "l2factory.DAT"
+    factory_path.write_bytes(factory)
+
+    def imf_for(skip=()):
+        recs = []
+        n = 0
+        for row in range(32):
+            for col in range(32):
+                if (row, col) in skip:
+                    continue
+                lon0, lat0, w, h = clarion_bg.parcel_geo(2, yb, xb, row, col)
+                a = (lon0 + 0.25 * w, lat0 + 0.25 * h)
+                b = (lon0 + 0.75 * w, lat0 + 0.75 * h)
+                n1, n2 = "m%d" % (2 * n), "m%d" % (2 * n + 1)
+                recs.append(dict(imf=1, type="node", id=n1, lat=a[1], lon=a[0], tile=cell))
+                recs.append(dict(imf=1, type="node", id=n2, lat=b[1], lon=b[0], tile=cell))
+                recs.append(dict(imf=1, type="way", id="mw%d" % n, tile=cell,
+                                 tiles=[cell], nodes=[n1, n2],
+                                 tags={"highway": "residential"}))
+                n += 1
+        return "".join(json.dumps(r, sort_keys=True) + "\n" for r in recs)
+
+    # Factory census: row 0 present (32 missing), rows 1..31 absent (992).
+    census0 = l2_slot_census(read_tile_rows(factory))
+    check("M5.70 census: absent rows counted separately",
+          census0["present_rows"] == 32 and census0["absent_rows"] == 31 * 32
+          and census0["total"] == 32 * 32,
+          (census0["present_rows"], census0["absent_rows"], census0["total"]))
+
+    imf = root / "l2.imf.jsonl"
+    imf.write_text(imf_for(), encoding="utf-8")
+    factory_before = read_tile_rows(factory)
+    l1_before = records_by_position(factory_before, 1, level=1)
+    blob, report = build(str(imf), cell, factory_path=str(factory_path),
+                         level=2, country=616)
+    census1 = l2_slot_census(read_tile_rows(blob))
+    check("M5.70 created even slots: census -> 0",
+          census1["present_rows"] == 0 and census1["absent_rows"] == 0,
+          (census1["present_rows"], census1["absent_rows"]))
+    l1_after = records_by_position(read_tile_rows(blob), 1, level=1)
+    check("M5.70 N2: level-1 records unchanged by the level-2 splice",
+          l1_before == l1_after,
+          [k for k in l1_before if l1_before.get(k) != l1_after.get(k)][:3])
+    check("M5.70 container appended (whole-slot blocks, N3)",
+          report["container"]["appended"] >= 1, report["container"])
+    changed = {(yb, xb, p["parcel"]["row"], 2 * p["parcel"]["col"] + PAIR_ROAD)
+               for p in report["parcels"]}
+    try:
+        verify_factory(factory, blob, 2, changed and {
+            (yb, xb, k[2], k[3]): dict(plain=b"", comp=b"", names_sec=None)
+            for k in changed}, report["container"])
+        check("M5.70 verify_factory passes the created slots", True)
+    except CheckFailed as exc:
+        check("M5.70 verify_factory passes the created slots", False, str(exc))
+
+    # Negative control: leave parcel (2, 0) out.
+    imf_neg = root / "l2neg.imf.jsonl"
+    imf_neg.write_text(imf_for(skip={(2, 0)}), encoding="utf-8")
+    blob_neg, _rep = build(str(imf_neg), cell, factory_path=str(factory_path),
+                           level=2, country=616)
+    census_neg = l2_slot_census(read_tile_rows(blob_neg))
+    check("M5.70 negative: a parcel left out is named by the census",
+          (yb, xb, 2, 0) in census_neg["missing"] and census_neg["total"] == 1,
+          census_neg["missing"][:3])
+
+    # N2 negative: a level-1 change at the level-2 write's shared key must be
+    # caught, i.e. the level filter is not hiding the other level.
+    blob_tampered = bytearray(blob)
+    l1_dir = next(d for d in road_level(read_tile_rows(blob), 1)["dirs"]
+                  if (d["y"], dir_x0(d)) == (yb, xb))
+    off = l1_dir["slots"][4]["block_off"]
+    blob_tampered[off] ^= 0xFF
+    caught = ""
+    try:
+        verify_factory(factory, bytes(blob_tampered), 2, {
+            (yb, xb, k[2], k[3]): dict(plain=b"", comp=b"", names_sec=None)
+            for k in changed}, report["container"])
+    except CheckFailed as exc:
+        caught = str(exc)
+    check("M5.70 N2 negative: a level-1 change at a shared key is rejected",
+          "level-1 record" in caught, caught)
+
+    # The Done-when gate: every parcel the build would write has an even pair
+    # in the output (positive), and one left out is named (negative).
+    gate_kept = root / "l2.kept.imf.jsonl"
+    gate_kept.write_text(imf_for(), encoding="utf-8")
+    written, missing = l2_written_without_slot(
+        read_tile_rows(blob), str(gate_kept), cell, default_class_table(), level=2)
+    check("M5.70 written gate: all written parcels have an even pair",
+          len(written) == 32 * 32 and not missing, (len(written), missing[:3]))
+    gate_neg = root / "l2neg.kept.imf.jsonl"
+    gate_neg.write_text(imf_for(skip={(2, 0)}), encoding="utf-8")
+    # Check the FULL IMF against the tile that left (2, 0) out: the parcel is
+    # "written" by the input but absent from the tile, so the gate must name it.
+    written_n, missing_n = l2_written_without_slot(
+        read_tile_rows(blob_neg), str(gate_kept), cell, default_class_table(), level=2)
+    check("M5.70 written gate negative: a written parcel without a pair is named",
+          len(written_n) == 32 * 32 and (yb, xb, 2, 0) in missing_n and len(missing_n) == 1,
+          (len(written_n), missing_n[:3]))
+
+    # A record above 0x10000 inflated words is refused (the reader stops the
+    # pair table there), so the driver drops whole ways and the slot stays
+    # consistent instead of unreadable (M5.70 root cause on B50R050R).
+    real_build = fa_encode.build_record
+    def _oversize(*_a, **_k):
+        body = bytearray(2 * (0x10001 + 8))
+        struct.pack_into(">HH", body, 0, 0, 0)
+        struct.pack_into(">H", body, 4, ROAD_TAG)
+        body[2 * (0x10001 + 4):] = b"\x00"
+        return bytes(body), b""
+    fa_encode.build_record = _oversize
+    try:
+        lon0, lat0, w, h = clarion_bg.parcel_geo(2, yb, xb, 5, 3)
+        pts = [(lon0 + 0.2 * w, lat0 + 0.2 * h), (lon0 + 0.8 * w, lat0 + 0.8 * h)]
+        # Kneecap the reader so ``parse_record`` does not run on the 64 KiB
+        # synthetic body; the size check is what this case exercises.
+        real_parse = fa_encode.parse_record
+        fa_encode.parse_record = lambda *_a, **_k: (0, 0, [{"ok": True}])
+        too_big = ""
+        try:
+            build_road_record(2, (yb, xb, 5, 3), [(pts, "residential", "")],
+                              default_class_table(), 616, write_names=False)
+        except CheckFailed as exc:
+            too_big = str(exc)
+        finally:
+            fa_encode.parse_record = real_parse
+    finally:
+        fa_encode.build_record = real_build
+    check("M5.70 a record above 0x10000 words is refused",
+          "0x10000" in too_big and "words" in too_big, too_big)
 
 
 def selftest():
@@ -2387,6 +2719,9 @@ def selftest():
                                      {(72, 936, 4, 5), (72, 936, 4, 6)})
               == dict(declared=2, changed=2))
 
+        # M5.70: a level-2 parcel with no even slot must be creatable.
+        _m570_created_slot(check, root, cell)
+
     failed = [name for name, ok, _detail in checks if not ok]
     print("tilewriter selftest: %s (%d/%d checks)"
           % ("OK" if not failed else "FAIL " + ", ".join(failed),
@@ -2435,6 +2770,15 @@ def build_parser():
     parser.add_argument("--readback", metavar="TILE.DAT",
                         help="decode the road records of TILE.DAT and compare them with "
                              "the IMF input (writes nothing); exit 1 on any mismatch")
+    parser.add_argument("--l2-slot-census", metavar="TILE.DAT",
+                        help="print level-2 parcels without an even slot (rows present "
+                             "vs absent from the slot table); exit 1 when any is missing")
+    parser.add_argument("--l2-written-gate", metavar="TILE.DAT",
+                        help="with an IMF and --cell: check every parcel the build would "
+                             "write has an even pair in TILE.DAT (M5.70 Done-when gate)")
+    parser.add_argument("--l2-oversize", action="store_true",
+                        help="with an IMF and --cell: list parcels whose record exceeds "
+                             "0x10000 inflated words (the directory pair-table bound)")
     parser.add_argument("--selftest", action="store_true", help="run the synthetic test")
     return parser
 
@@ -2476,6 +2820,60 @@ def main(argv=None):
                    report["readback"]["total"]))
         return EXIT_OK
 
+    if args.l2_slot_census:
+        try:
+            tile = read_tile_rows(_read_bytes(args.l2_slot_census))
+        except (WriterError, OSError) as exc:
+            print("tilewriter: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        census = l2_slot_census(tile)
+        print("absent_even_present_rows: %d" % census["present_rows"])
+        print("absent_even_absent_rows: %d" % census["absent_rows"])
+        print("absent_even_total: %d" % census["total"])
+        if args.json:
+            json.dump({k: v for k, v in census.items() if k != "missing"},
+                      sys.stdout, indent=2, sort_keys=True)
+            sys.stdout.write("\n")
+        else:
+            for y0, x0, row, col in census["missing"][:20]:
+                print("  y=%d x=%d row=%d col=%d" % (y0, x0, row, col))
+            if len(census["missing"]) > 20:
+                print("  … %d more" % (len(census["missing"]) - 20))
+        return EXIT_OK if census["total"] == 0 else EXIT_CHECK_FAILED
+    if args.l2_written_gate:
+        if not args.imf:
+            parser.error("--l2-written-gate needs the split IMF as the positional argument")
+        if cell is None or not CELL_RE.match(cell):
+            parser.error("--l2-written-gate needs --cell BxxRyyR (or a tile named BxxRyyR.DAT)")
+        try:
+            table, _source = load_class_table(args.class_table)
+            tile = read_tile_rows(_read_bytes(args.l2_written_gate))
+            written, missing = l2_written_without_slot(
+                tile, args.imf, cell, table, level=2, country=args.country)
+        except (WriterError, OSError) as exc:
+            print("tilewriter: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        print("l2_written_parcels: %d" % len(written))
+        print("l2_written_without_slot: %d" % len(missing))
+        for m in missing[:20]:
+            print("  y=%d x=%d row=%d col=%d" % m)
+        return EXIT_OK if not missing else EXIT_CHECK_FAILED
+    if args.l2_oversize:
+        if not args.imf:
+            parser.error("--l2-oversize needs the split IMF as the positional argument")
+        if cell is None or not CELL_RE.match(cell):
+            parser.error("--l2-oversize needs --cell BxxRyyR")
+        try:
+            table, _source = load_class_table(args.class_table)
+            over = l2_oversize_records(args.imf, cell, table, country=args.country)
+        except (WriterError, OSError) as exc:
+            print("tilewriter: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        print("l2_oversize_records: %d" % len(over))
+        for parcel, words, runs, comp_words in over:
+            print("  y=%d x=%d row=%d col=%d words=%d runs=%d comp_words=%d"
+                  % (parcel + (words, runs, comp_words)))
+        return EXIT_OK
     if args.readback:
         if not args.imf:
             parser.error("--readback needs the split IMF as the positional argument")

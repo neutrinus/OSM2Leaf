@@ -3525,8 +3525,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a fix that makes `verify_factory` skip the check, or one that passes `B50R058R` but breaks a M5.53/M5.54 wide-row kind.
   - Claims: C-6800–C-6809
 
-- [ ] **M5.70 — level 2: the writer can create an even slot (1,313 `B50R050R` parcels have none)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.70 — level 2: the writer can create an even slot (1,313 `B50R050R` parcels have none)**
+  - Status: done · Owner: task/m5.70-l2-even-slot · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
   - Goal: M5.61's level-2 run on `B50R050R` reports `l2_unwritable_parcels: 1313`, drops 2,624 ways for that reason (2,847 in total) and then fails with `tilewriter: check failed: no record at dir y=80 x=944 slot 5 pair 6` (`tools/tilewriter.py:1291`): the factory has no even slot for that parcel and the writer cannot create one. Without this, the second half of M5.61's Done-when (every level-1 **and level-2** directory) cannot be reached by any tile.
@@ -3537,6 +3537,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if a level-2 directory is fixed-size in the factory for every cell, record the census (empty even slots per tile) and set `blocked` with the format question named, not a writer workaround.
   - Falsifier: a build that reports 0 unwritable parcels by dropping every way that would need a slot.
   - Claims: C-6810–C-6819
+  - Result: EXP-2026-11-23-M5.70-l2-even-slot; B50R050R L2 389/389 written parcels have an even slot, cardcheck+l2check+L3 both levels [0]; root cause was a 105,288-word record above the 0x10000 pair-table bound, not a missing slot (C-6810–C-6819)
 
 - [x] **M5.71 — `verify_factory` does not reject a legal-but-wrong parcel set (the M5.61 falsifier has no check)**
   - Status: done · Owner: task/m5.71-verify-factory-parcels · Critical: no · Pair: required
