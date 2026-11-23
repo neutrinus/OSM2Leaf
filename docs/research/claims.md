@@ -2469,15 +2469,15 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
 | C-2160 | `tools/l3check.py --card OUT.img --factory IMG` diffs card-relevant files (`VER_INFO/HDD_INFO.TXT`, `DRSTR001.DAT`, `REFER001/*`, `MAPAL001/*`) via 7z listing/targeted content compare and reports per-target `pass`/`fail`/`not-yet-available`, exiting non-zero on any fail and never synthesizing a pass for an unavailable reader. On M5.13b S2 (US, POINT010 edited; differing `REFER001/POINT010.DAT.cmp/.ind`) it reports `cmp_ind_reader` PASS via the M9.11 firmware chunk-decoder path (`chunk_decoder_l3.py`, byte-identical to `cmpind.decode`, `r0=42848 copied=42848`) and `poi_record_decode` `not-yet-available` (M9.10), exit 0. On S0/S1 (byte-identical to factory) it finds no differing files and reports `NO_DIFFS` (exit 3, no fail) with POI `not-yet-available`; runnable "all pass" verdicts on no-diff baselines require target wiring/baseline mode (follow-up). Not a firmware card-acceptance verdict (rule 13). | VERIFIED (tool, real S0/S1/S2 images + synthetic selftest) | M | EXP-2026-11-08-M9.12-l3check-card; `tools/l3check.py --selftest` |
-| C-2161 | RESERVED (M9.12). | — | — | — |
-| C-2162 | RESERVED (M9.12). | — | — | — |
-| C-2163 | RESERVED (M9.12). | — | — | — |
-| C-2164 | RESERVED (M9.12). | — | — | — |
-| C-2165 | RESERVED (M9.12). | — | — | — |
-| C-2166 | RESERVED (M9.12). | — | — | — |
-| C-2167 | RESERVED (M9.12). | — | — | — |
-| C-2168 | RESERVED (M9.12). | — | — | — |
-| C-2169 | RESERVED (M9.12). | — | — | — |
+| C-2161 | On an identical EU2011 factory pair `l3check.py --card IMG --factory IMG --baseline --baseline-dir DIR` runs real firmware baselines and reports `pass=2 fail=0 not-yet-available=0 total=2`, exit 0 (cmp_ind_reader EU2011 fn 0x0041c7dc r0=42848 insns=1957314; applaunch_mapcode_compare fn 0x03bd2ad8 r0=1 insns=1905), closing the M9.12 S0 all-pass gap; plain --card on the same pair stays NO_DIFFS exit 3. S2 (`us_S2.img` SHA af4c9ff14e6b2749ce0fa11e824f348724472822c68d1a98b37a465cc578e911) reports 2 differing POINT010 files, cmp_ind_reader pass r0=42848 copied=42848 insns=1044302 and POI not-yet-available, exit 0. S1 (`us_S1.img` SHA 53342430a1bb58d3ed6eb68c5563f079c710a400134d522e6192489b324c5383) is byte-identical to the US factory and with the EU-only baseline corpus is a build mismatch (not-yet-available x2, exit 3), so it is NOT claimed as a pass. Injected FAIL and a real .ind count mutation give fail and exit 1; DRY_RUN/SKIP give not-yet-available and exit 3 with zero passes. L3 verdicts only, not L4/L5 acceptance. | VERIFIED (tool, real S0/S1/S2 images, injected and real negative controls) | M | EXP-2026-11-23-M9.12-card-gate-reopen.md; `python3 tools/l3check.py --selftest`; headline --card runs quoted there |
+| C-2162 | `l3check.py --card` prints the card build in the report header (from the 96 MiB firmware prefix) and attributes each verdict row to the firmware/VA build that actually ran, never to the card build: the S2 card is us2011 but its cmp_ind_reader PASS row is eu2011 (chunk_decoder_l3.py default --build eu2011, head SHA 92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9, fn 0x0041c7dc). A not-yet-available row where no firmware ran carries no build. The adapter build is asserted equal to the targets.json cmp_ind_reader build in the existing selftest check, so drift fails loudly (34 checks, 1 skipped). | VERIFIED (tool, real S2 card) | M | EXP-2026-11-23-M9.12-card-gate-reopen.md; tools/l3check.py CARD_FIRMWARE_BUILD and selftest |
+| C-2163 | RESERVED (M9.12). | — | — | unused reservation; see EXP-2026-11-23-M9.12-card-gate-reopen.md |
+| C-2164 | RESERVED (M9.12). | — | — | unused reservation; see EXP-2026-11-23-M9.12-card-gate-reopen.md |
+| C-2165 | RESERVED (M9.12). | — | — | unused reservation; see EXP-2026-11-23-M9.12-card-gate-reopen.md |
+| C-2166 | RESERVED (M9.12). | — | — | unused reservation; see EXP-2026-11-23-M9.12-card-gate-reopen.md |
+| C-2167 | RESERVED (M9.12). | — | — | unused reservation; see EXP-2026-11-23-M9.12-card-gate-reopen.md |
+| C-2168 | RESERVED (M9.12). | — | — | unused reservation; see EXP-2026-11-23-M9.12-card-gate-reopen.md |
+| C-2169 | RESERVED (M9.12). | — | — | unused reservation; see EXP-2026-11-23-M9.12-card-gate-reopen.md |
 
 ## H45 — `l3_precond` reachability gate for reopened L3 reader reruns (C-3330–C-3339)
 | ID | Claim | Status | Confidence | Evidence |
