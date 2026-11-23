@@ -70,7 +70,15 @@ headings. Titles are the document's own English wording.
   **7.3 Background Data Frame**, **7.4 Name Data Frame**, 7.5 Additional Data
   Frame, 7.A description for road data. 7.2 sub-headings include 7.2.1 Road
   Distribution Header, 7.2.1.1 Display Class Management Record, 7.2.2 Road Data
-  List, 7.2.2.1.1.1 MultiLink Header.
+  List, 7.2.2.1.1.1 MultiLink Header. Chapter 7 has no archived PDF, so the
+  titles are taken from the archived table of contents (reproduce):
+  ```bash
+  curl -sSL "https://web.archive.org/web/20151009143714if_/http://www.kiwi-w.org/format_english/menu007.html" -o menu007.html
+  sha256sum menu007.html   # 8dbdc45b502dcdc92dff8d60f231409bc0bad26e8b8697a9287f26dd51be172b, 2470 B
+  python3 -c "import re;d=open('menu007.html','rb').read().decode('latin-1');print(re.sub(r'\s+',' ',re.sub(r'<[^>]+>',' ',d)).strip())"
+  # prints: ...V. Main Map Data Frame 7.1 Main Map Data Frame 7.2 Road Data Frame
+  #         7.3 Background Data Frame 7.4 Name Data Frame 7.5 Additional Data Frame 7.A ...
+  ```
 - **8. Route Guidance Data Frame** — 8.1 Distribution Header, 8.3 Extended Data
   Frame, 8.4 Guidance Data Frame (8.4.1.2 Intersection Name, 8.4.1.3 Road Name,
   8.4.1.4 Toward Name, 8.4.1.5 Spot Guidance, 8.4.1.6 Direction Indicator,
