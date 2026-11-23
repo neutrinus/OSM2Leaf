@@ -6604,8 +6604,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-8020–C-8029
   - Result: EXP-2026-11-22-M9.70-polish-poi-l3; record 0 a3f3bcaf and record 1 b3f3bcaf returned byte-identical; walker 8/8, accessor 1000/1000, gate 5 pass/0 fail/0 skip
 
-- [ ] **M9.71 — `tools/exp_check.py`: one command that says an EXP follows `TEMPLATE.md`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M9.71 — `tools/exp_check.py`: one command that says an EXP follows `TEMPLATE.md`**
+  - Status: done · Owner: task/m9.71-exp-check · Critical: no · Pair: required
   - Depends: H82 (done), H66 (done)
   - Goal: the SE pass on 2026-11-23 measured 80 EXP records added in 24 h; three (M1.50, M8.H35, M8.H71→M1.50 class) lack Method/Scope/Interpretation headings, five more (H83, M4.64, M4.67, M4.68, M5.72, M5.80, M8.H30) miss a sample or SHA-256, and nothing in the gate or in `claims_check.py` can see prose. A reader has to open every record, and the defects are found a cycle late. One lint, so a missing heading is a command's output, not a reviewer's memory.
   - Precheck: `ls tools/exp_check.py` fails; `grep -c '^## ' docs/experiments/EXP-2026-11-22-M1.50-us-unit-position-kentucky.md` prints headings that do not include `## Method`.
@@ -6616,6 +6616,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the tool passes a record with the headings but an elided command (`# ...`), or fails a compliant record only because of heading case/spacing.
   - Claims: C-8520–C-8529
   - Pair: required
+  - Result: EXP-2026-11-23-M9.71-exp-check; corpus exit 1 names M1.50+M8.H35; fixture/selftest/discovery exit 0; C-8520–C-8529
 
 - [ ] **M9.73 — Fill rule of the `LOC_map` cell→node table `*0x00ec3600` and the pipelined interleave of `fn 0x0041f3dc` (re-opens M9.67)**
   - Status: open · Owner: — · Critical: no · Pair: solo
