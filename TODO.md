@@ -344,7 +344,7 @@ The 23rd-pass text is in git (`af469580`).
   - Result: EXP-2026-11-08-H27-progress-dashboard.md (C-2770–C-2774); `tools/progress_report.py` (schema `osm2leaf.progress_report/v1`, `--selftest`/`--json`/`--md`, no vendor data) aggregates H26 `l1l2_fixtures` JSON + `l3check --json` + `reader-coverage.md` (explicit matrix contract, no heuristic guess) + bounded TODO/claims + explicit manual L4 S0–S3. Synthetic L3 PASS is never firmware proof; L4 never auto-passed. Example: rc 30 rows, firmware proof 0, L4 NOT RUN, problems 0. `progress_report --selftest` OK, `claims_check` OK.
 
 - [ ] **H28 — L3 w CI: corpus syntetyczny, targety runnable/blocked, opcjonalny tryb z IMG256**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/h28-l3-in-ci · Critical: no
   - Depends: H25, M9.12/M9.20 (stan bieżący harnessu; zadanie adaptuje się do aktualnych możliwości, nie wymusza PASS na blocked readerach)
   - Goal: pokazywać postęp L3 jako „które czytniki firmware da się uruchomić na naszych danych i jaki jest werdykt”, z uczciwym `BLOCKED` dla niepodłączonych readerów. Nawet 1 runnable target (`probe-zlib-cmf`) to test ścieżki wykonawczej, nie akceptacja karty.
   - Precheck: `python3 tools/l3check.py --build-corpus --selftest` przechodzi lokalnie; `targets.json` istnieje. Sprawdzić aktualne statusy (wiele `blocked` — to oczekiwane).
