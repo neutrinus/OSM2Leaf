@@ -296,8 +296,7 @@ budget: one H (H131) for five M tasks.
 first P1 writer defect — unblocks the whole P1 chain), **M5.82** (POI writer
 step 2), M4.96 (format census), M9.72 (US L3), M5.83 (names), H131 (L2 fixture).
 **For Marek:** an OSM extract on `files.viaaq.eu` (M5.61/M4.2/M5.3/M5.77/M5.78);
-KIWI material (M4.65/M4.77); the **M5.72** duplicate branch decision (retro
-action 2, still open). **In flight:** see the open draft PRs (`[ID]` titles).
+KIWI material (M4.65/M4.77). **In flight:** see the open draft PRs (`[ID]` titles).
 
 ### Map signal (read first)
 
@@ -442,7 +441,7 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-4240–C-4249
 
 - [ ] **H98 — `main` merges on unverified CI: the repo has no branch protection, so a red run blocks nothing**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: — · Critical: yes · Pair: required
   - Depends: — (admin exists on `neutrinus/OSM2Leaf`); H90 is the cost of not having it
   - Goal: a task is "done" when it is on `origin/main` (rule 6), but nothing makes a *green* run a condition of merging. `gh api repos/neutrinus/OSM2Leaf/branches/main/protection` returns **404 "Branch not protected"**, so the 12 red H90 pushes, and the 7 red runs QA found since the last pass, were merged on top of a failing gate; the only defence is a role reading `gh pr checks` (TL prompt), which H90 proved is skipped. The same gap makes "a regression gate" aspirational: H86's local proxy (step rc = gate rc) never fails on an `l1l2_fixtures` regression because that workflow is not the gated step.
   - Precheck: `gh api repos/neutrinus/OSM2Leaf/branches/main/protection 2>&1 | grep -o 'Branch not protected'` prints it; `gh api repos/neutrinus/OSM2Leaf -q .permissions` prints `"admin":true`, so the fix is available to this account.
@@ -453,6 +452,10 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: if the owner declines branch protection, ship only the `--premerge` check, record the refusal in the EXP, and keep this task `done` with `Result:` naming the fallback — do not re-open it each cycle.
   - Falsifier: `main` can still take a commit whose `CI quality gate` run is red and no local check refuses it.
   - Claims: C-4260–C-4269
+  - Note: Record fix (2026-11-23): the 404 premise is stale — protection is applied with `enforce_admins: false`, which is the owner's manual-merge bypass (Marek: "czasem merguję ręcznie, to moja decyzja"). The Done-when half about a throwaway red commit that "cannot be merged via the protected path" is unachievable while the bypass is intentional; the machine half ships as H132.
+  - Blocker: Owner decision (Marek, 2026-11-23): manual merges on purpose ("czasem merguję ręcznie, to moja decyzja"). Branch protection IS applied — `gh api repos/neutrinus/OSM2Leaf/branches/main/protection` lists 4 required contexts (quality py3.11/py3.13, l1l2 py3.11/py3.13) with `enforce_admins: false`; the admin bypass is the documented choice, not a missing refusal. The "404 / no protection" premise is stale.
+  - Unblock: Owner only: flip `enforce_admins` to true if the manual-merge policy changes (and update this task then). Do not re-open for a red merge the owner made on purpose.
+  - Result: Record fix 2026-11-23, no EXP (board truth, not a request): protection exists with 4 contexts, `enforce_admins: false` by owner decision; the missing-refusal half is intentional. H132 keeps the mechanical red-head report.
 
 - [x] **H117 — the push-to-main gate is a shadow run: 16 PRs merged in a 35-minute burst while `main` carried 4 red gate runs, and nothing refused a merge**
   - Status: done · Owner: task/h117-main-shadow-run · Critical: yes · Pair: required
@@ -891,6 +894,7 @@ The 23rd-pass text is in git (`af469580`).
   - Scope: static, builds B/C of EU2011 and EU2014. Output: a table check → 2011 → 2014 → compatible / not / unknown, and one verdict. No card is built.
   - Done when: the EXP names at least the flash-driver selection rule (how `fmmdrv_05`/`_07` is chosen) or records it as unknown with the VA where the choice is made.
   - Claims: C-6310–C-6319
+  - Stop: one static pass; if the flash-driver selection rule is not readable statically, record it as unknown with the VA where the choice is made and mark `blocked`. No card is built.
 
 - [x] **M1.39 — Hardware map of the head unit: CPU, RAM, flash, serial ports, buses (from the firmware)**
   - Status: done · Owner: claude/project-thread-64ftoc · Critical: no · Pair: solo
@@ -1219,7 +1223,7 @@ The 23rd-pass text is in git (`af469580`).
   - Status: blocked · Owner: claude/m4.23-restriction-encoding · Critical: no
   - Step: P2
   - Blocker: part b (odd-record) grammar is not decoded; the regulation-word test fails its pre-stated 0.80 threshold (37 % at level 1, 55 % at level 2, shuffle 4 %); no firmware reader VA for grid section 2 is located.
-  - Unblock: M4.24 (part b), M4.25 (word test) and M4.26 (VAs and coarse addressing); each re-opens this task when it merges.
+  - Unblock: M4.24 (section-2 part-b grammar, still blocked). Re-opens when it merges.
   - Depends: — (M4.3 is blocked on exactly this)
   - Goal: M4.3 decoded the OSM side of a turn restriction but found no
     documented tile-side layout: `rd_check` reads only kind `0x1046` (3 of 5
@@ -1254,7 +1258,7 @@ The 23rd-pass text is in git (`af469580`).
   - Input: EXP-2026-11-08-M4.23-restriction-encoding (part-b table), `tools/rd_restrictions.py` (`part_b_check`).
   - Done when: a parser reproduces every odd record of those two tiles (76 + 34 pairs) word for word, with its own `--selftest`, and the mark and side words are explained by the parent record, not fitted.
   - Stop: after two rounds of fitting without a full match, record a negative EXP and stop.
-  - Unblock: re-run M4.24 when mark (`w[1]`), `nb[2]` (side), `nb[3]`, `e[1]`, `e[2]` and the L5/L4 node ordering are derived as deterministic functions of the parent record (no fitting), then reproduce all 76+34 odd records word for word.
+  - Unblock: deriving mark (w[1]), nb[2]/nb[3], e[1]/e[2] and the L5/L4 node ordering as deterministic functions of the parent record (no fitting), then reproducing all 76+34 odd records word for word. M4.97 (open, section-2 grammar from the RPF reply path) is the live path that can supply the field table; this re-opens when it merges.
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
@@ -1570,10 +1574,13 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-5930–C-5939 (was C-2180–C-2189; fresh block for this run)
   - Note (SE 2026-11-13): the pass-3 EXP `EXP-2026-11-12-M3.13-addre-reader-3` is the current record; its status line said "done (partial)" and was corrected to `blocked`. Its "never read" labels (C-970/C-975/C-977) are scoped to **sec0 literal pools**; `Navi.exe` sec1/sec2 (decoded by `nk_decomp`) were not searched, so do not read them as "the firmware never reads these".
   - Result: `EXP-2026-11-08-M3.13-addre-reader-2.md` (C-2180–C-2187, partial; refines `EXP-2026-11-06-M3.13-addre-reader.md`). Writer-implied native `u16` class-mask signature finds `fn 0x003f56bc` (Navi.exe sec0, `0x003f56ec`) — sole `*r5 & 0xe000 >= 0xc000` (`cmp/hs` literal `0xc000`, 1/82 loads) gate, accepts ADDRE `c0/c8/c1` (C-973 tag-class mapped). Resolves via `0x003f51e0` (`0x00d53500`, POINT family); callers `0x003f5d98`/`0x003f61bc`. C-970–C-972, C-974–C-977 + sequential `2*L`/token consumers not mapped (done-when not met). L3: `0x0040b358`→`-1`, `0x0040114e` FPU-unmodelled. `refer.md`/`firmware.md`/`reader-coverage.md`/`claims.md` updated.
+  - Precheck: `python3 tools/read_watch_l3.py --help` and `python3 tools/vcard_l3.py trace` run; `python3 tools/name_loaders.py openers` lists the two `ADDRE` openers (`0x003fbed8` search type 2, `0x004011a0` → `ADDRE0<n+1>.DAT`); the `0x00d53500` slot table must be bound as in M3.11c (C-5110–C-5117) before `fn 0x003f56bc`/`fn 0x0040b358` read a record.
+  - Scope: `ADDRE` reader only: bind the `0x00d53500` slots as M3.11c did, run `fn 0x003f56bc`/`fn 0x0040b358` on one factory `ADDRE0nn` record and name the instruction that consumes each field (C-970–C-977); prove the unmapped fields are never read. No writer, no other REFER family.
+  - Stop: after two signature families or two slot-binding attempts fail — then `blocked` with an EXP listing the VAs tried; do not retry a byte signature (H51/C-2129).
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
   - Unblock: M3.23 (2026-11-20) candidates. `ICODE` (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x00401e94`, `0x004082cc`, `0x00402690`, `0x003f6c88`, `0x003f0c7c`, `0x00407724`, `0x003f07f8`, `0x004078e4`, `0x003f08cc`, `0x00409ba0` (3 are C-4694 loaders). `ZCODE`/`COORD` have no static anchor of their own (ctx +124 = 11/12 in `0x003fbed8`; `COORD001` unnamed): shared REFER list `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (C-3546). Confirm with M9.38 / M3.29.
-  - Status: blocked · Owner: task/m3.14-zcode-icode-coord · Critical: yes · Pair: solo
+  - Status: open · Owner: — · Critical: yes · Pair: solo
   - Blocker: two signature families fail in EU2011 `Navi.exe` (M3.23 candidate probe with a zero-buffer control; file-id literal scan), so no content-bound reader is located for `ZCODE0nn` or `COORD001` (`ICODE001` now has a field-to-reader map from the mount run). Done-when not met (C-5760, C-5761, C-5766).
   - Unblock: **M3.30** (drive the REFER search path with search type 11/12 and watch the `ZCODE` parser; probe `COORD001`). M3.30 itself depends on M3.29 (open), so the search-path run that issues `0x003fc0ec`/`0x003fc518` is what re-opens this task.
   - Result: EXP-2026-11-20-M3.14-zcode-icode-coord (negative for ZCODE0/COORD001, ICODE001 field map; done-when not met; C-5760–C-5767). Prior: EXP-2026-11-08-M3.14-reader-layout.
@@ -1620,12 +1627,11 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
-  - Unblock: M3.23 (2026-11-20) candidates, shared with `ADDRE`/`ZCODE` because the family is ctx +124 at run time (`python3 tools/callgraph.py rank g.json --edges e.json --depth 6 --family REFER=0x00400014,0x004000e8,0x004001bc,0x004003f4,0x004005f8 --family POINT=0x003ffe80 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0`): `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (library `0x0054233c`/`0x005468d4`/`0x0054705c` dropped); the read issuer `0x003fc518` is rank 15 (C-3545, C-3546). Split per family with M3.29.
-  - Status: blocked · Owner: task/m3.16-inter-frway · Critical: no
+  - Unblock: **M3.30** (search path: drive the REFER search type 11/12 and record the INTER/FRWAY reader), which re-opens this task.
+  - Status: open · Owner: — · Critical: no
   - Note (M3.28, 2026-11-19): openers run on the card: `0x003fbed8` with search type 4 (`INTER`) and 3 (`FRWAY`); the reads come from `0x003fc0ec` and `0x003fc518` (C-4666). The two signature searches that found nothing can be replaced by following those two functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Blocker: no content reader VA consuming the real INTER/FRWAY 12-byte table (BE `0xffff` key at +0, `length`/`offset` +6/+10) or blob fields was found in decodable build-A Navi.exe sec0 (5,553,664 B, 0 compressed exec sections, C-2128) after four halfword signature families (only `0x00392122`, a byte walker) and an L3 watch of the 11 M3.23 candidates (context reads only); consumed-field mapping unknown (C-2215–C-2219). Shared REFER001 access path is confirmed (C-2210).
-  - Unblock: **M3.29** (per-family runtime split of the M3.23 candidates) confirmed by **M9.38** (which function reads the page buffer). `M1.2f`/`M8.E1` are superseded (H51: `nk_decomp.py` decodes 245/245 build-A sections) and must not be named as a blocker (H81 closes them; verified by `va_class.py` that no `INIT` byte is needed). The earlier "derive another byte signature" family is retired per AGENTS.md (H51).
   - Depends: — (M4.16c for the `ref` lead)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
     has **0 compressed executable sections** (C-2128), so "not found" means the
@@ -1644,7 +1650,7 @@ The 23rd-pass text is in git (`af469580`).
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
   - Note (2026-11-20, rule 15): re-opened by **M3.23** (done); the r3 run is in EXP-2026-11-20-M3.18. M3.23 gave no static root of the family's own — `ICADM001` loads sit in the `ICODE` list below `0x003f2cc0` (C-4694: `0x003f0c7c`, `0x003f07f8`, `0x003f08cc`, `0x003eff20`), and `0x003f1640` (C-2381) adds no candidate of its own.
-  - Status: blocked · Owner: task/m3.18-icadm-zipfr · Critical: no
+  - Status: open · Owner: — · Critical: no
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Depends: — (M3.11/M3.13 show the access-path pattern for `REFER001`
     families and the same compression wall)
@@ -1679,12 +1685,7 @@ The 23rd-pass text is in git (`af469580`).
     control. Navi.exe sec1 is 16.8 MB compressed `.data` (3560 indirect slot
     calls; C-2128: exec readable, data compressed) — a reader reached only via
     sec1 pointers is out of static decodable scope.
-  - Unblock: resolve Navi.exe sec1 indirect/pointer-table targets for REFER001
-    family openers (compressed-` .data` recovery context) and re-run
-    structural signatures over resolved targets; and/or obtain an L3/runtime
-    trace from `0x003f1640`/REFER001/ZIPFR open to first field access that
-    names reader VAs/consumed fields or demonstrates copy-only with a positive
-    control.
+  - Unblock: **M3.30** (search path: the ICADM/ZIPFR readers on search types 11/12), which re-opens this task.
   - Note (2026-11-20, r3 after M3.23): the **open/descriptor** path is now
     located for both families. `ZIPFR001.DAT` (`0x00178e08`) is row 4 of a
     24-byte sec1 descriptor table `0x00564160` (`0x005641c0`, style 16, id
@@ -1700,11 +1701,6 @@ The 23rd-pass text is in git (`af469580`).
     caller; no 14-byte (`add #14`) ZIPFR stride and no 462-byte (`add #0x1ce`)
     /`0x00e7` ICADM stride in the located subtree. `refer.md` and matrix rows
     14–15 updated to `partial` (open path only).
-  - Unblock: **M3.29 / M9.38** — the run-time observation of the completion
-    for the ZIPFR/ICADM search (`0x003f7f94`/`0x003f7b54` with the map-file
-    task live; M9.38 read-watch) that names the handler written into `+12` (or
-    proves copy-only with a positive control); then re-run the field scan over
-    that handler. Not M3.23 (done).
   - Result: EXP-2026-11-20-M3.18-icadm-zipfr (blocked; open/descriptor path
     located and confirmed by run — C-2386–C-2389; C-2382 retracted; field
     readers not located).
@@ -1861,7 +1857,7 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
 
 - [ ] **M3.29 — Split the shared REFER candidate list per family at run time, and measure M3.23's recall**
-  - Status: blocked · Owner: task/m3.29-refer-family-split · Critical: no
+  - Status: open · Owner: — · Critical: no
   - Depends: M3.23 (done), M9.38 (read watch), M3.28 (`vcard_l3.py trace`)
   - Goal: M3.23 found that `ADDRE`, `INTER`/`FRWAY`, `ZCODE` and `COORD` go through one opener `0x003fbed8` whose family is ctx +124 at run time, so a static graph gives one shared candidate list (C-3546), and its ranking misses small walkers (C-3545). A run per family with the read watch turns the shared list into per-family readers.
   - Scope: for ctx +124 = 2, 3, 4, 11 (and 1 for `POINT`) run one caller of `0x003fbed8` on the card with M9.38's read watch over the page buffer; record the functions that load record bytes per family; compare them with M3.23's QC list and the POINT/ICODE lists (recall = confirmed readers in the top 10 / confirmed readers).
@@ -1871,10 +1867,11 @@ The 23rd-pass text is in git (`af469580`).
   - Unblock: **M9.53** — the mount half (M9.52, answer message `0x1507`) merged as #348; **M9.53** (deliver a map request); once the mount reaches state 3 the record request `0x14b5` (`0x004066ac` → … → `0x0040a474`) issues the per-family reads, and `python3 tools/m3_29_family_readers.py run` with that request gives the `ADDRE`/`INTER`/`FRWAY`/`ZCODE` reader lists. `COORD001` stays on M3.14 (no ctx +124 value, no opener — C-5624).
   - Result: EXP-2026-11-20-M3.29-refer-family-split (blocked; Stop rule met). A boot reads `POINT001`/`ICODE001`/`ICADM001` only and ends `both tasks idle` with `0x1507` undelivered; `ADDRE`/`FRWAY`/`INTER`/`ZCODE`/`COORD` get a recorded reason (C-5620). Nine confirmed readers (`0x3eff20`, `0x3f0400`, `0x3f07f8`, `0x3f0c7c`, `0x3f17a4`, `0x3f1bb0`, `0x3f255c`, `0x3f2bc4`, `0x40a8d0`) grouped by read tag (C-5621); opener `0x003fee70` names all five families but queues no read (C-5623). M3.23 top-ten recall `2/9`; `0x003eff20` is the 11th `ICODE` candidate on the committed tree, not the 8th (C-5625, C-5626). `tools/m3_29_family_readers.py`, selftest 5/5.
   - Claims: C-5620–C-5629
+  - Precheck: `python3 tools/m3_29_family_readers.py run --help` runs; `python3 tools/vcard_l3.py trace` records the `0x003fbed8` callers with ctx +124 = 2/3/4/11; the read watch is M9.38 (done, C-3606).
 
 - [ ] **M3.30 — Drive the REFER *search* path (not the mount path) with search type 11/12 and watch the `ZCODE` parser; probe whether anything reads `COORD001`**
   - Status: open · Owner: — · Critical: no · Pair: required
-  - Depends: M3.29 (open). **Follow-on: cannot be taken until M3.29 merges `done`** — M3.30 reuses M3.29's per-family run for the search path and adds the `COORD001` probe; it is not independently takeable.
+  - Depends: M3.29 (done); M9.38 (done: read watch); M3.28 (done: vcard_l3.py trace).
   - Goal: M3.14 (2026-11-20) found the mount state machine never reads `ZCODE0nn` or `COORD001` (no row at two positions, C-5764/C-5765), so the record walker is on the search path. Run the caller of `0x003fbed8` that issues the search (`0x003fc0ec`/`0x003fc518`, C-4666 note) with search type 11/12 on a real `ZCODE0nn`, watch the parser, and record any `COORD001` read at all.
   - Precheck: `tools/read_watch_l3.py --selftest` and `tools/vcard_l3.py --selftest` pass; `vcard_l3.py trace 0x003fbed8 --ctx 124=11` resolves `ZCODE001` (C-5764).
   - Scope: EU2011 `Navi.exe`; the search-message handler subtree of `0x003fbed8`; one `ZCODE0nn` file and `COORD001.DAT`. Excludes the mount path (already covered by M3.14).
@@ -2196,7 +2193,7 @@ The 23rd-pass text is in git (`af469580`).
   - Status: blocked · Owner: task/m4.51-tmc-14f4-senders · Critical: no
   - Step: P3
   - Blocker: `0x14f4` has no static sender (EU2011): the only send path `fn 0x003c0e68` (id `u16 @(8,req)`, `OSM_TaskSend`) has 25 static callers, each with one id literal (`0x14e4` only from `fn 0x003bcac0`), none `0x14f4`; 7 DLLs load neither id. The request is built at run time; the file/offset it reads needs a dynamic run.
-  - Unblock: M4.53 (L3 data layer on a synthetic `0x14f4` request) or M8.E4 (full `Navi.exe` run with a read watch on `RDSTM001.DAT` `0xcda000`/`0xe78500`/`0xeb6200`).
+  - Unblock: **M8.E4** (open: full Navi.exe run with a read watch on RDSTM001.DAT 0xcda000/0xe78500/0xeb6200), which re-opens this task.
   - Note (M4.53 done, 2026-11-20, rule 15): the file/offset half is answered in L3 — `0x14f4` reads `REFER001` POINT/ADDRE/INTER by its sub word, not `RDSTM001.DAT` (EXP-2026-11-20-M4.53-tmc-14f4-l3, C-5680); the sender VA is still unknown, so this block stays blocked on M8.E4.
   - Result: EXP-2026-11-20-M4.51-tmc-14f4-senders (negative census with control; `rdstm_reader_scan.py --callers-of`). C-5404–C-5408.
   - Depends: M4.49 (blocked; this is its unblocker)
@@ -4042,6 +4039,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Row notes:
     - C1 (HPB DMAC, `0xff801000` + mux/clock `0xffc08000`; F3/SD blocker): blocked 2026-11-21 (task/m8.c1-hpb-dmac). Static read: `SDHC.dll fn 0x039be010` (port 0 → ch 8) maps 0xffc08000 (ch 0–20, 0x40 stride) vs 0xff801000 (ch 21–22); ch8/ +0x0814 match C10 ACMD13 window `0x1fc08200`–`0x1fc08234`/`0x1fc08814` (C-1370–C-1372). `fn 0x039bafcc` waits >=4000 ms on `0x01f381c4` (C-1373). Helpers decoded (C-1376–C-1378): `sub_039be50c` SAR/DAR/TCR (+0x00/04/08 or +0x0C/10/14), `sub_039be4d0/59c/5d8` +0x24/28/2C, `sub_039be614` OR `(1<<ctx[0])` into common +0x0814 under 0x7530 ms sync, `sub_039be6b8` trigger +0x30/poll +0x34 bit 0; callers show two-layer completion (event wait + poll, EXP O8). DMARS ptr for ch8 computed as `0xffc0883c` (`ctx+96`) but no static runtime write/literal found; nk refs only +0x80c/810/814 (O9, C-1379). Blocker: DMARS request-source for SD ch 8 and nk ISR/INTC→event completion linkage unresolved; no `-M ze0` HPB-DMAC model/validation, so F3 remains blocked. Unblock: implement+validate HPB-DMAC in tools/qemu-ze0 and re-run C10 ACMD13 (or resolve DMARS/IRQ linkage by runtime trace). EXP: `docs/experiments/EXP-2026-11-20-M8.C1-hpb-dmac.md`. Claims C-1370–C-1379.
     - C10 (SD host): done 2026-11-20 (task/m8.c-sd-host-c10). Result: EXP-2026-11-20-M8.C10-sd-host (C-1460–C-1464). Patch `ze0-0008`: SDHI/TMIO-style ports at `0xffe4c000`/`0xffe4d000` on QEMU's SD bus (card detect = SD_INFO1 bit 5, `SDHC.dll fn 0x039bcedc`, EU2011), IRQs INTEVT `0xae0`/`0xb00` (SYSINTR `0x1f`/`0x20`, INT2 bit 29), SCIF stubs for a kernel-mode TEND spin in `serial_scif.dll`; `run.sh --sd`; tool `ze0_sdhost.py`. The launcher's SD check passes, `ActivateSDCardDriver` runs the card identification on the EU card and its init returns `End(NG)` without hanging boot; the first data transfer (ACMD13) uses the HPB DMAC and times out, so F3 (FAT mount) waits on **C1** (HPB DMAC, channel registers at `0xffc08200`).
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections` lists the driver modules; the C1…C22 row list is in `docs/research/todo-history-2026-11-05.md` section M8.C.
+  - Scope: static reading of one row at a time (C1…C22): read the driver init, decide stub / model / HLE; done when its init returns without hanging boot. No emulator model before M8.B5.
+  - Stop: one row per task; if a row needs M8.B5 or an unresolved DMA/IRQ (C1), record the blocker and stop — do not model the peripheral here.
 
 - [x] **M8.C1b — HPB-DMAC model on `-M ze0`: SD data transfers work, the card mounts (F3)**
   - Status: done · Owner: Claude (task/m8.c1b-hpb-dmac-model) · Critical: no · Pair: solo
@@ -5012,7 +5012,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H38-panel-peer; 32/32 selftest checks; tool:ze0_peers.panel PASS
 
 - [ ] **M8.H39 — A tap changes the screen: touch injection on `-M ze0`, end to end**
-  - Status: blocked · Owner: task/m8.h39-tap-l4 · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H38, M8.C1f
   - Goal: First interactive L4 test: tap a visible button and see the UI react.
@@ -5024,8 +5024,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the screen changes without any tap between the two screenshots (animation), making the comparison meaningless — then compare a named region.
   - Claims: C-7360–C-7369
   - Blocker: tap now arrives over SCI3 (M8.H35) and reaches kepdrv InputLcdTouch, but IsKeyControlNotify drops it: key-control bytes (+0xc4/+0xc5 & 0x0f) lock touch while the UI stays in INI_STARTUP (C-8440–C-8444)
-  - Unblock: M8.C1n
+  - Unblock: M8.C1n (done: the UI leaves INI_STARTUP and takes touch). The remaining gate is the key-control bytes (+0xc4/+0xc5 and 0x0f) that hold m_byKeyGuardAllKey; the tap test re-opens when that unlock is met.
   - Result: EXP-2026-11-22-M8.H39-tap-l4 (negative); EXP-2026-11-22-M8.H35-sci3-display-link O5 (tap reaches kepdrv, locked)
+  - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
 - [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5663,7 +5664,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: EXP-2026-11-08-M9.11b-firmware-call-target — `firmware_call` entry kind + declared sec1 `inflate_mask[17]` (VA `0x574de0` from code, values from public zlib 1.1.3, provenance disclosed, M1.2f HYPOTHESIS) fills `targets.json` `cmp_ind_reader`; `runner.py run cmp_ind_reader` on factory US POINT010 (`92aa525d…`/`48812f8c…`/`7ac54e3b…`, page `0x840ba0`) PASS exit 0 (`r0=42848`, insns 1057245); `--mutate corrupt-ind`/`swap-4-8` PASS as M9.11 controls (`r0=-1`/638, `r0=65536`/1057219). `chunk_decoder_l3 --selftest` OK, `runner selftest` OK (32), `claims_check` OK. Resolves M9.11 registration blocker; `l3check.py` untouched (M9.12).
 
 - [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
-  - Status: blocked · Owner: task/m9.12-l3check-card-r2 · Critical: yes
+  - Status: open · Owner: — · Critical: yes
   - Step: tooling
   - Note (M9.44, 2026-11-19): `python3 tools/vcard_l3.py boot` and `sweep` are a ready `--card` check for the file layer (mount verdict, table digest, every file read back through the firmware, `.cmp` through the firmware zlib): add them as the first two rows of the gate (C-4630, C-4651).
   - Note (H51, 2026-11-11): add a `--build us2011|eu2011` selector after **M1.22**: a US card is gated with US-build code. Until then report the build used in every verdict line.
@@ -5701,6 +5702,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     registration is done and no longer an unblock.
   - Result: EXP-2026-11-08-M9.12-l3check-card.md (C-2160 tool/behavior).
   - Claims: C-2160–C-2169
+  - Re-opened: rule 15, TL 2026-11-23: M9.31 merged (#633); M9.10 and M9.6 are done, so the S0/S1 no-diff baseline unblock path exists. Blocker line kept as a note; EXP-2026-11-08-M9.12-l3check-card stays negative.
 
 - [x] **M9.13 — L3 target `tile_reader` on factory and generated tiles**
   - Status: done · Owner: claude/project-thread-n1nund · Critical: yes
