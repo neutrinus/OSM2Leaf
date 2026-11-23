@@ -3102,7 +3102,7 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: if the matched-link reads go through an index built by `0x003534d4` (12-byte entries) and never touch unit 0 again, watch the index instead; if that also fails in one session, block with the VAs found.
   - Falsifier: the flipped word changes nothing in the route while the guest demonstrably read it.
   - Claims: C-9930–C-9939
-  - Result: partial: EXP-2026-11-23-M4.98-sec2-fields-ghidra (Ghidra decompile; direction w2>>14 VERIFIED on all London pairs, turn words, cost w5, length w6, boundary links w4&0x8000, header pairs; tools/sec2_fields.py, tools/ghidra/; C-9930-C-9937). Open: L4 mutation, runtime cost tables (w1 categories).
+  - Result: partial: EXP-2026-11-23-M4.98-sec2-fields-ghidra (Ghidra decompile; direction w2>>14 VERIFIED on all London pairs, turn words, cost w5, length w6, boundary links w4&0x8000, header pairs; level-2 unit 1 = level-2 to level-1 node map, VERIFIED; L4: reversed one-ways give no route, re-encoded control unchanged, two-way unchanged; tools/sec2_fields.py, tools/ghidra/; C-9930-C-9939). Open: single-link detour proof in L4, runtime cost tables (w1 categories).
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
