@@ -2112,7 +2112,7 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-960–C-969
 
 - [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/m4.8b-coord-poi-check · Critical: yes
   - Step: P4
   - Blocker: bit-packed POINT pages (`POINT002/008/029`, 5405 pages) remain
     undecoded; no 0..2047-class geographic sub-unit position field linkable to
