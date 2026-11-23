@@ -4397,6 +4397,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). With `ze0_aui.py --object-store` every control registers and ScreenStateCC runs, but the screen state stays in `INI_STARTUP`. `NOTIFY_TRANSITION_FIRST_SCREEN` finds no window for InfoBarCC (46), UnitMainteCC (40) and EvNoticeCC (41), and 29 controls fail to initialise (C-8324, C-8325).
   - Precheck: run J16's configuration (`ze0_ipl.py patch --prefer-app auiapp.exe,auirtdll.dll --copy-dlls unitflash` + `ze0_aui.py --no-aui-timeout --skip-module-wait audio.exe --object-store`). The serial log shows `Filesystem pages = 592`, `Event[SK_OTH_STARTUP] Handled at State[INI_STARTUP]` and `The CC Window is not exist. [id = 46`.
   - Scope: (1) list the 29 failing controls by CLSID: break in auirtdll on the `Failed initialize control` path and read the control record; (2) for InfoBarCC, UnitMainteCC and EvNoticeCC, find the failing step of control init (window creation, shared buffer, IPC queue, missing import); (3) decode ScreenStateCC's transition table for `INI_STARTUP` and name the event that leaves it and who raises it; (4) raise it or fix the failing init in the guest as an emulator-only patch, and take a screenshot.
+    (4) when the state leaves INI_STARTUP, check that kepdrv's key-control bytes (+0xc4/+0xc5, C-8442) unlock touch: a tap through ze0_launch.py panel.ctl must then pass IsKeyControlNotify (0x03d27344 on NK1).
   - Input: EXP-2026-11-22-M8.C1l-object-store-registry, EXP-2026-11-22-M8.C1j-audio-activate, `tools/ze0_aui.py`.
   - Done when: a screenshot shows an AUI form element, or the EXP names the event that leaves `INI_STARTUP` with the ScreenStateCC table entry and the code that raises it.
   - Stop: one session; if the event is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
@@ -5035,8 +5036,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the matched position equals the injected one in both runs (no matching visible) — then name what input is missing.
   - Claims: C-7310–C-7319
 
-- [ ] **M8.H35 — `lcddrv.dll`: the serial protocol with the display unit on `SCI3:`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H35 — `lcddrv.dll`: the serial protocol with the display unit on `SCI3:`**
+  - Status: done · Owner: task/m8.c1s-nk1-ui-input · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: The display unit is a separate assembly driven over `SCI3:` besides the video signal. Read what goes over that line: brightness, power, status, and whether touch coordinates or key presses come back on it.
@@ -5047,6 +5048,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the driver only writes and never reads the line (then input comes from elsewhere: M8.H36).
   - Claims: C-7320–C-7329
+  - Result: EXP-2026-11-22-M8.H35-sci3-display-link; docs/firmware/lcddrv.md; C-7320–C-7329; link stable at L4 on NK1 with ze0-h02, touch = cmd 51
 
 - [x] **M8.H36 — Where touch comes from: from the panel to the UI message (path, coordinates, calibration)**
   - Status: done · Owner: task/m8.h36-touch-path · Critical: yes · Pair: required
@@ -5102,9 +5104,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the event arrives (breakpoint hit) but the UI does not react, record the UI state and stop.
   - Falsifier: the screen changes without any tap between the two screenshots (animation), making the comparison meaningless — then compare a named region.
   - Claims: C-7360–C-7369
-  - Blocker: PostMessageW call from the interrupted kernel context faults (0xaa -> 0x8800ebd0); process-local UI thunk 0x03a1b154 unreachable from RSP
-  - Unblock: M8.H35
-  - Result: EXP-2026-11-22-M8.H39-tap-l4 (negative); 0 UI breakpoint hits
+  - Blocker: tap now arrives over SCI3 (M8.H35) and reaches kepdrv InputLcdTouch, but IsKeyControlNotify drops it: key-control bytes (+0xc4/+0xc5 & 0x0f) lock touch while the UI stays in INI_STARTUP (C-8440–C-8444)
+  - Unblock: M8.C1n
+  - Result: EXP-2026-11-22-M8.H39-tap-l4 (negative); EXP-2026-11-22-M8.H35-sci3-display-link O5 (tap reaches kepdrv, locked)
 
 - [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
   - Status: open · Owner: — · Critical: no · Pair: solo

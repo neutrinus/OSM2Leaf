@@ -39,7 +39,7 @@ many agents can build connectors at the same time.
 | GPS receiver | `SCI7:`, `navdrv.dll` | chardev `sci7` (M8.H1, M8.H66) | M8.H27 | `ze0_peers/gps.py` M8.H30 | M8.H31, track M8.H33, map matching M8.H34 |
 | Speed pulse, gyro, reverse | `kepdrv.dll`, timers `0xffc5a000` | patch M8.H32 | M8.H28 | in the patch, driven by the GPS peer | M8.H32 |
 | Position without sensors | saved position in flash | flash file M8.H18 | M8.H19 | `ze0_seed.py` M8.H20 | M8.H20; demo mode M8.H21 |
-| Touch panel | to be found (M8.H36) | chardev `sci3` or device/message injection | M8.H35, M8.H36 | `ze0_peers/panel.py` M8.H38 | M8.H39, live window M8.H40 |
+| Touch panel | display unit frames on `SCI3:`, command `51` (`docs/firmware/lcddrv.md`) | chardev `sci3` (`ze0-h02`), peer `panel.py --sci3` | M8.H35 (done), M8.H36 | `ze0_peers/panel.py` M8.H38 | M8.H39 (tap reaches kepdrv, locked by UI state), live window M8.H40 |
 | Hard keys, knob | to be found (M8.H37) | as touch, or the micon peer | M8.H37 | `panel.py` / `micon.py` | M8.H39 |
 | Screen out | DU + 2DG (`ze0-gfx`) | `pmemsave` today; console M8.H4 | M8.C1e, M8.C1f | — | `ze0_screenshot.py`, M8.H4 |
 | Audio microcontroller | `SCI1:`, `anwdrv.dll` | chardev `sci1` | M8.H43 | `ze0_peers/micon.py` M8.H44 | M8.H45 |
