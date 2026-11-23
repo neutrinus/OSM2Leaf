@@ -31,4 +31,31 @@ actions:
   - Claimed H141 locally (board.py claim --owner task/h141-reconcile-h132)
     after fetching the refreshed origin/main; this is the only TL-owned task.
 
-(decisions, outcome table and handoff appended below)
+
+task selection (10 tasks, disjoint files, open, deps done, no PR claim):
+  - All ten are PAIRS (driver + separate navigator subagent). Solo exceptions
+    were rejected: every candidate edits a standing gate, a user-visible
+    assertion, a committed snapshot, firmware/L3/L4 inputs or claim evidence,
+    or is a multi-command tool change. No pair was collapsed to fit a limit.
+  - Selected: M9.79 (tmpfs selftests), M9.76 (fresh card step), M9.80
+    (section-4 names L3), M8.H79 (from-zero L4 boot), H131 (semantic L2
+    fixture), H56 (progress snapshot), M2.22 (SD host DMA L4), M9.77
+    (exp_check subheadings), M4.99 (class-d residual), M5.83 (Polish names L4).
+  - Skipped: tasks with undone deps (M4.55/M4.40/M3.13/...), non-Claude runner
+    tasks (M4.2/M5.78/M9.2/M6.2/...), tasks needing absent hardware/cards,
+    H132-H139 (released via H141), H142/H84/H42 (workflow/CI overlaps with
+    H141 board work and each other), and remaining open tasks sharing files
+    with a batch task.
+  - Worktrees: 10 created from origin/main with wt, archive/head256.img
+    symlinks verified in each; manifest in ~/projekty/leafre-work/scratch/
+    dev_assignments_batch9.md.
+
+subagents launched: 20 (10 tasks × 2); session IDs in the manifest relay log.
+
+H141 (TL-owned, no subagent): PR #639's H132-H139 claim ranges C-8660-C-8739
+  collide with merged M5.86-M5.92 (8 strict errors). Released the IDs with a
+  dated TODO note, landed cycle-20 QA log on main, PR #701 merged/squashed.
+  next-id H = H143; board.py lost 0/0; todo_check --strict OK.
+
+(outcome table appended as results arrive)
+
