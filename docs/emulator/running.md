@@ -174,10 +174,20 @@ logs the DMA side.
 - **Touch y is flipped.** The firmware turns the panel y around
   (`docs/firmware/touch.md` §4), so a button at screen (x, y) takes
   `tap x 480-y`.
-- The buttons are drawn into DU plane 1, which `ze0_screenshot.py screen`
-  does not show yet (M8.C1t). To see them, use
-  `ze0_screenshot.py plane --monitor $W/live/mon.sock -n 1 -o $W/p1.png`.
-  It writes both pages of the buffer; the UI is in rows 0–479.
+- The AUI draws into DU plane 1, an 800 × 960 two-page buffer; on the
+  consent screen the DU window register (`+0x34`) stays at 480 while the
+  page with the text is rows 0–479 (M8.C1t). `ze0_screenshot.py screen`
+  falls back to that page when the window band has no visible pixel and
+  prints `plane 1: window row 480 is empty; showing page rows 0-479
+  (M8.C1t)`; after a tap the guest sets `+0x34 = 0`.
+  `ze0_screenshot.py plane --monitor $W/live/mon.sock -n 1 -o $W/p1.png`
+  writes the raw buffer (both pages, UI in rows 0–479).
+- **The AUI text and button labels are still not in `screen`.** Plane 1 is
+  keyed (`+0x48 = 0x03ff`); the widget pixels the AUI writes have bit 15
+  clear (`0x6f7f` etc.), so the colour key drops them, like the leftover
+  consent text under the map widgets. The unit gets them opaque through a
+  2DG blit that `ze0-0014` does not render yet; that is M8.C1v. To check the
+  raw page, `plane -n 1` or `tools/ze0_screenshot.py` on a non-key render.
 - GPS: the 36-byte `A0` report reaches `OBJ_GpsInfo`; with `drive on` and wheel pulses the car and the map follow it (EXP M8.H32 O13).
 
 ## 7. Without the launcher
