@@ -4,7 +4,7 @@ Marek (2026-11-22) asked what differs between the EU and the US 2011 map
 cards, radio aside, now that an EU card can pass both region checks of a US
 unit ([eu-card-on-us-unit.md](../hardware/eu-card-on-us-unit.md)). This page
 is the answer, file by file. Record: EXP-2026-11-22-M1.54-eu-us-card-diff,
-claims C-8420–C-8425.
+claims C-8450–C-8455.
 
 | Card | Image | Files on the FAT partition | Bytes in files |
 | --- | --- | --- | --- |
