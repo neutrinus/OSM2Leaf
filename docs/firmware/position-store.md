@@ -197,3 +197,20 @@ negative control; the settings block is, the position word is not.
 
 Evidence: `docs/experiments/EXP-2026-11-22-M8.H19-position-store.md`,
 claims C-7160–C-7169.
+
+## From GPS fix to car position (M8.H78)
+
+The car position follows the GPS only through map-matching in US Navi.
+A fix passes four gates, in order:
+
+| # | Gate | Where | Fails when |
+|---|---|---|---|
+| 1 | GPS history ring keeps the report | `0x0046fa60` (ring `0x00dbee60`) | A0 stat byte is not 0x00/0x10/0x20/0x30 |
+| 2 | The fix converts to a map mesh | `0x00452f54` | the point is outside the map build (Poland on a US card) |
+| 3 | A current road link exists | `*0x00dbdc30`, exit at `0x00456eb0` | no saved locator state (VSram backup not loaded) |
+| 4 | Car mesh is in the loaded mesh table, distance > 13 sets bit 0x200 | `0x0049e08c`, `0x00dd48e8`, read in `0x0049fa44` | empty table |
+
+Only with bit 0x200 of `*0x00dbd8ac` does `0x0049fa44` write the GPS
+mesh/x/y to the state `0x00dbce00`. Evidence:
+`docs/experiments/EXP-2026-11-23-M8.H78-locator-gps-gates.md`, claims
+C-8640–C-8648.
