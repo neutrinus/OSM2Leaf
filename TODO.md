@@ -6628,7 +6628,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
 
 - [ ] **M9.74 — Bind OBJDLL exports in `vcard_l3` and find the section-2 unit-0 walker (unblocks M4.55)**
-  - Status: in progress · Owner: task/m9.74-objdll-unit0-walker · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m9.74-objdll-unit0-walker · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.65 (native second-module binding for `STDDLL`, done), M4.55 (negative EXP that locates the gap)
   - Goal: EXP-2026-11-23-M4.55 proved the RPF reply handler `0x00336dc0` stores the kind-8 reply's unit-0 pointer (`0x302abbf2`) into the RPF buffer but never dereferences it: with a live reply-list watch (10/20/30 hits) the unit-0 watch records 0 reads in every reached path, and `0x003367a0` takes `(mode, mp, mp, buffers)` rather than the reply list (C-6026–C-6029). The word reads and reading VA that M4.40 needs are therefore in code not runnable with today's bindings — most likely an OBJDLL export reached with a translated mesh pointer, or a route-search stage triggered by a destination message. Make that code runnable in L3 and log the unit-0/unit-2 reads.
@@ -6640,6 +6640,23 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if binding OBJDLL needs more than wiring the M9.65 loader (a shared global map the engine cannot provide), record the missing state and block on the engine change it needs; do not guess a walker from a byte pattern.
   - Falsifier: after binding, the unit-0 watch still records 0 reads while the positive control records > 0 (then the reader is in a third module or an unissued message).
   - Claims: C-9900–C-9909
+  - Blocker: OBJDLL now binds natively (all 400 imports) and runs after mount, but the RPF reply path still records 0 unit-0 reads with a live 10/20/30 reply-list control; the unit-0 walker is in a later route-computation stage for which no L3 trigger tool exists.
+  - Unblock: M9.75
+  - Result: EXP-2026-11-23-M9.74-objdll-binding-negative (negative with controls); tools/vcard_l3.py multi-module binding; C-9900-C-9903
+
+- [ ] **M9.75 — Trigger a route computation in L3 and read-watch section-2 unit 0 (unblocks M9.74)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: tooling
+  - Depends: M9.74 (OBJDLL native binding, negative EXP), M9.65 (STDDLL binding, done), M4.55 (reply path mapped, blocked)
+  - Goal: M9.74 bound all 400 OBJDLL exports into the L3 engine (post-mount, with compressed sections mapped) and still recorded **0** unit-0 reads while the reply-list watch recorded 10/20/30 (C-9900–C-9903). The unit-0 pointer is therefore consumed by a later stage, not by the reply handler. Find the message or entry point that starts route computation, run it in L3 on the factory record, and log every unit-0/unit-2 word read with reading VA and module.
+  - Precheck: `python3 tools/rpf_reply_l3.py --selftest` passes; `python3 tools/vcard_l3.py --selftest` passes; `ls tools/ | grep -iE '^route|rpf'` prints only `rpf_reply_l3.py` (no route-request tool); `grep -n 'route' docs/research/roadmap.md | head` names M9.56/M9.72 as the route-search/simulation tasks.
+  - Scope: EU2011 build A only. Reuse M9.74's `Machine.bind_native` for OBJDLL, the M4.55 reply seeding, and the M9.65 STDDLL binding. Locate the route-request message/Mailslot in `Navi.exe` by `callgraph.py` from the route-request handler (M9.56's hint), feed a start/goal on two nodes of one factory section-2 record, and watch unit 0/unit 2. No writer, no new format claim beyond the read-watch, US2011 only as a follow-up.
+  - Input: `docs/experiments/EXP-2026-11-23-M9.74-objdll-binding-negative.md`, `docs/experiments/EXP-2026-11-23-M4.55-rpf-reply-handler-negative.md`, `tools/rpf_reply_l3.py`, `tools/vcard_l3.py`, `tools/datask_l3.py`, `tools/callgraph.py`, M9.56's block (route search entry), M9.72's block (route simulation switch `OBJ_Setting_readShopDemo 0x034b7b84`).
+  - Hints: attribute every VA through `cerom.py` (SH-4 little-endian; do not fit deltas). "No static caller" means an indirect call through a `.data` table; use `sh4xref.py --to` on the IAT thunks. If the search needs a cross-tile network level or globals the model cannot provide, record the call chain and block on the engine change.
+  - Done when: an EXP lists, for one factory record, every unit-0/unit-2 word read with its reading VA and module, with a positive control (a watch on a region the same run reads) and a negative control (a section-1 record behind the same pointers is rejected); the field table goes into `docs/format/map-tiles.md`; then M9.74 and M4.55 return to `open` (rule 15) with their `Unblock:` lines cleared.
+  - Stop: if no route-request message can be driven in L3 after two named candidates, record their IDs and block with the missing harness model; do not infer a field table from the data side alone.
+  - Falsifier: the route computation runs but the unit-0 watch records 0 reads while the positive control records > 0 (then the graph is read from a different buffer or module).
+  - Claims: C-9910–C-9919
 
 ## Retired leads
 
