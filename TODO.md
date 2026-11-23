@@ -1081,6 +1081,45 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8590–C-8599
   - Pair: required
 
+- [ ] **H140 — Workflow contract guard: CI must stay vendor-free and blocking steps must stay blocking**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: H25 (standing gate), H41/H57 (baseline policy); coordinates H84 (manual firmware-head job, open)
+  - Goal: the test system's own guarantees are prose only. Nothing fails a PR if someone adds `continue-on-error: true` to a blocking step, adds a `fetch_image.py`/`IMG256` step to a PR workflow (a 7 GB download), removes `workflow_dispatch`/`schedule` from the manual firmware job, or drops `--require-image` from its realcheck step. H84's Precheck says `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints 0; today that same command matches `main-watch.yml`, so even the recorded premise is stale. QA's target says CI must use tiny synthetic fixtures, vendor checks must stay manual/weekly, and a level's PASS must not silently disappear; this guard is the machine-checkable half of those three rules.
+  - Precheck: `ls tools/workflow_contract.py` reports no such file; `grep -rniE 'continue-on-error|fetch_image|files.viaaq.eu' .github/workflows/ci.yml .github/workflows/l1l2-fixtures.yml` hits only the informational Python 3.14 matrix and comments; `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml` prints `main-watch.yml`; `python3 tools/realcheck.py IMG256` prints `0 PASS, 0 FAIL, 8 SKIP` and exits 2.
+  - Scope: one new `tools/workflow_contract.py` with `--selftest`, `--json PATH` and a tool-local synthetic YAML fixture (no vendor bytes, no image fetch). Parse every `.github/workflows/*.yml` and fail when: a workflow with a `pull_request` trigger references `IMG256`, `fetch_image.py`, `files.viaaq.eu`, a full card tree or a `--root ROOT` check; a blocking step (quality/l3/l1l2-fixtures) carries `continue-on-error: true`; the watchdog loses `workflow_dispatch` or `schedule`; a manual realcheck step loses `--require-image`; the H41 baseline step or the H28 L3 step is removed. Report each rule as PASS/FAIL/SKIP with the workflow file as the stable key, never a line or index. Do not change what any existing gate asserts, do not edit workflow files in this task, and do not repeat H84's stale "0 files have dispatch/schedule" premise.
+  - Input: `.github/workflows/{ci,l1l2-fixtures,main-watch}.yml`, `.github/workflows/README.md`, `tools/selftest.py` (discovery), `tools/gate.py` (one-policy table), H25/H28/H41/H57/H84/H117/H126 blocks.
+  - Done when: `python3 tools/workflow_contract.py --json /tmp/opencode/wf.json` exits 0 on today's workflows and prints one PASS row per rule; three negative fixtures in `--selftest` (injected `continue-on-error` on the quality step, an `IMG256` fetch in a PR workflow, a realcheck step without `--require-image`) each exit 1 with the injected file named; `python3 tools/selftest.py --only workflow_contract` passes and a full `tools/gate.py` keeps its normal pass/skip table; an EXP records the positive control (current files) and the three negatives with commands that run as written.
+  - Stop: if a YAML rule cannot be decided without executing Actions, report `SKIP (not statically decidable)` for that rule with the reason; never silently treat it as PASS, and never make the guard non-blocking to get green.
+  - Falsifier: an injected contract break still exits 0, or the tool passes while a PR workflow contains an IMG256 fetch.
+  - Claims: C-10020–C-10029
+  - Pair: required
+
+- [ ] **H141 — Reconcile the H132-H139 block stranded on PR #639 before another H task is allocated**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: —
+  - Goal: this QA role's previous pass (log `2026-11-23-0716-4-qa.log`, eight tasks H132-H139) is still only on DRAFT PR #639, whose head has not moved since 08:37Z. On origin/main `python3 tools/board.py next-id H` returns `H132`, so the next agent who trusts that command takes an ID that PR #639 already assigned a different meaning; when that PR eventually merges, rule 9's "a reused ID is a board defect" fires. Retro 2026-11-23-2 action 1 already asks the TL to land the PR; this ticket makes the collision visible and gives the reconciliation a mechanical Done-when. This pass starts at H140 on purpose and keeps its own log on main.
+  - Precheck: `gh pr view 639 --json state,isDraft,updatedAt` prints `OPEN`/`true`/`2026-11-23T08:37:12Z`; `grep -cE '\*\*H13[2-9]' TODO.md` prints 0; `python3 tools/board.py next-id H` prints `H132`; `git ls-tree -r --name-only origin/main dev_process/ | grep 2026-11-23-0716-4-qa.log` finds nothing.
+  - Scope: board/process only. Either land PR #639 (rebase on origin/main, resolve H-blocks by ID with `board.py resolve`, keep the strict count at 0) or explicitly release H132-H139 on main with a dated note and leave the IDs unused; in both cases keep `dev_process/2026-11-23-1942-12-qa.log` (this pass) on main so the next role reads a QA log from origin/main. Do not re-plan the eight gaps: H84 already owns the IMG256 workflow, H57/H104 the baselines, H117/H126 the run visibility, and strict `todo_check` now has 0 ERROR (the old H133 premise is gone).
+  - Input: PR #639 and its branch `task/h132-h139-qa-ci-gate-repair`, retro `docs/retro/2026-11-23-2.md` actions 1 and 5, `tools/board.py` (`next-id`, `resolve`, `lost`), `TODO.md`, `dev_process/`.
+  - Done when: `git ls-tree -r --name-only origin/main dev_process/` contains the QA log named above; H132-H139 are either on origin/main with their original meanings or marked released in TODO; `python3 tools/board.py next-id H` no longer points at an ID in use by an open PR; `python3 tools/board.py lost --base origin/main` prints `tasks=0 claims=0` and `python3 tools/todo_check.py --strict` prints `0 error(s)`.
+  - Stop: if PR #639 cannot be rebased, do not force anything; record `blocked` with `Unblock:` naming the TL task that owns the stale draft, keep the ID note on main, and never delete someone else's branch.
+  - Falsifier: two tasks with the same H ID and different meanings on origin/main, or the next H task taking H132 after PR #639 lands.
+  - Claims: C-10030–C-10039
+  - Pair: required
+
+- [ ] **H142 — Refresh the test-system map so it describes the CI that actually ships**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `docs/research/test-system.md` is the living map the next QA/SE/PO pass reads, but its §2/§6 still describe the H25-era CI (`selftest --json`, `claims_check.py`, `todo_check.py`) and H26-era artifacts (`l1l2.json`, `l1l2.md`). origin/main now runs `tools/gate.py` (five rows with SKIP never PASS), a blocking H28 `l3check --build-corpus` job, the H41 per-file/per-feature matrix with a committed baseline, and the H117/H126 watchdog plus PR-head sweep; `test-system.md` calls all of that "planned". A stale map makes a reviewer plan work that already exists — exactly what happened to this pass's old H133-H139 plan.
+  - Precheck: `grep -n 'Hard gate' docs/research/test-system.md` still names `selftest.py --json`, not `tools/gate.py`; `grep -n 'planned regression' docs/research/test-system.md` lists H28/H42/H43 as unshipped though `grep -n 'L3 synthetic corpus' .github/workflows/ci.yml` hits; `grep -n 'main_watch' docs/research/test-system.md` finds no row.
+  - Scope: docs only. Update §2 (tool/workflow table), §4 (status classes), §6 (regression policy) and the L4 readiness row to name the commands and artifacts that are on origin/main, quoting each from the workflow or tool that prints it; record H42/H43/H44/H57/H84/H104/H107/H108 as open with their IDs, not as done. Keep the 2026-11-09 L4/L5 mapping note unchanged. No workflow, tool, TODO status or claim edits; no new verifier.
+  - Input: `.github/workflows/{ci,l1l2-fixtures,main-watch}.yml` and README, `tools/{gate,l1l2_matrix,l3check,main_watch}.py`, TODO blocks H25/H28/H41/H42/H57/H84/H104/H107/H108/H117/H126, `docs/research/feedback-loop.md`.
+  - Done when: every command named in the doc's §2/§6 is present verbatim in the cited workflow or tool `--help`; the doc states that H28's L3 job, H41's matrix baseline and H117/H126's watchers are shipped while H42/H43/H44/H84 remain open; `git diff --check` is clean and `python3 tools/todo_check.py` output is unchanged.
+  - Stop: if a claimed command cannot be quoted from a file on origin/main, leave it in prose as `UNVERIFIED` and open a follow-up instead of guessing.
+  - Falsifier: the doc still calls a shipped gate "planned", or names a command no file contains.
+  - Claims: C-10040–C-10049
+  - Pair: solo
+
 
 ## M2 — Map code, activation, updater
 
