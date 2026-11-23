@@ -6238,3 +6238,10 @@ into three printed classes.
 | C-8672 | The card with the empty tile passes `cardcheck --image` once DRSTR001 is rebuilt, mounts at L3 with the same 28 reads (18 parsed), and boots on `-M ze0` to `Pow Off 1st Detect` with the same 1,043 error/fail log lines as the factory card. | VERIFIED | H | EXP-2026-11-23-M5.87-empty-london-tile O2–O4; `python3 tools/datask_l3.py mount … --card-image Z2.img` |
 | C-8673 | With the London tile empty, the level-1 start screen is black except the 126-pixel position mark (SHA-256 `8ef5ee62…e29be2`): land/water/park fills, roads, street labels, shields and place labels all come from `B48R068R`. | VERIFIED | H | EXP-2026-11-23-M5.87-empty-london-tile O4; `python3 tools/ze0_screenshot.py screen` |
 | C-8674 | The place labels of the start screen (SOHO, PICCADILLY CIRCUS) are the odd background records' point-label anchors (`0x..0c`) with names, not section 4. | HYPOTHESIS | M | EXP-2026-11-23-M5.87-empty-london-tile Interpretation; test in M5.89 |
+
+## M5.86 — tile provenance (C-8660–C-8669)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8660 | `tools/tile_provenance.py` matches records by the SHA-256 of their inflated payload: the M5.85 re-laid London tile counts 172,319/172,319 factory records (all sections and levels) although its components moved. | VERIFIED | H | EXP-2026-11-23-M5.86-tile-provenance; `python3 tools/tile_provenance.py FAC.DAT Z1.DAT` |
+| C-8661 | The M5.87 empty London tile has 0 records and `--require-zero` passes; its 4 KiB header equals the factory's in 4,088 bytes (all but the section-table addresses). | VERIFIED | H | EXP-2026-11-23-M5.86-tile-provenance; `python3 tools/tile_provenance.py FAC.DAT Z2.DAT --require-zero` |
+| C-8662 | 544 records the M5.85 relayout carries are zero-length sub-record entries; provenance does not count them. | OBSERVED | M | EXP-2026-11-23-M5.86-tile-provenance Interpretation |

@@ -3745,8 +3745,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8760–C-8769
   - Result: EXP-2026-11-23-M5.85-tile-relayout; tools/tile_relayout.py; L3 same reads, L4 pixel-identical
 
-- [ ] **M5.86 — Tile provenance: how many records and bytes of a tile are the factory's**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.86 — Tile provenance: how many records and bytes of a tile are the factory's**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
   - Step: Z1
   - Depends: —
   - Goal: "built from zero" must be a number, not a claim. A tool that compares a generated tile with the factory tile and prints how many records (by section, level, family) are byte-identical to a factory record, and how many container bytes are copied.
@@ -3756,6 +3756,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `tile_provenance.py FACTORY GENERATED` prints `factory_records=N/M` per section and level and `container_constant_bytes=K`; positive control (factory vs itself) = all factory; negative control (M8.H71 tile) = the changed parcels counted as ours; `--require-zero` exits 1 when any record is factory; EXP + claims.
   - Stop: one session.
   - Claims: C-8660–C-8669
+  - Result: EXP-2026-11-23-M5.86-tile-provenance; tools/tile_provenance.py; relaid 172,319/172,319 factory, empty 0/0
 
 - [x] **M5.87 — Z2: an empty London tile from the spec — what disappears from the screen**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
