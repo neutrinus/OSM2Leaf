@@ -2863,8 +2863,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8420–C-8429
   - Result: EXP-2026-11-22-M4.93-section4-wide-rows; 64/64 dirs, residual 366814 B -> 1326 B (2 tables)
 
-- [ ] **M4.94 — KIWI probe tools on the real EU card: replay every byte test and add `--tree`**
-  - Status: in progress · Owner: task/m4.94-kiwi-probes-tree · Critical: no · Pair: required
+- [x] **M4.94 — KIWI probe tools on the real EU card: replay every byte test and add `--tree`**
+  - Status: done · Owner: task/m4.94-kiwi-probes-tree · Critical: no · Pair: required
   - Depends: M4.69 (done), M4.70 (done), M4.72 (done)
   - Goal: M4.67/M4.68/M4.69/M4.70/M4.72 (all done) each ran byte tests on a factory tree under `/home/marek/projekty/leafre-work/…`, but the committed probes (`kiwi_probe.py`, `kiwi_bg_probe.py`, `kiwi_road_probe.py`, `kiwi_route_concepts.py`) are exercised only by their `--selftest` synthetic fixtures; nobody can re-run a KIWI +/- verdict from the repo plus the card alone. Make the probes take the card tree and replay the counts the EXPs quote.
   - Precheck: `python3 tools/kiwi_road_probe.py --selftest` passes on synthetic data only; `python3 tools/kiwi_road_probe.py --help` has no `--tree`/`--card` option (`grep -c -- '--tree' tools/kiwi_road_probe.py` = 0).
@@ -2875,6 +2875,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: a probe with `--tree` on the factory tree prints a fit count different from its EXP and no input differs (then the EXP or the probe is wrong — say which).
   - Claims: C-8490–C-8499
   - Pair: required
+  - Result: EXP-2026-11-23-M4.94-kiwi-replay; 5/5 REPLAY OK (0/6000 road fits, 17659 bg records, r=0.1035, 0/4 header checks, 45 tiles); diff -r empty; gate 5/5; C-8490-C-8499
 
 - [ ] **M4.95 — Road `ref`/shield writer: emit `2=REF` from OSM and pass the M4.90 shield table**
   - Status: open · Owner: — · Critical: no · Pair: required
