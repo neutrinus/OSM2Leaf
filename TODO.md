@@ -2973,6 +2973,16 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-9930–C-9939
   - Result: EXP-2026-11-23-M4.98-sec2-fields-ghidra: direction w2>>14, turn words, cost w5, length w6, boundary links, header pairs and level-2 unit 1 named from the decompiled route search and checked on all of B48R068R (tools/sec2_fields.py, tools/ghidra/); L4: one closed route link gives a detour, a closed off-route link and the re-encode control do not, all one-ways reversed gives no route (C-9930-C-9939). Follow-up: runtime cost tables for the w1 categories.
 
+- [ ] **M4.100 — Route options from the firmware: cost profiles, avoid-motorway / ferry / toll switches, and the w1 cost column per road type**
+  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
+  - Step: P2
+  - Depends: M4.98 (link fields, done)
+  - Goal: the unit offers three routes and settings to avoid motorways, ferries and tolls. Name which data each option acts on, so the OSM writer fills those words (Marek, 2026-11-23).
+  - Input: EXP-2026-11-23-M4.100-route-cost-profiles, `tools/ze0_gdb.py`, the Navi.exe decompile (`tools/ghidra/README.md`), the owner's manual (menu paths of the route settings).
+  - Done when: each route setting in the UI is mapped to a request field (diff of the request struct at `0x00341134` after toggling it in L4) and to the link words it changes in the search; `w1 >> 12` per OSM road type is measured on the factory tile and used by `tools/sec2_writer.py`.
+  - Falsifier: toggling a setting changes the route while the request struct and cost tables stay byte-identical.
+  - Claims: C-10070–C-10079
+
 - [ ] **M4.99 — Name the class-d residual of `B48R058R`: padding or a record block, and the covering span if it is real**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: M4.96 (grade into classes, done), M4.93 (section-4 wide rows, done), M4.86 (unexplained ranking, done)
