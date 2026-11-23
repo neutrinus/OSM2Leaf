@@ -1309,25 +1309,51 @@ client posts `0x0fa0` sub `0x019a` to `LOC_map`; its receiver
 What the walk loads of the shape buffer (byte offsets from `record + 0x2c`,
 words little-endian after the firmware's swap; C-6774, C-6775):
 
+The shape/point **skeleton** (M9.67: reproduced byte for byte by
+`tools/locmap_model.py`, 2849/2849 reads on F, 44/44 on G, five positions of
+F's mesh; C-6840–C-6844):
+
 | Item | Where | Use |
 | --- | --- | --- |
-| 12 rows | bytes `2 + 4 i`: `u16` start, `u16` count | a row with count 0 is skipped; first shape at byte `4 * start` |
-| shape word 0 | | low 13 bits: length in words (next shape); top 3 bits: extra header words |
+| 12 rows | bytes `4 + 4 i`: `u16` count (start at `2 + 4 i`) | the row-count helper (`fn 0x00422384`) aborts the walk if any count is `>= 0x7d0`; a row with count 0 is skipped |
+| row shapes | first shape at byte `4 * start` | a row holds `count` shapes; next shape at `+ 2 * (w0 & 0x1fff)` |
+| shape word 0 | | low 13 bits: length in words (next shape); top 3 bits add header words |
 | shape word 1 | | low 12 bits: point count |
-| shape words 2, 3 | | word 2 top nibble `0xa`/`0xb`: per-point block skipped; word 3 low 2 bits: more header words |
-| first point | word `7 + (w3 & 3) + (w0 >> 13)` | |
-| point | `u16` x, `u16` y, 11-bit coordinates | followed by one word for each of: x bits `0x1800` not both set, y bit `0x2000`, y bit `0x1000`, y bit `0x0800` |
-| point reference | byte `2 (p + ((y >> 13) & 1)) + 4` for a point at word index `p` | word index of another point, `0xffff` = none; only for coordinates neither 0 nor `0x7ff`; the walk loads the target's y and reference word and compares the latter with `p` |
+| shape word 2 | | top nibble `0xa`/`0xb` selects the per-point path; otherwise the reference block runs |
+| shape word 3 | | low 2 bits: more header words |
+| first point | byte `B + 0xe + 2 * (w3 & 3) + 2 * (w0 >> 13)` (word 7 of the shape) | `B` = shape byte base = `4 * start` |
+| point | `u16` x, `u16` y, 11-bit coordinates | next point `4 + 2·[x bits 0x1800 not both set] + 2·[y bit 0x2000] + 2·[y bit 0x1000] + 2·[y bit 0x0800]` bytes on |
+| point reference | for a point at byte `P`, its own reference word is at `P + 4 + 2·((y >> 13) & 1)` | the word is a point index or `0xffff` = none; only a point with `(x & 0x1800) != 0x1800` enters the block (a link point has both bits set); the word names the target's x at byte `2·word` and y at `2·(word + 1)` |
+
+The reference stage (the per-point block inside `fn 0x0041f3dc`, plus its
+last-point copy) has two verified layers and one open one:
+
+- **reference word (VERIFIED):** a plain point at byte `P` reads its own
+  word at `P + 4 + 2·((y >> 13) & 1)`; on F `415/415`, on M `0xa6c1d6b3`
+  `37/37`, on M `0xa6c1d6e2` `55/55` (C-6845).
+- **target (VERIFIED):** a word `w != 0xffff` names a point at byte `2·w`
+  (`x`) and `2·(w + 1)` (`y`); the firmware reads that `y` (`ty`) only when
+  the slot's `x & 0x1800 != 0`, then compares its word with the slot index
+  (F `350/350`, M-b3 `34/34`, M-e2 `49/49`; C-6848). The M9.66 reading that
+  the block "targets a different point" was a **block/point mispairing** and
+  is retracted.
+- **count (OPEN):** every reference slot also looks its point up in a
+  cell→node table `*0x00ec3600` with index `q = (y>>9 & ~1) + (x>>10)`
+  (`0x004200f6`–`0x0042010c`); a node value `-1` skips the count, otherwise
+  `+1` lands in that cell's result-table row (`0x0042020a`–`0x00420238`).
+  That table is filled outside `fn 0x0041f3dc`; with it all-zero nothing
+  counts (G) while a low-cell point counts (Gc). The rule that fills it is
+  the remaining gap.
 
 On the factory record of `B48R058R` (mesh `0xa6c1d6b2`) the walk makes 5,363
 loads (6,868 distinct bytes of 11,264); on the generated record of M9.53 it
-makes 49 (70 distinct bytes). The generated record's first reference word is
-`0x0100` (record word 58), which points past the 184 B record: the firmware
-then loads stale pool bytes (C-6776), and none of the generated shapes is
-counted in the result table `*0x00e8f5dc` (C-6778; cause open, M9.67; writer
-fix M5.72). Record word 59, which M9.58 took for the link id, is not loaded
-by this walk (C-6777). The record tail (`record + 4*w17`) is copied but not
-loaded in this run.
+makes 46 (the M9.66 run measured 49 with a `0x0100` word at record word 58;
+the current generated record has `0xffff` there, so no load leaves the 512 B
+window). The generated shapes still count 0 in the result table
+`*0x00e8f5dc` (C-6778; cause: their points fall in cells whose `*0x00ec3600`
+nodes are `0`, see above; writer fix M5.72 waits on the fill rule). Record
+word 59, which M9.58 took for the link id, is not loaded by this walk (C-6777).
+The record tail (`record + 4*w17`) is copied but not loaded in this run.
 
 > **Not run:** the divided-record branch `fn 0x004205b8`, positions that need
 > a neighbour mesh (`STDDLL!STD_MeshID_getAny`, M9.65), the consumer of the

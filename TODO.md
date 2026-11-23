@@ -6379,7 +6379,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: the shape walk is `fn 0x0041f3dc` (EU2011 build A) in `LOC_map`, reached through `fn 0x00421548`; new `tools/locmap_l3.py` runs the firmware's own chain (position message -> requester `fn 0x00425f40` -> data-access read -> `fn 0x0042613c` copy -> `LOC_map`). Loads: F 5,363 (10,726 B, 6,868 distinct), G 49 (98 B, 70 distinct); tail buffer 0. G's reference word (record word 58 = `0x0100`) points past the record; one changed reference word gives DIFFERENT on F and G; M9.58's word 59 is not read; G's shapes are counted 0 in the result table. No display code needed. EXP-2026-11-21-M9.66-loc-map-shape-walk, C-6770–C-6779; follow-ups M9.67, M5.72
 
 - [ ] **M9.67 — Host model of the `LOC_map` shape walk `fn 0x0041f3dc`, checked against the firmware trace**
-  - Status: in progress · Owner: task/m9.67-locmap-host-model · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m9.67-locmap-host-model · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.66 (done)
   - Goal: M9.66 runs the firmware's own chain (position -> request -> record -> `LOC_map`) and shows `fn 0x0041f3dc` walks the shape words: rows, shape header, points with flag-dependent extra words, one reference word per point (C-6774, C-6775). It counts shapes of the factory record into the result table `*0x00e8f5dc` and counts nothing for our generated record (C-6778). Write the walk as a host function (rule 13: the writer needs the reader's rules) and find the rule that leaves a generated shape uncounted.
@@ -6390,6 +6390,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if another mesh needs `STDDLL!STD_MeshID_getAny` (other quadrants do, C-6779), use only meshes and positions that do not, and name M9.65 as the unblock for the rest.
   - Falsifier: the model matches F but cannot match G or the other records without per-record exceptions; then the walk depends on state outside the shape buffer and the EXP must name it.
   - Claims: C-6840–C-6849
+  - Blocker: host model reproduces the shape/point read order and reference-word/target rules but not the count stage: the four result-table counts come from the cell->node table *0x00ec3600 whose fill rule is outside fn 0x0041f3dc; full-trace SHA-1 equality and 20 more records not reached
+  - Unblock: M9.73
+  - Result: EXP-2026-11-23-M9.67-locmap-host-model (partial: read order + ref rules SAME on F/G/2 meshes; counts OPEN, G zero cause named with low-cell patch control; full-trace SHA-1 not met)
 
 - [x] **M9.68 — Mutation sweep of the tile header at L3: which fields does the map client check**
   - Status: done · Owner: task/m9.68-tile-header-sweep · Critical: no · Pair: required
@@ -6445,6 +6448,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the tool passes a record with the headings but an elided command (`# ...`), or fails a compliant record only because of heading case/spacing.
   - Claims: C-8520–C-8529
   - Pair: required
+
+- [ ] **M9.73 — Fill rule of the `LOC_map` cell→node table `*0x00ec3600` and the pipelined interleave of `fn 0x0041f3dc` (re-opens M9.67)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: P1
+  - Depends: -- (re-opens M9.67; M9.66 done)
+  - Goal: M9.67's host model reproduces the shape/point read order and the reference-word/target rules of the `LOC_map` shape walk (`RESULT: SAME` on F 2849/2849, G 44/44, two other meshes), but not the **count** stage and not the full interleaved trace SHA-1. Each reference slot looks its point up in a cell→node table `*0x00ec3600` with index `q = (y>>9 & ~1) + (x>>10)` (`0x004200f6`–`0x0042010c`); a node `-1` skips the count, else `+1` lands in that cell's result-table row (`0x0042020a`–`0x00420238`). With the table all-zero nothing counts (G); a low-cell patch (`x=y=0x40`) counts (Gc row+6 `[0,2,0,0]`).
+  - Precheck: `python3 tools/locmap_model.py verify F.json shapeF.bin` prints `RESULT: SAME`; `python3 tools/locmap_l3.py run … --json Gc.json --patch 55=0x40 --patch 56=0x40 --patch 57=0x26` prints a non-zero word +6 in the result table.
+  - Scope: EU2011; `fn 0x0041f3dc` (`0x11dc` bytes) and its `0x00ec3600`/`0x00e8f5c4`/`0x00ec1df8` tables; find what fills `*0x00ec3600` per tile/record (which caller writer, from which tile bytes) and the exact pipelined interleave of the reference block with the next point reads. Then extend `tools/locmap_model.py` to emit the full ordered trace (SHA-1 equality) and the four result-table counts.
+  - Input: EXP-2026-11-23-M9.67-locmap-host-model (C-6840–C-6849), `tools/locmap_model.py`, `tools/locmap_l3.py` (`trace`, `--shape-out`), `tools/sh4dis.py`, `tools/sh4xref.py`.
+  - Done when: `locmap_model.py` emits the full trace of F, G and 20 more `B48R058R` records with equal SHA-1 **and** the four result-table counts, the `*0x00ec3600` fill rule is named (with the tile bytes and the code that writes it), and a negative control (a shuffled node table) fails.
+  - Stop: if `*0x00ec3600` is filled only by a session/GPU path that L3 cannot drive, record the census of its readers and set `blocked` on that path.
+  - Falsifier: the count cannot be predicted from the shape buffer plus a documented tile-derived table (then the count depends on state outside both).
+  - Claims: C-8650–C-8659
 
 - [ ] **M9.72 — The `LOC_map` shape walk on the US build: port `locmap_l3.py` off the EU VAs so the US card (Marek's unit) reads our record**
   - Status: open · Owner: — · Critical: yes · Pair: required
