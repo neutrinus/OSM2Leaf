@@ -3540,8 +3540,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a build that reports 0 unwritable parcels by dropping every way that would need a slot.
   - Claims: C-6810–C-6819
 
-- [ ] **M5.71 — `verify_factory` does not reject a legal-but-wrong parcel set (the M5.61 falsifier has no check)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.71 — `verify_factory` does not reject a legal-but-wrong parcel set (the M5.61 falsifier has no check)**
+  - Status: done · Owner: task/m5.71-verify-factory-parcels · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tools/tilewriter.py`/`tools/l2check.py` are on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §7)
   - Goal: M5.61's falsifier is "the gate passes on a card where one directory was written with the ways of the neighbouring directory". The `--drop-parcel 80,944,5,3` control (a real parcel left factory) gives a tile of the same size (90,251,560 B) with a different SHA-256 (`6400851b…` vs `7c6ea211…`) and `tilewriter_rc: 0`, so `verify_factory` accepts it: it re-checks the splice it was handed, not "this parcel should differ from factory". No gate the task names reads the tile's parcel set against OSM, so a writer that puts a parcel's ways in the wrong slot passes every L1/L2/L3 check.
@@ -3552,6 +3552,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the factory cannot say which parcels a caller meant to change, record the two shapes and set `blocked` on a generator manifest instead of guessing from the diff.
   - Falsifier: a check that passes the `--drop-parcel` tile, or one that fails the real `B50R050R` tile.
   - Claims: C-6820–C-6829
+  - Result: EXP-2026-11-23-M5.71-verify-factory-parcels; fresh B50R050R rc 0 (declared 5806); --drop-parcel 80,944,5,3 rc 1 naming it; l2check tile_parcel_guard PASS/FAIL/SKIP
 
 - [ ] **M5.72 — Road writer: point reference words the `LOC_map` walk accepts**
   - Status: blocked · Owner: task/m5.72-locmap-ref-words · Critical: yes · Pair: required

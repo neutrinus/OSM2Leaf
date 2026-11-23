@@ -69,6 +69,14 @@ def selftest() -> int:
     table = {"motorway": (0, 1), "residential": (5, 9), "track": (7, 12)}
     chk(max(table, key=lambda h: table[h]) == "track",
         "drop rule picks track (7,12) before residential/motorway")
+    # M5.71: --drop-parcel removes a declared parcel's ways from the actual
+    # build but not from the declared set (so the writer's guard fails).
+    parcel_ways = {("a",): {"w1", "w2"}, ("b",): {"w3"}}
+    declared = {p for p in parcel_ways if any(w not in set() for w in parcel_ways[p])}
+    skip = set(parcel_ways[("a",)])
+    built = {p for p in parcel_ways if any(w not in skip for w in parcel_ways[p])}
+    chk(("a",) in declared and ("a",) not in built,
+        "--drop-parcel: parcel declared but left factory")
     return 0 if ok else 1
 
 
@@ -201,9 +209,6 @@ def main() -> int:
             if any(p in unwritable for p, _ in pieces):
                 no_slot.add(wid)
         skip |= no_slot
-    if keep_parcel is not None:
-        for wid in parcel_ways.get(keep_parcel, ()):
-            skip.add(wid)
 
     def records(parcel, dropped: set[str]) -> list:
         out = []
@@ -267,6 +272,38 @@ def main() -> int:
                 Path(args.report).write_text(json.dumps(report, indent=2))
                 return 1
 
+    # M5.71: the parcels this build *declares* it wrote, from OSM alone and
+    # independent of --drop-parcel (which only removes ways from the actual
+    # build below).  A parcel is declared when it is writable and the writer
+    # would emit a record for it from the benign drop set (no-slot / dense,
+    # already in ``skip`` here).  Using ``table_only`` (the writer's own
+    # ``build_road_record``) keeps the set equal to what the real build emits,
+    # so a real build never false-fails on a degenerate parcel.
+    def _declared_record(parcel):
+        try:
+            return table_only(parcel, skip)
+        except T.CheckFailed:
+            return None
+
+    declared = sorted(
+        parcel for parcel in parcel_ways
+        if parcel not in unwritable and _declared_record(parcel) is not None
+    )
+    report["declared_parcels"] = len(declared)
+    declared_path = scratch / f"{cell}-L{level}.declared.json"
+    declared_path.write_text(json.dumps({
+        "format": "ze0-declared-parcels/1",
+        "cell": cell, "level": level,
+        "parcels": [list(p) for p in declared],
+    }), encoding="utf-8")
+
+    # --drop-parcel: the negative control.  It removes that parcel's ways after
+    # the declared set is fixed, so the writer sees a declared parcel left at
+    # factory and must fail (M5.61 §7 / M5.71).
+    if keep_parcel is not None:
+        for wid in parcel_ways.get(keep_parcel, ()):
+            skip.add(wid)
+
     # Rebuild the runs the tilewriter will see.
     runs = {}
     for wid, (hw, pieces) in ways.items():
@@ -304,6 +341,7 @@ def main() -> int:
                                        "--factory", str(factory),
                                        "--class-table", str(ctab),
                                        "--no-names", "--level", str(level),
+                                       "--declared-parcels", str(declared_path),
                                        "--out", args.out, "--json"])
     report["tilewriter_rc"] = rc
     if rc != 0:
