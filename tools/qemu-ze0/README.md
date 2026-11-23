@@ -24,7 +24,7 @@ this table and an EXP entry.
 
 ### One version, one series
 
-The machine is a series of out-of-tree patches (28 on 2026-11-23) on `hw/sh4`, `hw/sd` and
+The machine is a series of out-of-tree patches (29 on 2026-11-23) on `hw/sh4`, `hw/sd` and
 `target/sh4` in [`patches/`](patches/), written against QEMU 11.1.3.
 
 Until 2026-11-21 the series existed twice: for QEMU 8.2.7/8.2.10 (the
@@ -310,6 +310,15 @@ kept), so the next run extracts cleanly.
   its build name. **NK1's serial log prints the card's lock password: never
   commit or share it.** See
   [`EXP-2026-11-22-M8.C1r-nk1-boot.md`](../../docs/experiments/EXP-2026-11-22-M8.C1r-nk1-boot.md).
+- `ze0-h04` (M8.H4): `ze0-gfx` registers a graphic console (property
+  `display`, default on; device id `ze0-gfx`) and composes DU planes 1-4
+  into it the way `tools/ze0_screenshot.py compose()` does (higher plane
+  number first, keyed mode `0x1000` drops bit-15-clear and the colour key,
+  (A)RGB1555 to x8r8g8b8), refreshed when a 2DG list ends. So QEMU has a
+  screen: HMP `screendump FILE ze0-gfx`, `-display vnc=…`, `gtk`, `sdl`.
+  `gfx-display=off` is the no-console control. `run.sh --display SPEC` and
+  `--vnc` select it; the default `--display none` is unchanged. See
+  [`EXP-2026-11-23-M8.H4-display-surface.md`](../../docs/experiments/EXP-2026-11-23-M8.H4-display-surface.md).
 - `ze0-hc1u` (M8.C1u): map areas (water, parks) are a `0xd0` stencil
   polygon followed by a `0x82` 32×32 pattern over its box. The pattern is
   now repeated and masked by the polygon, so areas follow their outlines
