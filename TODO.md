@@ -5718,7 +5718,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-9940–C-9949
 
 - [ ] **M8.H79 — First L4 boot of the from-zero card: file-open log and first divergence from the factory screen**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m8.h79-from-zero-l4-boot · Critical: yes · Pair: required
   - Depends: M5.100 (from-zero level-2 zoom card, done), M9.12 (card gate, done), M8.H8 (factory L4 trace, done), M8.H13 (l4check --card harness, done)
   - Goal: M8.H64 boots the factory-backed P0 card and M8.E4 is the full acceptance run, but nobody has booted the from-zero card of M5.100 at L4. Rule 17's card number still reads P0 from a 2026-11-17 report (M9.76 owns that repair); this task supplies the missing L4 observation for the card that has no factory bytes at all, so a "the card boots" claim is measured and not assumed.
   - Precheck: `python3 tools/l4check.py --card EUCARD --json` exits 0 on the factory card (M8.H13's harness); `python3 tools/ze0_card.py --help` exists; the M5.100 card SHA-256 prefix `1b5bafeb…aeb2f2da52` is in EXP-2026-11-23-M5.100-level2-zoom-out.
@@ -5729,6 +5729,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: both cards produce byte-identical logs and screens for a card whose tiles contain no factory bytes (the run did not use our card).
   - Claims: C-10000–C-10009
   - Pair: required
+  - Blocker: M5.100 from-zero card (SHA-256 1b5bafeb…aeb2f2da52) was reaped with scratch: 17 images >=7 GiB hashed this session, 0 match; tile 0717a913…, pinned PBF b26a178b… and intermediates deleted; stock zlib 1.3.1 unavailable, so exact rebuild cannot be confirmed. No from-zero card to boot, so no L4 file-open/screen comparison was possible
+  - Unblock: A task that re-preserves the M5.100 from-zero card (rebuild tile 0717a913… from pinned PBF b26a178b… with stock zlib 1.3.1 and re-apply the M5.100 map-code patch), confirmed by sha256sum prefix 1b5bafeb…aeb2f2da52; plus M8.C1p for the EU-card consent skip so --ui-start reaches map state. Rule 15 re-opens M8.H79 when that task merges
+  - Result: EXP-2026-11-23-M8.H79-from-zero-card-unavailable (negative; 0/17 card hashes match, selftests pass, bad-mmain control FAIL at F4; task falsifier untestable without the card)
 
 ---
 
