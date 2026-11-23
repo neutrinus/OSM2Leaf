@@ -4853,7 +4853,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7070–C-7079
 
 - [ ] **M8.H11 — L3 against L4: the `MMAIN001` reader and the `DRSTR` parser return the same values in both**
-  - Status: in progress · Owner: task/m8.h11-l3-l4-parity · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m8.h11-l3-l4-parity · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: Every L3 verdict assumes the harness runs the function the way the unit does. Check it once on the two readers that certainly run at mount: break at their entry and exit in the full system, dump arguments and outputs, and compare with the L3 targets.
@@ -4864,6 +4864,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if a breakpoint is never hit, record the coverage evidence (M8.H9 if merged) and stop.
   - Falsifier: a field differs between L3 and L4 on the same card (then the L3 preconditions are wrong for that target).
   - Claims: C-7080–C-7089
+  - Blocker: breakpoint fields at the reader/parser VAs are not capturable: reader buffer readable only at entry (stale), mount-return capture interrupt-unstable; parser tree VAs do not translate
+  - Unblock: M8.H9
+  - Result: EXP-2026-11-23-M8.H11-l3-l4-parity (negative; tool + exit-3 contract + selftest only)
 
 - [ ] **M8.H12 — The US 2011 card on `-M ze0` (Marek's unit is US)**
   - Status: open · Owner: — · Critical: no · Pair: required
