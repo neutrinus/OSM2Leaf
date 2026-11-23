@@ -8,8 +8,8 @@
 +#include "qemu/log.h"
  #include "hw/sh4/ze0_sdhi.h"
  #include "hw/sh4/ze0_hpbdmac.h"
- #include "hw/sh4/ze0_gfx.h"
-@@ -178,6 +180,8 @@
+ #include "hw/core/or-irq.h"
+@@ -179,6 +181,8 @@ struct Ze0MachineState {
      bool sd_start_locked;
      bool scif_stubs;
      char *sci_chardev[9];           /* M8.H1: chardev id per SCIF 0-8 */
@@ -18,11 +18,10 @@
      char *verinf;
      char *mapdb;
      char *ipl_patch;
-@@ -504,6 +508,197 @@
-     }
+@@ -506,6 +510,197 @@ static void ze0_load_images(Ze0MachineState *s, SuperHCPU *cpu)
      qemu_register_reset(ze0_cpu_reset, r);
  }
-+
+ 
 +
 +/* ------------------------------------------------------------------------
 + * M8.H3: external UARTs UAT3/UAT4 (serial_uat.dll, docs/firmware/serial-uat.md)
@@ -213,16 +212,14 @@
 +
 +ZE0_UART_PROPS(0)
 +ZE0_UART_PROPS(1)
- 
++
  static void ze0_init(MachineState *machine)
  {
-@@ -820,6 +1015,26 @@
-                                      "ze0-gfx-du-a7", r, 0, ZE0_GFX_SIZE);
-             memory_region_add_subregion_overlap(sysmem,
-                                                 gbase[gi] & ZE0_A7_MASK, al, 2);
-+        }
-+    }
-+
+     Ze0IntcState *intc;
+@@ -852,6 +1047,26 @@ static void ze0_init(MachineState *machine)
+         }
+     }
+ 
 +    /* M8.H3: UAT3/UAT4 as host chardevs (no property = old catch-all). */
 +    {
 +        static const hwaddr ubase[2] = { ZE0_UART_BASE3, ZE0_UART_BASE4 };
@@ -240,10 +237,13 @@
 +            ze0_uart_create(ZE0_MACHINE(machine), id, ubase[ui],
 +                            ze0_intc_irq(intc, uirq[ui]),
 +                            ZE0_MACHINE(machine)->uart_intevt[ui]);
-         }
-     }
- 
-@@ -1105,6 +1320,17 @@
++        }
++    }
++
+     /* Built-in loader (M8.A3): -kernel IMAGE, kernel-off=, app-off= */
+     ze0_load_images(ZE0_MACHINE(machine), cpu);
+ }
+@@ -1134,6 +1349,17 @@ static void ze0_machine_instance_init(Object *obj)
      ZE0_ADD_SCI_PROP(7);
      ZE0_ADD_SCI_PROP(8);
  
@@ -263,7 +263,7 @@
          "unit map code at kernel image header +0x60, read by the launcher "
 --- a/hw/sh4/ze0_intc.c
 +++ b/hw/sh4/ze0_intc.c
-@@ -70,7 +70,7 @@
+@@ -70,7 +70,7 @@ typedef struct Ze0IntcSource {
  
  #define ZE0_PRI_FIXED   0xff    /* pri_shift is the level itself */
  
@@ -272,10 +272,10 @@
      [ZE0_IRQ_TMU0] = { "TMU0", 0x400, 1, 0, 16 },
      [ZE0_IRQ_TMU1] = { "TMU1", 0x420, 1, 0, 8 },
      [ZE0_IRQ_TMU2] = { "TMU2", 0x440, 1, 0, 0 },
-@@ -111,6 +111,14 @@
-      */
-     [ZE0_IRQ_DU] = { "DU", 0x3e0, 0, ZE0_PRI_FIXED, 4 },
-     [ZE0_IRQ_2DG] = { "2DG", 0x780, 12, ZE0_PRI_FIXED, 4 },
+@@ -123,6 +123,14 @@ static const Ze0IntcSource ze0_sources[ZE0_INTC_NR_SOURCES] = {
+     [ZE0_IRQ_SCIF6] = { "SCIF6", 0x980, 14, ZE0_PRI_FIXED, 11 },
+     [ZE0_IRQ_SCIF7] = { "SCIF7", 0x9a0, 14, ZE0_PRI_FIXED, 11 },
+     [ZE0_IRQ_HSCIF] = { "HSCIF", 0xec0, 14, ZE0_PRI_FIXED, 11 },
 +    /*
 +     * M8.H3: external UARTs.  The INTEVT of UAT3 has not been pinned
 +     * (SYSINTR 0x1b measured by ze0_dbgmsg); int2_bit 0xff bypasses the
@@ -287,7 +287,7 @@
  };
  
  struct Ze0IntcState {
-@@ -143,7 +151,8 @@
+@@ -155,7 +163,8 @@ static void ze0_intc_update(Ze0IntcState *s)
  
      for (n = 0; n < ZE0_INTC_NR_SOURCES; n++) {
          struct intc_source *is = &s->desc.sources[n];
@@ -297,7 +297,7 @@
          int level = ze0_intc_level(s, n);
  
          is->vect = ze0_sources[n].intevt;
-@@ -289,6 +298,15 @@
+@@ -301,6 +310,15 @@ static void ze0_intc_realize(DeviceState *dev, Error **errp)
      ze0_intc_reset(dev);
  }
  
@@ -315,10 +315,10 @@
      return s->irqs[n];
 --- a/include/hw/sh4/ze0_intc.h
 +++ b/include/hw/sh4/ze0_intc.h
-@@ -27,10 +27,13 @@
-     ZE0_IRQ_HPBDMAC10,
-     ZE0_IRQ_DU,             /* display (M8.C1e) */
-     ZE0_IRQ_2DG,
+@@ -35,10 +35,13 @@ enum {
+     ZE0_IRQ_SCIF6,
+     ZE0_IRQ_SCIF7,
+     ZE0_IRQ_HSCIF,
 +    ZE0_IRQ_UAT3,           /* M8.H3: external UARTs */
 +    ZE0_IRQ_UAT4,
      ZE0_INTC_NR_SOURCES

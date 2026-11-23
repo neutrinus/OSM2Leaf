@@ -22,10 +22,14 @@ Lines and peers (``--peer NAME``, repeatable; default ``panel``):
   sci1   micon     tools/ze0_peers/micon.py             model: replies not
                                                         accepted (M8.H45)
   sci8   bt        tools/ze0_peers/bt.py                stub (M8.H56)
+  uat3   vcan      tools/ze0_peers/vcan.py              model: ACC/power
+                                                        frames of can.md;
+                                                        wire framing open
+                                                        (M8.H49)
+  uat4   uat4      tools/ze0_peers/uart.py              raw bytes, TX dump
   =====  ========  ===================================  ==================
 
-``vcan`` (ACC/power on ``UAT3:``) needs the external UART model M8.H3 and
-cannot be attached yet; the launcher refuses it with that reason.
+``uat3``/``uat4`` need ``ze0-h03-ext-uart.patch`` (M8.H3).
 
 Each peer with a control socket gets ``WORK/<peer>.ctl`` for
 ``tools/ze0_ui.py`` (``--panel-sock WORK/panel.ctl``, ``--gps-sock
@@ -75,9 +79,16 @@ PEERS = {
         sys.executable, os.path.join(HERE, "ze0_peers", "bt.py"),
         "--socket", os.path.join(w, "sci8.sock"), "--mode", "absent"]),
 }
-UNAVAILABLE = {
-    "vcan": "UAT3: is not modelled on -M ze0 yet (TODO M8.H3)",
-}
+PEERS["vcan"] = ("uat3", lambda w: [
+    sys.executable, os.path.join(HERE, "ze0_peers", "vcan.py"),
+    "--socket", os.path.join(w, "uat3.sock"),
+    "--control", os.path.join(w, "vcan.ctl")])
+PEERS["uat4"] = ("uat4", lambda w: [
+    sys.executable, os.path.join(HERE, "ze0_peers", "uart.py"),
+    "--socket", os.path.join(w, "uat4.sock"),
+    "--dump", os.path.join(w, "uat4.tx"),
+    "--control", os.path.join(w, "uat4.ctl")])
+UNAVAILABLE = {}
 
 
 def qemu_argv(qemu, card, nk, flash, ipl, work, lines, gdb=None, stop=False,
@@ -85,12 +96,12 @@ def qemu_argv(qemu, card, nk, flash, ipl, work, lines, gdb=None, stop=False,
     """The QEMU command line; ``lines`` is the list of SCIF names (sci3...)."""
     mopts = ["ze0", "dbgmsg=" + NK1_DBGMSG, "nk=" + nk, "ipl-patch=" + ipl,
              "flash=" + flash]
-    mopts += ["%s=c%s" % (ln, ln[3:]) for ln in lines]
+    mopts += ["%s=c%s" % (ln, ln) for ln in lines]
     argv = [qemu, "-M", ",".join(mopts), "-kernel", card,
             "-drive", "if=sd,index=0,id=sd0,file=%s,format=raw,snapshot=on" % card]
     for ln in lines:
         argv += ["-chardev", "socket,id=c%s,path=%s,server=on,wait=off" %
-                 (ln[3:], os.path.join(work, ln + ".sock"))]
+                 (ln, os.path.join(work, ln + ".sock"))]
     argv += ["-icount", icount, "-nographic",
              "-serial", "file:" + os.path.join(work, "serial.log"),
              "-monitor", "unix:%s,server,nowait" % os.path.join(work, "mon.sock")]
@@ -207,11 +218,11 @@ def selftest():
     m = argv[argv.index("-M") + 1]
     check("machine options",
           m, "ze0,dbgmsg=0x880404c4,nk=nk1.bin,ipl-patch=/w/ipl.txt,"
-             "flash=nand.bin,sci3=c3,sci7=c7")
+             "flash=nand.bin,sci3=csci3,sci7=csci7")
     check("chardev per line",
           [a for a in argv if a.startswith("socket,")],
-          ["socket,id=c3,path=/w/sci3.sock,server=on,wait=off",
-           "socket,id=c7,path=/w/sci7.sock,server=on,wait=off"])
+          ["socket,id=csci3,path=/w/sci3.sock,server=on,wait=off",
+           "socket,id=csci7,path=/w/sci7.sock,server=on,wait=off"])
     check("card is read-only", any("snapshot=on" in a for a in argv), True)
     check("gdb port", argv[argv.index("-gdb") + 1], "tcp::1240")
     check("monitor socket", argv[argv.index("-monitor") + 1],
@@ -228,7 +239,12 @@ def selftest():
     lines, peers = plan(A)
     check("duplicates folded", lines, ["sci3", "sci7"])
     # negative controls: an unmodelled line and an unknown name are refused
-    for bad, why in (("vcan", "M8.H3"), ("nope", "unknown peer")):
+    A.peer = ["vcan"]
+    lines, peers = plan(A)
+    check("vcan rides on uat3", lines, ["uat3"])
+    check("uat3 chardev", "uat3=cuat3" in qemu_argv("q", "c", "n", "f", "i", w,
+                                                    lines)[2], True)
+    for bad, why in (("nope", "unknown peer"),):
         A.peer = [bad]
         try:
             plan(A)

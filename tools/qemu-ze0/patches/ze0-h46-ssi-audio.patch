@@ -19,7 +19,7 @@ order (sorts after ze0-h01).  Evidence: EXP-2026-11-22-M8.H46-ssi-audio.
 diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
 --- a/hw/sh4/meson.build
 +++ b/hw/sh4/meson.build
-@@ -6,6 +6,6 @@
+@@ -6,6 +6,6 @@ sh4_ss.add(when: 'CONFIG_SH7750', if_true: files(
  sh4_ss.add(when: 'CONFIG_SH4_CCN', if_true: files('sh4_ccn.c'))
  sh4_ss.add(when: 'CONFIG_R2D', if_true: files('r2d.c'))
  
@@ -27,7 +27,6 @@ diff --git a/hw/sh4/meson.build b/hw/sh4/meson.build
 +sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c', 'ze0_ssi.c', 'ze0_gfx.c', 'ze0_2dg.c'))
  hw_arch += {'sh4': sh4_ss}
  sh4_ss.add(files('ze0_stubs.c'))
-diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
 --- a/hw/sh4/ze0.c
 +++ b/hw/sh4/ze0.c
 @@ -39,6 +39,7 @@
@@ -35,10 +34,10 @@ diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
  #include "hw/sh4/ze0_sdhi.h"
  #include "hw/sh4/ze0_hpbdmac.h"
 +#include "hw/sh4/ze0_ssi.h"
+ #include "hw/core/or-irq.h"
  #include "hw/sh4/ze0_gfx.h"
  #include "system/blockdev.h"
- #include "system/system.h"
-@@ -174,6 +175,12 @@
+@@ -175,6 +176,12 @@ struct Ze0MachineState {
      bool hpbdmac;
      bool hpbdmac_trace;
      bool hpbdmac_serial;
@@ -51,7 +50,7 @@ diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
      bool gfx;
      bool gfx_trace;
      bool sd_pwd_tofu;
-@@ -702,6 +709,7 @@
+@@ -703,6 +710,7 @@ ZE0_UART_PROPS(1)
  
  static void ze0_init(MachineState *machine)
  {
@@ -59,7 +58,7 @@ diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
      Ze0IntcState *intc;
      SuperHCPU *cpu;
      MemoryRegion *sysmem = get_system_memory();
-@@ -917,7 +925,6 @@
+@@ -946,7 +954,6 @@ static void ze0_init(MachineState *machine)
  
      /* SD host (M8.C10) */
      if (ZE0_MACHINE(machine)->sdhi) {
@@ -67,7 +66,7 @@ diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
          int i;
  
          if (ZE0_MACHINE(machine)->hpbdmac) {
-@@ -982,6 +989,33 @@
+@@ -1011,6 +1018,33 @@ static void ze0_init(MachineState *machine)
          }
      }
  
@@ -101,7 +100,7 @@ diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
      /* Kernel debug text on serial port 0 (M8.B6), off unless dbgmsg=VA. */
      if (ZE0_MACHINE(machine)->dbgmsg_va) {
          ze0_dbgmsg_chr = serial_hd(0);
-@@ -1092,6 +1126,37 @@
+@@ -1121,6 +1155,37 @@ static void ze0_set_hpbdmac_serial(Object *obj, bool value, Error **errp)
      ZE0_MACHINE(obj)->hpbdmac_serial = value;
  }
  
@@ -139,7 +138,7 @@ diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
  static bool ze0_get_gfx(Object *obj, Error **errp)
  {
      return ZE0_MACHINE(obj)->gfx;
-@@ -1266,6 +1331,28 @@
+@@ -1295,6 +1360,28 @@ static void ze0_machine_instance_init(Object *obj)
      s->scif_stubs = true;
      s->hpbdmac = true;
      s->hpbdmac_serial = true;
@@ -168,7 +167,6 @@ diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
      object_property_add_bool(obj, "hpbdmac-serial", ze0_get_hpbdmac_serial,
                               ze0_set_hpbdmac_serial);
      object_property_set_description(obj, "hpbdmac-serial",
-diff --git a/hw/sh4/ze0_hpbdmac.c b/hw/sh4/ze0_hpbdmac.c
 --- a/hw/sh4/ze0_hpbdmac.c
 +++ b/hw/sh4/ze0_hpbdmac.c
 @@ -65,6 +65,7 @@
@@ -179,7 +177,7 @@ diff --git a/hw/sh4/ze0_hpbdmac.c b/hw/sh4/ze0_hpbdmac.c
  
  #define DSAR0   0x00
  #define DDAR0   0x04
-@@ -117,6 +118,51 @@
+@@ -118,6 +119,51 @@ static bool ze0_hpbdmac_is_scif(uint32_t a, unsigned reg)
  }
  
  /* Serial channels (M8.C2a): memory -> SCIF FTDR, at once. */
@@ -231,7 +229,7 @@ diff --git a/hw/sh4/ze0_hpbdmac.c b/hw/sh4/ze0_hpbdmac.c
  static void ze0_hpbdmac_run_serial(Ze0HpbDmacState *s, int ch)
  {
      unsigned unit = 1;      /* DCR 0x20: byte beats (bit 8 clear) */
-@@ -127,6 +173,10 @@
+@@ -128,6 +174,10 @@ static void ze0_hpbdmac_run_serial(Ze0HpbDmacState *s, int ch)
      uint8_t buf[256];
      char hex[2 * 32 + 1] = "";
  
@@ -242,13 +240,13 @@ diff --git a/hw/sh4/ze0_hpbdmac.c b/hw/sh4/ze0_hpbdmac.c
      if (ze0_hpbdmac_is_scif(*sar, SCIF_FRDR)) {
          /*
           * M8.H1: a chardev peer may feed the sh_serial FIFO.  Remember the
-diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
 --- a/hw/sh4/ze0_intc.c
 +++ b/hw/sh4/ze0_intc.c
-@@ -104,6 +104,16 @@
+@@ -103,6 +103,16 @@ static Ze0IntcSource ze0_sources[ZE0_INTC_NR_SOURCES] = {
+     [ZE0_IRQ_HPBDMAC3] = { "HPBDMAC3", 0xbc0, 19, ZE0_PRI_FIXED, 14 },
      [ZE0_IRQ_HPBDMAC7] = { "HPBDMAC7", 0xc40, 19, ZE0_PRI_FIXED, 14 },
      [ZE0_IRQ_HPBDMAC10] = { "HPBDMAC10", 0xca0, 19, ZE0_PRI_FIXED, 14 },
-     /*
++    /*
 +     * WaveSSI1/2 audio DMA (M8.H46), read from nk.exe's OAL table at
 +     * 0x88005e18/0x88005e28/0x88005e38: rows {0xcc0, fn 0x8803e8e4,
 +     * 14, 0x24} (ch11), {0xda0, fn 0x8803e98c, 14, 0x24} (ch12) and
@@ -258,54 +256,9 @@ diff --git a/hw/sh4/ze0_intc.c b/hw/sh4/ze0_intc.c
 +    [ZE0_IRQ_HPBDMAC11] = { "HPBDMAC11", 0xcc0, 19, ZE0_PRI_FIXED, 14 },
 +    [ZE0_IRQ_HPBDMAC12] = { "HPBDMAC12", 0xda0, 19, ZE0_PRI_FIXED, 14 },
 +    [ZE0_IRQ_HPBDMAC13] = { "HPBDMAC13", 0xdc0, 19, ZE0_PRI_FIXED, 14 },
-+    /*
+     /*
       * Display (M8.C1e): rows {0x3e0, fn 0x8803fc64, 4, 0x21} (DU: masks
       * INT2 bit 0, tests DSSR 0x800) and {0x780, fn 0x8803fbcc, 4, 0x22}
-      * (2DG: masks INT2 bit 12, tests SR bit 0).  gdisubdrv.dll calls
-diff --git a/include/hw/sh4/ze0_hpbdmac.h b/include/hw/sh4/ze0_hpbdmac.h
---- a/include/hw/sh4/ze0_hpbdmac.h
-+++ b/include/hw/sh4/ze0_hpbdmac.h
-@@ -11,6 +11,8 @@
- #include "qemu/timer.h"
- #include "qom/object.h"
- 
-+typedef struct Ze0SsiState Ze0SsiState;
-+
- #define TYPE_ZE0_HPBDMAC "ze0-hpbdmac"
- OBJECT_DECLARE_SIMPLE_TYPE(Ze0HpbDmacState, ZE0_HPBDMAC)
- 
-@@ -24,6 +26,7 @@
-     qemu_irq irq[ZE0_HPBDMAC_NR_CH]; /* one line per channel (sysbus irq n = channel n) */
-     bool trace;
-     bool serial;                    /* move memory -> SCIF FTDR on other channels */
-+    Ze0SsiState *ssi;               /* PCM sink for channels 11/12/13 (M8.H46) */
- 
-     uint32_t regs[ZE0_HPBDMAC_SIZE / 4];
-     Ze0SdhiState *sdhi[2];
-@@ -41,5 +44,8 @@
- 
- void ze0_hpbdmac_attach_sdhi(Ze0HpbDmacState *s, int port, Ze0SdhiState *h,
-                              hwaddr buf_addr);
-+void ze0_hpbdmac_attach_ssi(Ze0HpbDmacState *s, Ze0SsiState *ssi);
-+/* Model self-test: arm channel 12 with PCM already in guest RAM. */
-+void ze0_hpbdmac_selftest_audio(Ze0HpbDmacState *s, uint32_t sar, uint32_t n);
- 
- #endif
-diff --git a/include/hw/sh4/ze0_intc.h b/include/hw/sh4/ze0_intc.h
---- a/include/hw/sh4/ze0_intc.h
-+++ b/include/hw/sh4/ze0_intc.h
-@@ -25,6 +25,9 @@
-     ZE0_IRQ_HPBDMAC3,
-     ZE0_IRQ_HPBDMAC7,
-     ZE0_IRQ_HPBDMAC10,
-+    ZE0_IRQ_HPBDMAC11,      /* audio DMA: SYSINTR 0x24/0x25 (M8.H46) */
-+    ZE0_IRQ_HPBDMAC12,
-+    ZE0_IRQ_HPBDMAC13,
-     ZE0_IRQ_DU,             /* display (M8.C1e) */
-     ZE0_IRQ_2DG,
-     ZE0_IRQ_UAT3,           /* M8.H3: external UARTs */
-diff --git a/hw/sh4/ze0_ssi.c b/hw/sh4/ze0_ssi.c
-new file mode 100644
 --- /dev/null
 +++ b/hw/sh4/ze0_ssi.c
 @@ -0,0 +1,206 @@
@@ -515,8 +468,46 @@ new file mode 100644
 +}
 +
 +type_init(ze0_ssi_register)
-diff --git a/include/hw/sh4/ze0_ssi.h b/include/hw/sh4/ze0_ssi.h
-new file mode 100644
+--- a/include/hw/sh4/ze0_hpbdmac.h
++++ b/include/hw/sh4/ze0_hpbdmac.h
+@@ -11,6 +11,8 @@
+ #include "qemu/timer.h"
+ #include "qom/object.h"
+ 
++typedef struct Ze0SsiState Ze0SsiState;
++
+ #define TYPE_ZE0_HPBDMAC "ze0-hpbdmac"
+ OBJECT_DECLARE_SIMPLE_TYPE(Ze0HpbDmacState, ZE0_HPBDMAC)
+ 
+@@ -24,6 +26,7 @@ struct Ze0HpbDmacState {
+     qemu_irq irq[ZE0_HPBDMAC_NR_CH]; /* one line per channel (sysbus irq n = channel n) */
+     bool trace;
+     bool serial;                    /* move memory -> SCIF FTDR on other channels */
++    Ze0SsiState *ssi;               /* PCM sink for channels 11/12/13 (M8.H46) */
+ 
+     uint32_t regs[ZE0_HPBDMAC_SIZE / 4];
+     Ze0SdhiState *sdhi[2];
+@@ -43,5 +46,8 @@ struct Ze0HpbDmacState {
+ 
+ void ze0_hpbdmac_attach_sdhi(Ze0HpbDmacState *s, int port, Ze0SdhiState *h,
+                              hwaddr buf_addr);
++void ze0_hpbdmac_attach_ssi(Ze0HpbDmacState *s, Ze0SsiState *ssi);
++/* Model self-test: arm channel 12 with PCM already in guest RAM. */
++void ze0_hpbdmac_selftest_audio(Ze0HpbDmacState *s, uint32_t sar, uint32_t n);
+ 
+ #endif
+--- a/include/hw/sh4/ze0_intc.h
++++ b/include/hw/sh4/ze0_intc.h
+@@ -25,6 +25,9 @@ enum {
+     ZE0_IRQ_HPBDMAC3,
+     ZE0_IRQ_HPBDMAC7,
+     ZE0_IRQ_HPBDMAC10,
++    ZE0_IRQ_HPBDMAC11,      /* audio DMA: SYSINTR 0x24/0x25 (M8.H46) */
++    ZE0_IRQ_HPBDMAC12,
++    ZE0_IRQ_HPBDMAC13,
+     ZE0_IRQ_DU,             /* display (M8.C1e) */
+     ZE0_IRQ_2DG,
+     ZE0_IRQ_SCIF0,          /* SCIF channel interrupts (M8.H39) */
 --- /dev/null
 +++ b/include/hw/sh4/ze0_ssi.h
 @@ -0,0 +1,35 @@
