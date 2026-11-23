@@ -4136,6 +4136,19 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Falsifier: the result screens are identical for both cards.
   - Claims: C-8080–C-8089
 
+- [ ] **M6.24 — A unit flash image without data of a real unit, in the repository**
+  - Status: in progress · Owner: claude/project-thread-l1h6j4 · Critical: no · Pair: solo
+  - Step: tooling
+  - Depends: M6.19, M8.H18
+  - Goal: `-M ze0,flash=` needs a unit flash dump, and a real dump holds the SD PIN, the serial, phone books and positions, so it cannot be shared. Marek (2026-11-23): put an anonymous version of his `PROD`, `SRAM` and `VFlash` into the repository, with no phone numbers, phone book, VIN, serials or positions and with a changed card PIN.
+  - Precheck: the M6.18 dump boots on `-M ze0` with the NOR model of M8.H18.
+  - Scope: US unit `QY7200ND`: product record, `SMST` stores, VFlash; a tool that builds the image and scans it against the real dump. The real dump stays out of the repository.
+  - Input: `docs/hardware/unit-flash.md`, `tools/unitflash.py`, `tools/ze0_launch.py`.
+  - Done when: an 8 MiB image built only from committed files boots NK1 + US card to the map on `-M ze0`, and a scan of it against the real dump finds no serial, PIN, stored position or user string.
+  - Stop: one session.
+  - Falsifier: the image stops earlier than the real dump, or the scan finds a private value.
+  - Claims: C-8840–C-8849
+
 ## M7 — Scale and release (later)
 
 - [ ] **M7.1** Full Dolnośląskie run, size budget.
