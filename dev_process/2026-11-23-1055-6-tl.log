@@ -1,0 +1,95 @@
+# TL batch 6 — 2026-11-23 07:15–10:55 UTC
+
+Start: `origin/main` `c77a832d`. End: `origin/main` `9504ce5e`, gate 5 pass /
+0 fail / 0 skip, primary checkout clean on `main`.
+
+## Licensed work
+
+| Task | Mode | Rounds | Outcome | PR | EXP |
+| --- | --- | --- | --- | --- | --- |
+| M8.H3 (+M8.H75) | one driver, TL merge | — | merged (queue PR) | #631 | — |
+| M4.65 KIWI sources | pair | 2 (APPROVE) | done | #625 | EXP-2026-11-23-M4.65-kiwi-sources |
+| M5.71 verify_factory parcels | pair | 2 (APPROVE) | done | #630 | EXP-2026-11-23-M5.71-verify-factory-parcels |
+| M5.70 L2 even slot | pair | 3 (APPROVE) | done | #627 | EXP-2026-11-23-M5.70-l2-even-slot |
+| M5.68 read_jsonl streams | pair | 3 (APPROVE) | blocked (honest) | #632 | EXP-2026-11-23-M5.68-stream-jsonl; opens M5.99 |
+| M2.20 PROD region recoverable | pair | 2 (CHANGES→fixed) | done | #626 | EXP-2026-11-23-M2.20-region-recoverable |
+| M1.49 UI strings | pair | 1 (CHANGES: 3) | done | #624 | EXP-2026-11-23-M1.49-ui-strings |
+| M9.67 LOC_map host model | solo (self-review) | 1 (APPROVE as blocked) | blocked (honest) | #629 | EXP-2026-11-23-M9.67-locmap-host-model; opens M9.73 |
+| M8.H11 L3 vs L4 parity | pair | 2 (CHANGES→blocked) | blocked (honest, negative) | #628 | EXP-2026-11-23-M8.H11-l3-l4-parity |
+
+Also merged from Marek's own parallel thread (not batch claims): #646 superseded by
+#647 (M5.97/M5.91, rebased + board repair), #645 superseded by #648 (M8.H32),
+#649 (M5.16), #640 (TL gate repair), #631 (M8.H3, first-queue).
+
+Skipped at selection, with reason: M5.69 (remote branch gone/claim-only, put after
+the fresh claims — its siblings still had claims); every M6/L5 task (no hardware);
+M8.H64/M2.22/M2.21/M8.H12 (QEMU boot ~220 s, shared 8 CPUs); M9.16 (note
+redirects to M9.60/M9.61, board pass needed); M4.2/M5.77/M5.78/M6.9 (non-Claude
+OSM/hardware with no needed extract); M4.8b/M4.28/M5.72/M9.62/M9.64/M9.65/M6.19
+(claims held by open branches).
+
+## Defects the navigators caught (pairing paid off)
+
+- **M5.68**: the inherited commit regressed `osm_synth` (`len(generator)`), and the
+  "before/after" memory numbers came from `osm_ingest` on a stale tool copy, not
+  from the reader — no valid measurement existed. Round 2 then caught a duplicate
+  task ID (M5.84 was main's from-zero plan) and a claim collision: the follow-up
+  became M5.99 / C-8810. Without a pair this would have shipped a false `done`.
+- **M5.71**: the task phrasing was a trap — `verify_factory` already rejects
+  "changed but undeclared"; `--drop-parcel` passes because it is the *reverse*
+  (declared but left factory). The navigator reframed the check and caught a
+  set-vs-dict blindness in the guard (lost duplicate read "unchanged").
+- **M5.70**: `verify_factory` was level-blind on ~4,230 shared `(y,x,row,pair)`
+  keys, and "1,313" is 1,505 once absent table rows count. Round 3 caught two
+  typed numbers (390→389 written, 3,468→3,464 ways) and a false O10 provenance.
+- **M1.49**: `44×14` was 13×44 (frames 38/44/54), and C-8090 overclaimed "not in
+  ROM A" against the 245 compressed `.data` sections; evidence cells were
+  `<substance.skn>` placeholders (`--strict-evidence` NONRUN).
+- **M8.H11**: round 1 stopped a wrong exit-code contract (must be 3, not 1/2) and
+  a breakpoint address that can never hit (`-M ze0` runs ROM at `0x8caeXXXX`, not
+  `0x0041xxxx`).
+- **M9.67** (solo, self-reviewed): the earlier "reference block reads a different
+  offset" reading was a point mispairing; the model now reproduces F/G/two meshes
+  and the real gap is narrowed to the `*0x00ec3600` fill rule (M9.73).
+- **M2.20**: the l3 `fn_audit` overlay was stale at HEAD after a later commit
+  added one citation (1522/1725 vs the claimed 1518/1721); fixed by a real
+  re-freeze, then a board/JSON rebuild after the rebases.
+
+## TL-side repairs
+
+- **Main was red at batch start**: `todo_check` failed on `main` because M5.82 and
+  M8.C1t (merged by #636/#637) both declared C-8580–C-8589. Moved the open task's
+  block to C-8500–C-8509 via `board.py`, PR #640 (M8.C1t kept its range; the
+  earlier attempt at C-8640 hit M8.H78, at C-8220 hit M8.H70).
+- **`merge-pr.sh` bug**: it ran `board.py lost` with `--todo/--claims` paths, which
+  reads `origin/main:TODO.md` from the primary checkout instead of the worktree and
+  reported 11 phantom "lost tasks". Fixed to `cd "$WT" && python3 tools/board.py
+  lost --base origin/main`.
+- **`fn_audit` snapshot rebootstraps**: every later rebase restales the l3 overlay
+  when the branch's EXP adds `fn` citations. M2.20 needed one full regeneration;
+  the rebuild through `--write-snapshot` is what fixed it (JSON parses comma-safe).
+- **M9.67 persisted the corpus re-freeze** covering main's own drift (M6.19/H41/
+  M8.H73/M1.54/M4.65/M5.71/M8.C1n/M9.31/M8.H78), 0 rows removed.
+- **#646/#645 head branches** (`claude/project-thread-*`, Marek's thread) could not
+  be rebased in place (the origin branch's base cannot be rewritten through the
+  PR), so their content was cherry-picked onto `main` into `tlmerge-646/645`, the
+  old PRs closed with a supersede note, and #647/#648 merged. #646 also needed a
+  board repair: its follow-up task collided (M5.99 → M5.100), as did its claim
+  block (C-8810 → C-8820) and the EXP/doc references.
+- **`/tmp` (3.8 GiB tmpfs)** filled repeatedly with 51 stale `ze0_card_selftest_*`
+  dirs and `bgwriter-*`; every full selftest used `TMPDIR=~/projekty/leafre-work/
+  scratch/tmpbatch6` (removed at the end). Scratch sizes elsewhere: m5.49 25 GB,
+  m9.60 23 GB, m8.h13 16 GB — these belong to older tasks.
+- `wt step prune` removed 2 detached worktrees / 5 merged branches. Batch
+  worktrees all removed; the 7 that remain belong to open PRs/tasks (#523, #472,
+  #496, #501, #639, #650) plus their branches.
+
+## Left open (not this batch)
+
+- Draft PRs with complete work but no owner to drive them to `done`: #523 (M4.85),
+  #472 (M9.64), #496 (M9.65), #501 (M9.62, claim-only).
+- #639 (H132–H139 QA plan) and #650 (M5.82) are drafts from other threads.
+- #652 (M5.100) was pushed by Marek's thread after M5.16 merged and is now
+  CONFLICTING; it needs a rebase pass (same pattern as #646/#645), not merged here.
+- Rule 15: M5.68 re-opens M5.99; M9.67 re-opens M9.73; M8.H11 leaves M8.H9 as its
+  unblock. Checked: no blocked task names a merged ID.
