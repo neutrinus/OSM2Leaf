@@ -93,6 +93,10 @@ def main() -> int:
                     help="refuse (no tile) when the drop rule removes more ways")
     ap.add_argument("--drop-parcel", metavar="Y,X,R,C",
                     help="build with this parcel kept factory (negative control)")
+    ap.add_argument("--drop-absent-slot", action="store_true",
+                    help="M5.61 rule: drop whole ways that touch a level-2 parcel "
+                         "with no factory even slot (the writer can now create one; "
+                         "use only to reproduce the old count)")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
     if args.selftest:
@@ -156,18 +160,23 @@ def main() -> int:
         keep_parcel = tuple(int(x) for x in args.drop_parcel.split(","))
         report["drop_parcel"] = "%d,%d,%d,%d" % keep_parcel
 
-    # A level-2 parcel with no factory even slot cannot be written.
+    # Level-2 parcels with no factory even slot.  M5.70: the writer can now
+    # create one (splice_factory appends a whole rebuilt slot block, the
+    # firmware follows the tag), so this is a *census*, not a drop reason.
+    # The M5.61 rule (present slot rows only) and the Done-when rule (all 32
+    # rows, including rows absent from the slot table) are counted apart so
+    # the 1313-vs-1505 confusion cannot recur (M5.70 N1).
     unwritable: set[tuple] = set()
+    census: dict = {}
     if level == 2:
         factory_bytes = (Path(args.factory_root) / "MAPAL001" / f"{cell}.DAT").read_bytes()
-        entry = T.road_level(clarion_tile.read_tile(factory_bytes), 2)
-        for directory in entry["dirs"]:
-            for row, slot in directory.get("slots", {}).items():
-                have = {r["k"] for r in slot.get("recs", [])}
-                y0, x0 = directory["y"], T.dir_x0(directory)
-                for col in range(32):
-                    if 2 * col not in have:
-                        unwritable.add((y0, x0, row, col))
+        census = T.l2_slot_census(T.read_tile_rows(factory_bytes))
+        report["l2_census"] = {k: census[k] for k in
+                               ("present_rows", "absent_rows", "total")}
+        # --drop-absent-slot reproduces M5.61's old rule (keep the drop the
+        # writer no longer needs); by default nothing is dropped for a slot.
+        if args.drop_absent_slot:
+            unwritable = set(census["missing"])
     report["l2_unwritable_parcels"] = len(unwritable)
 
     nodes: dict[str, tuple[float, float]] = {}
