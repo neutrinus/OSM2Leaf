@@ -1,0 +1,78 @@
+Role: PO (product owner), cycle 20. Model: opencode/strong.
+Start 2026-11-23 07:02Z, end 07:2xZ. origin/main at start: 5785a14f.
+
+Inputs: prompt_common.txt, prompt_po.txt, AGENTS.md, TODO.md rules 1-17;
+SM retro docs/retro/2026-11-23.md; SE log 2026-11-23-0631-2-se.log (tasks
+M1.56, M4.94, M4.95, M5.81, M8.H76, M8.H77, M9.71; M5.1 scar). Not re-derived.
+
+Map numbers (tools/map_signals.py, factory tree .../leafre-work/m5.4/card-factory):
+readers located 18 / partial 1 / unlocated 1; l3-running 8; tile_bytes
+99.98 / 95.86 / 76.29 %; card_step P0. All four unchanged since 2026-11-21.
+
+Actions, in order
+1. Archive first (TODO was 6,480 lines > 1500): moved 16 done blocks >24 h, no
+   live reference, no fn 0x line. TODO 6,480 -> 6,244 lines; history file
+   docs/research/todo-history-2026-11-23.md. Candidates from a script over
+   task_blocks + git blame; 44 done unreferenced, 16 older than 24 h.
+2. M5.1 orphan scar (SE report): under "## M5" the 13 lines of M5.1 (done,
+   archived 2026-11-19) had lost their header and Status line after a 2026-11-19
+   merge; M5.1c still Depends: M5.1. No board.py command restores a header, so I
+   rebuilt the block from git 96d06dfc^ in a temp copy of TODO.md, ran
+   board.py op_archive(['M5.1']) on that copy (guard passed, M5.1 count +1 in
+   history) and replaced TODO with the result. Header restored, block now in
+   the 2026-11-23 history. -17 lines. One-line note in the log, not a task.
+3. Rule 15 audit: checked every blocked task's Unblock against done/archived.
+   Dead pairs still on the board: M3.14/M3.16 (M3.23 done), M3.29 (M9.53 done),
+   M4.51 (M4.53 done), M4.59 (M4.58 done), M8.H65 (M8.H66 open, not dead).
+   Re-opened only M4.59 (M4.58 done and names the TFAT16 skin image/table) and
+   reworded its Unblock. M3.14/M3.16/M3.29/M4.51 left: M3.36 exists to own that
+   exact repair and is open/unowned; re-filing would duplicate (prompt step 3).
+   Flagged for M3.36's owner; not a silent miss.
+4. Added 6 tasks (next-id/next-claims per stream, claims C-8580..C-8639):
+   - M4.96 (C-8620): grade the unexplained tile bytes into section 3/5 vs the
+     section-4 residual; moves the tile_bytes number. Pair.
+   - M4.97 (C-8630): section-2 grammar past the RPF STDDLL import gap (M4.55);
+     P2 unblock, parser lifted from poi_position_l3.py. Pair, critical.
+   - M5.82 (C-8580): new-POI placement (cell + leaf + index + name), M5.63's
+     stated "new POIs remain open". Pair.
+   - M5.83 (C-8600): Polish diacritics from OSM to the drawn label, L2 + L4
+     screenshot. Pair.
+   - M9.72 (C-8610): LOC_map shape walk on the US build (Marek's unit); M9.63
+     found locmap_l3.py exits 3 on US. Pair, critical.
+   - H131 (C-8590): H21's missing make_l2_semantic_fixtures tool (D3 test).
+     Pair. Rule-17 budget: 1 H for 5 M.
+5. Rewrote the Priorities section (board.py splice, targeted block; the section
+   is prose, not a task/claim): four map numbers quoted from the command, the
+   no-move line first, critical path L1->L2->L3->L4->L5 with the blocking IDs
+   (L2: M5.61<-M5.68/69/70), "take first" list, fresh board counts
+   (156 open / 31 blocked / 1 in progress / 203 done). 6,244 -> 6,275 lines.
+
+Checks: todo_check OK (0 ERROR, warnings include the expected "Depends
+references archived M5.1/M1.22b/M5.63"); claims_check OK (default warnings
+pre-existing); board.py --selftest 105 OK; lost --base origin/main exit 1 with
+exactly the 16 archived task IDs and 0 claims. The claim-range overlap
+(2140-2147) is pre-existing on origin/main, not this pass.
+
+Decisions / rejected
+- Did not hand-edit TODO: M5.1 header repair went through board.py on a temp
+  copy; Priorities through a BoardFile.splice of the one section.
+- Did not touch in-progress tasks (M1.49, M2.20, M4.65, M5.68, M5.70, M5.71,
+  M8.H11, M9.67 and others); M4.65 landed before the pass (5785a14f).
+- Did not re-file the four dead rule-15 pairs: M3.36 owns them; WOULD need a
+  human/TL call only if M3.36 stays unowned another cycle.
+- Did not add a 7th/8th task: the P1 writer chain (M5.68/69/70) and M4.55/M4.40/
+  M4.97 are the real blockers and already have owners-to-be; more tasks would
+  not move a map number.
+
+Problems
+- board.py has no "restore a task header" command; the M5.1 fix needed a temp
+  file. Worth a `board.py` repair note (not a task) if a scar recurs.
+- dev_assignments.md and dev_process/2026-11-23-0628-1-tl.log are untracked and
+  not mine; left alone.
+
+Handoff
+- TL: take M5.68 first (P1 chain), then M5.82/M4.97; H131 fixes an L2 fixture a
+  reviewer would otherwise miss.
+- QA: M4.59 now open; the 18 --strict errors are unchanged (retro action 3).
+- Human: M5.72 duplicate-branch decision and remote branch-deletion rights
+  (retro), unchanged.

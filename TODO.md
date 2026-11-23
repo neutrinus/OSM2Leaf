@@ -253,105 +253,67 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-22, 23rd pass; `origin/main` `af469580`)
+## Priorities (PO grooming 2026-11-23, 24th pass; `origin/main` `5785a14f`)
 
-**This pass widened the board on Marek's request (2026-11-22): 120 tasks added
-so that about 100 are takeable at once.** It is a deliberate exception to "at
-most ~8 new tasks per pass". The four rule-17 numbers on this host
-(`python3 tools/map_signals.py`, no factory tree on disk):
+**The four rule-17 numbers, first** (`python3 tools/map_signals.py --factory-root
+/home/marek/projekty/leafre-work/m5.4/card-factory`, the factory tree on this host):
 `readers: located 18 partial 1 unlocated 1` · `l3_rows: l3-running 8` ·
-`tile_bytes: NOT RUN` · `card_step: NOT RUN`. The first two did not move since
-the 22nd pass; the map did not move this pass either — the board did.
+`tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.29%` ·
+`card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)`.
+**None of the four moved this cycle** (unchanged since 2026-11-21): the window
+did real format and reader work (M4.65 KIWI sources, M4.86–M4.93 tile census,
+M5.64/M5.65 names, M9.63 US run), but not the reader rows or the P1 Poland card
+the counters measure.
 
-**What changed in the picture: L4 exists.** `-M ze0` mounts the card, runs
-`Navi.exe` and draws a first screen (M8.C1b–C1e, M8.C1f in flight). So the
-expensive car tests can be rehearsed in the emulator, and the firmware can be
-asked which bytes it reads. Three new fronts follow from that:
+**This pass:** archive first (16 done blocks, 6,480 → 6,244 lines), a rule-15
+re-open (**M4.59**, its `Unblock` M4.58 was done), the M5.1 orphan header
+restored and archived, then **6 tasks added**: M4.96 (grade the last unexplained
+tile bytes → the `tile_bytes` number), M4.97 (section-2 grammar past the RPF
+import gap → P2), M5.82 (new-POI placement → P4/POI layer), M5.83 (Polish
+diacritics on the emulated screen → P3), M9.72 (the `LOC_map` shape walk on the
+US build — Marek's unit), H131 (H21's missing semantic-L2 fixture tool). Rule-17
+budget: one H (H131) for five M tasks.
 
-1. **Emulator connectors (M8.H1–M8.H69)**, plan in
-   [`docs/research/qemu-connectors.md`](docs/research/qemu-connectors.md):
-   chips behind serial lines (GPS, display unit/touch, audio microcontroller,
-   Bluetooth, VCAN) are Python *peers* on host sockets, not QEMU code, so many
-   agents can work without patch conflicts. Critical first: **M8.H1** (serial
-   lines as chardevs), **M8.H27** (GPS protocol), **M8.H36** (touch path),
-   **M8.H43** (audio-microcontroller handshake), **M8.H8** (SD read trace →
-   file/offset), **M8.H13** (`l4check.py`, the L4 gate).
-2. **KIWI (M4.63–M4.78, M3.38, M3.39)**: Marek's lead that Clarion (ex-Xanavi,
-   a KIWI-W member) stores maps in KIWI structures. The ROM names `Xanavi` and
-   `MDP_*RcvParcel`. One task per structure, each with a byte test; **M4.69**
-   (road frame) and **M4.72** (route planning) are critical because they would
-   unblock the class table and the section-2 chain. **M4.78** writes the verdict.
-3. **Acceptance in the emulator (M2.21–M2.24, M6.22, M6.23, M8.H64)**: card
-   gates, the "in-place only" rule (**M2.22**) and the S1/S2 cards rehearsed at
-   L4 before any car test.
+**Critical path — what blocks a car card, in order:**
 
-**Map work that needs no emulator (take these first if you are not on M8):**
-**M4.89** (Poland on the 2014/2016 cards as an answer sheet — also answers
-M5.64), **M4.69**, **M4.72**, M4.79–M4.84 (claim-only decoders become tools),
-M4.85 (EV layer), M4.86 (largest unexplained block of a tile), M4.87 (Polish
-glyphs), M5.64, M5.65, M5.66, M5.76 (synthetic town, no network), M9.68.
+- **L1 (structure):** ready; `cardcheck --image` + `imgpatch` gate P0/P1.
+  **H104** (committed baseline) is the one open L1 blocker.
+- **L2 (the product):** the **P1 Poland card** needs **M5.61** — blocked on the
+  tile-writer defects **M5.68 → M5.69 → M5.70** (all open, unowned). Then
+  **M5.66** (render gate) and **M5.83** (names drawn) prove the tile at L2.
+  **M7.1** (all Dolnośląskie) follows.
+- **L3 (firmware accepts):** **M9.31** (baseline verdicts) → **M9.12** (the
+  software gate) is the card gate; **M9.65** (STDDLL binding) → **M4.55/M4.40/
+  M4.97** (section 2) → **M5.57/M9.56** is routing; **M9.18/M9.15** are the
+  per-family target rows still open.
+- **L4 (emulator):** the screen and the generated-tile draw are done (M8.C1f,
+  M8.H71). Next: **M8.H64** (P0 card at L4) → **M8.E4** (full `Navi.exe` on a
+  generated card); **M9.72** brings the record walk to the US build.
+- **L5 (car):** hardware unavailable; S0→S3 order unchanged (M6.2, M6.18, M6.5,
+  M6.6, M6.7). Every card passes L3 (M9.60, later M9.12) first.
 
-**Rule 17 budget still holds:** a batch takes at most one M8.H task that is
-pure tooling for every three tasks from M3/M4/M5/M9 or from the reader rows of
-M8.H (`Step: reader`). Do not start a dependent M8.H task before its static
-read is merged.
-
-**In flight:** see the open draft PRs (`[ID]` titles); do not claim those IDs.
-
-**For Marek:**
-
-- **An OSM extract on `files.viaaq.eu`** (`dolnoslaskie-latest.osm.pbf`, then
-  Poland) would let Claude agents run M5.61, M4.2, M5.3, M5.77 and M5.78, which
-  today need a runner with open internet (`Runner: non-Claude`).
-- **KIWI material**: a specification PDF or a lawfully held KIWI DVD image
-  (`ALLDATA.KWI`) on `files.viaaq.eu` would turn M4.65 and M4.77 into Claude
-  tasks and give the mapping a positive control.
-- **Archive**: 81 done blocks moved to
-  `docs/research/todo-history-2026-11-22.md` this pass; 32 more done blocks
-  stay because they hold `fn 0x…` lines pinned by the `fn_audit` snapshots.
-
-### By card-ladder step
-
-The ladder ([content](docs/research/card-ladder.md), [gates](docs/format/card-ladder.md))
-orders the map work; the live grouping is `python3 tools/card_ladder.py steps --check`
-(`*` = critical, `(page)` = tag held in the page while the owner's PR is open).
-
-- **P0 (built)** — container and `DRSTR001` parser accepted in L3 (M9.13, M9.14); QA pin **M5.40**; L3 gate **M9.60**.
-- **P1 (display-only card, PR #423)** — **M9.58** (the renderer walks our record), **M5.61** (the 4 Poland tiles), **M9.61** (the same reads on the US build, split by M9.63); new **M5.66** gates a rendered tile at L2.
-- **P2 (routing)** — **M4.55** (in flight) → **M4.40** → **M5.57** → **M9.56**; M4.23, M4.24, M4.3 → M5.5; **M9.18** → M5.16; **M5.3** (waits on M4.2); M4.56 (section 4, route guidance).
-- **P3 (names)** — **M3.32** + **M3.36** (board truth) → **M3.30** → **M3.13** → **M4.36**; **M4.2**; **M9.15**; **M5.64** (real LCTBL table code); new **M5.65** (section-4 place names from OSM).
-- **P4 (search)** — **M5.18** (POINT/ADDRE writers, waits on M3.13), **M5.32**, **M5.63** (POI position writer, PR #427); M9.10/M9.41 done.
-- **tooling** — **M9.60** → **M5.35**; **M9.61** (split via M9.63); M9.59; M9.31 → **M9.12**; **M9.2** (Ghidra, needs a non-Claude runner). **M9.16** is split into M9.60 + M9.61.
-
-### Critical path to "maps run in the car" (L1 → L2 → L3 → L4 → L5)
-
-> Level mapping (2026-11-09): **L3** = firmware fragments, **L4** = full-system emulator (QEMU/M8), **L5** = bench/car (M6).
-
-- **L1 (ready for real cards; fixture exists):** `cardcheck --image` plus the `imgpatch` diff gate the P0/P1 cards; `cardcheck --generate-fixture` builds a vendor-free tree (H40 done, H105 done). Open: **H41** → **H42** (CI use), **H104** (baseline).
-- **L2 (the product path):** P0 built; P1 card **M5.61** (blocked, see its block). Open: **M5.35** (one command), **M5.66** (rendered tile as an L2 gate), **M5.76** (synthetic town so compiler tasks run without network) → **M7.1** (all Dolnośląskie).
-- **L3 (moving):** container, record read and the renderer walk are done on a generated tile. Open: **M9.68** (which header fields the map client checks), **M9.15** and **M9.18** (targets per family), routing **M4.55** → **M4.40** → **M5.57** → **M9.56** (blocked chain; **M4.72** tests a KIWI shortcut), card gate **M9.31** → **M9.12**.
-- **L4 (QEMU `-M ze0`):** **M8.H1** (serial chardevs, TX and RX), **M8.H27** (GPS frame grammar) and **M8.H30** (GPS peer) are done; **M8.H8** (SD block reads mapped to card files) completed. F3 reached (card mounts, M8.C1b), `Navi.exe` runs (M8.C1d), display engine handshake done (M8.C1e); **M8.C1f** (in flight) draws the screen. The one-command `tools/l4check.py` gate is available (factory card exit 0 stage F5). Next: **M8.H64** (P0 card at L4) → **M8.E4**; **M8.H9** (coverage) completes the format oracle; GPS **M8.H31**, touch **M8.H36/H38/H39** feed inputs through it. Card acceptance at L4: **M2.21**, **M2.22**.
-- **L5 (bench/car, one variable per run):** hardware unavailable. Order when it returns: **M6.2** S0 → **M6.18** flash backup → **M6.5** S1 → **M6.6** S2 → **M6.7** S3; every changed card passes the L3 card gate (M9.60, later M9.12) first.
+**Take first if you are not on M8 (no emulator, no network):** **M5.68** (the
+first P1 writer defect — unblocks the whole P1 chain), **M5.82** (POI writer
+step 2), M4.96 (format census), M9.72 (US L3), M5.83 (names), H131 (L2 fixture).
+**For Marek:** an OSM extract on `files.viaaq.eu` (M5.61/M4.2/M5.3/M5.77/M5.78);
+KIWI material (M4.65/M4.77); the **M5.72** duplicate branch decision (retro
+action 2, still open). **In flight:** see the open draft PRs (`[ID]` titles).
 
 ### Map signal (read first)
 
-Board after this pass: **205 open / 27 blocked / 0 in progress / 134 done**
-(block headers parsed 2026-11-22 on `af469580` plus this pass; the fenced task
-template is not counted). 20 of the open blocks are H. A cycle that moves
-none of the four numbers above says so in its first line.
+Board after this pass: **156 open / 31 blocked / 1 in progress / 203 done**
+(`python3 tools/board.py` blocks parsed 2026-11-23). 27 open blocks are
+`Critical: yes`. A cycle that moves none of the four numbers above says so in
+its first line.
 
-**This pass (23rd):** archive **81 moved** to
-`docs/research/todo-history-2026-11-22.md` (each done >24 h by the blame date
-of its Status line, named by no live `Depends`/`Unblock`/`Re-opens`, no
-`fn 0x…` line); a stale second copy of the preamble and of the 21st-pass
-Priorities (328 lines, left by `d0f7ba8`) removed; TODO.md 5910 → 4351 lines
-before the new tasks. Added **120 tasks**: M8.H1–M8.H69, M4.64–M4.92,
-M3.38–M3.42, M5.73–M5.80, M9.68–M9.70, M2.21–M2.24, M6.22, M6.23, M1.49
-(claims C-6980–C-8189). Board repair 2026-11-22 (TL): the KIWI MDP parcel task duplicated `M3.38` with #498's seeded-request task; it is now **M3.42** (C-7780–C-7789) and M3.39 `Depends:` follows; the seeded-request task moved to C-8190–C-8199 because M8.H1 (this pass) already holds C-6980–C-6989. Board defect fixed: M4.63 and M8.C1b both held
-C-6870–C-6879 (M8.C1b's rows are in `claims.md`), so M4.63 now has
-C-8100–C-8109. `Step:` set on M4.63, M5.67, M9.64. Rule 15: 0 re-opened (not
-re-audited this pass). The 22nd-pass text of this section is in git
-(`af469580`).
+**This pass (24th):** archived 16 done blocks (H61, H94, H105, H121, H122,
+H127, H128, M1.19, M1.22b, M1.45, M3.3, M4.16d, M5.11, M5.17, M5.29, M5.60) to
+`docs/research/todo-history-2026-11-23.md`; restored the M5.1 header that a
+2026-11-19 merge left as 13 orphan lines under `## M5` and archived the block
+(the SE-reported scar, fixed with board.py). Rule 15: re-opened **M4.59**;
+the retro's six dead `Unblock` pairs are the ownership of M3.36 and remain
+(report, not re-filed). Added **H131, M4.96, M4.97, M5.82, M5.83, M9.72**.
+The 23rd-pass text is in git (`af469580`).
 
 ---
 
@@ -556,19 +518,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-3770–C-3779
   - Result: EXP-2026-11-19-H58-claims-runnable-evidence — `bad_evidence()` names 347 of 1,376 VERIFIED rows at `934d76e` (ellipsis 31, placeholder 19, inline 3, no-invocation 294), including C-3612/C-3613/C-3614/C-3711, not C-207/C-3510; Stop applied (347 ≫ 20): default and `--strict` (the gate) stay exit 0 and print the count, `--strict-evidence` exits 1; `--selftest` 47 checks. Enforcement in `--strict` handed to H53/H66 (C-3770–C-3775).
 
-- [x] **H61 — `claims_check`: every cited EXP record must exist on `main`**
-  - Status: done · Owner: task/h61-claims-exp-exists · Critical: no · Pair: solo
-  - Depends: — (`tools/claims_check.py` is on `main`); coordinates H58 (same tool, evidence *command*; this one checks the evidence *name*)
-  - Goal: `claims_check.py` verifies IDs and annotations but never resolves the EXP record a row names, so a typo'd or absent record looks registered. Today `C-1900–C-1916` cite `EXP-2026-11-08-M4.8b-poi-refs` while the repo stores `EXP-2026-11-08-M4.8b-poi-refs.tsv` (7 rows), and `C-3033` cites `EXP-…-variants.tsv` (a `.tsv`, not a record); `C-3170–C-3175` cite the `.md` suffix in prose. A row must name a file that exists, or say why it has no record.
-  - Precheck: `python3 -c "import re,glob,os;m={os.path.basename(p)[:-3] for p in glob.glob('docs/experiments/EXP-*.md')};n=[l.split('|')[1].strip() for l in open('docs/research/claims.md') if l.startswith('| C-') and any(not any(p==s or s.startswith(p+'-') for s in m) for p in [x.rstrip('.,;').removesuffix('.md') for x in re.findall(r'EXP-\d{4}-\d{2}-\d{2}-[A-Za-z0-9.\-]+',l)])];print(len(n),n[:4])"` prints `8 ['C-1900', 'C-1901', 'C-1902', 'C-1903']` — the `poi-refs` rows name a `.tsv`, `C-3033` names a `.tsv` with its suffix. (A loose match that also accepts `EXP-…-<slug>.<ext>` reports 0 and hides both; the rule below must therefore require a `.md` record or an explicit `companion:` in the row.)
-  - Scope: `tools/claims_check.py` only: resolve each `EXP-YYYY-MM-DD-<TASK>-<slug>` token against `docs/experiments/` by exact file name, `.md` suffix, or `<name>.<ext>` (a `.tsv`/`.json` companion next to an `EXP-…` record is allowed); report one line per unresolved row and a total; land it as a warning by default and an error under H58's `--strict`. Do not touch the duplicate/unregistered/annotation checks or H58's command-span parser.
-  - Input: `docs/research/claims.md` (all rows), `docs/experiments/` listing, `tools/claims_check.py` (`ROW_RE`, `parse_claim_rows`), EXP-2026-11-08-M4.8b-poi-refs.tsv (the `.tsv`-only record the rule must allow).
-  - Hints: keep the stem match (`-2`/`-3` suffixes count as the same task), resolve relative to `REPO` like `fn_audit` does, and do not grep EXP *contents* — a missing file is the defect, a missing section is a reviewer's job. Reuse H58's `--strict` rather than a second flag.
-  - Done when: `python3 tools/claims_check.py --selftest` covers a row naming a missing EXP (fails), one naming a `.md` record (passes), one naming a `.tsv` next to its stem (passes) and a `-2` suffix (passes); default `claims_check.py` still exits 0 on the current ledger and prints the unresolved count; `--strict` (once H58 lands it) exits 1 and names at least `C-1900` and `C-3033`; `selftest.py` passes.
-  - Stop: if H58's `--strict` has not merged, ship the warning mode plus `--selftest` and record in the EXP which rule H58 must pick up; do not fork a second ledger checker.
-  - Claims: C-3810–C-3819
-  - Result: EXP-2026-11-19-H61-claims-exp-exists — `unresolved_exp_names()` names 8 rows at `fa7c8af` (C-1900–C-1906 `no-record`: only `poi-refs.tsv` exists; C-3033 `companion-unmarked`), not C-3170–C-3175; default and `--strict` (the gate) stay exit 0 and print the count, H58's `--strict-evidence` exits 1 naming C-1900 and C-3033 (H58's Stop kept `--strict` warning-only); `--selftest` 50 checks (C-3810–C-3815).
-
 - [ ] **H59 — Trace the test-system plan to the board so "plan complete?" is checkable**
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Depends: H55 (done); coordinates H28/H40–H44/H56/H57/H58, M9.31/M9.12, M8*, H29
@@ -732,22 +681,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: a `grep -c`-backed `stays 12` whose command prints 15 is not `STALE COUNT` with exit 1, or a correct `15 at <sha>` row goes red.
   - Claims: C-4150–C-4159
 
-- [x] **H94 — H90's EXP sat "done" with hand-typed counts and a broken commands section**
-  - Status: done · Owner: task/h94-h94-exp-counts-commands · Critical: no · Pair: required
-  - Depends: H90 (the EXP it repairs is on `main`; H93 owns the navigator section only)
-  - Goal: make H90's EXP re-runnable as written — every count quoted from a command that prints it, the clone recipe one copy-pasteable block that still demonstrates the defect, and the failed-run count consistent with C-4130.
-  - Note (SE 2026-11-17): the SE re-ran H90's Done-when (b)-(e) and all pass, but three EXP defects survived the pair: the Record `809 commits, pack 3.2 MiB` and `Tools: git 2.5x, python3 3.15` are typed, not from a command (AGENTS "every number is quoted"); the Method command block lists `git clone … /tmp/x && cd /tmp/x` then a second `git fetch --unshallow` line that would run in the wrong cwd; and "the five `main` pushes whose run failed" contradicts the nine `COUNT` lines and the twelve red pushes the same EXP states. The recipe also now fails as written: on today's `main` a depth-1 clone prints `count check: skipped`, not `9` (C-4131 covers this, the Reproduction block does not).
-  - Note (H93, 2026-11-20): the Reproduction block is already done by H93 (#377). It is a depth-1 fetch of `3d79bcc` itself and prints 9 mismatches/exit 1 shallow and 0/exit 0 after `--unshallow`. The Reproduction clause is dropped from this task's Scope and Falsifier; the Precheck's clone line describes the state before H93.
-  - Precheck: `grep -nE '809 commits|git 2\\.5x|python3 3\\.15|five .main. pushes' docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` prints the typed lines; `rm -rf /tmp/x && git clone --depth 1 file://$PWD /tmp/x && (cd /tmp/x && python3 tools/claims_check.py --strict --count-check | tail -1)` prints `claims_check: OK`, not the `9` the Reproduction says.
-  - Scope: `docs/experiments/EXP-2026-11-17-H90-ci-shallow-count.md` only: quote `git rev-list --count 3d79bcc` and `git count-objects -vH | grep size-pack`; state the interpreter `python3 -V` prints and `git --version`; collapse the two-line clone recipe into one `( cd /tmp/opencode/x && … )` subshell; change "five" to the actual failed-run count the `gh run list` prints. No claim rows; H93 owns the navigator section.
-  - Input: the H90 EXP, `docs/experiments/TEMPLATE.md`, C-4131/C-4135, `git rev-list --count`, `git count-objects -vH`.
-  - Hints: the `12` in C-4130/C-4131 and the H90 Goal is correct (`gh run list` shows twelve `failure` rows before the first post-fix `success`); the "five" is the only run-count defect. Do not re-pin C-4135's `809`/`3.2 MiB` to `main`'s today value — the claim names `3d79bcc`, so quote the number at that commit and say so.
-  - Done when: `grep -cE '809 commits|5x|3\\.15|five .main. pushes'` on the EXP is 0 or each hit cites the command that printed it; the clone recipe is one copy-pasteable block and H90's Done-when (b)-(d) still pass as run in H94's EXP. `python3 tools/claims_check.py --strict --count-check` and `todo_check.py` OK.
-  - Stop: if the count really cannot be shown from a command at `3d79bcc`, delete the number and point at C-4135 instead of retyping it.
-  - Falsifier: the typed `809 commits`/`3.15` strings remain.
-  - Claims: C-4200–C-4209
-  - Result: EXP-2026-11-21-H94-exp-counts-commands (C-4200): H90's EXP numbers now cite commands (git rev-list --count=108, git count-objects=19.74 MiB, git --version=2.56.0, python3 -V=3.15.0; 809/2.5x/3.15 labelled H90's, pinned by C-4135), clone recipe collapsed to one ( cd "$X" && ... ) block, failed-run count now 12 (1889340..2b3d1b4) matching C-4130; H90 Done-when (b)-(d) still pass (claims_check --selftest OK 51, gate.py 4 pass/0 fail/0 skip, --strict --count-check OK, todo_check OK)
-
 - [x] **H90 — CI is red on `main`: a shallow `actions/checkout` makes `claims_check --count-check` measure old pins against today's tools**
   - Status: done · Owner: task/h90-ci-shallow-count · Critical: yes · Pair: required
   - Depends: — (H85's CI gate step and H78's `_exp_revision` are on main)
@@ -774,20 +707,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-4090–C-4099
   - Result: EXP-2026-11-21-H86-claims-gate-blocking (C-4090, C-4091): H85 already made the claims half blocking (ci.yml runs gate.py | tee PIPESTATUS[0], claims gate = claims_check --strict --count-check); README Hard gate names tools/gate.py + SKIP policy; new tools/ci_gate_repro.py --selftest (PASS) proves a synthetic count mismatch fails and SKIP-only stays 0; gate.py 4 pass/0 fail/0 skip; todo half stays on H53
 
-- [x] **M1.19 — Wire the kernel decompressor into `cerom.py`, `rommap.py` and `va_class.py`**
-  - Status: done · Owner: task/m1.19-kernel-decomp-wiring · Critical: yes
-  - Result: EXP-2026-11-19-M1.19-kernel-decomp-wiring; C-3500–C-3506. `cerom.py --image-start 0x200200 IMG256 decompress --check` → `245 OK, 0 UNSUPPORTED, 0 FAIL` with `r0 == comphdr uncompressed_len` for all 245 (EU2011, 1,674,478 B) and 249/249 on US256 (US2011, 1,684,059 B); `nk_decomp` gained a cached library interface (`section_init`/`section_bytes`/`load_image`, cache `$OSM2LEAF_DECOMP_CACHE` or `archive/work/decomp/`); `rommap.py --init-from-image` maps decoded INIT + zero BSS with IAT bound and no guard; `runner.py run cmp_ind_reader` (EU2011) and `cmp_ind_reader_us2011` PASS with `sec1_table.source: image` (no declared values; mask words equal `2^n-1`; counters equal the declared run, zero-sec1 control FAILs); probes `mmain_reader` → `BLOCKED STUB COREDLL.dll!wcstombs`, `drstr-sub_00419350` → `BLOCKED STUB OSMDLL.dll!OSM_Malloc` (same under `--init-guard`: no INIT read first); `va_class` prints `INIT (readable: nk_decomp)`; `reader-coverage.md` row 6 updated. Rule 15: M1.2f and M8.E1 closed as superseded (the other five were closed by H81); M1.4 was already re-opened by M1.21 (rule 15). Builds B/C not run (EXP Follow-ups).
-  - Depends: — (H51: `tools/nk_decomp.py` works on IMG256)
-  - Goal: make the stored bytes of every compressed section an ordinary input. Today `cerom.py decompress` says `UNSUPPORTED` 245 times, the L3 harness maps `INIT` bytes as a guard that stops the run (M9.35), and `cmp_ind_reader` gets `inflate_mask[17]` as a declared table instead of from the image.
-  - Precheck: `python3 tools/nk_decomp.py --selftest`; `python3 tools/nk_decomp.py section IMG256 --module NaviMapCC.dll --index 1` prints `r0=0x484 OK` (0.7 s); `python3 tools/nk_decomp.py check IMG256` (several minutes) prints the count recorded in EXP-2026-11-11-H51.
-  - Scope: (1) `cerom.py decompress MODULE --section N [-o]` and `decompress --check` call `nk_decomp.decompress` (keep the pure-Python codec paths as they are); (2) `tools/l3_harness/rommap.py` gets `--init-from-image`: sec1/sec2 of the module are mapped with their decoded bytes followed by zero BSS, the IAT slots still bound to stubs, the `INIT` guard off; (3) `va_class.py` prints `INIT (readable: nk_decomp)` and `l3_precond.py`/`reader_precheck.py` stop naming M1.2f for `INIT`; (4) a cache `archive/work/decomp/<image-sha12>/<module>.secN.bin` (never committed; `.gitignore` already covers `archive/`). No new format claims.
-  - Input: `tools/nk_decomp.py` (`decompress(data, file_off, psize, vsize)` returns `(r0, dest)`; `r0` = stored length, `0xffffffff` = error), `tools/cerom.py` `comphdr --all --json` (`uncompressed_len` per section is the expected `r0`), `tools/l3_harness/rommap.py` (M9.35 `--bss-zero/--init-guard`), `tools/chunk_decoder_l3.py` (`INFLATE_MASK_VA 0x00574de0`, `sec1_table`).
-  - Hints: the routine is slow in PySh4 (about 6 kB of output per second: `Navi.exe` sec1 16 s, sec2 15 s) — decode once and cache. The three stack arguments sit at `sp+16`: `skip=0`, `step=1` (2 gives the same bytes on the four sections tried), `block=0x1000`; without them the function returns `-1` at once, which is what stopped M8.E1. Build B is byte-identical on the EU and US cards, so the same routine serves both. H51 already compared `inflate_mask[17]` at `0x00574de0` with `2^n-1`: equal — replace the declared table by the image bytes and drop the HYPOTHESIS note in `targets.json`.
-  - Done when: `cerom.py decompress --check` reports `245 OK` (or lists the exceptions) with `r0 == uncompressed_len` for each; `runner.py run cmp_ind_reader` passes with `--init-from-image` and no declared table; `mmain_reader` and `drstr-sub_00419350` probes are re-run with real `INIT` bytes and the next stop is recorded; `selftest.py` passes; `reader-coverage.md` row 6 updated.
-  - Stop: if a section returns `-1` or a length different from `comphdr`, record module/section/psize and keep it as an exception; do not patch the routine.
-  - Re-opens on merge (rule 15): closes **M1.2f, M1.2g, M8.E1, M8.E1c, M9.29, M9.30, M1.2e** as superseded (set them `done` with `Result: superseded by H51/M1.19`), and re-opens **M1.4** (see M1.21).
-  - Claims: C-3500–C-3509
-
 - [x] **M1.20 — `pdata.py`: the function table of every module, and `fn` labels that come from it**
   - Status: done · Owner: task/m1.20-pdata-all · Critical: yes
   - Result: EXP-2026-11-17-M1.20-pdata-all; C-3510–C-3519 registered. `pdata.py census` gives every module a record count and an ASCII totals line with the with/without split — A `149 modules, 149 with pdata, 0 without (NO-PDATA), 0 errors, 87530 records`; B `91 … 91 … 0 … 0 … 21930`; C `88 … 88 … 0 … 0 … 25243` — while `NO-PDATA` stays reserved for e32 `(0, 0)` and a decode/sort fault is `ERROR` + exit 2; `pdata.py where --try-index` shows the index is not the locator (sec2 pick `UNSORTED`, exact-RVA sec3 `sorted`) for the 1 (A) / 10 (B) / 3 (C) modules whose table is outside sec2; the four `sh4xref --to` spot checks print the pdata holders (`0x0041c7dc`→`0x0041c990`, `0x004125a8`→`0x00413a6c`, `0x00542250`→`0x0054232c`, `0x0032ef60`→`0x0032edd0`) with no wire-up change needed; selftest 45 checks, `OK (0 failed)`.
@@ -804,19 +723,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: a module with no exception directory is listed as such, not guessed.
   - Claims: C-3510–C-3519
 
-
-- [x] **M1.22b — Harden `fn_match` to ≥90 % on the cited EU readers: exact instruction-level diff and the EU→US census EXP**
-  - Status: done · Owner: task/m1.22b-us-census · Critical: yes · Pair: required
-  - Depends: M1.27 (leaf path), M1.28 (frozen EU→US fixture), M1.31 (the leaf census: a percentage over `635 leaf` mixes complete leaves with `0x400`-cap-truncated rows and no-`rts` stubs)
-  - Goal: `fn_match match IMG256 US256 --module Navi.exe` maps **5/13** cited readers UNIQUE (SE 2026-11-13); the done-when needs ≥90 %. Find out whether the 8 NOMATCH are real code differences or a matcher weakness (e.g. a missing reloc class, a pool word that is an address in one build and a constant in the other, or a callee index that shifts).
-  - Precheck: `python3 tools/fn_match.py match archive/head256.img /tmp/opencode/us256.img --module Navi.exe --va 0x003f5194 0x0041c7dc 0x0041c990 0x0041c044 0x0041a438 0x00419350 0x004125a8 0x003fbed8 0x0040b358 0x003bc960 0x003f632c 0x003f61bc 0x00542250` (make US256 with `head -c 268435456 archive/sd-images/LEAF_2011-2012_US.img`; SHA-256 must be `70d945d8…`) reports `unique: 5 … nomatch: 8`; the same command with US replaced by IMG256 reports `unique: 13, nomatch: 0` (positive control).
-  - Scope: `tools/fn_match.py` hash/diff (`record_digest_map`, the one-hop call-order propagation) and its CLI; the EU→US table for the cited VAs; `tools/l3_harness/targets.json` gains `build` on every target (`"eu2011"` now; `"us2011"` when a US VA is used); `docs/format/firmware.md` EU→US rows. Not: matching every function (that is the census, below).
-  - Input: `tools/fn_match.py`, EXP text (none yet — this task writes it), `tools/pdata.py`, `docs/format/firmware.md`; H51 §4 EU/US sizes (`7,596` vs `7,520` records).
-  - Hints: the three UNIQUE hits already form the `.cmp` chain (`0x0041c044→0x0041c990→0x0041c7dc`), so the matcher works on contiguous code; the NOMATCH cluster is the REFER family, which the EXP says has real differences (`XMD` vs `TMC`, `INDEX001`). Disassemble `0x0041a438`/`0x00419350` in both builds and compare instruction-by-instruction before touching the hash — the POINT walker `0x003f5194` is a pdata GAP (leaf), so it needs the leaf path, not a record hash. If a NOMATCH is a genuine rewrite, record it as `DIFFERENT` with the first differing instruction pair, not as `NOMATCH`.
-  - Done when: an EXP has the full census (module name, sizes, section hashes, identical/different/only-in-one for both builds), the 13-VA table with `UNIQUE`/`DIFFERENT`/`AMBIGUOUS` and the reason for each non-unique, and either ≥90 % UNIQUE or a per-function `DIFFERENT` justification that the done-when accepts; `targets.json` has `build`; M9.10/M9.12 name the US build as the S1/S2 gate.
-  - Stop: if the REFER family is rewritten rather than moved, publish the census + the differing-instruction pairs, mark M1.22 blocked on "the US reader must be re-located" (a new M3 task), and stop.
-  - Result: EXP-2026-11-16-M1.22b-eu-us-census; C-3620–C-3629. Of the 8 NOMATCH, **6 are matcher misses**: identical masked instruction-form stream with a unique US twin and only literal-pool values moved (`0x0041a438→0x0044219c`, `0x00419350→0x004410b4`, `0x004125a8→0x0043a378`, `0x0040b358→0x00433458`, `0x003bc960→0x003ec274`, `0x003f61bc→0x0041eb1c`); `0x003fbed8` (ADDRE resolve) is a **genuine rewrite** (`bf` vs `mov.l @(pc),r3` at `+0x16c`, 8 vs 7 calls, no form twin) and `0x003f5194`'s leaf stays one pool word (`0x4e8→0x4d8`). Census `unique 5 / different 7 / nomatch 1`; EU-vs-EU control `13/13 UNIQUE`. `fn_match` gains `_pool_only_twin` (33 selftest checks incl. two false-positive shapes), the frozen fixture re-pins the six rows and replays `13 rows, 0 mismatch`, `targets.json` gains `build` (validated), and M9.10 now names the US POINT walker/accessor VAs. The old `≥90 % UNIQUE` floor is **not met** (`38 %`) and is reported as a data-layout metric — 12 of 13 cited readers are located, 5 exactly and 7 with a justified same-code/different-constant pairing.
-  - Claims: C-3620–C-3629
 
 - [x] **M1.24 — `sh4literal`: one literal-pool scan that reports referenced vs unreferenced 32-bit words**
   - Status: done · Owner: task/m1.24-sh4literal · Critical: yes · Pair: required
@@ -875,20 +781,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Stop: if the check id set is not stable across `--partial`/`--fast`, record that in the baseline header and pin the baseline to the exact flag set it was measured with; do not make the id a hash of the message (it changes with wording).
   - Falsifier: a cardcheck run whose JSON omits a check today reported, compared against a committed baseline, still exits 0.
   - Claims: C-4350–C-4359
-
-- [x] **H105 — H40's fixture has no negative control: a tree that passes but cannot fail proves nothing**
-  - Status: done · Owner: task/h105-cardcheck-negative-control · Critical: yes · Pair: required
-  - Depends: H103 (the builder it breaks); H40's Done-when calls it
-  - Goal: retro 2026-11-18 action 3's Done-when is "`l1l2-fixtures.yml` runs `cardcheck` on a generated tree **and fails on a broken one**". H103 gives the passing tree; the broken one is the control that makes the row a test. Without it, a check that silently degraded to `return PASS` passes both the tree and CI, and H40 closes on a no-op — exactly the B2/N1 defect class M5.34's reviewer found (out-only file, section-2 flip).
-  - Precheck: `grep -c 'break\|corrupt\|negative' tools/one_tile_pipeline.py` counts only the reviewer-added `out == input` and section-2 checks — there is no builder that emits a *deliberately* broken card; H40's block has no negative clause today.
-  - Scope: a `--break <kind>` option on H103's builder (kinds named in the PR: `mmain-missing-tile-level`, `drstr-size-mismatch`, `tile-level-not-in-mmain`, `fat-cluster-out-of-range`, `header-magic`) plus the H40 registry row that asserts `rc=1` and that the JSON names the *same* check id the good tree passed. Exclusion: no new validator rule (the break must trip an existing check — a new check is H103's Step), no vendor bytes.
-  - Input: H103's builder, `tools/cardcheck.py` check ids and exit codes, `tools/l1l2_fixtures.py` (where the pair goes), M5.33's recorded rc=1 detail (section 2 levels 2/4/5, section 4 level 1 not in `MMAIN`) as the natural first break kind.
-  - Hints: the control is `good rc=0 → break rc=1 → same build without the break rc=0` in one run, so a flaky temp dir cannot fake it. A break kind that no check notices is a finding: record it as a missing check (a new block), do not delete the kind.
-  - Done when: `python3 tools/cardcheck.py --generate-fixture DIR --break tile-level-not-in-mmain --json …` exits 1 and the JSON's failing id equals the id the unbroken tree passed; `--selftest` runs every break kind and asserts rc=1 for each; `python3 tools/l1l2_fixtures.py --selftest` covers the pair.
-  - Stop: if a break kind trips several checks at once and cannot be narrowed, keep it but assert only "the target id is among the FAILs" and say so in the row's reason.
-  - Falsifier: the good tree passes and every `--break` kind also exits 0 (the checker never distinguishes them).
-  - Claims: C-4360–C-4369
-  - Result: EXP-2026-11-21-H105-cardcheck-negative-control; C-4360–C-4369. --break (5 kinds) on H103's builder: `--generate-fixture DIR --break tile-level-not-in-mmain --json J` exits 1 with FAIL id `mmain`, the id the unbroken tree passes (good rc=0, 6 PASS/2 SKIP); all five kinds rc=1 with their target id among the FAILs (`mmain`,`mmain`,`drstr`,`headers`,`fat`), each an existing rule (no new validator rule). The `fat` kind needs clusters, so `--generate-fixture-image` adds a vendor-free sparse ~100 MiB FAT32 image the checker accepts 8/8 (mbr/fat PASS, not SKIP), byte-identical over two builds; a `--root` tree run exits 2 (lane limit). `cardcheck --selftest` runs every kind (30 ok, 0 fail); `l1l2_fixtures` `l1.synthetic.cardcheck` runs the good+break pair in one row (PASS, coverage_gaps []), `--selftest` OK (32 checks). Gate 4/4 PASS (run with TMPDIR on the home disk: `/tmp` was 97% full and `mkcard --selftest` hit ENOSPC there; `mkcard` passes with a roomy TMPDIR). H40 (CI row) and H104 (baseline) stay their blocks.
 
 - [ ] **H107 — `l3check --build-corpus` says "runnable 1/7" while two of the seven are blocked only on a missing argument**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1063,17 +955,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-6460–C-6469
   - Result: EXP-2026-11-21-M1.44-camera-ioctl; Done-when met with correction: trigger EVENT_NAV_SENSOR_BACK navdrv fn 0x039e3a34 (raised from sensor bit 0 in fn 0x039e6690); the eight VIN1:/CEN1: IOCTLs are sent by SystemCC.dll (0x80062000/04/08/14/18/1c, 0x800d2044/54), not CameraCC.dll
 
-- [x] **M1.45 — Decompile map of telematics (`Telema.exe`, `ComMid.exe`, `Telema*CC`, `Cws_Apl`, `Prb_Apl`, `DCM_API`)**
-  - Status: done · Owner: task/m1.45-telematics-endpoints · Critical: no · Pair: solo
-  - Depends: —
-  - Goal: side track. The Carwings client: how it reaches the TCU (`COM3:`/`COM4:` over USB) or a phone (`COM8:` Bluetooth dial-up), server names and URLs in the binary, the request types. Useful for OpenCarwings users: what the unit can fetch (points of interest, routes, charging spots) and in what format.
-  - Precheck: UTF-16 and ASCII strings of `Telema.exe` contain a host name or `http`.
-  - Scope: static, EU2011 and US2011 (build A differs). Output `docs/firmware/telematics.md`: transport table, endpoint list, message types. No network traffic is generated.
-  - Done when: the page lists the endpoints and for ≥ 3 request types the builder function VA and the payload fields readable from strings.
-  - Stop: do not contact any server; credentials or identifiers found in the binary are not copied into the repo.
-  - Claims: C-6470–C-6479
-  - Result: EXP-2026-11-21-M1.45-telematics-endpoints; 5 request types (CreateSession/SendData/SetAPN/CloseSession/GetOperatorInfo) with EU+US builder VAs and string-readable payload fields; endpoint table both builds; gate 4 pass
-
 - [ ] **M1.46 — Subsystem map of `Navi.exe`: what a rewrite or a port would have to replace**
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Depends: — (uses the reader work of M3 and the call graph)
@@ -1222,34 +1103,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: a second tool that prints `PASS` after a `SKIP` line in the same run (then the status class belongs in one shared helper, say so in the EXP).
   - Claims: C-6340–C-6349
 
-- [x] **H121 — A PR must not delete claim rows or task blocks it does not own (main lost 199 claim rows and 7 tasks in PR #340)**
-  - Status: done · Owner: task/h121-board-mergebase-check · Critical: yes · Pair: required
-  - Depends: —
-  - Goal: commit `6ca7bc3` of PR #340 (M9.55, merged 2026-11-20 22:20 UTC) replaced the tail of `TODO.md` (from the M9 section on, 787 lines) and of `docs/research/claims.md` (324 lines, 28 sections) with an older copy after a conflict. Every gate passed: `todo_check` and `claims_check` judge the file they are given and cannot see what is gone. Main ran 100 minutes without M9.56–M9.62, with nine closed tasks open again and without the claims of 28 tasks, and three later PRs merged on top. The loss was restored by hand (this PR), found only because a 3-way merge deleted another branch's rows.
-  - Precheck: `git diff --numstat 4900961 6ca7bc3 -- TODO.md docs/research/claims.md` prints `1 787` and `11 324`.
-  - Scope: one check in `tools/gate.py` and CI (`quality`): against the merge base with `origin/main`, list claim IDs and task IDs that exist in the base and not in the branch; fail unless each is named in the PR's own task block (archive move: the ID must then exist in `docs/research/todo-history-*.md`), or is a `RESERVED` row. No change to the two checkers' other rules.
-  - Input: `tools/claims_check.py`, `tools/todo_check.py`, `tools/gate.py`, `.github/workflows/`.
-    Reuse `tools/board.py` (`lost_ids`, `lost --base`; H123) for the ID diff instead of a second parser.
-  - Done when: on a checkout of `6ca7bc3` the check exits 1 and names the lost task IDs and the count of lost claim rows; on `main` it exits 0; `--selftest` covers a deleted row, a deleted task block, an archived task and a dropped `RESERVED` row.
-  - Stop: if the merge base cannot be found in CI's shallow clone, fetch `origin/main` with depth 200 in the workflow and record the time it adds.
-  - Falsifier: a legitimate PR of the last 50 merged that the check would have failed (then widen the exemption and say which).
-  - Claims: C-6520–C-6529
-  - Result: EXP-2026-11-21-H121-board-mergebase-check; C-6520–C-6529. `board.py check 6ca7bc3` exits 1 naming 42 lost tasks and 199 lost claim rows; `check origin/main` and `check HEAD` exit 0; `board.py --selftest` OK (74 checks) covers a deleted row, a deleted task block, an archived task, a dropped RESERVED row and the round-1 whole-ID collision (M9.56 does not exempt a lost M9.5); `gate.py --selftest` OK (15 checks); `gate: 5 pass, 0 fail, 0 skip` with `board_check PASS` and `fn_audit PASS` on the tree rebased onto `01a67a6e` (re-frozen fn_audit snapshots from `67a12666` in the base)
-  - Note: The main check reads `board.py check <ref>`: the branch was rebased onto `01a67a6e` (round 3, after M1.43/M4.58) before the final run, so the final bases are `HEAD vs 01a67a6ea6b3` (exit 0), `origin/main vs 2c82b9ce2683` (exit 0), `6ca7bc3 vs 49009617d2bc` (exit 1, 42 tasks / 199 claim rows). An unpinned base in a quote is stale by construction once main moves; pin both sides (`check 01a67a6e --base 2c82b9ce`) or cite what the command prints on that tree.
-
-- [x] **H122 — `l3_harness/corpus.py --selftest` fails 4 `hdd_info` checks on main and the gate skips the suite**
-  - Status: done · Owner: task/h122-h122-corpus-selftest · Critical: no · Pair: solo
-  - Depends: —
-  - Goal: `python3 tools/l3_harness/corpus.py --selftest` ends `FAILED (4/14 checks)` on `main` (2026-11-20, also before PR #340): the factory `HDD_INFO.TXT` fixture is `REJECT` where the manifest expects `ACCEPT`, because `hddinfo.classify(...)["accepted"]` is false when the check-2 bounds are unknown (`verdict 'ACCEPT (check1); check2 BOUNDS_UNKNOWN'`). `python3 tools/selftest.py --only l3_harness.corpus` prints `SKIP no --selftest`, so `gate.py` never ran it. Found during M9.10 (C-2149).
-  - Precheck: both commands above print what the Goal quotes.
-  - Scope: `tools/l3_harness/corpus.py` (`verdict_hdd_info`: decide from `no_proven_failure` or pass declared bounds, whichever matches the M2.15 model; say which in the EXP), `tools/selftest.py` (the suite must be discovered: its `--help` has to declare `--selftest`, or the discovery rule changes). No change to `hddinfo.py`'s model.
-  - Input: `tools/hddinfo.py` (`classify`), `tools/l3_harness/corpus.py`, `tools/selftest.py` (`exposes_selftest`), H120 (same class of defect).
-  - Done when: `corpus.py --selftest` passes 14/14, `selftest.py --only l3_harness.corpus` runs it (PASS, not SKIP), and a deliberately broken fixture makes `gate.py` fail.
-  - Stop: if the M2.15 model says the factory file must not be `ACCEPT` without bounds, change the manifest's expectation instead and record why.
-  - Falsifier: another `l3_harness/*.py` suite that `selftest.py` reports as `SKIP no --selftest` while its own `--selftest` exits non-zero.
-  - Claims: C-6530–C-6539
-  - Result: EXP-2026-11-21-H122-corpus-selftest (C-6530–C-6532): corpus.py --selftest OK (14/14), selftest.py --only l3_harness.corpus PASS, gate.py 4 pass/0 fail/0 skip, corrupted fixture -> check rc=1
-
 - [x] **H125 — Prose freshness is unchecked: TODO task text goes stale while the EXP/claim already says otherwise, and no tool flags it**
   - Status: done · Owner: task/h125-unblock-done-target · Critical: no · Pair: required
   - Depends: — (rule 17: this is the tool half of a record defect the SE pass found; no map task depends on it, so it also needs a `Pair:` and one bounded session)
@@ -1277,34 +1130,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-6670–C-6679
   - Result: EXP-2026-11-22-H126-stale-pr-heads (C-6670): .github/scripts/main_watch.py --prs sweeps every open non-draft PR head via gh api check-runs; 0 completed non-cancelled gate runs = stale (pending waits, cancelled-only stale, non-gate run ignored, draft out of scope); opens/updates [H126] fix: issue and exits 1, never re-runs for the author. Fixture #394: 99d0b54 has 0 check-runs, 6b55ccd0 has 6; --replay-pr prints stale #394 head 99d0b54b last tested 6b55ccd0 rc=1; selftest 34 checks; tools/gate.py 0 fail. Workflow runs the sweep from the hourly schedule/workflow_dispatch with pull-requests: read.
 
-- [x] **H127 — A red gate log names no claims_check row: the 5 red `main` runs print 2 gate lines and 40 NONRUN lines, never the failing rule**
-  - Status: done · Owner: task/h127-h127-gate-log-failing-row · Critical: no · Pair: required
-  - Depends: — (serves H117's diagnosis: `main_watch` can name the SHA and the step, not the rule)
-  - Goal: the five red `CI quality gate` runs on `main` since 2026-11-20 (`8e0f913c90`, `28927eb43d`, `13731fe9cf`, `c4b5a90279`, `6834e4b4eb`) all failed on `quality :: Standing gate (tools/gate.py)`, and every red log's `--- claims_check output (tail) ---` section holds only `NONRUN …`/`NOEXP …` warning rows — the actual failing line (`MISSING C-2141 archive/us256.img` for the first four; a `count-check`/evidence line for the fifth) is printed above the last 40 lines and cut off. `tools/gate.py` prints `"\n".join(lines[-40:])` for every non-selftest gate, so a claims_check output of ~500 lines hides its verdict. The weekly/manual README already promises "name the failing row" and cannot: a reader of a red run cannot tell which rule failed without re-running the tool at that SHA.
-  - Precheck: `gh run view 44874389818 --log-failed | grep -aE 'claims_check +FAIL|NONRUN|MISSING'` prints the `claims_check FAIL` line plus ~40 `NONRUN` rows and no `MISSING`; `grep -n 'lines\[-40:\]' tools/gate.py` prints the single tail slice used for `claims_check`, `todo_check` and `fn_audit`.
-  - Scope: `tools/gate.py` only — per-gate tail filtering that keeps the lines a red run needs: for `claims_check`, the summary lines (`genuine missing evidence paths`, `MISSING …`, `duplicate claim IDs`, `unregistered proposed claims`, `count mismatches`, the `claims_check: FAILED` line) and for `todo_check` the `ERROR` lines and the `todo_check: FAILED` line, each capped at a per-kind limit instead of a blind 40-line slice. Mirror the existing `selftest` special case (`if r["gate"] == "selftest": … shown[-120:]`) with a `_FAIL_HINTS` table; keep the full output available via `--json`/raw. Also print each gate's measured wall time when it FAILs so a slow failure (H84's manual job) is visible. Exclusion: no change to what any gate asserts, no exit-code change.
-  - Input: `tools/gate.py` (`_print_table` / the FAIL tail loop, `SKIP_MARKERS`, the `selftest` special case), `.github/workflows/ci.yml` and `README.md` (the `claims_check FAIL` exit 1 policy), the five red run ids above, H117's EXP (`salient_lines` uses the same `STEP_HINTS` idea).
-  - Hints: the failure text already carries the rule names (`genuine missing evidence paths: 4`, `MISSING C-2141 …`), so the fix is selection, not new wording. Reuse `main_watch.py`'s `STEP_HINTS` vocabulary rather than a second list. A gate whose output has no hint line must still print its last 40 lines, so an unknown failure is not hidden.
-  - Done when: `python3 tools/gate.py` with a temp `docs/research/claims.md` whose one row cites an absent path prints, under `--- claims_check output (tail) ---`, a `MISSING` line naming the claim and the path, before the 40-line cap; with a temp `TODO.md` whose task loses `Scope` the `todo_check` tail names the `ERROR` line; `python3 tools/gate.py --selftest` (or the tool's own selftest) covers both; on `main` the gate stays 4 pass / 0 fail / 0 skip; a real red run after the change (or `--replay` of run ids into the log formatter) names the rule.
-  - Stop: if the CI log format cannot be replayed offline, test the formatter directly (`_print_table`/the tail helper) on saved outputs and record that the end-to-end assertion is manual in the EXP.
-  - Falsifier: a red claims_check run whose gate log contains no line naming the failing claim/path/rule after this task.
-  - Claims: C-6680–C-6689
-  - Result: EXP-2026-11-21-H127-h127-gate-log-failing-row (C-6680): tools/gate.py FAIL tails now select hint lines per gate (FAIL_HINTS: claims_check keeps MISSING/genuine missing/count mismatches/…/FAILED; todo_check keeps ERROR/FAILED; fn_audit keeps GAP/UNMAPPED/FAILED) capped at 40 with an elision marker, plus 40 trailing non-hint lines and a per-gate wall-time line; gates with no hint table or no matching hint keep the blind 40-line tail, so unknown failures are not hidden. gate.py --selftest OK (16 checks); gate.py 4 pass/0 fail/0 skip. Verified: a synthetic MISSING row survives the cap (the earlier reproduction printed it first), and a missing Claims field surfaces its ERROR line.
-
-- [x] **H128 — `todo_check --strict` has no ledger of its own debt: 8 ERROR held by open PRs, and no baseline says whether the count grew**
-  - Status: done · Owner: task/h128-h128-todo-strict-debt · Critical: no · Pair: required
-  - Depends: — (H53 lowered its own Done-when to "no ERROR for tasks this cycle can own"; this task makes the remainder measurable)
-  - Goal: the QA prompt says report the `--strict` count and "do not treat it as a new regression until H53 cleans it" — but nothing records what the count was, so each pass re-derives "8 ERROR / is it new?" by memory. At `b67d1519` `python3 tools/todo_check.py --strict` exits 1 with **8 ERROR** over **4** tasks (`M1.38`, `M3.13`, `M3.29`, `M8.C`; two of them also `WARN … references blocked task`) and **181 WARN**. H53's Result recorded 17 ERROR over 7 tasks at `ea15563` and said they "clear when those land `done`" — 3 of those 7 are still open (`M3.13 #351`, `M3.29 #341`, `M8.C #355`), so the debt is a set of PRs, not a number to eyeball. A baseline keyed by task ID turns "it grew" into a command.
-  - Precheck: `python3 tools/todo_check.py --strict >/tmp/opencode/tc.txt 2>&1; echo $?` prints `1`; `grep -cE '^  ERROR' /tmp/opencode/tc.txt` prints `8`; `grep -E '^  ERROR' /tmp/opencode/tc.txt | sed -E 's/.*TODO.md:[0-9]+ ([A-Z0-9.]+):.*/\1/' | sort -u` prints the four IDs above; `python3 tools/todo_check.py; echo $?` prints `0` (default stays green).
-  - Scope: `tools/todo_check.py` only — `--baseline PATH` / `--update-baseline PATH`: a committed `tools/fixtures/todo_strict_baseline.json` records each `(task ID, field)` that ERRORs at a pinned revision, and `--strict --baseline` exits 1 on **any** ERROR whose task ID is not in the baseline (a new one) and prints, but does not fail, a baseline entry that has cleared (that is the H53 progress); snapshot the IDs with `git rev-parse HEAD` in the file header. Also make the `--strict` summary print `ERROR n over m tasks (baseline k, new N)` so the log carries the number. Exclusion: do not suppress a WARN, do not relax the firmware four-field rule, no edit to any open task's block (H53's Stop: the PR-held tasks are not ours to edit).
-  - Input: `tools/todo_check.py` (`REQUIRED`/`strict_firmware`, `_parse_depends`, the `--strict` path), H53's Result (`17 ERROR / 7 tasks` at `ea15563`, EXP-2026-11-20-H53-strict-honest), H120 (the same "a check must know what it measured" class), the current four task IDs.
-  - Hints: key by `(task ID, missing field)`, never by line number (H71/H80). The baseline is a *debt ledger*, not a waiver: a new task with a missing `Scope` must fail on the first PR that adds it, or the rule is dead. `--update-baseline` must print the exact `+`/`-` rows and require the file to be staged, like H104's `cardcheck` baseline.
-  - Done when: `python3 tools/todo_check.py --strict --baseline tools/fixtures/todo_strict_baseline.json` exits 0 on `main` (the 8 are all baselined) and prints `ERROR 8 over 4 tasks (baseline 8, new 0)`; a temp `TODO.md` with one extra firmware task missing `Stop` exits 1 and names it; a temp `TODO.md` with one baseline task completed/archived prints `cleared: M3.13` and still exits 0; `python3 tools/selftest.py --only todo_check` PASS; `python3 tools/todo_check.py` (default) still exits 0.
-  - Stop: if the strict ERROR set changes with every PR-held merge (it will, as #351/#341/#355 land), the baseline is still correct — those merges clear entries, and the task says so; do not pin the count as a constant in prose, pin the IDs.
-  - Falsifier: after this task a new firmware task with a missing `Precheck`/`Scope`/`Stop` still exits 0 under `--strict --baseline`.
-  - Claims: C-6700–C-6709
-  - Result: EXP-2026-11-21-H128-h128-todo-strict-debt (C-6700): tools/todo_check.py gains --baseline/--update-baseline; committed tools/fixtures/todo_strict_baseline.json keys 8 ERRORs over 4 tasks (M1.38, M3.13, M3.29, M8.C) by (task ID, missing field). --strict --baseline exits 0 on main (8 over 4, baseline 8, new 0), a new firmware task missing Stop exits 1 (NEW M9.99|Stop), a cleared task prints cleared: M3.13 and stays 0; structural errors (no key) always fail. selftest 31 checks, default mode still 0. No WARN suppressed, firmware rule unchanged, no open task edited.
-
 - [x] **H129 — `board.py claim-set` writes `Supersedes:` to the evidence cell, and its selftest does not check the target cell**
   - Status: done · Owner: task/h129-claim-set-supersedes · Critical: no · Pair: required
   - Step: tooling
@@ -1330,6 +1155,19 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8260–C-8269
   - Pair: required
   - Result: EXP-2026-11-22-H130-board-claim-raw-pipe; claim-body/claim-set escape raw pipes; exact-7 cell guard; 105/105 board selftests; gate 5 pass/0 fail/0 skip
+
+- [ ] **H131 — H21's "Krotoszyn fixture replacement" half: build the semantic L2 fixture the D3 test calls for**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: H21 (its `make_l2_semantic_fixtures` half; named there as the remaining piece)
+  - Goal: one of the two L1/L2 semantic tests H21 specified does not exist. Its EXP names a command that builds the fixtures (`make_l2_semantic_fixtures`, cited in H21's plan text) and `tools/` has no such file, so the D3 "Krotoszyn fixture replacement" case H21 describes as a semantic L2 test cannot run — a semantic check that is written as prose is not a gate. Ship it as a real tool so the L2 layer H41/H56 report counts is honest.
+  - Precheck: `ls tools/make_l2_semantic_fixtures.py` prints `No such file or directory` and `grep -rl make_l2_semantic_fixtures tools/` prints nothing on `origin/main` at this pass (record the commit); `python3 tools/l2check.py --selftest` passes, so the fixture format it must feed exists.
+  - Scope: one new `tools/make_l2_semantic_fixtures.py` with `--selftest` that writes a small vendor-free tree (a factory-shaped `MAPAL001` tile or two plus the `DRSTR001`/`CMP.LST` skeleton `cardcheck --generate-fixture` makes, H103) and then feeds it to `l2check --semantic-tiles`; shape it as H21's D3 case: replace one level-1 parcel with a known synthetic way and assert the semantic decode returns that way, with a one-byte-mutant negative. No vendor bytes; no new L2 rule; no change to `l2check` semantics (if a rule is missing, that is a new task).
+  - Input: H21 block and its EXP (the D3 case text), `tools/cardcheck.py --generate-fixture` (H103), `tools/l2check.py` (`--semantic-tiles`), `tools/tilewriter.py`, `tools/drstr_ze0.py`, `tools/cmpind_writer.py`, `docs/research/card-ladder.md` §P1 L2.
+  - Done when: `python3 tools/make_l2_semantic_fixtures.py --out DIR` writes a tree, `python3 tools/l2check.py --root DIR --semantic-tiles` exits 0 on it, a one-byte parcel change makes it exit non-zero (`FAIL`), `--selftest` covers both in a temp dir with no vendor data, and the tool is listed in `tools/README.md`; the EXP names the H21 D3 case it implements; `selftest.py --only make_l2_semantic_fixtures` PASS and `selftest.py` stays green.
+  - Stop: if `cardcheck --generate-fixture` cannot produce a tile `l2check --semantic-tiles` accepts without vendor bytes, record what is missing (the fixture contract) as a follow-up and block; do not copy a vendor tile into the repo.
+  - Falsifier: the fixture builds and `l2check --semantic-tiles` exits 0 even after the parcel is corrupted one byte (then the semantic rule is not testing the parcel, and the tool would be a placebo — say so).
+  - Claims: C-8590–C-8599
+  - Pair: required
 
 
 ## M2 — Map code, activation, updater
@@ -1508,27 +1346,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Done when: both answers are in `cmp-ind.md` with VAs.
   - Claims: C-5330–C-5339 (was C-830–C-839; fresh block for this run)
   - Result: EXP-2026-11-20-M3.2-ind-handling-l3.md (done, C-5330–C-5334). EU2011 L3 run of the whole compressed layer (`tools/cmp_read_l3.py`: mount `0x41bc98`, open `0x41b780`, seek `0x41b8a4`, read `0x41b954`, host ops): (a) `chunk_size` compared with the mount word at `0x41c92a` (0x8000/0x20000 rejected before any `.cmp` read; mount word 0x20000 rejects the factory file; both 0x20000 -> 79,360 wrong bytes), sizes nothing; (b) seek to `chunk_offset[first]` + one read (POINT010 seek `0x234d7f`), `78 9c` decoy + shifted index still correct, `off_last_m1` -> -1, no scan. Factory ADDRE001/POINT010 byte-identical. Static answers were already in `cmp-ind.md` (M3.2b); L3 paragraph added.
-
-- [x] **M3.3 — Run the `.ind` reader on the 8 `ind_mutate.py` variants**
-  - Status: done · Owner: — · Critical: yes
-  - Depends: M3.2, M9.5
-  - Done when: accept/reject per variant is recorded and compared with
-    `cmpind.py`.
-  - Claims: C-5340–C-5349 (was C-840–C-849; fresh block for this run)
-  - Result: EXP-2026-11-20-M3.3-ind-variants-l3.md (done, C-5340–C-5344). EU2011 full-layer L3 run (`cmp_read_l3.py batch`, firmware's own `.ind` parser) on the 8 ADDRE001 variants vs `cmpind.py`: 6 agree (both reject: `size_20000`/`size_8000` at the `chunk_size` compare, `off0_1`/`off_last_m1`/`off_last_p1`/`off_last_0` in inflate); 2 disagree — `count_p1` read byte-identical, `count_m1` returns 79,360 B wrong from byte 65,536 with no error (D1 is a writer obligation). The `cmp_ind_reader` fragment target cannot judge `.ind` variants (harness-built table).
-
-    `CMP.LST` (count, order, sentinel, leading `u32 = 0x2f`), which M5.6 must
-    satisfy.
-  - Input: EXP-2026-11-06-M3.4 (`Navi.exe` `0x00419684`, `0x0041ba90`,
-    callers `0x00419d24`/`0x00419ca0`, filename table `0x00179cf8`); M3.4 had
-    no disassembler: `apt-get install binutils-sh4-linux-gnu` works here,
-    then `sh4xref.py --calls` and `objdump -b binary -m sh4`.
-  - Done when: each function's file API calls (named via C-1710/M1.9), the
-    buffer it reads into, and every compare on the read data are listed with
-    VAs in `drstr.md`; or the EXP shows the data is handed to another
-    module (named) without checks.
-  - Claims: C-1860–C-1869
-  - Result: EXP-2026-11-06-M3.10-drstr-cmplst-fns (C-1860–C-1869). `0x0041ba90` (CMP.LST) does only `fopen`/`fclose` — no content read/compare (existence check). `0x00419684`→`sub_00419350` reads/parses DRSTR001 (heap `*0x009cfcdc` ≤`0x77220`, stack 40B) with size/read checks at `0x419388,0x4193da,0x4193e4,0x419462-0x419468,0x419496-0x4194a6` (`_modlu`/`>=200` caveat noted) but **no 0x2f root / 40-node / 324-entry compare found** (C-1864, strengthens C-859); `sub_004191d0` bounds `entry_count+1 < 15000` at `0x41920a`. All in `Navi.exe`, coredll ordinals named. `drstr.md` updated.
 
 - [x] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
   - Status: done · Owner: — · Critical: yes
@@ -2416,16 +2233,6 @@ re-audited this pass). The 22nd-pass text of this section is in git
     coordinate` with random-key control.
   - Claims: C-2310–C-2319 (was C-1950–C-1959, already used by M2.13b)
 
-- [x] **M4.16d — TMC location→segment placement via `TFTBL`/`reception.dat`**
-  - Status: done · Owner: task/m4.16d-tmc-segment-placement · Critical: no
-  - Result: EXP-2026-11-20-M4.16d-tmc-reception-table-codes — `TMC/reception.dat` lists the card's 14 (CC, LTN) pairs, one per RDSTM table; a table code is `ord(CC hex digit) << 8 | LTN` (14/14 listed, 14/14 codes carry the RDS CC of the country their records land in; shuffled countries max 8/14). With M4.16b (C-5400/C-5402) the chain (CC, LTN, location code) → RDSTM table → record → MAPAL node is closed. `TFTBL001` is absent on 2011 cards (C-122), not tested. `tools/tmc_reception.py`. C-2320–C-2323.
-  - Done when (set at close, the block had none): every `reception.dat` (CC, LTN) maps to exactly one RDSTM table whose placed records lie in the country with that RDS CC, above a shuffled-country control — met.
-  - Step: P3
-  - Depends: M4.16b, M4.7
-  - Goal: if `RDSTM001` is TMC (C-882), test placement through the TMC
-    location table chain rather than raw row bytes.
-  - Claims: C-2320–C-2329 (was C-1960–C-1969, already used by M4.19)
-
 - [x] **M4.17 — Link attributes without OSM: road numbers as ground truth**
   - Status: done · Owner: claude/m4.17-road-class · Critical: no
   - Result: EXP-2026-11-08-M4.17-road-class — 96 numbered LCTBL roads of 7 OSM classes (420 rows, EU 2011 and 2014) with a street control; no record field beats its shuffled-road null under leave-one-road-out. Road-class field NOT established; `class_code` is a hypothesis (C-1825). The LCTBL road key does not reach RDSTM rows (C-1826).
@@ -2724,9 +2531,9 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-21-M4.58-skins-tfat16 (C-6500–C-6509); docs/format/skins.md lists TFAT16 (3070 entries, 3066 placeholders, 1 real .skn) and the .skn field table; skin id 1..4 -> \SystemSD2\SkinChange\001..004\Substance.skn; gate 4 pass 0 fail
 
 - [ ] **M4.59 — One changed image on the screen: the smallest skin edit that passes the checks**
-  - Status: blocked · Owner: — · Critical: no · Pair: required
+  - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: M4.58 (where the image is and what indexes it); M1.36b
-  - Unblock: M4.58 done and it names one image whose bytes can be replaced in place (same size or with a known size field)
+  - Unblock: M4.58 is done — the TFAT16 skin volume (3070 entries, skin id 1..4) and the .skn field table are decoded; the in-place bitmap it names is the M4.58 EXP's OPNG/ROM-A PNG. This task re-opens with that image named.
   - Goal: prove the mechanism before anyone designs a skin: replace one visible bitmap (same dimensions), fix every checksum on the way (ROM `SUM4` word sum, C-160, if the image is inside ROM A — both copies `0x200000` and `0x2000000`), and show the result is consistent offline.
   - Scope: a tool `tools/skin_patch.py` that patches a card image in place and reports changed ranges; `cardcheck --image` and `cerom.py` must still parse the ROM; an L3/L4 check if the loader can be run. Car test is M6 and belongs to Marek, after S0.
   - Done when: the patched image differs from factory only in the listed ranges, `SUM4` recomputed equals the stored value on both copies (negative control: without the fix it does not), and the patched PNG decodes.
@@ -3222,24 +3029,38 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8560–C-8569
   - Pair: required
 
+- [ ] **M4.96 — Grade then explain the last 366 KB of the unexplained factory tiles: section 3/5 records or the section-4 wide-row residual**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P1
+  - Depends: M4.93 (section-4 wide rows, done), M4.86 (unexplained ranking, done)
+  - Goal: `tools/map_signals.py` reports the byte share of a factory tile that the format docs explain; the worst sample tile `B48R058R` is at 76.29 % and M4.93's section-4 work left a residual of 1,326 B (2 tables) while the tile's remaining unexplained mass is far larger. Rule 17 counts the `tile_bytes` number, so the next format task must take the largest *named* block, not a guess; split the residual into record classes, grade each against a firmware reader, and name where the percentage goes next.
+  - Precheck: `python3 tools/map_signals.py --factory-root /home/marek/projekty/leafre-work/root` prints the `tile_bytes` line; on the DE tile set that is `B28R070R 99.98%, B30R048R 95.86%` and the ranking from `tools/tile_unknown.py` `--top 12` names the largest ranges (record the counts and the 76.29 % `B48R058R` figure from the full EU root, not from the DE-only root).
+  - Scope: EU2011 `B48R058R` (289 MB) and `B30R048R` as the second control. For every unexplained range from M4.86 `tile_unknown.py`, assign a kind — (a) an unparsed section-3/5 record block (which section table names it?), (b) the M4.93 section-4 residual, (c) padding/slack — by reading the tile header's section table and the directory kinds, and for class (a) cite the `clarion_tile`/`lev3456` span that should cover it or the M3 reader that parses it. No new decoder beyond spans; no writer; no vault bytes committed.
+  - Input: `tools/map_signals.py`, `tools/tile_unknown.py`, `tools/parcel_census.py`, `tools/ze0_tile_header.py`, `tools/ze0-viewer/tools_ze0/clarion_tile.py`, `docs/format/map-tiles.md`, EXP-2026-11-22-M4.86-tile-unknown-ranking, EXP-2026-11-22-M4.93-section4-wide-rows.
+  - Done when: a `--selftest`-covered tool (extend `tile_unknown.py`, do not fork) prints, per unexplained range, its section/level/directory kind and a class letter, and the EXP sums the bytes per class for both tiles (numbers from the command); class (a) bytes either gain a covering span in `clarion_tile` (with the `tile_bytes` line re-run and the new percentage quoted) or a new one-line task names the record block that must be decoded; the sum of classes equals the `still unexplained` figure from the same run.
+  - Stop: one session per tile; if a range cannot be attributed without a decoder the task decides, mark it class (a) with a candidate section and hand it to a reader task — do not decode it here.
+  - Falsifier: the unexplained bytes are evenly spread as padding, so no range ranks above a few hundred bytes and the `tile_bytes` percentage is a span-coverage artifact (then say so with the ranked table and close the lead).
+  - Claims: C-8620–C-8629
+  - Pair: required
+
+- [ ] **M4.97 — Section-2 grammar from the RPF reply path: drive the `0x14b6` kind-8 handler and read-watch unit 0 without waiting on import binding**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P2
+  - Depends: M4.40 (kind-8 reply located, blocked on M4.55), M4.55 (blocked on M9.65 for one STDDLL import), M4.54 (reply copy path, done)
+  - Goal: the P2 routing chain is stalled behind one import: M4.55's reply consumer `0x003367a0` faults at `0x003367c2` on an unmodelled `STDDLL!STD_MeshPnt_isValid` thunk (`0x003d1640` → IAT `0x0055da88`), so the section-2 field table is not read. But the same STDDLL exports already run in `poi_position_l3.py`, so the binding exists in the repo in a second harness — the fix is a model, not months of QEMU. Slice the reply path so the section-2 grammar (the P2 blocker) advances in parallel with M9.65 instead of behind it.
+  - Precheck: `python3 tools/datask_req_l3.py request archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.70,17.45 0xa68cd68c:0:8` prints `unit 0`/`unit 2` pointers (the reply exists); M4.55's Blocker line prints the faulting VA `0x003367c2` and the IAT slot `0x0055da88`; `grep -c 'STD_MeshPnt_isValid' tools/poi_position_l3.py` is non-zero (the model to copy exists).
+  - Scope: EU2011 build A. (1) Bind `STD_MeshPnt_isValid` (and any other STDDLL mesh import the RPF handler loads) as a model in a copy of the M4.55 harness, lifted from `poi_position_l3.py`; (2) run the `0x14b6` kind-8 reply handler to its first unit-0 read and log every word it loads with the reading VA; (3) write the field table into `docs/format/map-tiles.md` §section 2; (4) controls: a section-1 record behind the same pointers, a parcel without section 2 (status 4). No writer; no KIWI shortcut (M4.72 owns that).
+  - Input: `tools/datask_req_l3.py` (`Client.request`, the `unit 0` reply), `tools/poi_position_l3.py` (the STDDLL model), `tools/l3_harness/engine.py` (import binding), M4.55 block's Blocker/Start lines, `tools/ze0-viewer/tools_ze0/clarion_rd.py` (`parse_record`, `links` for the model to compare), `docs/format/map-tiles.md`.
+  - Done when: the kind-8 reply handler runs past `0x003367c2` on the EU card and an EXP lists the unit-0 words read with VA and byte offset (≥ 6 fields named); the model in `clarion_rd.py` agrees with the firmware on the two factory records M4.40 read (`B48R058R` `0x1095c000`, `B30R058R` `0x567400`); the control records differ or are rejected; the field table lands in `map-tiles.md`; M4.55's `Unblock:` gains this task as a second path; EXP + claims.
+  - Stop: one session on the handler; if the fault moves to a second unmodelled import whose export is absent from the EU `STDDLL`, record both VAs and block — the follow-up is the missing export, not another probe.
+  - Falsifier: the handler reads unit 0 but the words read do not match `clarion_rd.links` on the same factory record, and no input differs (then the model or the field table is wrong — say which).
+  - Claims: C-8630–C-8639
+  - Pair: required
+
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
 Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 `docs/research/osm-vertical-slice.md` and `profiles/dolnoslaskie-test.*`.
-
-    not on `main` at a8a1994; it is merged together with this status change.
-  - Depends: —
-  - Goal: read a Dolnośląskie `.osm.pbf` (Geofabrik) and write IMF v1 with
-    drivable roads and the tags the compiler needs.
-  - Input: `docs/research/intermediate-format.md`, `tools/imf_check.py`.
-  - Done when: `tools/osm_ingest.py` reads `.osm` XML and `.osm.pbf`
-    (stdlib PBF decoder or a documented optional dependency) and produces IMF
-    that passes `imf_check.py` on a synthetic fixture generated by its
-    self-test (a few ways, a roundabout, a one-way, a turn restriction). The
-    region run is M5.1b, because OSM hosts are blocked here (C-1716).
-  - Result: `tools/osm_ingest.py` reads `.osm` and `.osm.pbf` and emits
-    identical IMF that passes `imf_check` (EXP-2026-11-06-M5.1-osm-ingest).
-  - Claims: C-1030–C-1039
 
 - [x] **M5.1c — OSM node tags: POIs, addresses and places into IMF**
   - Status: done · Owner: claude/m5.1c-osm-poi · Critical: yes
@@ -3335,26 +3156,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     L2/follow-ups open (C-1092).
   - Claims: C-1090–C-1099
 
-
-- [x] **M5.11 — End-to-end: one generated tile on an accepted card image**
-  - Status: done · Owner: task/m5.11-one-generated-tile · Critical: yes
-  - Note (M9.13, 2026-11-20): software evidence for the factory-backed splice: the firmware's mount reads a `tilewriter.py --factory` `B48R058R` (two ways in a `0x2046` directory) read-for-read like the factory tile (C-3253). A fresh-container tile is not readable: every directory must be backed by the fixed length the firmware reads (`0x8100` for section 1 level 1; C-3256, C-3257). Check a card's tile with `python3 tools/datask_l3.py mount … --position LAT,LON --replace MAPAL001/<tile>=<file> --json B.json` then `diff`. Corrected by M5.56 (DRSTR001 clamp; tilewriter pads), C-5832/C-5833.
-  - Depends: M5.4, M5.6, M5.10, M5.12b, M4.20 (accept facts: M2.3, M2.5, M2.12
-    done; M2.15 and M9.6/M2.4 for the exact map-code bytes)
-  - Goal: the Phase-2 milestone — turn OSM input into a card image that the
-    firmware would accept, with one tile actually regenerated from OSM (not
-    just a verbatim rebuild).
-  - Input: `osm_ingest.py` (M5.1), the mesh splitter (M5.2), the tile writer
-    (M5.4), the tree rebuild (M5.6), `mkcard.py` (M5.10); the acceptance
-    facts from M2.3/M2.5/M2.12 and `realcheck.py`.
-  - Done when: a script (or documented pipeline) produces `out.img` from a
-    Dolnośląskie extract where exactly one tile is OSM-generated and the rest
-    is factory; `cardcheck.py --image` + `l2check.py` pass; and an EXP checks
-    `out.img` against every known accept/reject gate (HDD_INFO fields,
-    map-code comparator inputs, attestation, SD lock) and states, per gate,
-    pass / not-applicable / cannot-verify-offline. No vendor bytes committed.
-  - Claims: C-2330–C-2339 (was C-1970–C-1979, already used by H9)
-  - Result: EXP-2026-11-19-M5.11-one-generated-tile. `out.img` `b88a31f4…f95fe3` = EU 2011 card + `B48R058R` with dir (76,940) level 1 regenerated from the committed Dolnośląskie fixture `m5.37-splice.osm` (sandbox has no OSM host; real-extract run is M5.44): 42,542 diff bytes, all in the tile's clusters; `cardcheck --image` + `l2check` (incl. `--graph-tiles`) PASS; readback 18/18 within 1 m. Gates: 7 PASS (HDD_INFO, map-code check 1 ACCEPT in L3 under the declared unit record, `0x06000000` copy, version block, manifests, zlib, FAT), 2 not-applicable (`HDD_CHK.ATT`, SystemSD/UserSD check), 3 cannot-verify-offline (MapDBVer range, SD lock, tile reader L3 BLOCKED).
 
 - [x] **M5.13 — Patch a file in place inside a factory image (`tools/imgpatch.py`)**
   - Status: done (tool; the real S1/S2 images are **M5.13b**, C-2027
@@ -3471,24 +3272,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M9.18 (firmware reader verdict for generated L3/4/5).
   - Result: EXP-2026-11-08-M5.16-lev3456-generator. `tools/lev3456gen.py` (selftest OK, python3.13 stock zlib): generates L3/4/5 road records from mesh-split synthetic extract, template-splices EU 2011 LEV3456R; unchanged template round-trip byte-identical (76,066,304 B); generated L3/4/5 accepted by `lev3456.py verify` (exit 0, L5 strict 62/62 plain+stream, 0 opaque; L3/L4 best-effort matches factory preserved pattern); `generate()` deterministic. Not `[x]`: M9.18 firmware-reader clause unmet.
 
-- [x] **M5.17 — `LCTBL001.DAT` file builder (H11 G5)**
-  - Status: done · Owner: task/m5.17-lctbl-builder · Critical: yes
-  - Step: P3
-  - Depends: M3.15, M4.18
-  - Goal: `lctbl_records.py` re-encodes streams, but no tool builds the
-    catalog plus the 500-record pages, so a Poland card cannot carry Polish
-    street and place names.
-  - Input: `tools/lctbl_records.py` (all 517 streams byte-identical),
-    `lctbl_names.py`, `rdstm.md` §LCTBL, M4.18's open items (header `+7..+13`
-    attributes, the 0–22 B footer, the 500-record page cap), M3.9 collation
-    (`OBJ_Sort_cmpStr` weight table) and the CP1252 rule.
-  - Done when: a builder writes a complete `LCTBL001.DAT` for a synthetic name
-    set, the header/catalog/page framing matches the factory layout, the
-    output passes L1/L2, and an unchanged input rebuilds byte-identically;
-    the sort order matches the firmware's weight table (`--selftest`).
-  - Claims: C-2410–C-2419
-  - Result: EXP-2026-11-20-M5.17-lctbl-builder. `tools/lctbl_build.py` decodes the whole file (sector addresses, 3-list catalog, per-table B-tree index, ≤500-record zlib pages, page directories at the end — the old "0xff padding" was the directories) and writes it from `{header, flag word, tables: code, location codes, records}`: EU (247,089 records) and US 2011 (303,023) rebuild byte-identically; a synthetic 5-table Polish set (3,668 records) builds deterministically, passes L1 `cardcheck` (stale-DRSTR control FAILs) and the non-golden L2 checks (unchanged rebuild: L2 PASS); L3 `0x003f61bc`/`0x003f5d98` read the generated catalog descriptor + records, 3,668/3,668 fields == model (C-2410–C-2417). Sort clause: the file order is the location-code B-tree key (selftest refuses unsorted codes); names are not collated in the file (rdstm.md rule 4), so no weight-table order is applied. Index lookup / page loader at L3 → **M5.60**.
-
 - [ ] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
   - Status: open · Owner: — · Critical: yes
   - Step: P4
@@ -3524,23 +3307,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 ---
 
-
-- [x] **M5.29 — Dolnośląskie one-tile pipeline: OSM→IMF→mesh→tile→L1+L2+gate report**
-  - Status: done · Owner: — · Critical: yes
-  - Note (M5.34, 2026-11-17): Done when met on the factory root via M5.34 (EXP-2026-11-17-M5.34-parcel): routing the test geometry into `0x2046` directory `(76,940)` instead of `0x2146` `(76,941)` lets the pipeline complete; `cardcheck` + targeted `l2check` PASS, one tile + `DRSTR001.DAT` differ. The H51 blocker note below is kept as history.
-  - Note (H51, 2026-11-11): **Unblock: M5.34** — the factory rerun (PR #171) failed because the test ways fell into a `0x2146` directory; route them into one of the `0x2046` directories instead. PM decision on the open boundary question: `0x2146` directories stay verbatim (preserve-only) for this milestone; that is not a reason to hold the run.
-  - Note (rerun, 2026-11-09): unblock (EU2011 factory image available, `archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img` `105e2032…`) satisfied; factory-backed rerun attempted. PR #171's content (`--factory-root` mode + EXP) was merged to `main` by the PO on 2026-11-16 and its branch closed; the task stays `blocked` on M5.34, not on the branch.
-  - Depends: M5.1, M5.2, M5.4, M5.6, M5.10, M5.28
-  - Goal: produce the first repeatable Poland compiler milestone: one OSM-generated tile swapped into a factory EU card, validated offline at L1+L2 with an explicit acceptance-gate report (operationalizes M5.11).
-  - Precheck: `tilewriter.py --selftest` 68/68 OK; `rebuild_manifests.py --selftest` OK; `one_tile_pipeline.py --selftest` OK (`selftest.py --only one_tile_pipeline` PASS). `cardcheck`/`l2check` have no `--selftest` flag (recorded as skips). Factory EU tree: EU2011 is available on this machine via `fetch_image.py` (rule 11); IMG256 lacks MAPAL001.
-  - Scope: `tools/one_tile_pipeline.py` (stdlib + existing tools, `--selftest` on synthetic data, `--factory-root` for the factory path) produces `out` with exactly one OSM-generated tile `MAPAL001/B48R058R.DAT` (`mapping=provisional-v0`, via `roadclass_v0`/`tilewriter`); rest of the tree factory/verbatim; rebuilds manifests; runs `cardcheck`/applicable `l2check`; emits honest gate report. No vendor bytes committed.
-  - Input: compiler tools, `hddinfo.py`, M2.18 if landed, `profiles/dolnoslaskie-test.*`, reader-coverage matrix, EU2011 factory root.
-  - Done when: `cardcheck` and applicable `l2check` pass; report lists per gate (HDD_INFO/MAP CODE bytes, DRSTR/MMAIN/CMP.LST/.ind, tile round-trip/structure, section 4, manifests): `PASS`/`NOT-APPLICABLE`/`CANNOT-VERIFY-OFFLINE`/`NEEDS-L3`; EXP names tile, fixture SHA-256 or extract metadata, states provisional classes and firmware acceptance unknown (rule 13).
-  - Stop: factory tile/tree not obtained/fetched (rule 11) — synthetic-only path produced; real-image/factory run marked `blocked` with missing input named.
-  - Blocker: factory-backed rerun extracted the EU2011 tree (480 files) but `tilewriter --factory` refused `MAPAL001/B48R058R.DAT` directory `y=76 x=941` kind `0x2146` (slot-table, record boundaries not safe to mutate; M5.22 `PRESERVE_ONLY_DIR_KINDS`). Tile not generated; Done when not met. Same input failure hit the synthetic scaffold (MMAIN/section alignment; `clarion_tile.read_tile` `struct.error`).
-  - Unblock: **M5.34** (route the test ways into a `0x2046` parcel so the factory-backed run completes). Re-open M5.29 when M5.34 merges (rule 15). Alternative unblocks: extend tilewriter/M5.22 for safe `0x2146` mutation with verified round-trip evidence, or produce a factory-coherent OSM tile without unsafe mutation and prove cardcheck/applicable l2check pass.
-  - Result: EXP-2026-11-09-M5.29-one-tile-pipeline (synthetic-only, blocked); rerun EXP-2026-11-09-M5.29-factory-rerun (factory-backed attempted, unblock satisfied, blocked on `0x2146` tilewriter safety, C-3054). `mapping=provisional-v0`, rule 13 (L3/L4/L5 unknown). PR #171 closed 2026-11-16 after this content was merged. Done when met by M5.34 (EXP-2026-11-17-M5.34-parcel).
-  - Claims: C-3050–C-3059
 
 - [x] **M5.30 — One-variable OSM tile card via `imgpatch`/reconcile (1:1 diff, L1+L2)**
   - Status: done · Owner: task/m5.30-one-variable-card · Critical: no
@@ -3679,19 +3445,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M5.68, M5.69, M5.70 (the M5.71 drop-parcel check is a falsifier gap, not a build blocker)
   - Result: EXP-2026-11-21-M5.61-poland-card (negative; 1 of 4 tiles: B50R050R level 1 passes all gates, the other three hit tilewriter defects M5.68-M5.70); p1.img tile B50R050R = 7c6ea211…, template repaired
   - Claims: C-6250–C-6259
-
-- [x] **M5.60 — L3: the `LCTBL001` index lookup and page loader read a generated file**
-  - Status: done · Owner: task/m5.60-lctbl-index-l3 · Critical: no · Pair: solo
-  - Step: P3
-  - Depends: M5.17 (done)
-  - Goal: M5.17 ran only the record walk (`0x003f61bc`/`0x003f5d98`) on a generated `LCTBL001.DAT`; the B-tree lookup (location code → ordinal), the page-directory read and the zlib page load that hand the walk its record were not executed, so rule 13 "accepted" holds only for the record bytes.
-  - Precheck: `python3 tools/lctbl_build.py l3 archive/head256.img FILE` passes (record walk); `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x003fbed8` (search type 1 opener, M3.28) is `START`.
-  - Scope: EU2011 build A `Navi.exe`; candidates below the opener `0x003fbed8`/`0x004125a8` that read 0x1000-byte pages keyed by `u32 ordinal + BCD4` (signature from the writer's inverse, `lctbl_build.py`, not the format doc).
-  - Input: EXP-2026-11-20-M5.17-lctbl-builder (C-2410–C-2417), EXP-2026-11-19-M3.28-file-openers, `docs/format/rdstm.md` "File structure (M5.17)".
-  - Done when: an L3 run looks up a location code in a generated file (`lctbl_build.py synth`) and returns the record the model holds for that code, with a negative control (a code absent from the file is not found).
-  - Stop: if no reader of the index pages is found after the opener subtree and its indirect calls are enumerated, record the candidates and block.
-  - Claims: C-6140–C-6149
-  - Result: EXP-2026-11-20-M5.60-lctbl-index-l3. `tools/lctbl_lookup_l3.py` runs the whole lookup in PySh4 (EU2011): request `0x14e4` sub 1 (country code, database number, location code; table code = hex digit of the country << 8 | number) → catalog → B-tree index pages → page directory → zlib page inflated by `HDL_MapTblTask` (`0x14b8`/`0x14b9`) → answer `0x14fb`. On a `lctbl_build.py synth` file 4/4 held codes return the model's record and 3/3 absent codes are not found; factory file 4/4 agree; a flipped index key and a damaged record page both break the agreement (C-6140–C-6149). Open: the real country/database numbers for Poland; an absent table is served from the first table (observed).
 
 - [x] **M5.64 — LCTBL: the real country/database table code for Poland, and whether the firmware actually keys LCTBL by country (the M5.60 open item)**
   - Status: done · Owner: task/m5.64-lctbl-poland · Critical: no · Pair: required
@@ -3935,6 +3688,34 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session; if a factory shard is absent on this host, mark it `absent on this host` and still ship the command for a runner that has the card.
   - Falsifier: a decoder's factory total is 0 bytes explained on a shard its EXP reports as fully explained (then the EXP sample or the decoder is wrong — say which).
   - Claims: C-8510–C-8519
+  - Pair: required
+
+- [ ] **M5.82 — New POI placement: a spatial-tree leaf, index record and copy-A word set for a POI that is not in the factory file**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P4
+  - Depends: M5.63 (POI move inside a copy-A cell, done), M4.27 (fine position `rec[6..9]`, done), M4.47 (chain relocation, done)
+  - Goal: M5.63 moves an existing POI and is explicit that "new POIs remain open": adding a POI needs a free copy-A cell, a new spatial-tree leaf, a new index key and a new name record, and no tool does all four. Poland's POI layer (M5.18) cannot ship until one real OSM POI with a name and a position is written into a factory pair and read back by the firmware walk, so close the placement gap before the bulk writer is built.
+  - Precheck: `python3 tools/board.py show M5.63 | grep -o 'new POIs remain open'` prints the phrase, and `python3 tools/point_move_poi.py --selftest` passes; `python3 tools/point_census.py census DIR --files POINT010` on the EU pair prints `unaccounted=0` and a free-cell count (record the number).
+  - Scope: EU2011 `REFER001/POINT010.DAT` + `.ind` only. (1) choose one copy-A cell with room, (2) allocate a name record with the per-record field-length encoding (M3.11c) and the copy A words (`11xx` nibble, `rec[6..9]` = M4.27 formula), (3) insert a spatial-tree leaf with the flag `0x0800` and code 63 the nearest-POI search requires (M3.35), (4) add the index key, and (5) re-encode only the touched pages, relocating a chain if needed (`point_pair_regen.regen_chain`, `point_move_poi`). No OSM extract; one synthetic record as the test value. No tile writer.
+  - Input: `tools/point_move_poi.py`, `tools/point_census.py` (`census`, `joins`), `tools/point_pair_regen.py`, `tools/point_tree_l3.py`, `tools/point_walk_l3.py`, `docs/format/refer.md` §POINT, EXP-2026-11-21-M5.63-poi-move, EXP-2026-11-20-M4.27-point-census-fine-position.
+  - Done when: one new POI (name + lat/lon) is added to a copy of the EU `POINT010` pair, `point_census.py census` still prints `unaccounted=0` and `joins` reports the new leaf among the spatial leaves, `point_walk_l3.py walk` returns the new record for its page, the no-op control is byte-identical and `cmpind verify` PASS; the changed bytes are inside the named page slot/chain only; EXP + claims.
+  - Stop: one session. If a free cell or a leaf slot cannot be allocated without a file-size change the reader rejects, record the leaf/cell numbers and stop (a follow-up names the layout limit), do not hand-patch bytes.
+  - Falsifier: the added leaf joins (`joins` counts it) but the firmware walk returns the neighbouring record, or a page re-encode moves bytes outside the slot and `cmpind verify` fails.
+  - Claims: C-8580–C-8589
+  - Pair: required
+
+- [ ] **M5.83 — Polish names on the emulated screen: an OSM name with diacritics folded to the map font, decoded at L2 and visible at L4**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P3
+  - Depends: M4.87 (Polish glyph coverage, done), M5.65 (section-4 place names from OSM, done), M8.H71 (OSM tile on the emulated screen, done)
+  - Goal: the three halves of "a Polish name is drawn" exist separately: M4.87 lists the map font's glyphs, C-1799 says shipped text is CP1252 with non-Latin-1 letters transliterated (`Cesk` for `Česk`), and M5.65 writes OSM place names into a factory section-4 record. Nobody has run one Polish name with `ą ć ę ł ń ó ś ź ż` from an OSM tag through the compiler and shown what the firmware actually draws — so "our names render" is an assumption, not a measured result.
+  - Precheck: `python3 tools/board.py show M4.87 | grep -m1 Status:` prints `done` and its EXP lists the 18 letters; `python3 tools/board.py show M5.65 | grep -m1 Status:` prints `done`; `python3 tools/one_tile_pipeline.py --help` and `python3 tools/ze0_screenshot.py --help` exist (the L4 screenshot path M8.H71 used).
+  - Scope: EU2011 + `-M ze0`. One synthetic OSM way/place whose name carries all eight Polish letters plus a CP1252-storable `ó`, run through IMF (`imf_check.fold_cp1252`), the section-4/name writer, L2 decode and the M8.H71 London parcel at L4; screenshot the label. Compare the *drawn* characters against M4.87's glyph table and the *stored* bytes against C-1799's fold. No change to the fold rule; no new font work; if a glyph is absent, that is a finding for a new task, not a fix here.
+  - Input: `tools/osm_ingest.py` (`fold_cp1252`), `tools/imf_check.py`, `tools/section4_places.py` / `tools/tilewriter.py` name path, `tools/ze0-viewer/harness.py info`, M8.H71 recipe (`tools/one_tile_pipeline.py`, `tools/imgpatch.py`, `tools/qemu-ze0/run.sh`, `tools/ze0_screenshot.py`), EXP-2026-11-22-M4.87, EXP-2026-11-22-M5.65, EXP-2026-11-22-M8.H71.
+  - Done when: the EXP has a table `letter → stored byte (L2 decode) → drawn or substituted (L4 screenshot crop)` for all eight letters plus `ó`; the stored bytes equal what `fold_cp1252` predicts; every letter that M4.87 says the font has appears on the screenshot and every one it lacks is named as substituted/blank; a control name with no diacritics renders byte-identically; the PNG crop is vendor-free (synthetic name only) or its SHA-256 is recorded instead; EXP + claims.
+  - Stop: one session for the compile+L2 half; if the L4 run cannot show the label (no position change reaches the generated parcel), record the L2 table and the screenshot SHA-256 and stop — the label POV is M8.H33/M8.H72, not this task.
+  - Falsifier: `fold_cp1252` says a letter is storable and the L4 screen substitutes or blanks it, or the L2 decode and the stored bytes disagree (then the writer, not the font, lost the letter — name which).
+  - Claims: C-8600–C-8609
   - Pair: required
 
 ## M6 — L5 bench/car: hardware and safety
@@ -6457,6 +6238,20 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: one session; if the heading set drifts from `TEMPLATE.md`, read the headings from the template file instead of hard-coding them.
   - Falsifier: the tool passes a record with the headings but an elided command (`# ...`), or fails a compliant record only because of heading case/spacing.
   - Claims: C-8520–C-8529
+  - Pair: required
+
+- [ ] **M9.72 — The `LOC_map` shape walk on the US build: port `locmap_l3.py` off the EU VAs so the US card (Marek's unit) reads our record**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P1
+  - Depends: M9.67 (EU host model of `fn 0x0041f3dc`, done), M9.66 (EU shape walk, done), M9.63 (US L3 runnable, done)
+  - Goal: M9.63 found the M9.58 `LOC_map` shape walk is **NOT RUNNABLE on US2011**: `tools/locmap_l3.py` has no `--build` (`grep -c -- --build` = 0) and exits 3 on the US image, and its four US VAs for the client-task and `LOC_map` functions are absent. The L4 path that reads our served record therefore only has an EU witness, while Marek's unit is US (M8.H12), so the renderer-walk accepted in L3 is not the build that must accept it in the car.
+  - Precheck: `grep -c -- '--build' tools/locmap_l3.py` prints `0`; `python3 tools/locmap_l3.py --help` has no build selector; `python3 tools/datask_l3.py mount --build us2011 … --request 0xa6cdd6be` runs (the record read US2011 works) but `locmap_l3.py` on the US card exits 3 (record the message).
+  - Scope: EU2011→US2011 `Navi.exe` only. Locate the US twins of the four M9.66 functions (EU2011 `0x00425f40`, `0x0042613c`, `0x00421548`, `0x0041f3dc`) by the EU byte pattern and the `fn_audit`/`pdata` check (H51: name the build next to every VA), add `locmap_l3.py --build us2011` with the US group/slot addresses (M3.22's US table `0x00c81100`), and run the same position → request → record → shape walk on `archive/us256.img`. No new format claim beyond the US run; no writer.
+  - Input: `tools/locmap_l3.py`, `tools/datask_l3.py` (`--build us2011`), `tools/nk_decomp.py pdata`, `tools/sh4xref.py`, US VAs in `docs/format/firmware.md`, EXP-2026-11-22-M9.63, EXP-2026-11-21-M9.66-loc-map-shape-walk, EXP-2026-11-22-M9.67.
+  - Done when: each US VA passes `nk_decomp.py pdata … START` and a one-word byte-diff of the function body against its EU twin gives the expected pool/address differences only; `locmap_l3.py --build us2011` runs position → request → record → walk on `us256.img` and prints a load count and a shapes table (the EU run's 5,363 loads is the EU number, not the expected US one — state the US count); the EU run is unchanged; `l3check` lists the US `loc_map` row as runnable or names why not; EXP + claims; reader-coverage row 17 US cell.
+  - Stop: if fewer than three of the four US VAs resolve to a `START` (H51), record the located ones and block with the missing function named; do not guess a VA from a literal.
+  - Falsifier: the US walk runs but the EU-shaped record reads 0 shapes and a one-word mutation does not change the count (then the US handler is a different code path, not a port).
+  - Claims: C-8610–C-8619
   - Pair: required
 
 ## Retired leads
