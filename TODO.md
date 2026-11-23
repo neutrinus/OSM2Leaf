@@ -2916,8 +2916,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: required
   - Result: EXP-2026-11-23-M4.94-kiwi-replay; 5/5 REPLAY OK (0/6000 road fits, 17659 bg records, r=0.1035, 0/4 header checks, 45 tiles); diff -r empty; gate 5/5; C-8490-C-8499
 
-- [ ] **M4.95 — Road `ref`/shield writer: emit `2=REF` from OSM and pass the M4.90 shield table**
-  - Status: in progress · Owner: task/m4.95-ref-shield-writer · Critical: no · Pair: required
+- [x] **M4.95 — Road `ref`/shield writer: emit `2=REF` from OSM and pass the M4.90 shield table**
+  - Status: done · Owner: task/m4.95-ref-shield-writer · Critical: no · Pair: required
   - Depends: M4.90 (done), M5.65 (done)
   - Goal: M4.90 found where a road number lives and how the shield is chosen (`2=REF` in the odd partner's names section, 11 shield families) and wrote a proposed Polish mapping, but no writer emits it: our generated tiles have names (M5.65) and no `A4`/`S8`/`DK94` reference, so a Poland card shows unnumbered roads. Close the writer gap.
   - Precheck: `python3 tools/ze0-viewer/harness.py info <generated tile>` prints no `2=REF` part for any road name entry; M4.90's EXP table has the 11 families with counts.
@@ -2928,6 +2928,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the written `2=REF` parses but the shield family the table predicts is not the one a decoded factory road with the same ref shows.
   - Claims: C-8560–C-8569
   - Pair: required
+  - Result: EXP-2026-11-23-M4.95-ref-shield-writer; 2=A4:E40/2=S8/2=94 via parse_names_section + re-run factory query; l2check semantic PASS; no-ref A/A SHA equal; tilewriter selftest 132/132; gate 5/5
 
 - [x] **M4.96 — Grade then explain the last 366 KB of the unexplained factory tiles: section 3/5 records or the section-4 wide-row residual**
   - Status: done · Owner: task/m4.96-tile-unexplained-grades · Critical: no · Pair: required
