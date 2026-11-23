@@ -41,7 +41,7 @@ Control socket lines (one per connection, reply ``OK ...`` or ``ERR ...``):
 
 ``drive on`` moves the fix by speed x report period along the heading for
 every report sent, so position, speed and heading agree (the locator
-compares them, C-8790).  While driving, a control line does not send an
+compares them, C-8830).  While driving, a control line does not send an
 extra report: the firmware treats consecutive reports as one second apart.
 
 Stdlib only.  Method and results:

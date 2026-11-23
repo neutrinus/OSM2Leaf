@@ -111,7 +111,7 @@ printf 'qom-get /machine/dr irqs\n' | socat - UNIX-CONNECT:$W/live/mon.sock
 `pulses-milli` is pulses per 100 ms tick × 1000 (0 = standing still).
 `gyro0`…`gyro7` are the raw ADC words (zero and scale unknown, default 0).
 The locator moves the car to a far GPS position only when the reports
-agree with each other for five seconds at more than 10 km/h (C-8791). Let
+agree with each other for five seconds at more than 10 km/h (C-8831). Let
 the peer drive, so position, speed and heading match:
 
 ```bash
