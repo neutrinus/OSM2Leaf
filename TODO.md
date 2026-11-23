@@ -3062,7 +3062,7 @@ The 23rd-pass text is in git (`af469580`).
   - Pair: required
 
 - [ ] **M4.96 — Grade then explain the last 366 KB of the unexplained factory tiles: section 3/5 records or the section-4 wide-row residual**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m4.96-tile-unexplained-grades · Critical: no · Pair: required
   - Step: P1
   - Depends: M4.93 (section-4 wide rows, done), M4.86 (unexplained ranking, done)
   - Goal: `tools/map_signals.py` reports the byte share of a factory tile that the format docs explain; the worst sample tile `B48R058R` is at 76.29 % and M4.93's section-4 work left a residual of 1,326 B (2 tables) while the tile's remaining unexplained mass is far larger. Rule 17 counts the `tile_bytes` number, so the next format task must take the largest *named* block, not a guess; split the residual into record classes, grade each against a firmware reader, and name where the percentage goes next.
