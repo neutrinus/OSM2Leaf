@@ -2111,8 +2111,8 @@ The 23rd-pass text is in git (`af469580`).
   - Result: `tools/coord.py` converts lat/lon <-> cell/packed/local with both origins, 15 fixtures (EXP-2026-11-06-M4.8-coord); 10-POI image check open.
   - Claims: C-960–C-969
 
-- [ ] **M4.8b — Check `coord.py` on 10 real POIs**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M4.8b — Check `coord.py` on 10 real POIs**
+  - Status: done · Owner: task/m4.8b-coord-poi-check · Critical: yes
   - Step: P4
   - Blocker: bit-packed POINT pages (`POINT002/008/029`, 5405 pages) remain
     undecoded; no 0..2047-class geographic sub-unit position field linkable to
@@ -2122,11 +2122,7 @@ The 23rd-pass text is in git (`af469580`).
     Latitude-offset "other method" is a non-pinnable fit to Wikipedia centroids.
     Origin 52742 (longitude) remains supported (C-1902).
   - Unblock: re-opened 2026-11-20 by M4.27 (C-2679, EXP-2026-11-20-M4.27-point-census-fine-position): the name record holds the fine position (`rec[6..9]`, 512 steps per packed unit inside a 4-unit sub-cell of copy A; `tools/point_census.py refs`, median 115 m on the 16 references, 3 within 15 m). What is left for this task: `coord.py` for point ids (M4.61) and ≥ 10 POIs with a building-level reference, so the "within a few metres" done-when can be judged. The earlier note (M4.37: format carries no sub-unit coordinate) is corrected.
-  - Result: EXP-2026-11-08-M4.8b-bitpack-avenues.md (C-2936–C-2939, negative for
-    tested scope). Prior: EXP-2026-11-08-M4.8b-transform-proof.md (16 POIs,
-    origin 52742 fits longitude, latitude bias +2.8 km unexplained);
-    EXP-2026-11-08-M4.8d-subunit-field.md (zlib-framed name records/ADDRE
-    negative, C-2930–C-2935).
+  - Result: EXP-2026-11-23-M4.8b-coord-poi-check — 12 building-level POIs, median 38.8 m, 10/12 <=100 m, fine closer 12/12, VERDICT: fine position model holds; origin 52736 (POINT) / 52742 (bbox), locally 12/12 in-bounds at both scales; coord.py point CLI + 27/27 selftest, C-9940–C-9949
   - Depends: M4.8
   - Goal: the original M4.8 done-when, unmet at merge: prove the transform
     on real data before M5.2 splits OSM ways with it.
@@ -2138,7 +2134,7 @@ The 23rd-pass text is in git (`af469580`).
   - Done when: the EXP lists ≥ 10 POIs with decoded vs reference lat/lon and
     the error in metres, states which origin and local scale fit, and
     `coord.py` self-test pins the chosen constants.
-  - Claims: C-1900–C-1909, C-2936–C-2939
+  - Claims: C-1900–C-1909, C-2936–C-2939, C-9940–C-9949
 
 - [x] **M4.11 — `LEV3456R.DAT` coarse levels 3–5 semantics**
   - Status: done · Owner: task/m4.11-lev-coarse · Critical: no
