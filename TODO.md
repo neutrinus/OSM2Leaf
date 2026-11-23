@@ -3540,8 +3540,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a build that reports 0 unwritable parcels by dropping every way that would need a slot.
   - Claims: C-6810–C-6819
 
-- [ ] **M5.71 — `verify_factory` does not reject a legal-but-wrong parcel set (the M5.61 falsifier has no check)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.71 — `verify_factory` does not reject a legal-but-wrong parcel set (the M5.61 falsifier has no check)**
+  - Status: done · Owner: task/m5.71-verify-factory-parcels · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tools/tilewriter.py`/`tools/l2check.py` are on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §7)
   - Goal: M5.61's falsifier is "the gate passes on a card where one directory was written with the ways of the neighbouring directory". The `--drop-parcel 80,944,5,3` control (a real parcel left factory) gives a tile of the same size (90,251,560 B) with a different SHA-256 (`6400851b…` vs `7c6ea211…`) and `tilewriter_rc: 0`, so `verify_factory` accepts it: it re-checks the splice it was handed, not "this parcel should differ from factory". No gate the task names reads the tile's parcel set against OSM, so a writer that puts a parcel's ways in the wrong slot passes every L1/L2/L3 check.
@@ -3552,6 +3552,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the factory cannot say which parcels a caller meant to change, record the two shapes and set `blocked` on a generator manifest instead of guessing from the diff.
   - Falsifier: a check that passes the `--drop-parcel` tile, or one that fails the real `B50R050R` tile.
   - Claims: C-6820–C-6829
+  - Result: EXP-2026-11-23-M5.71-verify-factory-parcels; fresh B50R050R rc 0 (declared 5806); --drop-parcel 80,944,5,3 rc 1 naming it; l2check tile_parcel_guard PASS/FAIL/SKIP
 
 - [ ] **M5.72 — Road writer: point reference words the `LOC_map` walk accepts**
   - Status: blocked · Owner: task/m5.72-locmap-ref-words · Critical: yes · Pair: required
@@ -5962,10 +5963,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-3210–C-3219
 
 
-- [ ] **M9.31 — `l3check --card` baseline/no-diff verdicts for S0/S1 (unblocks M9.12)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M9.31 — `l3check --card` baseline/no-diff verdicts for S0/S1 (unblocks M9.12)**
+  - Status: done · Owner: task/m9.31-card-baseline-verdicts · Critical: no
   - Step: tooling
-  - Pair: solo
+  - Pair: required
   - Depends: M9.41 (the US S1 evidence row this baseline needs), M9.11/M9.11b (cmp_ind_reader path), M9.6 context. **Was `M9.12 (blocked)`** — that made a deadlock: M9.31 unblocks M9.12 and M9.12's `Unblock:` is M9.31, so as written neither could ever be taken (SE 2026-11-17).
   - Goal: make the card gate produce runnable verdicts when S0/S1 are byte-identical to factory, instead of `NO_DIFFS`/exit 3 with no pass evidence. A no-diff card is a valid baseline and should still exercise registered runnable targets on factory/baseline files where safe.
   - Precheck: `python3 tools/l3check.py --selftest` passes; M9.12 EXP states the S0/S1 no-diff blocker and S2 PASS path.
@@ -5974,6 +5975,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: on a synthetic or documented fixture where card and factory inputs are identical, `l3check.py --card ... --factory ...` (with the chosen no-diff mode) runs at least the runnable M9.11/M9.6-equivalent paths available in that fixture and reports explicit verdicts (not bare `NO_DIFFS`/exit 3 without verdicts), with selftest/EXP evidence; M9.12 can cite it as the S0/S1 unblock path.
   - Stop: if no registered runnable target can declare a safe baseline corpus, report `NO_RUNNABLE_BASELINE_TARGETS` with reasons and keep M9.12 blocked (do not fabricate verdicts).
   - Claims: C-3320–C-3329
+  - Result: EXP-2026-11-23-M9.31-baseline-no-diff-verdicts; 2 pass / 0 fail, exit 0; selftest 34 checks
 
 - [x] **M9.41 — M9.10's last US-build gap: `point_walk_l3` runs the US reader but the target is not registered as an S1/S2 evidence row**
   - Status: done · Owner: task/m9.41-us-poi-row · Critical: yes · Pair: required

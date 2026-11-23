@@ -31,6 +31,18 @@ from the factory image and reports every relevant L3 target as ``pass`` /
 whose reader is not runnable are reported honestly as ``not-yet-available``
 (e.g. the POI reader / M9.10); the gate never synthesizes a pass.
 
+Baseline gate (M9.31): ``--card IMG --factory IMG --baseline`` handles the
+no-diff case (S0/S1 are byte-identical to the factory).  Instead of a bare
+``NO_DIFFS`` it runs the registered runnable baselines on the factory's own
+files: M9.11 ``cmp_ind_reader`` on a REFER001 ``.cmp/.ind`` pair and M9.6
+``applaunch_mapcode_compare`` on ``HDD_INFO.TXT``.  Each row names the build
+whose firmware/VA it uses; an EU function is never reported on a US-card
+baseline.  A row counts as ``pass`` only when the runner returned status
+``PASS`` *and* real firmware data (``r0``/``insns``): ``DRY_RUN`` (exit 0),
+``SKIP``, ``BLOCKED`` and a missing input are ``not-yet-available``.  Result
+``PASS``/exit 0 needs at least one real pass; no runnable baseline gives
+``NO_RUNNABLE_BASELINE_TARGETS``/exit 3, never a fake pass.
+
 Card gate, first slice (M9.60): ``--card IMG --factory IMG [--position LAT,LON]``
 runs the firmware's own mount and file sweep and makes the exit code the
 verdict -- three rows, each printed ``PASS`` / ``FAIL`` / ``NOT RUN``:
@@ -62,6 +74,8 @@ Usage::
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --target probe-zlib-cmf
     python3 tools/l3check.py --card LEAF_EU.img --factory LEAF_EU.img --position 51.70,17.45
     python3 tools/l3check.py --card us_S2.img --factory LEAF_US.img
+    python3 tools/l3check.py --card LEAF_EU.img --factory LEAF_EU.img --baseline \\
+        --baseline-dir /home/marek/projekty/leafre-work/scratch/m9.31/eu --json
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --json
     python3 tools/l3check.py --corpus /tmp/opencode/l3-corpus --json out.json
     python3 tools/l3check.py --selftest
@@ -100,6 +114,31 @@ EXP_RECORD = "EXP-2026-11-06-M9.8-l3check"
 #: Reservation from TODO M9.12 (C-2160-C-2169); card gate uses C-2160.
 CARD_CLAIM = "C-2160"
 CARD_EXP = "EXP-2026-11-08-M9.12-l3check-card"
+
+#: M9.31 baseline/no-diff gate.  Reservation C-3320-C-3329.
+BASELINE_CLAIM = "C-3320"
+BASELINE_EXP = "EXP-2026-11-23-M9.31-baseline-no-diff-verdicts"
+
+#: The only targets allowed to declare a *safe* baseline corpus.  Both use
+#: EU2011 VAs that are already in the frozen fn_audit corpora (base:689/730,
+#: overlay:1418-1422); no new VA is cited.  ``build`` is declared per row so an
+#: EU function is never reported as a verdict on a US-card baseline (M9.31).
+BASELINE_TARGETS = (
+    {
+        "name": "cmp_ind_reader",
+        "build": "eu2011",
+        "reader": "cmp_ind",
+        "label": ".cmp/.ind chunk decoder (M9.11, EU2011 fn 0x0041c7dc)",
+        "inputs": ("cmp", "ind"),
+    },
+    {
+        "name": "applaunch_mapcode_compare",
+        "build": "eu2011",
+        "reader": "hdd_info",
+        "label": "map-code compare (M9.6, EU2011 build B fn 0x03bd2ad8)",
+        "inputs": ("hddinfo",),
+    },
+)
 
 #: M9.60 card gate, first slice: the firmware's own mount and file sweep as
 #: three rows whose exit code is the verdict.  Reservation C-6720-C-6729.
@@ -485,7 +524,7 @@ _CARD_TARGETS = [
         "label": "map-code/HDD_INFO compare (M9.6)",
         "applies": lambda p: p.upper() == "VER_INFO/HDD_INFO.TXT",
         "adapter": "targets.json",
-        "unavailable_note": "hddinfo_compare target blocked in targets.json; M9.6 runnable target not registered",
+        "unavailable_note": "hddinfo_compare is blocked in targets.json (no entry VA; M2.1-M2.3). The M9.6 runnable map-code target is applaunch_mapcode_compare (fn 0x03bd2ad8, EU2011 build B) and is registered; this row is not it.",
     },
     {
         "name": "cmp_ind_reader",
@@ -808,6 +847,248 @@ def _print_card_report(report: dict) -> None:
         print("RESULT: NO_DIFFS (no differing files or nothing runnable; exit 3, not a pass)")
     else:
         print(f"RESULT: {report['result']} (exit {report['exit']}; not-yet-available is not a pass)")
+
+
+# --------------------------------------------------------------------------
+# M9.31 baseline gate: explicit verdicts on a no-diff card/factory pair
+# --------------------------------------------------------------------------
+
+#: The three small baseline files, either in --baseline-dir (scratch, never the
+#: repo) or extracted from the factory image into a temp dir.  Only offsets,
+#: sizes and hashes of these files belong in the EXP.
+_BASELINE_FILES = {
+    "cmp": "POINT010.DAT.cmp",
+    "ind": "POINT010.DAT.ind",
+    "hddinfo": "HDD_INFO.TXT",
+}
+_BASELINE_CORPUS_PATHS = {
+    "cmp": "REFER001/POINT010.DAT.cmp",
+    "ind": "REFER001/POINT010.DAT.ind",
+    "hddinfo": "VER_INFO/HDD_INFO.TXT",
+}
+
+
+def _baseline_verdict(spec: dict, payload: dict) -> dict:
+    """Map one runner payload to a baseline row, never fabricating a pass.
+
+    A ``pass`` needs status PASS **and** real firmware data (r0/insns).  The
+    runner's ``DRY_RUN`` status carries exit 0 but no verdict; SKIP/BLOCKED and
+    missing inputs are ``not-yet-available``.  Only MISMATCH/FAIL/INVALID (an
+    actual run that rejected the factory baseline) is a ``fail``.
+    """
+    status = str(payload.get("status") or "").upper()
+    fw = payload.get("firmware")
+    real_fw = (isinstance(fw, dict) and fw.get("r0") is not None
+               and fw.get("insns") is not None)
+    verdict = payload.get("verdict")
+    detail = "; ".join(str(p) for p in (payload.get("problems") or [])) \
+        or str(payload.get("reason") or "")
+    if verdict:
+        detail = (detail + " | " if detail else "") + str(verdict)
+    if real_fw:
+        detail += (" | " if detail else "") + "firmware r0=%s insns=%s" \
+                  % (fw["r0"], fw["insns"])
+    row = {
+        "name": spec["name"],
+        "label": spec["label"],
+        "build": spec["build"],
+        "reader": spec["reader"],
+        "claims": list(TARGET_EVIDENCE.get(spec["name"], {}).get("claims", ())),
+        "verdict": verdict,
+        "firmware": fw if real_fw else None,
+        "detail": detail,
+        "l3_claim": bool(payload.get("l3_claim")),
+    }
+    if status == "PASS" and real_fw:
+        row["status"] = "pass"
+    elif status in ("MISMATCH", "FAIL", "INVALID"):
+        row["status"] = "fail"
+    else:
+        row["status"] = "not-yet-available"
+    return row
+
+
+def _baseline_counts(rows: list[dict]) -> dict:
+    counts = {"pass": 0, "fail": 0, "not-yet-available": 0, "total": len(rows)}
+    for row in rows:
+        counts[row["status"]] = counts.get(row["status"], 0) + 1
+    return counts
+
+
+def baseline_result(rows: list[dict]) -> tuple[str, int]:
+    """Pure aggregation: a FAIL wins, else one real PASS, else exit 3."""
+    counts = _baseline_counts(rows)
+    if counts["fail"]:
+        return "FAIL", 1
+    if counts["pass"]:
+        return "PASS", 0
+    return "NO_RUNNABLE_BASELINE_TARGETS", 3
+
+
+def _unavailable_baseline_row(spec: dict, reason: str) -> dict:
+    return {
+        "name": spec["name"], "label": spec["label"], "build": spec["build"],
+        "reader": spec["reader"],
+        "claims": list(TARGET_EVIDENCE.get(spec["name"], {}).get("claims", ())),
+        "status": "not-yet-available", "verdict": None, "firmware": None,
+        "detail": reason, "l3_claim": False,
+    }
+
+
+def _default_baseline_runners() -> dict:
+    """The registered firmware_call targets, via runner.py's own dispatcher.
+
+    A runner is only called after the caller has checked build pairing, head
+    presence and corpus presence; it never guesses a head or an input.
+    """
+    def firmware_runner(extra_args):
+        def run(spec, files, head):
+            by_name, _doc = runner_mod.load_targets()
+            target = by_name.get(spec["name"])
+            if target is None:
+                return {"status": "BLOCKED", "reason": "target not in targets.json"}
+            ns = argparse.Namespace(
+                engine="pysh4", input=None, corpus=None,
+                max_insns=engine_mod.DEFAULT_MAX_INSNS, dry_run=False,
+                image=str(head), cmp=None, ind=None, offset=None, length=None,
+                mutate="none", expect=None, expect_name=None,
+                unit_from=None, unit_code=None,
+            )
+            for key, value in extra_args(files).items():
+                setattr(ns, key, value)
+            try:
+                return runner_mod.run_target(target, ns)
+            except Exception as exc:  # noqa: BLE001 - a crashed runner is no pass
+                return {"status": "BLOCKED",
+                        "reason": "runner crashed: %s: %s"
+                                  % (type(exc).__name__, str(exc)[:200])}
+        return run
+
+    return {
+        "cmp_ind_reader": firmware_runner(
+            lambda files: {"cmp": str(files["cmp"]), "ind": str(files["ind"])}),
+        "applaunch_mapcode_compare": firmware_runner(
+            lambda files: {"input": str(files["hddinfo"]),
+                           "unit_from": str(files["hddinfo"]),
+                           "expect": "ACCEPT"}),
+    }
+
+
+def build_baseline_report(card: Path, factory: Path, *, files: dict,
+                          heads: dict, runners: dict | None = None,
+                          card_build: str | None = None) -> dict:
+    """M9.31: real firmware verdicts on a no-diff card/factory pair.
+
+    ``files`` maps ``cmp``/``ind``/``hddinfo`` to Paths; ``heads`` maps a build
+    name to its firmware head Path.  ``runners`` is injectable for the
+    selftest.  A missing input/head, a build mismatch, an absent runner or a
+    DRY_RUN/SKIP row is ``not-yet-available`` with its reason -- never a pass.
+    """
+    diff = diff_card_files(card, factory)
+    build = card_build or _card_head_build(card)
+    active_runners = _default_baseline_runners() if runners is None else runners
+    rows: list[dict] = []
+    for spec in BASELINE_TARGETS:
+        if spec["build"] != build:
+            rows.append(_unavailable_baseline_row(
+                spec, "build mismatch: card/factory is %s, baseline uses %s (%s); "
+                      "an EU function is never a verdict on a US-card baseline (M9.31)"
+                      % (build, spec["build"], spec["label"])))
+            continue
+        head = heads.get(spec["build"])
+        if head is None or not Path(head).is_file():
+            rows.append(_unavailable_baseline_row(
+                spec, "no %s firmware head for %s (rule 11)"
+                      % (spec["build"], spec["label"])))
+            continue
+        missing = [key for key in spec["inputs"]
+                   if files.get(key) is None or not Path(files[key]).is_file()]
+        if missing:
+            rows.append(_unavailable_baseline_row(
+                spec, "missing baseline input(s): %s" % ", ".join(sorted(missing))))
+            continue
+        runner = active_runners.get(spec["name"])
+        if runner is None:
+            rows.append(_unavailable_baseline_row(
+                spec, "no runner registered for %s" % spec["name"]))
+            continue
+        try:
+            payload = runner(spec, files, head)
+        except Exception as exc:  # noqa: BLE001
+            rows.append(_unavailable_baseline_row(
+                spec, "runner crashed: %s: %s"
+                      % (type(exc).__name__, str(exc)[:200])))
+            continue
+        rows.append(_baseline_verdict(spec, payload))
+    result, exit_code = baseline_result(rows)
+    return {
+        "schema": SCHEMA,
+        "command": "l3check --card --baseline",
+        "claim": BASELINE_CLAIM,
+        "exp": BASELINE_EXP,
+        "card": str(card),
+        "factory": str(factory),
+        "card_build": build,
+        "diff": diff,
+        "targets": rows,
+        "counts": _baseline_counts(rows),
+        "result": result,
+        "exit": exit_code,
+        "problems": list(diff.get("problems") or []),
+        "note": (
+            "M9.31 baseline gate: real firmware verdicts on the factory's own "
+            "files when the card is byte-identical to it. PASS needs status PASS "
+            "and real firmware r0/insns; DRY_RUN/SKIP/BLOCKED are "
+            "not-yet-available, never a pass. Build is declared per row."
+        ),
+    }
+
+
+def _baseline_corpus_files(factory: Path, baseline_dir: str | None,
+                           tmp: Path) -> tuple[dict, list[str]]:
+    """Locate the three small baseline files (scratch dir or 7z extraction)."""
+    if baseline_dir:
+        root = Path(baseline_dir).expanduser()
+        files = {key: root / name for key, name in _BASELINE_FILES.items()}
+        return files, [str(p) for p in files.values() if not p.is_file()]
+    dest = tmp / "baseline"
+    try:
+        _7z_extract(factory, list(_BASELINE_CORPUS_PATHS.values()), dest)
+    except (UsageError, OSError) as exc:
+        return {}, ["cannot extract baseline corpus: %s" % exc]
+    files = {key: dest / name for key, name in _BASELINE_FILES.items()}
+    return files, [str(p) for p in files.values() if not p.is_file()]
+
+
+def _print_baseline_report(report: dict) -> None:
+    print(f"l3check --card --baseline: no-diff firmware verdicts (claim {BASELINE_CLAIM})")
+    print(f"exp      {report['exp']}")
+    print(f"card     {report['card']}")
+    print(f"factory  {report['factory']}")
+    print(f"build    {report.get('card_build')} (EU rows only; never mix builds)")
+    diff = report.get("diff") or {}
+    if diff.get("identical_images"):
+        print("diff     identical images (no differing files)")
+    else:
+        print(f"diff     {len(diff.get('differing') or [])} differing card-relevant file(s)")
+    for problem in report.get("problems") or []:
+        print(f"PROBLEM  {problem}")
+    print()
+    for row in report["targets"]:
+        print(f"  [{row['status']:>17}] {row['name']} ({row['build']}): {row['label']}")
+        print(f"           claims: {', '.join(row['claims']) or '-'}")
+        print(f"           {row['detail']}")
+    counts = report["counts"]
+    print()
+    print(f"counts   pass={counts['pass']} fail={counts['fail']} "
+          f"not-yet-available={counts['not-yet-available']} total={counts['total']}")
+    if report["result"] == "PASS":
+        print("RESULT: PASS (at least one real firmware baseline passed; exit 0)")
+    elif report["result"] == "FAIL":
+        print(f"RESULT: FAIL ({counts['fail']} baseline(s) failed; exit 1)")
+    else:
+        print("RESULT: NO_RUNNABLE_BASELINE_TARGETS "
+              "(no real firmware verdict; exit 3, not a pass)")
 
 
 # --------------------------------------------------------------------------
@@ -1383,6 +1664,19 @@ def build_report(args) -> dict:
             "note": "the reader/claim table is out of step with targets.json",
         }
 
+    # M9.31 no-diff baseline gate (before the plain M9.12 diff gate)
+    if getattr(args, "baseline", False):
+        if not (getattr(args, "card", None) and getattr(args, "factory", None)):
+            raise UsageError("--baseline needs --card and --factory together")
+        with tempfile.TemporaryDirectory(prefix="l3check-baseline-") as tmp:
+            files, problems = _baseline_corpus_files(
+                Path(args.factory), getattr(args, "baseline_dir", None), Path(tmp))
+            report = build_baseline_report(
+                Path(args.card), Path(args.factory), files=files,
+                heads={"eu2011": _find_img256(), "us2011": _find_us256()})
+            report["problems"].extend(problems)
+            return report
+
     # M9.12 card gate mode
     if getattr(args, "card", None) or getattr(args, "factory", None):
         if not (getattr(args, "card", None) and getattr(args, "factory", None)):
@@ -1701,6 +1995,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="M9.12/M9.60: factory/baseline card image (required with --card)",
     )
     parser.add_argument(
+        "--baseline",
+        action="store_true",
+        help="M9.31: with --card/--factory, run the registered runnable baselines "
+             "on a no-diff pair instead of reporting bare NO_DIFFS",
+    )
+    parser.add_argument(
+        "--baseline-dir",
+        metavar="DIR",
+        help="M9.31: directory with pre-extracted POINT010.DAT.cmp/.ind and "
+             "HDD_INFO.TXT (scratch, never the repo); default extracts from --factory",
+    )
+    parser.add_argument(
         "--card-gate",
         action="store_true",
         help="M9.60: run the firmware's boot/sweep/mount rows; the exit code is the verdict",
@@ -1816,7 +2122,9 @@ def main(argv=None) -> int:
         else:
             _write_atomic(Path(args.json), document + "\n")
     else:
-        if report.get("command") == "l3check --card":
+        if report.get("command") == "l3check --card --baseline":
+            _print_baseline_report(report)
+        elif report.get("command") == "l3check --card":
             _print_card_report(report)
         else:
             _print_report(report)
@@ -2187,6 +2495,107 @@ def test_card_cmp_pair():
     assert _norm_cmp_pair("REFER001/POINT010.DAT.ind") == (
         "REFER001/POINT010.DAT.cmp", "REFER001/POINT010.DAT.ind")
     assert _norm_cmp_pair("DRSTR001.DAT") is None
+
+
+def _baseline_fixture():
+    """Small identical card/factory pair plus documented baseline file names."""
+    root = Path(_SELFTEST_TMP) / "baseline-fixture"
+    root.mkdir(parents=True, exist_ok=True)
+    files = {}
+    for key, name in _BASELINE_FILES.items():
+        path = root / name
+        path.write_bytes(("fixture:" + name).encode("utf-8"))
+        files[key] = path
+    card = Path(_SELFTEST_TMP) / "baseline-card.img"
+    card.write_bytes(b"\x00" * 1024)
+    return card, files
+
+
+@check("baseline: a pass needs status PASS and real firmware r0/insns")
+def test_baseline_verdict_mapping():
+    spec = BASELINE_TARGETS[0]
+    real = _baseline_verdict(spec, {"status": "PASS", "verdict": "ACCEPT",
+                                    "firmware": {"r0": 42848, "insns": 100}})
+    assert real["status"] == "pass" and real["firmware"]["r0"] == 42848, real
+    for status in ("DRY_RUN", "SKIP", "BLOCKED"):
+        row = _baseline_verdict(spec, {"status": status, "exit": 0})
+        assert row["status"] == "not-yet-available" and row["firmware"] is None, row
+    bad = _baseline_verdict(spec, {"status": "MISMATCH",
+                                   "firmware": {"r0": 0, "insns": 5}})
+    assert bad["status"] == "fail", bad
+    assert baseline_result([real]) == ("PASS", 0)
+    assert baseline_result([bad]) == ("FAIL", 1)
+    assert baseline_result([_baseline_verdict(spec, {"status": "DRY_RUN"})]) == (
+        "NO_RUNNABLE_BASELINE_TARGETS", 3)
+
+
+@check("baseline: identical fixture with injected runners gives explicit PASS rows")
+def test_baseline_pass():
+    card, files = _baseline_fixture()
+    def pass_runner(spec, f, head):
+        return {"status": "PASS", "verdict": "ACCEPT",
+                "firmware": {"r0": 42848 if spec["name"] == "cmp_ind_reader" else 1,
+                             "insns": 1905}, "l3_claim": True}
+    report = build_baseline_report(
+        card, card, files=files, heads={"eu2011": card},
+        runners={spec["name"]: pass_runner for spec in BASELINE_TARGETS},
+        card_build="eu2011")
+    assert (report["result"], report["exit"]) == ("PASS", 0), report
+    assert report["counts"] == {"pass": 2, "fail": 0,
+                                "not-yet-available": 0, "total": 2}, report["counts"]
+    assert all(r["status"] == "pass" and r["firmware"] for r in report["targets"]), report
+
+
+@check("baseline: FAIL exits 1; DRY_RUN/SKIP are not-yet-available with zero passes")
+def test_baseline_fail_and_dry_run():
+    card, files = _baseline_fixture()
+    fail_payload = {"status": "MISMATCH", "firmware": {"r0": 0, "insns": 10},
+                    "problems": ["firmware verdict REJECT"]}
+    report = build_baseline_report(
+        card, card, files=files, heads={"eu2011": card},
+        runners={spec["name"]: (lambda s, f, h: dict(fail_payload))
+                 for spec in BASELINE_TARGETS},
+        card_build="eu2011")
+    assert (report["result"], report["exit"]) == ("FAIL", 1), report
+    assert report["counts"]["pass"] == 0, report["counts"]
+    payloads = iter(({"status": "DRY_RUN", "exit": 0}, {"status": "SKIP"}))
+    report2 = build_baseline_report(
+        card, card, files=files, heads={"eu2011": card},
+        runners={spec["name"]: (lambda s, f, h: next(payloads))
+                 for spec in BASELINE_TARGETS},
+        card_build="eu2011")
+    assert report2["result"] == "NO_RUNNABLE_BASELINE_TARGETS" and report2["exit"] == 3, report2
+    assert report2["counts"]["pass"] == 0, report2["counts"]
+    assert all(r["status"] == "not-yet-available" for r in report2["targets"]), report2
+
+
+@check("baseline: build mismatch / missing head / no runner never fabricate a verdict")
+def test_baseline_no_runnable():
+    card, files = _baseline_fixture()
+    us = build_baseline_report(card, card, files=files, heads={}, card_build="us2011")
+    assert us["exit"] == 3 and us["result"] == "NO_RUNNABLE_BASELINE_TARGETS", us
+    assert all("build mismatch" in r["detail"] and "US-card" in r["detail"]
+               for r in us["targets"]), us["targets"]
+    nohead = build_baseline_report(card, card, files=files,
+                                   heads={"eu2011": Path("/no/head")},
+                                   card_build="eu2011")
+    assert nohead["exit"] == 3 and "no eu2011 firmware head" in nohead["targets"][0]["detail"], nohead
+    norunner = build_baseline_report(card, card, files=files,
+                                     heads={"eu2011": card},
+                                     runners={}, card_build="eu2011")
+    assert norunner["exit"] == 3 and "no runner registered" in norunner["targets"][0]["detail"], norunner
+
+
+@check("cli: --baseline needs --card/--factory; plain --card on identical files stays NO_DIFFS")
+def test_baseline_cli():
+    code, output = _cli(["--baseline"])
+    assert code == 2 and "--baseline needs" in output, output
+    card, _files = _baseline_fixture()
+    code, report = _json_cli(["--card", str(card), "--factory", str(card)])
+    assert code == 3 and report["result"] == "NO_DIFFS", report
+    code, report2 = _json_cli(["--card", str(card), "--factory", str(card), "--baseline"])
+    assert code == 3 and report2["result"] == "NO_RUNNABLE_BASELINE_TARGETS", report2
+    assert report2["command"] == "l3check --card --baseline", report2
 
 
 @check("generated corpus (H106): tile_reader lists our tiles with a status, counts unchanged")
