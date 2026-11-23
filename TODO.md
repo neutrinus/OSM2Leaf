@@ -1077,8 +1077,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: required
   - Result: EXP-2026-11-22-H130-board-claim-raw-pipe; claim-body/claim-set escape raw pipes; exact-7 cell guard; 105/105 board selftests; gate 5 pass/0 fail/0 skip
 
-- [ ] **H131 — H21's "Krotoszyn fixture replacement" half: build the semantic L2 fixture the D3 test calls for**
-  - Status: in progress · Owner: task/h131-semantic-l2-fixture · Critical: yes · Pair: required
+- [x] **H131 — H21's "Krotoszyn fixture replacement" half: build the semantic L2 fixture the D3 test calls for**
+  - Status: done · Owner: task/h131-semantic-l2-fixture · Critical: yes · Pair: required
   - Depends: H21 (its `make_l2_semantic_fixtures` half; named there as the remaining piece)
   - Goal: one of the two L1/L2 semantic tests H21 specified does not exist. Its EXP names a command that builds the fixtures (`make_l2_semantic_fixtures`, cited in H21's plan text) and `tools/` has no such file, so the D3 "Krotoszyn fixture replacement" case H21 describes as a semantic L2 test cannot run — a semantic check that is written as prose is not a gate. Ship it as a real tool so the L2 layer H41/H56 report counts is honest.
   - Precheck: `ls tools/make_l2_semantic_fixtures.py` prints `No such file or directory` and `grep -rl make_l2_semantic_fixtures tools/` prints nothing on `origin/main` at this pass (record the commit); `python3 tools/l2check.py --selftest` passes, so the fixture format it must feed exists.
@@ -1089,6 +1089,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the fixture builds and `l2check --semantic-tiles` exits 0 even after the parcel is corrupted one byte (then the semantic rule is not testing the parcel, and the tool would be a placebo — say so).
   - Claims: C-8590–C-8599
   - Pair: required
+  - Result: EXP-2026-11-23-H131-semantic-l2-fixture; good rc=0/21 features, mutant 0x7a02 -> tile_semantic FAIL rc=1; selftest 270/0/21 (180s)
 
 - [ ] **H140 — Workflow contract guard: CI must stay vendor-free and blocking steps must stay blocking**
   - Status: open · Owner: — · Critical: yes · Pair: required

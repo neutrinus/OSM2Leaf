@@ -130,10 +130,13 @@ worktree at commit `ca9b0ee5` plus the H131 implementation).
   `good rc=0 RESULT: PASS`, `mutant 0x7a02 0x5b->0x5a rc=1 RESULT: FAIL`.
 - `python3 tools/selftest.py --only make_l2_semantic_fixtures`: PASS.
 - `python3 tools/selftest.py --timeout 180`: full suite green,
-  `passed=269 failed=0 skipped=21 total=290`. At the default 60 s timeout a
-  concurrent-agent run gave `268/1` only because `ci_gate_repro` (48.46 s in
-  isolation) hit the 60 s per-tool limit; `python3 tools/selftest.py --only
-  ci_gate_repro` passes with rc 0.
+  `passed=270 failed=0 skipped=21 total=291` (after rebasing onto `origin/main`
+  at `a60d15bc`; before the rebase it was `269/0/21 total=290`). At the default
+  60 s timeout a concurrent-agent run gave `268/1` only because `ci_gate_repro`
+  (48.46 s in isolation) hit the 60 s per-tool limit; `python3 tools/selftest.py
+  --only ci_gate_repro` passes with rc 0. A later run with `TMPDIR` pointed at a
+  nearly-full scratch directory hit `ENOSPC` in 13 unrelated selftests; with the
+  default `/tmp` (3.6 GiB free) the full suite is green.
 - Ordering trap (navigator): when `golden.json` is written to `DIR` but
   `DRSTR001.DAT` is rebuilt before it, the good run FAILs
   `[drstr_roundtrip] FAIL (size=912)`. With `drstr_ze0.build(root)` called LAST
