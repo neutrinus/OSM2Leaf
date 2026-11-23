@@ -287,9 +287,9 @@ budget: one H (H131) for five M tasks.
   software gate) is the card gate; **M9.65** (STDDLL binding) → **M4.55/M4.40/
   M4.97** (section 2) → **M5.57/M9.56** is routing; **M9.18/M9.15** are the
   per-family target rows still open.
-- **L4 (emulator):** the screen and the generated-tile draw are done (M8.C1f,
-  M8.H71). Next: **M8.H64** (P0 card at L4) → **M8.E4** (full `Navi.exe` on a
-  generated card); **M9.72** brings the record walk to the US build.
+- **L4 (emulator):** the screen, the generated-tile draw and the P0 card at L4
+  are done (M8.C1f, M8.H71, M8.H64). Next: **M8.E4** (full `Navi.exe` on a
+  generated card with a position); **M9.72** brings the record walk to the US build.
 - **L5 (car):** hardware unavailable; S0→S3 order unchanged (M6.2, M6.18, M6.5,
   M6.6, M6.7). Every card passes L3 (M9.60, later M9.12) first.
 
@@ -5717,8 +5717,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: both codes take the same path.
   - Claims: C-7600–C-7609
 
-- [ ] **M8.H64 — First generated card at L4: the P0 card (one tile with OSM roads) against the factory card**
-  - Status: in progress · Owner: task/m8.h64-p0-card-l4 · Critical: yes · Pair: required
+- [x] **M8.H64 — First generated card at L4: the P0 card (one tile with OSM roads) against the factory card**
+  - Status: done · Owner: task/m8.h64-p0-card-l4 · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M8.H13
   - Goal: M8.E4 (full `Navi.exe` on a generated card) is one big acceptance run. Its first slice needs no screen: boot the P0 ladder card and the factory card through `tools/l4check.py` and compare stage, launcher verdict and files read.
@@ -5729,6 +5729,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the P0 card is rejected at a stage the factory card passes (a real finding for M5: record the log line).
   - Claims: C-7610–C-7619
+  - Result: EXP-2026-11-23-M8.H64-p0-card-l4; P0 L4 exit 0 stage F5 = same-session factory F5, launcher ACCEPT, map_files OPENED; 17-file SD trace lists identical, changed B48R058R not read; F4 first L4 generated cell
 
 - [ ] **M8.H65 — `DebugShell.dll` on `SCI6:`: the command list, and typing commands into the running emulator**
   - Status: blocked · Owner: task/m8.h65-debugshell · Critical: no · Pair: solo
