@@ -4830,8 +4830,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the ISR at `0x8803ec74` never returns `0x1b` for any status bit (then UAT3 is on another line).
   - Claims: C-8470–C-8479
 
-- [ ] **M8.H76 — `tools/hashutil.py`: one `sha256_file`/`sha256_bytes` for the ~30 tools that each carry a copy**
-  - Status: in progress · Owner: task/m8.h76-hashutil · Critical: no · Pair: solo
+- [x] **M8.H76 — `tools/hashutil.py`: one `sha256_file`/`sha256_bytes` for the ~30 tools that each carry a copy**
+  - Status: done · Owner: task/m8.h76-hashutil · Critical: no · Pair: solo
   - Depends: —
   - Goal: the window's new tools re-implement the same two helpers under different names: `_sha256` (`l4check.py:172`, `ze0_card.py:143`, `zipfr_decode.py:374`), `sha256_file` (`ze0_ui.py:210`, `mkpoland.py:64`), `sha256` (`poi_categories.py:85`, `section4_places.py:60`), plus `_sha` (`ze0_ui.py:522`) and `_sha256_bytes` (`ze0_card.py:151`). They differ in chunk size and in whether they accept `bytes` or a path, so evidence stamps drift (a stamp taken with a different chunking is still equal, but a caller that hashes the wrong side is not — H82's zlib stamp and M9.69's trace hashes both depend on the exact helper).
   - Precheck: `grep -lnE 'def (_?sha256|sha256_file|_sha)\b' tools/*.py tools/ze0_peers/*.py | wc -l` equals the list in the EXP (state the count), and `grep -c 'def _sha256' tools/l4check.py` = 1.
@@ -4842,6 +4842,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: two call sites disagree on the hex of the same file after the change (then the chunking or the path/bytes split was not identical — name the site).
   - Claims: C-8530–C-8539
   - Pair: solo
+  - Result: EXP-2026-11-23-M8.H76-hashutil; Done-when grep empty; hashutil selftest 7 checks OK; selftest 256 pass/0 fail/21 skip; claims_check + todo_check OK; board lost exit 0
 
 - [ ] **M8.H77 — `tools/peerlib.py`: shared line-command loop and frame helpers for the `ze0_peers/*` peers**
   - Status: open · Owner: — · Critical: no · Pair: required
