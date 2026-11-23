@@ -14,6 +14,8 @@ Commands:
   python3 tools/kiwi_bg_probe.py shape HEX
   python3 tools/kiwi_bg_probe.py record TILE --offset 0xDD85C
   python3 tools/kiwi_bg_probe.py frame TILE [--level 1] [--limit 10] [--json OUT]
+  python3 tools/kiwi_bg_probe.py --tree ROOT --tile B30R048R  # M4.70 replay
+  python3 tools/kiwi_bg_probe.py --card IMG --tile B30R048R   # one FAT file, no 7z
 """
 import argparse
 import json
@@ -25,6 +27,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "ze0-viewer" / "tools_ze0"))
 import clarion_bg  # noqa: E402
 import clarion_tile  # noqa: E402
+
+import _kiwi_replay as replay  # noqa: E402
 
 
 def D(v):
@@ -222,6 +226,7 @@ def selftest():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--selftest", action="store_true")
+    replay.add_source_args(ap)
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("sizes")
     p = sub.add_parser("hex")
@@ -257,6 +262,22 @@ def main(argv=None):
         r = mingr_alignment(d)
         print(json.dumps(r, indent=2))
         return 0
+    try:
+        source = replay.resolve(a)
+    except replay.SourceError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
+    if source is not None:
+        out = frame_tile(source.path, level=1, limit=4)
+        print("file %s sha256 %s" % (source.display, out["sha256"]))
+        print("records=%d reasons=%s" % (out["records"], out["reasons"]))
+        for r in out["samples"]:
+            print("  L%d dir@%s slot %d rec %d len %d/%d %s %s" %
+                  (r["level"], r["dir_off"], r["slot"], r["rec"], r["record_len"],
+                   r["geom_len"], r["reason"], r["detail"][:160]))
+        summary = "%s records=%d reasons=%s" % (
+            replay.norm_tile(a.tile), out["records"], out["reasons"])
+        return replay.replay_line(source, "EXP-2026-11-22-M4.70-kiwi-bg-frame", summary)
     if a.cmd == "record":
         print(json.dumps(record_at(a.tile, int(a.offset, 0)), indent=2))
         return 0

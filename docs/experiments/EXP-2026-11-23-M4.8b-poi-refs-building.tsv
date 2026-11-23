@@ -1,0 +1,56 @@
+# EXP-2026-11-23-M4.8b building-level reference table. Tab-separated, 8 columns:
+# id  country  shard  stream_offset  record_index  ref_lat  ref_lon  reference
+# Records are addressed by (shard, decompressed stream offset, record index), as in
+# EXP-2026-11-08-M4.8b-poi-refs.tsv; point_census.py refs --refs reads this file
+# unmodified.  Only discrete buildings / structures are included: airport reference
+# points, ship berths, large parks and estate centroids are rejected.  Every source
+# is Wikipedia or Wikidata (never OSM); retrieved 2026-11-23.  The precision printed
+# below is the uncertainty floor: Wikidata P625 declared precision in degrees, or
+# the rounding of the Wikipedia decimal when P625 has no usable precision.
+# P07 Key West Lighthouse — a discrete lighthouse building (Wikidata type landmark).
+# https://www.wikidata.org/wiki/Q6398132 ; P625 24.5506,-81.8007 precision 1e-4 deg (11.1 m).
+P07	US	POINT008	0x166f7618	607	24.55064	-81.80088	https://en.wikipedia.org/wiki/Key_West_Lighthouse
+# P08 East Martello Museum — the Martello fort/museum building, not the surrounding park.
+# https://www.wikidata.org/wiki/Q6774235 ; P625 24.551944,-81.755 precision 0.001 deg (111 m);
+# Wikipedia title redirects to Martello Gallery-Key West Art and Historical Museum.
+P08	US	POINT008	0x166ea8c8	878	24.55194	-81.75500	https://en.wikipedia.org/wiki/East_Martello_Museum
+# P11 Pacific Tsunami Museum — a single museum building in Hilo.
+# https://www.wikidata.org/wiki/Q7122743 ; P625 19.7258,-155.087 precision 1e-4 deg (11.1 m).
+P11	US	POINT010	0x835444	782	19.72583	-155.08667	https://en.wikipedia.org/wiki/Pacific_Tsunami_Museum
+# P12 Lyman House Memorial Museum — a single museum building in Hilo.
+# https://www.wikidata.org/wiki/Q6708046 ; P625 precision -1e-05 deg (invalid); Wikipedia decimal
+# 19.72166667,-155.09111111 rounded to 1e-8 deg is the uncertainty floor (~1.1 m).
+P12	US	POINT010	0x835444	760	19.72167	-155.09111	https://en.wikipedia.org/wiki/Lyman_Museum
+# P13 Kauai Museum (Albert Spencer Wilcox Building) — a single museum building.
+# https://www.wikidata.org/wiki/Q4711260 ; P625 21.974722,-159.368333 precision 0.001 deg (111 m).
+P13	US	POINT010	0x835444	746	21.97472	-159.36833	https://en.wikipedia.org/wiki/Kauai_Museum
+# P14 Moorish Castle — the castle on the Rock of Gibraltar, a discrete structure.
+# https://www.wikidata.org/wiki/Q249047 ; P625 36.14389,-5.35 precision 1e-4 deg (11.1 m).
+P14	EU	POINT033	0x5fecd10	27	36.143882	-5.349857	https://en.wikipedia.org/wiki/Moorish_Castle
+# P15 Las Palmas Cathedral — a single cathedral building.
+# https://www.wikidata.org/wiki/Q1385934 ; P625 28.10083333,-15.41472222
+# precision 2.7778e-4 deg (1 arcsec, ~31 m).
+P15	EU	POINT029	0x3b801f0	915	28.10083	-15.41472	https://en.wikipedia.org/wiki/Las_Palmas_Cathedral
+# P16 Museo Canario — a single museum building in Las Palmas.
+# https://www.wikidata.org/wiki/Q3560239 ; P625 28.09957778,-15.41542778
+# precision 1e-5 deg (~1.1 m).
+P16	EU	POINT029	0x370ad74	356	28.0998323	-15.4158675	https://en.wikipedia.org/wiki/Museo_Canario
+# P17 Brandenburg Gate — a discrete monument building in Berlin.
+# Located by tools/point_census + point_move_poi name walk (scratch locate_multi.py):
+# POINT005 stream 0x92f9d84 record 837, name 'BRANDENBURGER TOR'.
+# https://www.wikidata.org/wiki/Q82425 ; P625 52.51627222,13.37772222
+# precision 2.7778e-4 deg (1 arcsec, ~31 m).
+P17	EU	POINT005	0x92f9d84	837	52.516272222222	13.377722222222	https://www.wikidata.org/wiki/Q82425
+# P18 Duomo di Milano (Milan Cathedral) — a single cathedral building.
+# POINT011 stream 0x473e788 record 614, name 'DUOMO DI MILANO'.
+# https://www.wikidata.org/wiki/Q18068 ; P625 45.463968,9.190578 precision 1e-6 deg (~0.1 m).
+P18	EU	POINT011	0x473e788	614	45.463968	9.190578	https://www.wikidata.org/wiki/Q18068
+# P19 Torre di Pisa (Leaning Tower) — a discrete tower building.
+# POINT011 stream 0x476bc94 record 135, name 'TORRE DI PISA'.
+# https://www.wikidata.org/wiki/Q39054 ; P625 43.72301,10.396624 precision 1e-6 deg (~0.1 m).
+P19	EU	POINT011	0x476bc94	135	43.72301	10.396624	https://www.wikidata.org/wiki/Q39054
+# P20 Kölner Dom (Cologne Cathedral) — a single cathedral building.
+# POINT005 stream 0x8dcd0d8 record 322, name 'KÖLNER DOM'.
+# https://www.wikidata.org/wiki/Q4176 ; P625 50.94138889,6.95833333
+# precision 2.7778e-4 deg (1 arcsec, ~31 m).
+P20	EU	POINT005	0x8dcd0d8	322	50.94138888888889	6.958333333333333	https://www.wikidata.org/wiki/Q4176

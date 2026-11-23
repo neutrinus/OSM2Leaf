@@ -1,0 +1,81 @@
+Role: QA (test engineer), cycle 20, 18th pass. Model: opencode/hy4-flash-free.
+Start 2026-11-23 19:42 UTC. origin/main at start: a2bc7cc979139e0c2a2417549ee26b4825efd9d5.
+Log number 12 (max existing N for this date was 11, PO).
+
+Inputs read: AGENTS.md, prompt_common.txt, prompt_qa.txt, TODO.md rules 1-17;
+retro docs/retro/2026-11-23-2.md; previous QA log 2026-11-23-0716-4-qa.log
+(only on PR #639 branch, not on main); SM/SE/PO logs 1907-9, 1913-10, 1935-11;
+.github/workflows/{ci,l1l2-fixtures,main-watch}.yml + README; .github/scripts/main_watch.py;
+tools/{gate,selftest,cardcheck,l2check,l3check,realcheck,todo_check,claims_check,
+l1l2_fixtures,l1l2_matrix,progress_report,l4_status,map_signals}.py;
+docs/research/{test-system,reader-coverage}.md; TODO blocks H25/H28/H41/H42/H84/H96/H104/H107/H108/H117/H126
+and the new SE/PO tasks M9.76-M9.80, M5.102, M8.H79, M4.99.
+
+Actions and reasons (in order)
+1. Checked PR #639 and the QA log on main: #639 is still DRAFT (last update 08:37Z),
+   H132-H139 are absent from main, and board.py next-id H returns H132. Reason: the
+   retro flags my previous pass as invisible; new tasks must start at H140 to avoid
+   reusing IDs that PR #639 may still land.
+2. Ran main_watch --branch main: 0 salient, 0 shadowed, 7 cancelled, 40 runs,
+   GREEN, exit 0. Quoted as the mechanical half of the run check.
+3. Read 40 CI-quality runs and the L1/L2 runs since my previous pass (07:16Z):
+   no RED on main; seven cancelled runs (concurrency de-dup, no failing step);
+   tip a2bc7cc9 in flight. Reason: report runs, not just workflow files.
+4. Ran gh pr checks on open PRs: #679 (M4.94, draft) has RED quality on all three
+   Pythons, failing step "Standing gate (tools/gate.py)" via claims_check exit 1
+   (unresolved EXP names / window evidence errors). #676/#677 have no checks yet;
+   #639/#686/#678 pass. Reason: a draft PR red is a developer defect, not a main
+   regression; no task filed for it, reported to the TL instead.
+5. Ran todo_check --strict: 0 ERROR, 138 WARN, exit 0 (retro measured 5 ERROR at
+   8d55c486). Reason: prompt_qa now says report the live count and task each ERROR;
+   there are none, so H133 from PR #639 must not be re-filed as a regression.
+6. Ran realcheck IMG256: 8 SKIP / exit 2 (no image named IMG256 in CWD). The
+   manual/weekly job is still only a contract; H84 owns it on main.
+7. Inspected l3check --build-corpus JSON: pass=3/fail=0/blocked=10/runnable=3/13;
+   PASS rows carry backend/engine=PySh4, synthetic and l3_claim flags, so the old
+   H136 "executed vs replayed" gap looks obsolete; not re-filed.
+8. Inventoried the shipped test system: H41 per-file/per-feature matrix with a
+   committed baseline regression, H28 blocking L3 corpus job, H117/H126 watchdog
+   and PR-head sweep, H25 gate (selftest + claims_check + todo_check + fn_audit
+   SKIP policy). Gaps without an owner on main: a workflow-contract guard, the
+   stranded H132-H139 ID block, and a stale docs/research/test-system.md.
+9. Added three tasks with board.py add-task, in this order: H140 workflow contract
+   guard (H25, H41/H57; coordinates H84), H141 reconcile the stranded H132-H139
+   IDs (no dependency), H142 refresh docs/research/test-system.md (solo, docs).
+   IDs start at H140 because H132-H139 are reserved on PR #639; claim blocks
+   C-10020..C-10049, all quoted from `board.py next-claims` and confirmed free.
+10. Verified before commit: board.py lost 0/0, todo_check and --strict both OK
+    (0 error), claims_check OK, git diff --check clean, only TODO.md + this log
+    touched. Untracked batch files (dev_assignments*, 1830-8-tl.log) left alone.
+
+Decisions and rejected alternatives
+- Did not re-file the old H132-H139 plan: H84/H57/H104/H117/H126 already own its
+  gaps on main, strict is 0 ERROR, and reusing those IDs would be a board defect.
+- Did not task the seven cancelled main runs: they are concurrency de-dup with no
+  failing step and are already counted by H117's watcher; no red run on main since
+  07:16Z, so there is no red SHA to assign.
+- Did not task PR #679's red gate: it is an in-flight draft with claims_check
+  evidence errors; the owner fixes it before ready, and main_watch excludes drafts.
+- Did not change any workflow, tool or task status: this role plans only.
+
+Problems / dead ends
+- A local `tools/gate.py` run timed out at 180 s (exit 124) on this host, so no
+  local gate result is quoted; CI itself is green. M9.79 already owns the
+  selftest/tmpfs pressure, so no new task was filed.
+- Writing scratch under /tmp/opencode failed; used
+  ~/projekty/leafre-work/scratch/qa-2026-11-23/ for the three block files and
+  will delete it after the commit.
+- H84's Precheck ("0 workflows have dispatch/schedule") is stale; H140's text
+  records the correction instead of repeating it.
+
+Handoff
+- TL: H141 is the first thing to schedule — PR #639 must land or its IDs be
+  released, or the next H task allocated from `next-id H` will collide. H140
+  guards the CI contract after H84; H142 is a cheap docs-only solo to refresh the
+  map the next role reads.
+- Human: retro action 5 still applies (a role's log must reach origin/main in the
+  same cycle; my previous log never did).
+- Next QA pass: re-run main_watch and compare to the seven cancelled SHAs above;
+  check that H140's guard and H141's reconciliation moved before planning again.
+
+End 2026-11-23 19:48 UTC.

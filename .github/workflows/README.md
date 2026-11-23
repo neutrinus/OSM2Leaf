@@ -42,7 +42,7 @@ RUNS_JSON` run the same policy offline. `tools/gate.py` is unchanged.
 
 ## `ci.yml` — quality gate (H25)
 
-Runs on `pull_request` and `push` to `main`. It is a deterministic **test-infrastructure quality gate**, not coverage and not card acceptance.
+Runs on `pull_request` and `push` to `main`. It has two independent blocking jobs: `quality` (the standing gate) and `l3` (H28, synthetic corpus). Both are deterministic **test-infrastructure quality checks**, not coverage and not card acceptance.
 
 ### Hard gate (blocking merge check)
 
@@ -58,15 +58,66 @@ On Python **3.11** and **3.13** the one blocking step is:
   | `fn_audit` | `python tools/fn_audit.py archive/head256.img --corpus … --overlay …` |
 
 - **SKIP is never PASS.** Each gate is `PASS` (ran, exit 0), `FAIL` (ran, non-zero for a real defect) or `SKIP (reason)` (a vendor input is absent, so the gate never ran). The job summary prints the SKIPs and the step exits 1 only when a *runnable* gate FAILs — a SKIP-only image gate does not make the step green-as-passed.
-- `fn_audit` is the gate that **SKIPs in PR CI**: `archive/head256.img` is not on the runner. It must **PASS** in H84's manual IMG256 job, which has the image (`--require-image` turns a missing head into a FAIL there).
+- `fn_audit` is the gate that **SKIPs in PR CI**: `archive/head256.img` is not on the runner. It must **PASS** in the separate manual H84 real-image workflow, which has the image (`--require-image` turns a missing head into a FAIL there). That workflow is **not** H28's synthetic L3 job.
 
 ### Informational (non-blocking)
 
 Python **3.14** runs the same checks as an informational job (`continue-on-error`). Rationale: Python 3.14 environments may use `zlib-ng`, which does not reproduce stock zlib 1.3.1 byte-identical streams (H9). This workflow does not perform byte-identical vendor recompression claims; compression/rebuild byte-identity checks belong under stock zlib and are out of scope here.
 
-### Deliberately out of scope
+### L3 synthetic corpus job (H28)
 
-- No vendor images, firmware dumps, full card trees, or `IMG256`.
+A separate **blocking** job (`l3`, Python 3.11, `timeout-minutes: 20`) runs
+`python3 tools/l3check.py --build-corpus --json l3.json` and uploads
+`l3.json`/`l3.txt`. The `quality` matrix stays blocking on Python 3.11/3.13
+(3.14 informational); the L3 job has one leg because the synthetic corpus and
+the PySh4 backend have no zlib-version variant. There is **no
+`continue-on-error`** on any L3 step.
+
+The job summary is built from the *real* `l3check` schema — no `summary` key
+(that belongs to `gate.py`). It reads `counts` (`pass`, `fail`, `skip`,
+`blocked`, `runnable`, `total`, all lowercase), `targets` (each with an
+uppercase `status`), `result` (`PASS`, `FAIL`, `NO_RUNNABLE`), `exit`,
+`corpus.entries` and `target_count`. It prints one row per target with its
+reader, entry kind, claims and result, then the counts line. A missing JSON
+file (usage error, exit 2) fails the parser step rather than becoming a pass.
+
+**Verdict policy**
+
+- The tool exit is propagated unchanged: `0` PASS, `1` FAIL, `2` usage error,
+  `3` NO_RUNNABLE. Exit 3 is explicitly labelled **`NO RUNNABLE TARGETS`**
+  and stays RED — never a green SKIP, never a PASS.
+- `BLOCKED` (no located reader entry point) is **counted, not failed and not
+  passed**. It is a different thing from `gate.py`'s `SKIP` (a missing vendor
+  input); neither is evidence.
+
+Measured baseline at `HEAD 6073164e` (see the H28 EXP): `counts` =
+`pass 3 / fail 0 / skip 0 / blocked 10 / runnable 3 / total 13`, `result PASS`,
+`exit 0`, `corpus.entries 111` with one declared skip (no vendor ADDRE pair),
+`target_count 13`. The three PASS rows differ: `probe-zlib-cmf` is
+`synthetic: true, l3_claim: false` (runner/dispatcher fixture), while
+`point_walk_us2011` and `poi_record_decode` are `synthetic: false,
+l3_claim: true` firmware-fragment runs **on synthetic corpus data**. None is
+card acceptance (rule 13); the job reports no L4/L5 verdict.
+
+### Manual IMG256 real-image mode — contract only (documented by H28)
+
+The *default PR jobs stay vendor-free*: no image fetch, no network step and no
+`IMG256` in `ci.yml`. H28 only documents the contract of a **separate**
+`workflow_dispatch` job (owned and implemented by H84, not by this PR):
+
+- input `run_img256` (boolean, default `false`); manual dispatch only, on an
+  approved/self-hosted runner if `files.viaaq.eu` is unavailable; never runs on
+  every PR without an explicit cost justification;
+- `tools/fetch_image.py --image IMG256` fetches **only the 256 MiB firmware
+  head**, verified against its pinned SHA-256, into a cache keyed by that
+  digest, then `tools/realcheck.py IMG256` runs the pinned head checks;
+- limits: no full `ROOT`, no card tree, no 7 GB image, timeout **≤ 20 min**;
+- the result is labelled **"firmware-head regression"** — a real-bytes
+  regression check, *not* full L3 on a card and not rule-13 acceptance.
+
+### Deliberately out of scope (default PR jobs)
+
+- No vendor images, firmware dumps, full card trees, or `IMG256` in the default PR jobs.
 - No QEMU build, SH-4 runtime, or L4 hardware tests.
 - No secrets or vendor data in workflow files or artifacts.
 

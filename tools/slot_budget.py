@@ -811,6 +811,327 @@ def cmd_geom_stats(args) -> int:
 # selftest
 
 
+# ---------------------------------------------------------------------------
+# real-extract numbers (M5.77)
+#
+# The synthetic sweep above answers "what tolerance fits a made-up street?".
+# M5.77 asks the same question of a real region: how many ways, vertices,
+# names and POIs fall in each cell, and how many of the parcels the writer
+# would build overflow their fixed record slot at the profile's default
+# tolerance.  This section streams one IMF file (the output of
+# tools/osm_ingest.py), uses tools/mesh_split.py's grid functions for the
+# cell borders and tools/tilewriter.py's real record builder for the byte
+# estimates.  No vendor bytes enter the repo.
+# ---------------------------------------------------------------------------
+
+#: Cell the Dolnośląskie slice lives in (all its nodes are in B48R058R, C-2344).
+NUMBERS_DEFAULT_CELL = "B48R058R"
+
+
+def _split_points_by_cell(points, mesh_split) -> list[tuple[str, list[tuple[float, float]]]]:
+    """Per-cell point lists of one way, using the splitter's border crossings.
+
+    ``points`` are ``(lon, lat)`` (the writer's convention); mesh_split works
+    in ``(lat, lon)``, so the two are converted at the boundary.  A crossing
+    point is shared by the two adjacent fragments, the same way
+    tools/mesh_split.py joins across a cell border (M5.5).  Returns
+    ``[(cell, points), ...]`` in travel order plus the count of inserted
+    crossing points (the caller adds them to its border-node total).
+    """
+    import imf_check
+
+    latlon = [(lat, lon) for lon, lat in points]
+    events: list[tuple[float, float]] = [latlon[0]]
+    crossing_count = 0
+    for a, b in zip(latlon, latlon[1:]):
+        if imf_check.tile_for(*a) != imf_check.tile_for(*b):
+            for point in mesh_split.crossings(a, b):
+                events.append(point)
+                crossing_count += 1
+        events.append(b)
+    pieces: list[tuple[str, list[tuple[float, float]]]] = []
+    for a, b in zip(events, events[1:]):
+        cell = mesh_split.segment_cell(a, b)
+        lonlat = (b[1], b[0])
+        if pieces and pieces[-1][0] == cell:
+            pieces[-1][1].append(lonlat)
+        else:
+            pieces.append((cell, [(a[1], a[0]), lonlat]))
+    return pieces, crossing_count
+
+
+def count_features(imf_path: str | Path, *, table: dict | None = None):
+    """One streaming pass over an IMF file: per-cell counts and split ways.
+
+    Returns ``(tiles, fragments, meta)``.  ``tiles`` maps a cell to a dict of
+    ``ways`` (way records whose first vertex is in the cell), ``vertices``
+    (node records), ``names`` (named way + named node records), ``pois`` and
+    ``named_ways``/``named_nodes``.  ``fragments`` maps a cell to writer-shaped
+    ways ``{"id","highway","name","ref","points"}``; cross-cell ways are cut
+    with ``mesh_split.crossings``, so a fragment holds one cell only.
+    """
+    import imf_check
+    import mesh_split
+    import tilewriter
+
+    tiles: dict[str, dict[str, int]] = {}
+    fragments: dict[str, list[dict]] = {}
+    coords: dict[str, tuple[float, float]] = {}
+    cross_border_ways = 0
+    border_points = 0
+    short_ways = 0
+    missing_node_ways = 0
+    unmapped_ways = 0
+
+    def row(cell: str) -> dict[str, int]:
+        return tiles.setdefault(
+            cell,
+            {"ways": 0, "vertices": 0, "names": 0, "pois": 0,
+             "named_ways": 0, "named_nodes": 0},
+        )
+
+    with open(imf_path, encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            kind = rec.get("type")
+            if kind == "node":
+                cell = str(rec.get("tile") or imf_check.tile_for(
+                    float(rec["lat"]), float(rec["lon"])))
+                stats = row(cell)
+                stats["vertices"] += 1
+                coords[str(rec["id"])] = (float(rec["lon"]), float(rec["lat"]))
+                if rec.get("name"):
+                    stats["named_nodes"] += 1
+                    stats["names"] += 1
+                if "poi" in rec:
+                    stats["pois"] += 1
+            elif kind == "way":
+                ids = [str(ref) for ref in (rec.get("nodes") or [])]
+                if len(ids) < 2:
+                    short_ways += 1
+                    continue
+                if any(ref not in coords for ref in ids):
+                    missing_node_ways += 1
+                    continue
+                points = [coords[ref] for ref in ids]
+                first_cell = imf_check.tile_for(points[0][1], points[0][0])
+                stats = row(first_cell)
+                stats["ways"] += 1
+                tags = rec.get("tags") or {}
+                highway = str(tags.get("highway") or "")
+                label = tilewriter._name_label(tags, rec)
+                if label:
+                    stats["named_ways"] += 1
+                    stats["names"] += 1
+                if table is not None and highway not in table:
+                    unmapped_ways += 1
+                    continue
+                item = {
+                    "id": str(rec.get("id")), "highway": highway, "name": label,
+                    "ref": str(tags.get("ref") or ""), "points": points,
+                }
+                pieces, inserted = _split_points_by_cell(points, mesh_split)
+                if len(pieces) > 1:
+                    cross_border_ways += 1
+                    border_points += inserted
+                for cell, cell_points in pieces:
+                    if len(cell_points) < 2:
+                        continue
+                    fragment = dict(item)
+                    fragment["points"] = cell_points
+                    fragments.setdefault(cell, []).append(fragment)
+
+    meta = {
+        "cross_border_ways": cross_border_ways,
+        "border_points_inserted": border_points,
+        "ways_too_short": short_ways,
+        "ways_missing_nodes": missing_node_ways,
+        "ways_unmapped_dropped": unmapped_ways,
+    }
+    return tiles, fragments, meta
+
+
+def parcel_geometry(ways, cell: str, level: int, tol_m: float, table: dict,
+                    country: int = 616) -> tuple[dict, dict]:
+    """Real writer compressed bytes per populated parcel at one level/tolerance.
+
+    Unlike :func:`geom_rows` this does **not** densify: a real extract already
+    carries its curvature.  Douglas–Peucker at ``tol_m`` (in metres) is the
+    only simplification applied.  ``write_names=False`` matches the geometry
+    budget of M5.75 (names are counted separately in the tile table).
+    """
+    import tilewriter
+
+    simplified = []
+    for way in ways:
+        points, _error = dp_simplify(way["points"], tol_m)
+        item = dict(way)
+        item["points"] = points
+        simplified.append(item)
+    # ways_to_runs returns the runs dict; an unmapped highway raises
+    # ClassTableMiss, which count_features has already filtered out.
+    runs = tilewriter.ways_to_runs(simplified, level, table, cell)
+    rows: dict[tuple, dict] = {}
+    errors = []
+    for parcel in sorted(runs):
+        try:
+            built = tilewriter.build_road_record(
+                level, parcel, runs[parcel], table, country,
+                write_names=False, allow_oversize=True,
+            )
+        except struct.error as exc:
+            # A parcel with more than 0xffff record words cannot be encoded at
+            # all (fa_encode's header word count is u16).  That is the strongest
+            # possible slot overflow, so keep it as an over-budget row rather
+            # than treating it as a tool failure.  The vertex/way counts are
+            # still exact; only a compressed byte count is undefined.
+            rows[parcel] = {
+                "bytes": None,
+                "vertices": sum(len(item[0]) for item in runs[parcel]),
+                "ways": len(runs[parcel]),
+                "plain_bytes": None,
+                "unbuildable": str(exc),
+            }
+            continue
+        except (tilewriter.CheckFailed, tilewriter.WriterError, KeyError, ValueError) as exc:
+            errors.append({"parcel": list(parcel), "level": level, "error": str(exc)})
+            continue
+        if built is None:
+            continue
+        info = built[3]
+        rows[parcel] = {
+            "bytes": int(info["compressed_bytes"]),
+            "vertices": int(info["points"]),
+            "ways": len(runs[parcel]),
+            "plain_bytes": int(info["plain_bytes"]),
+        }
+    return rows, {"misses": 0, "errors": errors}
+
+
+def render_numbers_table(tiles: dict, parcel_rows: list[dict], profile: dict) -> str:
+    """The Done-when table: one row per tile, then the three worst parcels."""
+    budget = profile["max_record_bytes"]
+    out = [
+        "tile     ways   vertices  names   pois  bytes_est  parcels_over_budget",
+    ]
+    for cell in sorted(tiles):
+        stats = tiles[cell]
+        rows = [p for p in parcel_rows if p["cell"] == cell]
+        over = sum(1 for p in rows if p["over_budget"])
+        unbuildable = sum(1 for p in rows if p["bytes"] is None)
+        out.append(
+            "%-8s %6d %10d %6d %6d %10d %20d" % (
+                cell, stats["ways"], stats["vertices"], stats["names"],
+                stats["pois"], sum(p["bytes"] for p in rows if p["bytes"] is not None),
+                over,
+            )
+        )
+        if unbuildable:
+            out.append("  %d unbuildable parcel(s) (u16 word overflow), excluded from bytes_est" % unbuildable)
+    worst = sorted(parcel_rows, key=lambda p: -(
+        p["bytes"] if p["bytes"] is not None else float("inf")))[:3]
+    out.append(
+        "budget   %d B/record; levels 1,2; profile defaults %g m / %g m"
+        % (budget, profile["level_1_m"], profile["level_2_m"])
+    )
+    out.append("worst parcels (by estimated bytes):")
+    out.append("  lvl parcel(y,x,row,col)     bytes  vertices  ways  over_budget")
+    for p in worst:
+        label = "UNBUILDABLE" if p["bytes"] is None else str(p["bytes"])
+        out.append(
+            "  %3d %-20s %11s %10d %5d %s" % (
+                p["level"],
+                "(%d,%d,%d,%d)" % tuple(p["parcel"]),
+                label, p["vertices"], p["ways_in_parcel"],
+                "yes" if p["over_budget"] else "no",
+            )
+        )
+    return "\n".join(out)
+
+
+def cmd_numbers(args) -> int:
+    import osm_ingest
+    import imf_check
+    import mesh_split
+    import tilewriter
+
+    profile = read_geom_profile(args.profile)
+    table, _source = tilewriter.load_class_table(None)
+    extract = Path(args.extract)
+    fmt = osm_ingest.detect_format(extract)
+    if args.imf:
+        imf_path = Path(args.imf)
+        ingest_stats = None
+    elif fmt in ("pbf", "xml"):
+        imf_path = extract.with_name(extract.stem + ".m577.imf.jsonl")
+        ingest_stats = osm_ingest.ingest(extract, imf_path, fmt=fmt)
+    else:
+        imf_path = extract
+        ingest_stats = None
+
+    tiles, fragments, meta = count_features(imf_path, table=table)
+    parcel_rows: list[dict] = []
+    errors: list[dict] = []
+    scales: dict[int, float] = {}
+    for cell in sorted(fragments):
+        for level in (1, 2):
+            scale = level_scale(cell, level)
+            scales[level] = scale
+            tol_m = profile["level_1_m"] if level == 1 else profile["level_2_m"]
+            rows, info = parcel_geometry(fragments[cell], cell, level, tol_m, table)
+            errors.extend(info["errors"])
+            for parcel, value in rows.items():
+                parcel_rows.append({
+                    "cell": cell, "level": level, "parcel": list(parcel),
+                    "bytes": value["bytes"], "vertices": value["vertices"],
+                    "ways_in_parcel": value["ways"], "plain_bytes": value["plain_bytes"],
+                    "tol_m": tol_m,
+                    "over_budget": (
+                        value["bytes"] is None
+                        or value["bytes"] > profile["max_record_bytes"]
+                    ),
+                    "unbuildable": value.get("unbuildable"),
+                })
+
+    report = {
+        "extract": str(extract), "format": fmt, "imf": str(imf_path),
+        "profile": str(args.profile), "budget": profile["max_record_bytes"],
+        "tolerances_m": {"1": profile["level_1_m"], "2": profile["level_2_m"]},
+        "parcel_width_scales": {str(k): v for k, v in scales.items()},
+        "ingest": ingest_stats.to_dict() if ingest_stats else None,
+        "counts": meta,
+        "tiles": {cell: dict(stats) for cell, stats in sorted(tiles.items())},
+        "parcels": parcel_rows,
+        "errors": errors,
+        "budget_summary": {
+            "populated_parcels": len(parcel_rows),
+            "over_budget": sum(1 for p in parcel_rows if p["over_budget"]),
+            "level_1_over_budget": sum(1 for p in parcel_rows
+                                       if p["level"] == 1 and p["over_budget"]),
+            "level_2_over_budget": sum(1 for p in parcel_rows
+                                       if p["level"] == 2 and p["over_budget"]),
+            "estimated_bytes": sum(p["bytes"] for p in parcel_rows if p["bytes"] is not None),
+            "unbuildable_parcels": sum(1 for p in parcel_rows if p["bytes"] is None),
+            "worst": sorted(parcel_rows, key=lambda p: -(
+                p["bytes"] if p["bytes"] is not None else float("inf")))[:args.top],
+        },
+    }
+    print(render_numbers_table(tiles, parcel_rows, profile))
+    print("counts   " + " ".join(f"{key}={value}" for key, value in meta.items()))
+    print("parcels  populated=%d over_budget=%d level1=%d level2=%d unbuildable=%d errors=%d"
+          % (len(parcel_rows), report["budget_summary"]["over_budget"],
+             report["budget_summary"]["level_1_over_budget"],
+             report["budget_summary"]["level_2_over_budget"],
+             report["budget_summary"]["unbuildable_parcels"], len(errors)))
+    print("result   %s" % ("FAIL" if errors else "PASS"))
+    if args.json:
+        Path(args.json).write_text(json.dumps(report, indent=2), encoding="utf-8")
+        print("json     %s" % args.json)
+    return 1 if errors else 0
+
+
 def selftest() -> int:
     results = []
 
@@ -965,6 +1286,53 @@ def selftest() -> int:
     check("geom: level scale comes from parcel geometry",
           abs(level_scale(cell, 2) - 4.0) < 1e-9, f"scale {level_scale(cell, 2):g}")
 
+    # -- real-extract numbers (M5.77): pure-function controls ------------
+    import mesh_split  # noqa: E402
+    # A single-cell way stays one fragment; a way crossing 20 E splits, and
+    # mesh_split's own crossing point is shared by the two fragments.
+    one = [(19.99, 51.10), (19.995, 51.20)]  # (lon, lat)
+    pieces, inserted = _split_points_by_cell(one, mesh_split)
+    check("numbers: one-cell way is one fragment",
+          len(pieces) == 1 and pieces[0][0] == "B48R058R", str(pieces))
+    across = [(19.99, 51.10), (20.01, 51.20)]
+    pieces2, inserted2 = _split_points_by_cell(across, mesh_split)
+    check("numbers: cross-border way splits into two cells",
+          len(pieces2) == 2 and inserted2 >= 1
+          and {p[0] for p in pieces2} == {"B48R058R", "B48R050R"},
+          str([(c, len(pts)) for c, pts in pieces2]))
+    check("numbers: crossing point shared by both fragments",
+          pieces2[0][1][-1] == pieces2[1][1][0],
+          f"{pieces2[0][1][-1]!r} {pieces2[1][1][0]!r}")
+
+    # count_features reads a small synthetic IMF with one POI and one name.
+    small = (
+        '{"imf":1,"type":"header"}\n'
+        '{"imf":1,"type":"node","id":"n1","lat":51.1,"lon":17.0,"tile":"B48R058R"}\n'
+        '{"imf":1,"type":"node","id":"n2","lat":51.2,"lon":17.0,"tile":"B48R058R",'
+        '"poi":{"category":"amenity=fuel"},"name":"Orlen"}\n'
+        '{"imf":1,"type":"way","id":"w1","nodes":["n1","n2"],"tile":"B48R058R",'
+        '"tiles":["B48R058R"],"tags":{"highway":"residential","name":"ul. Testowa"}}\n'
+    )
+    import tempfile  # noqa: E402
+    with tempfile.TemporaryDirectory(prefix="slotbudget_m577_") as directory:
+        path = Path(directory) / "small.jsonl"
+        path.write_text(small, encoding="utf-8")
+        real_table, _ = tilewriter.load_class_table(None)
+        t, frag, m577 = count_features(path, table=real_table)
+    check("numbers: per-tile counts of ways/vertices/names/POIs",
+          t == {"B48R058R": {"ways": 1, "vertices": 2, "names": 2,
+                             "named_ways": 1, "named_nodes": 1, "pois": 1}},
+          str(t))
+    check("numbers: one fragment, no cross-border ways",
+          len(frag.get("B48R058R", [])) == 1
+          and m577["cross_border_ways"] == 0, str(m577))
+    tiny_rows, tiny_err = parcel_geometry(
+        frag["B48R058R"], "B48R058R", 1, 3.0, real_table)
+    check("numbers: real writer builds at least one populated parcel",
+          len(tiny_rows) >= 1 and not tiny_err["errors"]
+          and all(r["bytes"] > 0 for r in tiny_rows.values()),
+          str({p: r["bytes"] for p, r in tiny_rows.items()}))
+
     ok = all(results)
     print(f"selftest: {sum(results)}/{len(results)} checks passed")
     return 0 if ok else 1
@@ -1010,6 +1378,13 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--cell", default=DEFAULT_GEOM_CELL)
     s.add_argument("--dir", default="84,940", help="directory Y,X (default %(default)s)")
     s.add_argument("--json")
+    n = sub.add_parser("numbers", help="per-tile/per-parcel counts and budget from a real extract (M5.77)")
+    n.add_argument("extract", help="OSM .osm.pbf/.xml or an IMF .jsonl (PBF is ingested in-process)")
+    n.add_argument("--profile", required=True,
+                   help="compiler profile with [roads] and [geometry_budget]")
+    n.add_argument("--imf", help="use this IMF instead of ingest/reading the extract")
+    n.add_argument("--top", type=int, default=3, help="worst parcels to print (default %(default)s)")
+    n.add_argument("--json", help="write the full table (incl. every parcel) to this JSON file")
     return ap
 
 
@@ -1027,6 +1402,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_geom(args)
     if args.cmd == "geom-stats":
         return cmd_geom_stats(args)
+    if args.cmd == "numbers":
+        return cmd_numbers(args)
     build_parser().print_help()
     return 2
 

@@ -83,6 +83,13 @@ headings. Titles are the document's own English wording.
   Frame, 8.4 Guidance Data Frame (8.4.1.2 Intersection Name, 8.4.1.3 Road Name,
   8.4.1.4 Toward Name, 8.4.1.5 Spot Guidance, 8.4.1.6 Direction Indicator,
   8.4.1.7 Road Structure, 8.4.1.8 Building and Facility data lists).
+  These names are the *field-kind glossary* used by M4.73: on EU2011 the
+  destination list of a junction signpost lives verbatim in a tile section-4
+  record (closest to 8.4.1.4 Toward Name, with `(36)` as a road number), while
+  `FRWAY`/`INTER` carry entrance/exit street names and node refs (closest to
+  8.4.1.2 Intersection Name and chapter 10's Node/Link frames). No lane field
+  was found in the two Poland shards examined; the ZE0 container is not KIWI's.
+  See `EXP-2026-11-23-M4.73-kiwi-guidance-junction.md`.
 - **9. Region Data Management Frame**
 - **10. Route Planning Data Frame** — 10.1 Distribution Header, **10.6 Node Data
   Frame**, **10.7 Link Data Frame** (10.7.1.2 Regulation Records, 10.7.1.3

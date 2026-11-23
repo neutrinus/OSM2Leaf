@@ -1,0 +1,91 @@
+role: TL (team lead), batch 8 driver. Model: opencode/hy4-flash-free
+start: 2026-11-23 18:30 UTC
+origin/main at start: 6ed3ff1b
+
+inputs read: prompt_common.txt, prompt_tl.txt, AGENTS.md, TODO.md rules 1-17,
+  Priorities section, dev_assignments_batch7.md, open PR list,
+  dev_process/2026-11-23-1104-7-tl.log (batch 7 outcome).
+
+queue clearing before launch:
+  - #675 (M4.98, owner thread) was the only non-draft PR. CI was green
+    (l1l2 py3.11/3.13, quality py3.11/3.13 all pass) and GitHub reported
+    mergeable clean. Cherry-picked its unique commit 6dd299c4 onto a fresh
+    tlmerge-675 worktree to verify without touching the owner's branch:
+    tools/sec2_fields.py --selftest OK, gate 5 pass / 0 fail / 0 skip,
+    board lost 0/0. Merged #675 directly as 6ed3ff1b; removed tlmerge-675.
+    Owner branch claude/project-thread-htvnth kept.
+
+task selection (10 tasks, eligible on origin/main, disjoint files):
+  - M9.18 (pair), M8.H64 (pair required, critical L4), M4.95 (pair required),
+    M4.94 (pair required), M4.8b (pair, critical), H28 (pair: CI gate
+    semantics) — six pairs with separate driver + navigator subagents.
+  - M4.66, M5.77, M8.H68, M4.73 — solo (`Pair: solo` in TODO), reason
+    recorded per task: small tool/docs change with a reproducible byte/exit
+    or counted-table Done when; TL self-checks each.
+  - Skipped: M4.98 (#675), H132/M4.85/M9.62/M9.64 (drafts in progress),
+    M8.H14 (same workflow file as H28), M3.40/M3.41 (same reader-coverage
+    file as M8.H64), M4.71 (same format doc as M4.66), M5.78 (same OSM
+    tools as M5.77), M5.92 (same tilewriter as M4.95), M2.21 (same l4check
+    as M8.H64), tasks needing hardware or missing OSM/QEMU resources.
+  - All ten worktrees created from origin/main with wt; archive symlinks
+    verified in each. dev_assignments_batch8.md written as the common brief.
+
+actions in progress: drivers/navigators launched; outcome table pending.
+
+merge sweep and verification (completed):
+  - All six pairs ran plan -> navigator review -> build -> navigator round 2.
+    Every pair received CHANGES in round 1; specific catches below. All six
+    round-2 reviews ended APPROVE. The four solo tasks were TL-checked.
+  - Merge order and squashes (origin/main 6ed3ff1b -> ccd9942f):
+    #681 M4.66 465dcbbe · #684 M4.73 8d55c486 · #683 M5.77 86d50ccf
+    #685 M8.H68 fa0d6e59 (blocked result, honest negative) · #682 H28 264a47be
+    #687 M4.98 c3da9610 (owner-thread queue update) · #680 M4.8b e84436f1
+    #679 M4.94 1ce068f5 · #678 M4.95 e9200a73 · #688 M8.H64 ede721b2
+    #677 M9.18 ccd9942f.
+  - Queue PRs: #675 (first M4.98 update) merged directly as 6ed3ff1b;
+    #686 (second M4.98 update) conflicted, verified as cherry-pick eefc5043
+    on tlmerge-686, merged as #687 and #686 closed with the squash SHA;
+    #676 (M8.H64) had GitHub Actions stop scheduling runs after force-push,
+    so it was closed and re-opened as #688 for the same branch/content.
+  - Every PR head was rebased onto fresh main before merge, board.py resolve
+    used for claims/TODO conflicts, `board.py lost --base origin/main` = 0/0,
+    local gate 5 pass / 0 fail / 0 skip, and CI 4-5 pass / 0 pending / 0 fail.
+  - Two stale-base board defects were caught by standing checks and fixed
+    before merge: M8.H64's TODO.md had a second full board copy (todo_check
+    --selftest `sections 1`) and M9.18's reader-coverage.md had a second
+    matrix copy after board.py resolve. Both were reduced to one copy,
+    preserving the F4 (M8.H64) and L3-result (M9.18) cells.
+  - M4.94 CI failed on the cloud runner only: C-8498 cited
+    `archive/eu2014-256.img` as a missing evidence path; fixed with the
+    vendor-pin convention (SHA-256 pinned) and verified with archive hidden.
+  - /tmp tmpfs hit its 3095 MiB quota repeatedly for other agents' stale
+    selftest dirs; home-tree short TMPDIR used for every gate. Long TMPDIR
+    paths also break ze0_ui's Unix socket (AF_UNIX 108-byte limit).
+  - Rule 15: no blocked task became fully unblocked by this batch; M8.H68
+    opened M8.H68a for its user-VA translation blocker; M5.16's Unblock
+    note (M9.18 targets) is already satisfied and its task is done.
+  - Final check on origin/main ccd9942f: tools/gate.py 5 pass / 0 fail /
+    0 skip; wt list shows no batch worktree left. Only unrelated drafts
+    (#639, #523, #501, #472) remain open.
+
+outcome table (batch 8):
+| Task | Mode | Rounds | Outcome | PR | EXP |
+| --- | --- | --- | --- | --- | --- |
+| M9.18 | pair (driver + separate navigator subagent) | 2 | done | #677 / ccd9942f | EXP-2026-11-23-M9.18-lev3456r-sec4-records |
+| M8.H64 | pair required (driver + navigator) | 2 | done | #688 / ede721b2 (supersedes #676) | EXP-2026-11-23-M8.H64-p0-card-l4 |
+| M4.95 | pair required (driver + navigator) | 2 | done, Done-when field reworded to the ze0_decode oracle | #678 / e9200a73 | EXP-2026-11-23-M4.95-ref-shield-writer |
+| M4.94 | pair required (driver + navigator) | 2 + CI fix | done | #679 / 1ce068f5 | EXP-2026-11-23-M4.94-kiwi-replay |
+| M4.66 | solo (`Pair: solo`; counted tool + format doc change) | 1 | done | #681 / 465dcbbe | EXP-2026-11-23-M4.66-kiwi-basic-types |
+| M5.77 | solo (`Pair: solo`, non-Claude runner; counted table with one command) | 1 | done | #683 / 86d50ccf | EXP-2026-11-23-M5.77-dolnoslaskie-numbers |
+| M4.8b | pair (driver + navigator) | 2 | done | #680 / e84436f1 | EXP-2026-11-23-M4.8b-coord-poi-check |
+| M8.H68 | solo (`Pair: solo`; tool with 25-check selftest) | 1 | blocked (user-slot VA unreadable; M8.H68a) | #685 / fa0d6e59 | EXP-2026-11-23-M8.H68-ze0-ps (negative) |
+| H28 | pair (driver + navigator; CI gate semantics) | 2 | done | #682 / 264a47be | EXP-2026-11-23-H28-l3-in-ci |
+| M4.73 | solo (`Pair: solo`; field comparison with falsifier) | 1 | done | #684 / 8d55c486 | EXP-2026-11-23-M4.73-kiwi-guidance-junction |
+
+navigator catches worth keeping: M8.H64's copied prose counts and understated
+rule-13 wording; M9.18's mislabelled data VA (0xd624a0) and a Python-side
+flip that was not a firmware falsifier; M4.95's `S8:E67` family trap and
+nameless ref-only ways; M4.94's wrong M4.68 arithmetic and unguarded REPLAY
+line; M4.8b's coarse Wikipedia references and missing shuffle control; H28's
+negative control producing zero FAIL rows; M8.H64/M9.18 stale-base board
+duplicates; M4.94's cloud-only claim evidence defect.

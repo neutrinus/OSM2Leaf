@@ -473,7 +473,7 @@
     "kind": "blocked",
     "program": null,
     "va": null,
-    "reason": "not callable from runner.py: LEV3456R bytes arrive as read completions (header 0x0040b8b4, section table 0x0040c308 -> 0x0040be84, directory 0x0041597c -> 0x004157dc -> 0x00414644 / 0x00414930; EU2011). The target runs as tools/datask_l3.py mount --position LAT,LON [--replace MAPAL001/LEV3456R.DAT=FILE] + tools/mount_dirs_l3.py check/compare against lev3456.py (EXP-2026-11-20-M9.18-lev3456r-sec4-l3: factory MATCH 9/9, lev3456gen file SAME-RELOCATED). Record blocks are not read at mount: M9.53"
+    "reason": "not callable from runner.py: LEV3456R bytes arrive as read completions (header 0x0040b8b4, section table 0x0040c308 -> 0x0040be84, directory 0x0041597c -> 0x004157dc -> 0x00414644 / 0x00414930; EU2011). Run as tools/datask_l3.py mount --position LAT,LON --request MESH + tools/record_l3.py (EXP-2026-11-23-M9.18): factory coarse record MATCH at mesh 0xa40fd405 (file MAPAL001/LEV3456R.DAT pos 0x86900 len 0xee00, memmove 0xb0-0xed7f, inflated 109960 B, reply sub 5+3); generated lev3456gen.py file MATCH too (pos 0x86900 len 0x7200, inflated 54508 B); firmware-side flip -> sub 5+9 MISMATCH. Directory level (M9.18 2026-11-20) still 9/9 MATCH via mount_dirs_l3.py."
    },
    "stubs": [
     "CreateFileW",
@@ -498,10 +498,12 @@
     "verdict": "ACCEPT",
     "python_verdict": "ACCEPT",
     "agrees_with_python": null,
-    "rule": "every LEV3456R read of the mount names a table/directory lev3456.py lists, and each slot-table parser loads +0xa to 2*size-1 of that directory (mount_dirs_l3.py check exit 0)"
+    "rule": "every LEV3456R read of the mount names a table/directory lev3456.py lists, each slot-table parser loads +0xa to 2*size-1, and the --request record's inflated window/parcel code/unit words equal lev3456.decode_record (mount_dirs_l3.py check + record_l3.py run, exit 0)"
    },
    "notes": [
-    "Directory-level only: the coarse records (and their names) are first read by a map request, M9.53."
+    "Directory level: 9/9 MATCH factory, SAME-RELOCATED generated (EXP-2026-11-20-M9.18).",
+    "Record level (M9.18 2026-11-23): tools/record_l3.py runs datask_l3.py mount --request 0xa40fd405 (no firmware-path reimplementation) and compares the observed inflated window with lev3456.decode_record; factory and generated MATCH, firmware-side flip MISMATCH.",
+    "0xd624a0 is a runtime BSS box table (va_class BSS), never fn 0xd624a0; 0x003f6968 is a code location inside fn 0x003f6908."
    ]
   },
   {
@@ -514,7 +516,7 @@
     "kind": "blocked",
     "program": null,
     "va": null,
-    "reason": "not callable from runner.py: section-4 bytes arrive as read completions (section table 0x0040c308 tag 0x0602, directory 0x0041597c tag 0x0702 -> 0x00415330; EU2011). The target runs as tools/datask_l3.py mount --position LAT,LON + tools/mount_dirs_l3.py check against clarion_tile.read_tile (EXP-2026-11-20-M9.18-lev3456r-sec4-l3: B48R058R section 4 MATCH; header-word control DIFFERENT). No section-4 record (name list) is read at mount: M9.53; no section-4 writer: section4.py build refuses"
+    "reason": "not callable from runner.py: section-4 bytes arrive as read completions (section table 0x0040c308 tag 0x0602, directory 0x0041597c tag 0x0702 -> 0x00415330; EU2011). Run as tools/datask_l3.py mount --position LAT,LON --request MESH --kind 0x40 + tools/record_l3.py (EXP-2026-11-23-M9.18): factory section-4 record MATCH at mesh 0xa6cdd6be (file MAPAL001/B48R058R.DAT pos 0x113ca500 len 0x200, memmove 0x64-0x19f, inflated 640 B, unit load +4/+8/+c, reply sub 5+3, 5 names), generated tilewriter --factory file MATCH too; firmware-side flip -> sub 5+9 MISMATCH, wrong request -> sub 5+9 and parcel-code mismatch. Directory level (M9.18 2026-11-20) MATCH with parser fn 0x00415330 (typ 0x93)."
    },
    "stubs": [
     "CreateFileW",
@@ -539,10 +541,12 @@
     "verdict": "ACCEPT",
     "python_verdict": "ACCEPT",
     "agrees_with_python": null,
-    "rule": "the section-4 table and directory reads match clarion_tile's model (mount_dirs_l3.py check exit 0)"
+    "rule": "the section-4 table/directory reads match clarion_tile's model and the --kind 0x40 record's 640 B inflated window, parcel code and name list equal section4.parse_record (mount_dirs_l3.py check + record_l3.py run, exit 0)"
    },
    "notes": [
-    "Directory-level only; the name list needs a record read (M9.53)."
+    "Directory level: B48R058R section 4 MATCH; header-word control DIFFERENT (EXP-2026-11-20-M9.18).",
+    "Record/name-list level (M9.18 2026-11-23): tools/record_l3.py runs datask_l3.py mount --request 0xa6cdd6be --kind 0x40 and compares the observed window with section4.parse_record/scan_names; factory and generated MATCH, firmware-side flip and wrong request MISMATCH.",
+    "0x004157dc is a pdata START but C-2442 says the selector was not read in the run; do not present it as validated."
    ]
   },
   {

@@ -1,0 +1,67 @@
+role: SM (Scrum Master), seventeenth pass, second retro today
+model: hy4-flash-free
+start: 2026-11-23 19:07 UTC
+end: 2026-11-23 19:12 UTC
+origin/main SHA at start: 8d55c486606eb85df65e0dd1ae43efb49d31058f
+
+Inputs read (names only):
+- AGENTS.md, prompt_common.txt, prompt_sm.txt, TODO.md (rules 1-17)
+- prompt_po.txt, prompt_se.txt, prompt_qa.txt, prompt_tl.txt
+- docs/retro/2026-11-23.md (earlier retro today)
+- dev_process/2026-11-23-0620-1-sm.log (my previous run)
+- dev_process/2026-11-23-{0628-1-tl,0631-2-se,0702-3-po,0835-5-tl,1055-6-tl,
+  1104-7-tl,1830-8-tl}.log
+- QA log 2026-11-23-0716-4-qa.log (only on origin/task/h132-h139-qa-ci-gate-repair,
+  PR #639 DRAFT, not on main)
+- git log --since=24.hours --stat origin/main; gh pr list --state all
+
+Actions (in order, one line each with reason):
+- Created this log header first (mandatory), N=9 = max+1 of today's logs.
+- Fetched origin; SHA unchanged; left the four untracked TL-batch files alone.
+- Measured the prompt_sm numbers with commands: 49 PRs merged, 19 done / 7
+  blocked / 6 re-opened, 43 new IDs, TODO 6721 lines, claims 6703 / 60
+  RETRACTED, 1 claim retracted (C-078), 0 ghosts, 12 open PRs (11 draft),
+  4 tasks with >1 PR, 5 strict board errors (down from 18), CI GREEN,
+  15 merged remote task/* branches, 18 local branches / 21 worktrees.
+- Quoted the four rule-17 map numbers from tools/map_signals.py: all unchanged
+  for a fourth cycle (18 readers / 8 L3 / 99.98-95.86-76.29 % / P0). Lead.
+- Ghost audit: 0. M4.98 is the only real in-progress task; PR #686 is open and
+  fresh. Prior work-lost ghost M5.72 removed by the TL at 08:10.
+- Role silence: SE 12.6 h, PO 12.1 h, QA 59.4 h on main, TL 0.6 h; QA did run
+  11.9 h ago but its log sits on DRAFT PR #639. Second lead.
+- Pairing: 15 pair / 4 solo across three completed batches; navigators caught
+  dropped claim rows in five branches (PR #340 class) before merge.
+- Recorded observed prompt upgrade 4654539d (30-task pairs) as before/after;
+  did not re-edit prompt_common.txt, prompt_tl.txt, prompt_po.txt, AGENTS.md
+  or TODO.md.
+- Edited prompt_qa.txt's stale H53 pointer in one line; QA's own log called it
+  stale and strict is now a live signal. Recorded before/after + reason.
+- Wrote docs/retro/2026-11-23-2.md with numbers, three judges, prompt changes
+  and 5 actions (TL, SE, PO+SE, TL, human).
+
+Task IDs / PRs / commits:
+- no board tasks added, changed, moved or blocked (SM does not edit TODO status)
+- PRs reviewed only: #639 QA plan DRAFT, #686 M4.98 open, batch-8 drafts
+- commits: docs: SM retro 2026-11-23-2; prompt: refresh QA strict-count pointer;
+  chore: SM work log 2026-11-23 19:07
+
+Decisions made and alternatives rejected:
+- did not re-edit the prompt files upgraded in 4654539d (explicit instruction);
+  recorded the change as observed instead
+- did not re-file the five strictly-checked rule-15 errors as tasks: SE/QA own
+  record repair (rule 17); they became retro action 2
+- did not treat stale 'ahead N' branches as work-lost ghosts: their PRs are
+  merged and squash leaves the original branch ahead (M5.68, M9.67, etc.)
+- did not add or commit the untracked TL-batch files
+
+Problems / dead ends:
+- QA log and tasks stranded on a DRAFT PR, invisible to the next role on main
+- map numbers frozen a fourth cycle despite merged L4/card work (action 3)
+- remote branch deletion still 403 from cloud sessions (15 merged task/* left)
+- strict board errors still 5, all Unblock -> done (action 2)
+
+Handoff to next role:
+- SE/QA: read docs/retro/2026-11-23-2.md first; action 2 clears strict errors
+- TL: action 1 land PR #639 so QA's log reaches main; action 4 finish batch 8
+- PO: action 3 report the four map numbers first and reconcile P0 with M9.12/M9.75
+- human: action 5 same-cycle log landing and remote delete rights

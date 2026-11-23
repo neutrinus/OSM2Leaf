@@ -251,14 +251,22 @@ All five target tiles now rebuild **byte-identically**, including the dense
 - accept `0x7fffffff` empty tags at level 1;
 - the EU 2011 section-1 level-1 `0x2n46` "kinds" are **not** a 512-byte-row
   directory with an `n*512`-byte tail (M5.22's reading, C-2810–C-2812,
-  superseded). Header word 0 is the directory size in `u16` words, and
-  `0x2n46` is a `0x2046` directory with **n wide rows** (M5.53,
-  C-5270–C-5273, `tools/s1_wide_dir.py`):
+  superseded). Header word 0 is the directory size in `u16` words — a KIWI
+  `SWS` size word (ch. 1.2; stored word × 2 = byte size, C-7651; 24/24 EU and
+  16/16 US parsed directories fit,
+  `EXP-2026-11-23-M4.66-kiwi-basic-types`) — and `0x2n46` is a `0x2046`
+  directory with **n wide rows** (M5.53, C-5270–C-5273,
+  `tools/s1_wide_dir.py`):
 
   | Row | Body | Per column (32 columns) |
   | --- | --: | --- |
   | narrow | 512 B | even `(u32 ln, u32 X)`, odd `(u32 ln, u32 X)` |
   | wide | 1,024 B | even (8 B), 4 x `u16` sub-record sizes, 4 x `u16` sub-record inflated sizes, odd (8 B) |
+
+  The `(ln, X)` pair is two KIWI `SWS` size words (ch. 1.2, C-7652): `ln ×
+  2` is the compressed byte span (zlib stream padded to 4 bytes) and `X × 2`
+  the inflated byte length. On the census tiles 4,854/4,854 EU and 4,292/4,292
+  US pairs fit both readings (`tools/kiwi_types.py`).
 
   Bit 31 of a row's first body word marks a wide row (`0xffffffff` when
   column 0 is empty; never set in a narrow row). In a wide row bit 31 of the
@@ -377,7 +385,7 @@ before the word is used as a record size.
 
 | Row | Body | Per column (32 columns) | Field |
 | -- | --: | -- | -- |
-| narrow | 256 B | 8 B | `u32 ln` (compressed words), `u32 X` (inflated words); `0x7fffffff`/`0xffffffff` = empty |
+| narrow | 256 B | 8 B | `u32 ln` (compressed words), `u32 X` (inflated words) — two KIWI `SWS` size words (C-7652; 8/8 US section-4 pairs fit); `0x7fffffff`/`0xffffffff` = empty |
 | wide | 768 B | 24 B | the `(ln, X)` pair, then four `u16` compressed and four `u16` inflated sub-record sizes (`0xffff` = none) |
 
 The row's record block is at `addr_of(tag)` and holds the records column by

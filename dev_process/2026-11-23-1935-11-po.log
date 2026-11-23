@@ -1,0 +1,82 @@
+role: po
+model: hy4-flash-free
+start: 2026-11-23 19:35 UTC
+end: 2026-11-23 19:41 UTC
+origin/main at start: 9674f2fb48feeae5134a4b502ad6b117588b85be
+origin/main at push: e84436f1
+
+Inputs read (names only):
+- AGENTS.md, prompt_common.txt, prompt_po.txt, TODO.md rules 1-17
+- docs/retro/2026-11-23-2.md (latest SM retro)
+- dev_process/2026-11-23-0702-3-po.log (my previous pass)
+- dev_process/2026-11-23-1913-10-se.log (SE pass)
+- SE commits already on origin/main: 63c0780c, 7da815a9, 9674f2fb
+
+Actions, in order, each with its reason:
+- Created this log header first; N=11 = max(10)+1 of today's logs.
+- Fetched origin; working tree clean apart from four untracked TL-batch files and this log.
+- Read the retro and the two role logs since my previous pass; no need to re-derive
+  SE's task additions or the SM's five actions.
+- Ran map_signals first (rule 17): readers 18/1/1, l3-running 8, tile bytes
+  99.98/95.86/76.29 %, card step P0. None moved; fourth cycle unchanged.
+- Archive first (TODO was 6822 lines): selected 23 done blocks older than 24 h
+  with no mention in any live task block or prose, moved them with board.py
+  archive to the existing 2026-11-23 history file. TODO 6822 -> 6419 lines.
+  Strict todo_check stayed at 0 ERROR; lost reported only the 23 archived IDs.
+- Duplicate search before adding: checked loc_map targets, l3check targets,
+  section-4 name L3, tile-grade follow-ups and the M5.38 ladder. M9.18 already
+  owns section-4 plus LEV3456R, so the new name task takes only that slice.
+- Checked next-id/next-claims, grepped TODO plus all history files, and listed
+  open PRs for the three candidate IDs before any board edit; all clear.
+- Added three tasks with board.py add-task: M9.80, M8.H79, M4.99, claims
+  C-9990-C-10019; each has Depends, Done when, Stop, Falsifier and Pair.
+- Rule 15 audit: no blocked task names a done or archived ID in Unblock.
+  SE had already cleared the five strict errors and re-opened M8.H78, so no
+  re-open was needed in this pass.
+- Rewrote the Priorities section: numbers first, no-move line, L1-L4 critical
+  path with the blocking IDs, take-first list and fresh board counts.
+- Rebased both commits onto e84436f1 (M4.8b) with no conflicts; re-ran
+  todo_check (default and strict), claims_check, board.py selftest and lost.
+
+Task IDs added / changed / moved / blocked / re-opened / archived:
+- added: M9.80, M8.H79, M4.99
+- archived: H77, H81, M1.24, M1.26, M1.34, M1.35, M3.2, M4.11, M4.47, M4.52,
+  M5.19, M5.52, M8.B1, M8.B3, M8.B6, M8.E1, M9.6, M9.11b, M9.20, M9.26,
+  M9.28, M9.44, M9.54
+- re-opened: none (SE had already re-opened M8.H78 in the same window)
+- changed: Priorities section only
+
+PRs / commits (local, then pushed to main):
+- 395972a9 / rebased 2038411c: docs: archive 23 old done tasks from TODO board
+- 12f29e6e / rebased HEAD after rebase: docs: refresh PO priorities and add
+  three map-path tasks
+- final chore commit: this work log
+
+Decisions made and alternatives rejected:
+- Archiving was the first action because TODO exceeded 1500 lines; the archive
+  fixpoint exception did not apply (169 initial candidates, 23 safe).
+- Excluded any done block mentioned by a live task or in prose, even though
+  todo_check only warns on archived Depends; no dangling reference introduced.
+- Did not add a loc_map L3-target task: its walk needs M9.67's table fill and
+  would not be takeable; left as a one-line idea instead.
+- Did not re-file retro actions 1/4/5 (TL and human work), nor re-do SE's M9.76
+  counter repair or the five rule-15 fixes.
+- Did not pad the board to eight tasks: three distinct gaps were enough.
+
+Problems / dead ends / time cost:
+- board.py next-id M8.H returns M8.H.1 for the H substream; used M8.H79 after
+  checking TODO, history and open PRs.
+- The first --dry-run archive attempt put the flag after the subcommand and was
+  rejected; the global flag belongs before it. No board change was made.
+- map_signals' four numbers are computed from a stale report, a matrix and a
+  factory tree; only M9.76 can move the card number until a new verdict lands.
+
+Handoff for next role:
+- QA: re-run todo_check --strict (0 ERROR) and exp_check/full selftest after
+  M9.77/M9.79 land; neither red gate is waived by this pass.
+- TL: take M5.99 first (sole P1 blocker), then M4.55, M8.H64, M9.80, M4.99;
+  all three new tasks are required-pair. Do not reclaim M8.H78 until its Done
+  when is finished.
+- Human: retro action 5 unchanged - role logs must reach origin/main in the
+  same cycle (QA's log is still on DRAFT PR #639), and remote branch-delete
+  rights are still unavailable.

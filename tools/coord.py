@@ -67,6 +67,7 @@ Usage::
     python3 tools/coord.py xy 43.7447916667 7.4296875 --origin tile
     python3 tools/coord.py latlon 41167 53693 --cell B40R060R
     python3 tools/coord.py latlon 414 878 --local --cell B40R060R
+    python3 tools/coord.py point 0x926e 0xa51f 1714 1011   # POINT record, masked fine
     python3 tools/coord.py position 51.70 17.45
     python3 tools/coord.py bbox B48R058R
     python3 tools/coord.py levels
@@ -703,6 +704,51 @@ def cmd_latlon(args: argparse.Namespace) -> int:
     return 0
 
 
+def _auto_int(value: str) -> int:
+    """argparse type accepting both decimal and 0x-prefixed integers."""
+    try:
+        return int(value, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"expected an integer (0x... allowed): {value!r}"
+        ) from exc
+
+
+def cmd_point(args: argparse.Namespace) -> int:
+    """Decode one POINT name record: copy A plus its two masked fine fields."""
+    for name, value in (("FINE_LON", args.fine_lon), ("FINE_LAT", args.fine_lat)):
+        if not 0 <= value <= 0x7FF:
+            raise ValueError(
+                f"{name}={value:#x} is not a masked 11-bit fine value (0..0x7ff); "
+                "mask the stored word with 0x7ff (point_census.fine_fields). "
+                "Passing a raw 0x800|fine word adds 4 packed units (~3 km)"
+            )
+    lat, lon = decode_point_id(args.ax, args.ay, args.fine_lon, args.fine_lat)
+    result: dict[str, Any] = {
+        "command": "point",
+        "ax": args.ax,
+        "ay": args.ay,
+        "fine_lon": args.fine_lon,
+        "fine_lat": args.fine_lat,
+        "lat": lat,
+        "lon": lon,
+        "origin": POINT_LON_ORIGIN,
+        "fine_per_unit": FINE_PER_UNIT,
+    }
+    if args.json:
+        print_json(result)
+        return 0
+    print(
+        f"ax {args.ax:#06x} ay {args.ay:#06x} fine "
+        f"({args.fine_lon}, {args.fine_lat})"
+    )
+    print(
+        f"lat {lat:.6f}  lon {lon:.6f}  "
+        f"(origin {POINT_LON_ORIGIN}, {FINE_PER_UNIT} fine steps per packed unit)"
+    )
+    return 0
+
+
 def cmd_position(args: argparse.Namespace) -> int:
     word = position_word(args.lat, args.lon, args.origin)
     lat, lon = decode_position_word(word, args.origin)
@@ -1156,6 +1202,54 @@ def selftest() -> int:
         cross_ok = True
     check("start-position word round-trip + firmware cross-check", rt_ok and cross_ok)
 
+    # 22. Real POI records from EXP-2026-11-23-M4.8b-poi-refs-building.tsv. Each
+    #     (A.x, A.y, masked fine_lon, masked fine_lat) and its decoded lat/lon are
+    #     quoted from `point_census.py refs` on that table (12 rows, 2026-11-23).
+    #     These pin POINT_LON_ORIGIN and FINE_PER_UNIT against real name records;
+    #     the WGS84 reference errors themselves live in the EXP, not the selftest.
+    real_poi_fixtures = [
+        # (id, A.x, A.y, fine_lon, fine_lat, decoded lat, decoded lon)
+        ("P08", 0x926E, 0xA51F, 1714, 1011, 24.551951, -81.755096),
+        ("P17", 0xA76C, 0xD4BC, 126, 1596, 52.516235, 13.376923),
+        ("P18", 0xA21E, 0xD29E, 183, 577, 45.464203, 9.190292),
+        ("P19", 0xA0CE, 0xD33C, 1352, 1393, 43.722504, 10.395630),
+        ("P20", 0xA63D, 0xD17E, 1281, 338, 50.940938, 6.957047),
+    ]
+    real_ok = True
+    real_detail = ""
+    for pid, ax, ay, flon, flat, want_lat, want_lon in real_poi_fixtures:
+        lat, lon = decode_point_id(ax, ay, flon, flat)
+        dlat = (lat - want_lat) * 111320.0
+        dlon = (lon - want_lon) * 111320.0 * math.cos(math.radians(want_lat))
+        if math.hypot(dlat, dlon) > 1.0:
+            real_ok = False
+            real_detail = f"{pid}: {math.hypot(dlat, dlon):.2f} m"
+    check(
+        "real POI fine decode (5 records)",
+        real_ok,
+        real_detail or f"{len(real_poi_fixtures)} records, < 1 m",
+    )
+
+    # 23. Negative control: a raw stored word (0x800 | fine) is not the masked
+    #     fine field.  The extra 0x800 nibble is four packed units (~3 km).
+    _, masked_lon = decode_point_id(0x926E, 0xA51F, 1714, 1011)
+    _, raw_lon = decode_point_id(0x926E, 0xA51F, 0x800 | 1714, 0x800 | 1011)
+    check(
+        "raw fine word shifts ~3 km (guard)",
+        (raw_lon - masked_lon) * 111320.0
+        * math.cos(math.radians(24.551951)) > 2000.0,
+        f"{(raw_lon - masked_lon) * 111320.0 * math.cos(math.radians(24.551951)):.0f} m",
+    )
+
+    # 24. The constants chosen by M4.27/M4.61/M4.8b are pinned explicitly.
+    check(
+        "point-id constants pinned",
+        POINT_LON_ORIGIN == 52736
+        and FINE_PER_UNIT == 512
+        and DEFAULT_ORIGIN == LON_ORIGIN_COORD == 52742,
+        f"point={POINT_LON_ORIGIN}, fine={FINE_PER_UNIT}, bbox={DEFAULT_ORIGIN}",
+    )
+
     print(
         f"coord selftest: {'OK' if not failures else 'FAILED'} "
         f"({count - len(failures)}/{count} checks)"
@@ -1264,6 +1358,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_json(p_latlon)
     p_latlon.set_defaults(func=cmd_latlon)
+
+    p_point = sub.add_parser(
+        "point",
+        help="POINT name record (copy A + two masked 11-bit fine fields) -> lat/lon",
+        epilog=(
+            "FINE_LON is the low 11 bits of record bytes 6-7 and FINE_LAT of "
+            "bytes 8-9 (point_census.fine_fields masks with 0x7ff). Passing a "
+            "raw stored word 0x800|fine adds 4 packed units (~3 km). The "
+            "longitude origin is 52736, not the COORD001 bbox origin 52742."
+        ),
+    )
+    p_point.add_argument("ax", type=_auto_int, help="copy-A x word, e.g. 0x926e")
+    p_point.add_argument("ay", type=_auto_int, help="copy-A y word, e.g. 0xa51f")
+    p_point.add_argument(
+        "fine_lon", type=_auto_int, help="low 11 bits of rec[6..7], 0..2047 (masked)"
+    )
+    p_point.add_argument(
+        "fine_lat", type=_auto_int, help="low 11 bits of rec[8..9], 0..2047 (masked)"
+    )
+    add_json(p_point)
+    p_point.set_defaults(func=cmd_point)
 
     p_pos = sub.add_parser(
         "position", help="lat/lon -> Navi.exe start-position u32 (lat code high)"

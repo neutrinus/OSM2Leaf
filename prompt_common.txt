@@ -46,7 +46,7 @@ Verification levels (details: docs/research/feedback-loop.md; mapping note there
   run. Hardware currently unavailable.
 Prefer the cheapest level that can falsify the hypothesis. SKIP is never PASS.
 
-Editing TODO.md concurrently (~15 agents write to it):
+Editing TODO.md concurrently (a normal cycle has ~15 agents, a 30-task TL batch ~60 in pairs):
 - Change task blocks and claim rows only with `python3 tools/board.py`
   (claim, done, block, field, add-task, add-claims, claim-status, archive;
   AGENTS.md has the command list). Never rewrite, regenerate or paste back a
@@ -62,12 +62,14 @@ Editing TODO.md concurrently (~15 agents write to it):
   H80's Precheck). If a later edit moves what the command selects, the record
   says at which revision it was measured.
 - Optional `Pair:` field. Developer tasks run as a driver/navigator pair by
-  default (see prompt_tl.txt); write `Pair: solo` only for low-risk work
-  (docs, housekeeping, selftest-covered small tools) and `Pair: required`
+  default (see prompt_tl.txt), including in a 30-task batch; the TL pairs
+  everything except the documented solo exception. Write `Pair: required`
   for high-risk work (firmware searches, format writers, L3/L4/L5 inputs,
-  and **any task that adds or edits a standing gate, a user-visible assertion,
-  a snapshot, or the evidence/claim of a blocked claim** — a `Pair: solo` in
-  that class is run as a pair). Omitted = TL decides, default pair.
+  and **any task that adds or edits a standing gate, a user-visible
+  assertion, a snapshot, or the evidence/claim of a blocked claim**) — never
+  solo. Write `Pair: solo` only for low-risk work (docs, housekeeping,
+  selftest-covered small tools) and only if none of the high-risk conditions
+  apply. Omitted = TL decides, default pair.
 - Every number in a task, an EXP record or a claim row must be **quoted from a
   command whose output prints it** — never typed by hand, and never copied from
   an earlier record. If the branch itself moves the number (a `moved` count, a
@@ -107,9 +109,9 @@ finds nothing to do or fails):
     decisions made and alternatives rejected (one line each)
     problems, dead ends, anything that cost time
     handoff: what the next role should look at first
-  TL also lists each task's mode (pair/solo), subagents launched and their
-  outcome. Never paste command output, diffs or vendor bytes — reference
-  files, SHAs and task IDs instead.
+  TL also lists each task's mode (pair/solo), subagents launched (≈ 2T − S for
+  a T-task batch with S solo exceptions) and their outcome. Never paste command output, diffs or
+  vendor bytes — reference files, SHAs and task IDs instead.
 - Commit the log in your final commit (or a `chore: <role> work log` commit)
   and push it; a run that changed nothing still commits its log.
 - A developer (driver or navigator) writes no log of its own: its record is

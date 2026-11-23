@@ -152,6 +152,22 @@ contains `2=A8:E56:E552`); keep `1=NAME` optional in the same text. This is a
 data-side mapping, not a firmware-confirmed shield selection (rule 13): the
 renderer's glyph choice for each family still needs an L3/L4 run.
 
+### Writer implementation (M4.95, EU2011)
+
+`tools/tilewriter.py` now emits that mapping as the names-section label of the
+odd road partner: `road_label(tags)` composes `1=NAME`, `2=REF` or both, so a
+nameless ref-bearing way still gets its reference (all 681 `A4` ways in the
+Dolnośląskie extract are nameless). OSM `ref` is normalised (`DK94` → `94`,
+whitespace and case folded) and `int_ref` E-routes are normalised before
+composition (`E 40` → `E40`). **The E-route suffix is family-scoped**: it is
+appended only where the factory shows a colon family (`A#`, `B#`, bare digits
+→ `digit:E`), never for `S#`/`L#`/other families. In particular `S8` + `E 67`
+stays `2=S8` — appending it would make `2=S8:E67`, which M4.90's family table
+classifies `other-alpha` (no `S\d+:E\d+` family). Thus `A4`+`E 40` →
+`2=A4:E40`, `S8` → `2=S8`, `94` → `2=94`. Evidence and controls:
+EXP-2026-11-23-M4.95-ref-shield-writer. The firmware glyph choice remains an
+L3/L4 question (rule 13); this is a data-side mapping only.
+
 ## Open questions
 
 1. **Charset** — answered for the glyph table by M4.87 (8/18 present); still
