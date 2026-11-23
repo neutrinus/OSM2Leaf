@@ -6630,8 +6630,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the count cannot be predicted from the shape buffer plus a documented tile-derived table (then the count depends on state outside both).
   - Claims: C-8650–C-8659
 
-- [ ] **M9.72 — The `LOC_map` shape walk on the US build: port `locmap_l3.py` off the EU VAs so the US card (Marek's unit) reads our record**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M9.72 — The `LOC_map` shape walk on the US build: port `locmap_l3.py` off the EU VAs so the US card (Marek's unit) reads our record**
+  - Status: done · Owner: task/m9.72-us-locmap-walk · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.67 (EU host model of `fn 0x0041f3dc`, done), M9.66 (EU shape walk, done), M9.63 (US L3 runnable, done)
   - Goal: M9.63 found the M9.58 `LOC_map` shape walk is **NOT RUNNABLE on US2011**: `tools/locmap_l3.py` has no `--build` (`grep -c -- --build` = 0) and exits 3 on the US image, and its four US VAs for the client-task and `LOC_map` functions are absent. The L4 path that reads our served record therefore only has an EU witness, while Marek's unit is US (M8.H12), so the renderer-walk accepted in L3 is not the build that must accept it in the car.
@@ -6643,6 +6643,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the US walk runs but the EU-shaped record reads 0 shapes and a one-word mutation does not change the count (then the US handler is a different code path, not a port).
   - Claims: C-8610–C-8619
   - Pair: required
+  - Result: EXP-2026-11-23-M9.72-us-locmap-walk; US walk 5363 loads / 6868 distinct, 4/4 pdata START + identical masked bodies, bodydiff 0 instruction diffs, selftest 255/0/21
 
 - [ ] **M9.74 — Bind OBJDLL exports in `vcard_l3` and find the section-2 unit-0 walker (unblocks M4.55)**
   - Status: blocked · Owner: task/m9.74-objdll-unit0-walker · Critical: yes · Pair: required

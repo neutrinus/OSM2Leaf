@@ -672,6 +672,50 @@ reader reproduces a card it did not come from (C-3537). An earlier draft of
 this page said the pairs were identical; that was wrong — it had looked at a
 partial EU extract with no `POINT010`.
 
+## The `LOC_map` client chain on US2011 (M9.72)
+
+The position -> request -> record -> shape walk of M9.66 is not EU-only.
+`tools/locmap_l3.py --build us2011` runs the same chain on the US2011
+`Navi.exe` of `archive/us256.img`. Every VA below is attributed to that image
+through `cerom.py`/`nk_decomp.py pdata` (H51); no fitted module delta is used.
+The four M9.66 functions are `fn_match` UNIQUE pairs with equal `.pdata`
+lengths and 4/4 identical masked form streams (`fn_match.py bodies`); the
+allocator is a *call-graph* twin (same launcher call site, pdata length 0x3c,
+`OSM_Malloc` import) — `fn_match` first proposed a different UNIQUE candidate
+(see EXP-2026-11-23-M9.72), which executed an unmapped read of VA 0 and was
+rejected. CLIENT_INIT and DISPATCH are
+call-graph twins (callee import signature and position). Globals are the US
+pool value at the same load index of the paired function; all are `BSS`, so
+the chain's own firmware code writes them at runtime (none needs M1.2f).
+
+| Role | EU2011 VA | US2011 VA | How it was located |
+| --- | --- | --- | --- |
+| shape-pool allocator `ALLOC` | `0x00470914` | `0x00498ea4` | launcher callee position + pdata START len 0x3c + `OSM_Malloc` import |
+| client init `CLIENT_INIT` | `0x00427a34` | `0x0044f0d0` | pdata INSIDE at +0x28 -> true start; 11 callees match by import signature |
+| client dispatcher `DISPATCH` | `0x00427144` | `0x0044e808` | caller of the paired requester's 0x2f8 caller; same four imports |
+| requester (sends `0x14b5`) | `0x00425f40` | `0x0044d604` | `fn_match` UNIQUE / START, len 0x1fc |
+| sub-3 record copy handler | `0x0042613c` | `0x0044d800` | `fn_match` UNIQUE / START, len 0x4fc |
+| `LOC_map` receiver | `0x00421548` | `0x00448e24` | `fn_match` UNIQUE / START, len 0x194 |
+| shape walk | `0x0041f3dc` | `0x00446cb8` | `fn_match` UNIQUE / START, len 0x11dc |
+| row-count leaf of the walk | `0x00422384` | `0x00449c60` | `fn_match --leaf` UNIQUE, 30 B, named by the twin's own pool |
+| client task id (global) | `0x011fff5c` | `0x011031c0` | paired requester / client-init pool |
+| `LOC_map` task id (global) | `0x011fff74` | `0x011031d8` | US twin of `0x004259bc` pool; two independent anchors agree |
+| groups table (global) | `0x00e99698` | `0x00dc7658` | paired LOC_RECV pool load index |
+| shape/tail slots (global) | `0x00e8f604` | `0x00dbd664` | paired WALK pool load index |
+| result table (global) | `0x00e8f5dc` | `0x00dbd61c` | paired WALK pool load index |
+| candidate blocks (global) | `0x00e8f5c4` | `0x00dbd604` | paired WALK pool load index |
+| build-check word (walk +0x9e) | `0x0041f47a` | `0x00446d56` | `0x8522` in both bodies at the same offset |
+
+`python3 tools/bodydiff.py archive/head256.img archive/us256.img --module
+Navi.exe --pair 0x0041f3dc:0x00446cb8 --pair 0x00421548:0x00448e24 --pair
+0x00425f40:0x0044d604 --pair 0x0042613c:0x0044d800` prints 28/18/34/40 raw
+differing halfwords, **all** in relocated literal pools, 0 instruction
+halfwords (each pair's pdata length is equal). The relocated words include
+`0x00e8f604 -> 0x00dbd664` (slots), `0x00e99698 -> 0x00dc7658` (groups),
+`0x00e8f5dc -> 0x00dbd61c` (result table), `0x011fff5c -> 0x011031c0`
+(client id) and `0x00422384 -> 0x00449c60` (row helper). Message ids, pool
+sizes and `ROW_COUNT` are build-independent instructions of the same bodies.
+
 ## Map-code check
 
 The check is **textual/field-based, not cryptographic**. Strings at
