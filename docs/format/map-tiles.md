@@ -1302,6 +1302,40 @@ is `+0 u16` status (1 data, 2 pending — a read was queued and a second reply f
 separate: 9 = refused. A requester must have a row in the client table (data `0xd98fe0`, 24 × 64 B);
 an unknown one is refused with message status 9 and entry status 3 (C-5926).
 
+### Section-2 readers in a running Navi.exe (M9.75, L4, EU2011 build A)
+
+> **Status:** `VERIFIED (run, L4)` for the framing and the search key; field
+> meanings beyond them are `UNKNOWN` (M4.98). Evidence:
+> EXP-2026-11-23-M9.75-sec2-readers-l4, C-9910–C-9916, `tools/ze0_sec2_watch.py`
+> (gdb read watch on the unit pointers in the RPF buffers `0x0061a020`/`0x00619818`).
+
+The reader of section 2 is not the RPF reply handler (M4.55, M9.74) but the
+premap pass after a map move and the route search. Words are big-endian
+halfwords of the inflated record; the guest holds a byte-swapped copy.
+
+| Where | Words | Read at (EU2011) | Meaning |
+| --- | --- | --- | --- |
+| record header | +0, +2 (bytes) | `0x004048da`/`dc` | parcel code |
+| record header | +12/14, +20/22, +28/30 | `0x004051a8`…`0x004051be`, `0x00405166`/`70` | u32 offsets of units 0, 1, 2 (pairs at `12 + 8 i`) |
+| record header | halfword 26 (+52) | `0x0040517e`, `0x004051ca` | read, meaning unknown |
+| unit 0 | words 0–1 | `0x003533a0`/`a2`, `0x00358382`/`86` | u32 node count |
+| unit 0 | from word 26 | `0x003534d4` walk | nodes |
+| node | word 0 | `0x00353522`, `0x003583a0` | link count = `>> 12`; x = `& 0x7ff` |
+| node | word 1 | `0x00353534` | y = `& 0x7ff`; a node with < 3 links on x or y ∈ {0, `0x7ff`} is flagged as a mesh-edge node (`0x100000`) |
+| node | word 2 | — | not read by these passes |
+| link | words 1, 2, 3 | `0x00353568`/`78`/`86`, `0x0035866e`/`7e`/`88` | size: 7 + ((w2 & `0x3fc0`) >> 6) + (w1 & 1) + (w2 & `0x3f`) + (w3 >> 14) words |
+| link | word 4 | `0x003583b6` | `& 0xf` = class, compared first by the route search |
+| link | word 3 | `0x003583ca` | `& 0x1fff` = link id, compared after a class match (key of C-5150) |
+
+The size rule ends exactly at the unit-0 length in every record of
+`B48R068R` (45,184 level 1, 3,214 level 2). London never sets `w1 & 1`,
+`w3 >> 14` or `w2 & 0x3030`; `clarion_rd.parse_record`'s narrower rule
+(`((w5 >> 6) & 0x3f) + (w5 & 0xf)`) agrees there only because of that, so a
+writer must either keep those bits zero or size links the firmware's way. An
+empty section 2 makes New Destination fail with `CALC_ERR_NBR` (C-9910); a
+factory section 2 under a section 1 with other link ids routes but draws no
+route line (C-9911, C-9916 hypothesis).
+
 ### The `LOC_map` walk of a served road record (M9.66, EU2011 build A)
 
 `tools/locmap_l3.py` runs the firmware's own chain: a position message
