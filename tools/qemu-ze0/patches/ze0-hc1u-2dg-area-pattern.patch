@@ -1,0 +1,142 @@
+hw/sh4: ze0 2DG op 0x82 after a 0xd0 polygon: repeat the pattern, mask by the polygon (M8.C1u).
+
+Map areas (water, parks, forest) are drawn as 0xe0 (polygon box),
+0xd0 (N vertices), 0x82 (a 32x32 pattern texture over the box), then
+0xb3 (outline from the same vertex array). The London start screen has
+160 of these 0x82 after a 0xd0, against 9 plain 0x80 covers (op dump,
+EXP-2026-11-23-M8.C1u-2dg-area-pattern). texquad() stretched the
+32x32 pattern over the whole box and ignored the polygon, so every
+area showed as a coarse, pixelated rectangle while its outline had the
+right shape. Now a 0x82 that follows a 0xd0 repeats the texture from
+the quad's corner and writes only pixels inside the polygon (even-odd,
+as fill_poly). Without a pending polygon (UI images) it stretches as
+before.
+
+This file sorts after ze0-h46 on purpose: it is made against the tree
+with every earlier patch applied (h32 and h46 also touch ze0_2dg.c).
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+--- a/hw/sh4/ze0_2dg.c
++++ b/hw/sh4/ze0_2dg.c
+@@ -29,7 +29,9 @@
+  *                                  C (word 1 high half) is the line colour
+  *   0xb3xxxxxx N OFF               N vertices at op + OFF (area outline;
+  *                                  colour from register 0xf0)
+- *   0x82xxxxxx OFF WH 0 P0..P3     textured quad (see texquad())
++ *   0x82xxxxxx OFF WH 0 P0..P3     textured quad (see texquad()); after a
++ *                                  0xd0 polygon it is the area pattern,
++ *                                  repeated and masked by the polygon
+  *   0xb2, 0xb4-0xb7, others        skipped up to the next command word
+  *
+  * Render target: reg 0x50 (address), reg 0x5c (stride in pixels).
+@@ -52,6 +54,7 @@
+     uint32_t *r;          /* 2DG register file (s->regs[1]) */
+     int lx, ly;           /* local offset */
+     int nv;
++    int stencil;          /* 0xd0 polygon not yet consumed by 0x80/0x82 */
+     int vx[DL_MAX_VERTS], vy[DL_MAX_VERTS];
+     int done, skipped;
+ } Dl;
+@@ -327,7 +330,8 @@
+     uint32_t op = dl_rd(pc), tex = pc + dl_rd(pc + 4), sz = dl_rd(pc + 8);
+     int tw = sz >> 16, th = sz & 0xffff, x, y, i;
+     int xa = INT_MAX, ya = INT_MAX, xb = INT_MIN, yb = INT_MIN;
+-    int cx0, cy0, cx1, cy1;
++    int cx0, cy0, cx1, cy1, tiled;
++    static int xs[DL_MAX_VERTS];
+     hwaddr dst = reg(d, 0x50) & 0x1fffffffu;
+     uint32_t dstr = reg(d, 0x5c);
+ 
+@@ -346,24 +350,54 @@
+         xb = xa + tw - 1;
+     }
+     clip_box(d, &cx0, &cy0, &cx1, &cy1);
++    /*
++     * Map areas (water, parks) are drawn as a stencil polygon (0xe0 box,
++     * 0xd0 outline) followed by this command with a small pattern (e.g.
++     * 32x32) over the polygon's box: the pattern repeats from the quad's
++     * corner and only pixels inside the polygon (even-odd) are written.
++     * Without a polygon the texture is stretched over the quad, as before.
++     */
++    tiled = d->stencil;
+     for (y = MAX(ya, cy0); y <= MIN(yb, cy1); y++) {
+-        int ty = (int64_t)(y - ya) * th / (yb - ya + 1);
++        int ty = tiled ? (y - ya) % th : (int)((int64_t)(y - ya) * th / (yb - ya + 1));
++        int nx = 0, k;
+ 
+-        for (x = MAX(xa, cx0); x <= MIN(xb, cx1); x++) {
+-            int tx = (int64_t)(x - xa) * tw / (xb - xa + 1);
+-            uint16_t t;
+-
+-            address_space_read(&address_space_memory,
+-                               (tex + 2 * (ty * tw + tx)) & 0x1fffffffu,
+-                               MEMTXATTRS_UNSPECIFIED, &t, 2);
+-            t = le16_to_cpu(t);
+-            if ((op & 0x800) && !(t & 0x8000)) {
+-                continue;
++        if (d->stencil && d->nv >= 3) {
++            double sy = y + 0.5;
++            int j;
++
++            for (i = 0, j = d->nv - 1; i < d->nv; j = i++) {
++                double y0 = d->vy[j], y1 = d->vy[i];
++
++                if ((y0 <= sy && y1 > sy) || (y1 <= sy && y0 > sy)) {
++                    double fx = d->vx[j] + (sy - y0) * (d->vx[i] - d->vx[j]) /
++                                (y1 - y0);
++                    xs[nx++] = (int)floor(fx + 0.5);
++                }
++            }
++            qsort(xs, nx, sizeof(int), cmp_int);
++        } else {
++            xs[0] = xa;
++            xs[1] = xb + 1;
++            nx = 2;
++        }
++        for (k = 0; k + 1 < nx; k += 2) {
++            for (x = MAX(MAX(xa, cx0), xs[k]); x <= MIN(MIN(xb, cx1), xs[k + 1] - 1); x++) {
++                int tx = tiled ? (x - xa) % tw : (int)((int64_t)(x - xa) * tw / (xb - xa + 1));
++                uint16_t t;
++
++                address_space_read(&address_space_memory,
++                                   (tex + 2 * (ty * tw + tx)) & 0x1fffffffu,
++                                   MEMTXATTRS_UNSPECIFIED, &t, 2);
++                t = le16_to_cpu(t);
++                if ((op & 0x800) && !(t & 0x8000)) {
++                    continue;
++                }
++                t = cpu_to_le16(t);
++                address_space_write(&address_space_memory,
++                                    dst + ((hwaddr)y * dstr + x) * 2,
++                                    MEMTXATTRS_UNSPECIFIED, &t, 2);
+             }
+-            t = cpu_to_le16(t);
+-            address_space_write(&address_space_memory,
+-                                dst + ((hwaddr)y * dstr + x) * 2,
+-                                MEMTXATTRS_UNSPECIFIED, &t, 2);
+         }
+     }
+ }
+@@ -461,11 +495,13 @@
+                 xy(d, dl_rd(pc + 16 + 4 * i), &d->vx[i], &d->vy[i]);
+             }
+             d->nv = n;
++            d->stencil = 1;
+             pc += 16 + 4 * w1;
+             continue;
+         }
+         case 0x80:
+             fill_poly(d, w1);
++            d->stencil = 0;
+             d->done++;
+             pc += 24;
+             continue;
+@@ -520,6 +556,7 @@
+         }
+         case 0x82:
+             texquad(d, pc);
++            d->stencil = 0;
+             d->done++;
+             pc += 32;
+             continue;

@@ -6471,6 +6471,20 @@ into three printed classes.
 | C-8828 | reserved (M5.100). | UNKNOWN | — | — |
 | C-8829 | reserved (M5.100). | UNKNOWN | — | — |
 
+## M8.C1u — 2DG area pattern (C-8840–C-8849)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8840 | On the EU 2011 London start screen the firmware draws map areas as `0xe0` (box), `0xd0` (N vertices), `0x82` (op `0x820032e0`, 32×32 pattern texture over the box) and `0xb3` (outline from the same vertices); `0x82` after `0xd0` outnumbers plain `0x80` covers 160:9 (lower bound). | VERIFIED | H | EXP-2026-11-23-M8.C1u-2dg-area-pattern O1, O2 |
+| C-8841 | Before `ze0-hc1u`, `texquad()` stretched the pattern over the box and ignored the polygon, so every water/park area showed as a pixelated rectangle on every emulator screenshot (factory and generated cards). | VERIFIED | H | EXP-2026-11-23-M8.C1u-2dg-area-pattern O3 |
+| C-8842 | With `0x82` repeated from the quad corner and masked by the preceding `0xd0` polygon (even-odd), the factory start screen (`3ccbb525…`) and the NK1 zoomed-out screens draw water and parks along their outlines; the B+A screen is the same over two boots. | VERIFIED | H | EXP-2026-11-23-M8.C1u-2dg-area-pattern O4 |
+| C-8843 | That the 2DG hardware masks `0x82` by the stencil polygon and repeats the pattern from the quad corner is inferred from the outlines matching, not from a register. | HYPOTHESIS | M | EXP-2026-11-23-M8.C1u-2dg-area-pattern Interpretation |
+| C-8844 | L4 screen hashes taken before `ze0-hc1u` (factory `7e23cc73…`, from-zero `806d6ce8…`, `fa771a60…`, `a1b95d9a…`, `c5bae8aa…`) are box-fill renders; compare only within one QEMU build. | VERIFIED | H | EXP-2026-11-23-M8.C1u-2dg-area-pattern Interpretation |
+| C-8845 | reserved (M8.C1u). | UNKNOWN | — | — |
+| C-8846 | reserved (M8.C1u). | UNKNOWN | — | — |
+| C-8847 | reserved (M8.C1u). | UNKNOWN | — | — |
+| C-8848 | reserved (M8.C1u). | UNKNOWN | — | — |
+| C-8849 | reserved (M8.C1u). | UNKNOWN | — | — |
+
 ## M5.82 — new POI placement
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
