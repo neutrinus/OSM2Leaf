@@ -142,7 +142,17 @@ BG_TOLERANCE_M = 3.0  # M5.75 level-1 default
 BG_W34 = {1: (0x347A, 0x2AEF), 2: (0xFFFF, 0xFFFF)}  # header words 3/4 (factory census)
 # level 2 (EU2011 London census, EXP M5.91): layer 0 0x502b urban, 1 0x5012
 # sea, lines in layers 10/11; no park/water polygons at level 2
-BG_TYPES_L2 = {"urban": (0, 0x502B)}
+# M5.100 (zoomed-out screen + full census): level 2 has the same layers as
+# level 1 with type 0x50xx for 0xc1xx (forest 0x501a, heath 0x501b, park
+# 0x501d, river area 0x5014, water 0x5015, sea 0x5012) and place labels
+# 0x5068 / points 0x500c; M5.91's census of urban/sea only was incomplete.
+BG_TYPES_L2 = {k: (layer, 0x5000 | (t & 0xFF)) for k, (layer, t) in BG_TYPES.items()}
+PLACE_KINDS_L2 = {"city", "town", "suburb"}
+
+
+def level_type(t: int, level: int) -> int:
+    """Level-1 type 0xc0xx/0xc1xx -> its level-2 form 0x50xx."""
+    return t if level == 1 else 0x5000 | (t & 0xFF)
 MAX_SUBS, MAX_PER_SUB = 8, 255  # parse_group: <= 8 sub-groups of <= 255 shapes
 
 
@@ -166,7 +176,7 @@ def _entries_end(sec: bytes) -> int:
     return i
 
 
-def names_with_places(sec: bytes | None, places) -> bytes:
+def names_with_places(sec: bytes | None, places, level: int = 1) -> bytes:
     """A names section (fa_encode layout) with place-label entries appended
     after the road-name entries; road word offsets do not move."""
     if sec is None:
@@ -180,7 +190,7 @@ def names_with_places(sec: bytes | None, places) -> bytes:
         t = text.encode("latin-1", "replace")
         if len(t) % 2:
             t += b"\0"
-        body += struct.pack(">6H", PLACE_TYPE, PLACE_FLAGS, x, y, PLACE_STYLE, len(t)) + t
+        body += struct.pack(">6H", level_type(PLACE_TYPE, level), PLACE_FLAGS, x, y, PLACE_STYLE, len(t)) + t
     # a place entry has one more word than a road entry: the walker keys on
     # the type, so road offsets are kept and places follow them
     while len(body) % 4:
@@ -191,10 +201,10 @@ def names_with_places(sec: bytes | None, places) -> bytes:
     return bytes(out)
 
 
-def place_points_group(places) -> dict:
+def place_points_group(places, level: int = 1) -> dict:
     g = struct.pack(">HH", 1, 3) + bytes([3, len(places)])
     for x, y, _t in places:
-        g += struct.pack(">4H", POINT_TYPE, 0xFFFF, x, y)
+        g += struct.pack(">4H", level_type(POINT_TYPE, level), 0xFFFF, x, y)
     while len(g) % 4:
         g += b"\0"
     return dict(raw=g)
@@ -231,8 +241,7 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
     stats = collections.Counter()
     names = names or {}
     types = BG_TYPES if level == 1 else BG_TYPES_L2
-    if level != 1:
-        with_places = False
+    kinds = PLACE_KINDS if level == 1 else PLACE_KINDS_L2
     places = collections.defaultdict(list)
     translit = None
     if with_places:
@@ -244,7 +253,7 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
             f = json.loads(line)
             kind = f["kind"]
             if kind == "place":
-                if f.get("place") in PLACE_KINDS and with_places:
+                if f.get("place") in kinds and with_places:
                     lon, lat = f["point"]
                     parcel = tilewriter.parcel_of(lon, lat, level)
                     lon0, lat0, pw, ph = clarion_bg.parcel_geo(level, *parcel)
@@ -261,7 +270,7 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
             stats["holes_ignored"] += len(f.get("holes", []))
             for ring in f["rings"]:
                 ring = [tuple(p) for p in ring]
-                simp, _err = dp_simplify(ring, BG_TOLERANCE_M)
+                simp, _err = dp_simplify(ring, BG_TOLERANCE_M if level == 1 else LEVEL2_BG_TOLERANCE_M)
                 if len(simp) < 4:
                     stats["degenerate"] += 1
                     continue
@@ -320,15 +329,15 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
         hdr[20] = country
         if places.get(parcel):
             pl = places[parcel][:255]
-            model_layers[25] = place_points_group(pl)
-            names[parcel] = names_with_places(names.get(parcel), pl)
+            model_layers[25] = place_points_group(pl, level)
+            names[parcel] = names_with_places(names.get(parcel), pl, level)
         sections = {"names": names[parcel]} if parcel in names else {}
         if sections:
             stats["names_sections"] += 1
         plain = clarion_bg.build_record(dict(hdr=hdr, nlayers=26, layers=model_layers, sections=sections,
                                              gi=9, strict=True))
         back = clarion_bg.parse_record(plain)
-        got = collections.Counter(sh["type"] for g in back["layers"].values() if "raw" not in g
+        got = collections.Counter(sh["type"] for li, g in back["layers"].items() if "raw" not in g and li != 25
                                   for s in [g] + g.get("more", []) for sh in s["shapes"])
         want = collections.Counter(sh["type"] for items in layers.values() for sh in items[:MAX_SUBS * MAX_PER_SUB])
         got.pop(0xFFFF, None)  # the raw layer-25 point group parses as one pseudo shape
@@ -405,6 +414,7 @@ LEVEL2_DROP = {"service", "track"}
 LEVEL2_KEEP = {"motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link",
                "secondary", "secondary_link", "tertiary", "tertiary_link"}
 LEVEL2_TOLERANCE_M = 10.0
+LEVEL2_BG_TOLERANCE_M = 15.0  # 4x the level-1 3 m: a level-2 unit is 4x coarser
 
 
 def level2_table(table: dict) -> dict:
@@ -609,6 +619,8 @@ def selftest() -> int:
        "level 2 keeps tertiary and up with the fa_encode level-2 class: %s" % t2)
     ok(EMPTY_PAIRS[2] == (0xFFFFFFFF, 0xFFFFFFFF) and EMPTY_PAIRS[1] == (0x7FFFFFFF, 0xFFFFFFFF),
        "empty pairs: level 1 even 0x7fffffff, odd and level 2 0xffffffff")
+    ok(level_type(0xC11D, 2) == 0x501D and level_type(0xC068, 2) == 0x5068 and level_type(0xC00C, 1) == 0xC00C
+       and BG_TYPES_L2["water"] == (7, 0x5015), "level-2 types are 0x50xx of the level-1 0xc0xx/0xc1xx (M5.100)")
     print("tile_from_zero selftest: %s (%d failure(s))" % ("OK" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -658,8 +670,8 @@ def main(argv=None) -> int:
                                               not args.no_names, args.max_plain, names_out=names2,
                                               class_override=args.class_override, level=2)
             if args.areas or names2:
-                plains2, bg2 = build_background(args.areas, args.country, {"urban"}, args.urban_fill,
-                                                names2, False, level=2)
+                plains2, bg2 = build_background(args.areas, args.country, only, args.urban_fill,
+                                                names2, args.places, level=2)
                 odd2 = {k: (v, tilewriter.compress(v)) for k, v in plains2.items()}
         out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd, built2=built2, odd2=odd2)
         st["background"] = bg_stats

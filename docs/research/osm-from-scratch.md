@@ -136,8 +136,10 @@ Z5 passed for names — OSM street names and place labels are drawn (M5.90,
 C-8702/C-8703). Shields draw on class <= 4 roads (M5.97, C-8792/C-8794);
 the measured class table (M5.98) remains. Z6 passed at L3 — 97 OSM
 level-2 records (roads tertiary and up, urban, road names) are read by the
-map client like the factory's (M5.91, C-8711/C-8712); the zoomed-out L4
-screen needs the unit flash dump (M5.100). Section 4 does not draw the place
+map client like the factory's (M5.91, C-8711/C-8712), and with Marek's
+unit flash on NK1 the zoomed-out screen draws them: roads, shields, the
+Thames, parks and place labels (M5.100, C-8822/C-8823). Level-2
+generalisation (labels, minimum area, lines) is M5.101. Section 4 does not draw the place
 labels (C-8715).
 
 Cross-cutting tasks, independent of the rungs:
