@@ -3676,8 +3676,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7950–C-7959
   - Result: EXP-2026-11-22-M5.76-osm-synth-town; osm_synth selftest 24/24, deterministic seed, one-tile pipeline L1/L2
 
-- [ ] **M5.77 — Dolnośląskie in numbers: per-tile feature counts and slot-budget overflow from the real extract**
-  - Status: in progress · Owner: task/m5.77-dolnoslaskie-numbers · Critical: no · Runner: non-Claude · Pair: solo
+- [x] **M5.77 — Dolnośląskie in numbers: per-tile feature counts and slot-budget overflow from the real extract**
+  - Status: done · Owner: task/m5.77-dolnoslaskie-numbers · Critical: no · Runner: non-Claude · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: Plan the first real region with numbers: how many ways, vertices, names and POIs fall into each tile and parcel, and where the budget overflows.
@@ -3688,6 +3688,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Falsifier: no parcel overflows at level 1 (then the budget is not the constraint and the EXP says what is).
   - Claims: C-7960–C-7969
+  - Result: EXP-2026-11-23-M5.77-dolnoslaskie-numbers; 4832 parcels, 4501 over budget, 3 worst named
 
 - [ ] **M5.78 — Poland in numbers: tile list, data volume and card-space estimate for the whole country**
   - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
