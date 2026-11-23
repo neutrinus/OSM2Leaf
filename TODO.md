@@ -6438,7 +6438,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: EXP-2026-11-23-M9.75-sec2-readers-l4 (L4 instead of L3: NK1 + unit flash route, gdb read watch; readers 0x003534d4 premap and 0x00358382 route search; unit-0 framing VERIFIED on 45,184 + 3,214 London records; search key (word 4 & 0xf, word 3 & 0x1fff); empty section 2 -> CALC_ERR_NBR); tools/ze0_sec2_watch.py; C-9910-C-9916. Attribute words (one-way, regulation): M4.98
 
 - [ ] **M9.76 — Make the rule-17 card number read a fresh ladder report, not the 2026-11-17 P0 pin**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.76-fresh-card-step · Critical: yes · Pair: required
   - Step: P0
   - Depends: M5.38 (done), M9.12 (done), M5.88/M5.90/M5.91/M5.100 (from-zero card, done)
   - Goal: `tools/map_signals.py` prints `card_step: P0` from `~/projekty/leafre-work/m5.34/report.json` (mtime 2026-11-17 19:14Z), a factory-backed one-tile report produced before the from-zero L4 work and before M9.12/M9.75. Rule 17 defines this number as the highest card-ladder step whose gate passes; today it is a constant, so card work cannot move it. Teach the counter to read a validated step from a current gate run and publish that run.
