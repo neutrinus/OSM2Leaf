@@ -2509,6 +2509,7 @@ The 23rd-pass text is in git (`af469580`).
   - Precheck: `python3 tools/datask_req_l3.py request archive/head256.img --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img --position 51.70,17.45 0xa6bed6ee:0:0x40` reads `pos 0x113ca000` (section 4); `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x004240d8 --count 8` loads `0x00e8f604`.
   - Scope: EU2011; the section-4 level-1 records of `B48R058R` (1,382 zlib records) and `B30R058R` (8); `0x00424464` and its callees (11 functions); the section-1 point words that carry a section-4 index (hypothesis: a segment whose previous `y` has `0x1000` has an extra word; on `B30R058R` the 13 such words are 11/35/59, i.e. 24-word steps from word 11, all in parcels that have a section-4 record — scratch observation, not a claim).
   - Input: EXP-2026-11-20-M4.40-request-kinds, `tools/rgd_reply_l3.py` (`walk --section 4 --k K`), `tools/datask_req_l3.py`, `tools/section4.py`, `tools/ze0-viewer/tools_ze0/fa_encode.py` (`parse_record` point grammar), `docs/format/map-tiles.md` §Section 4 grammar.
+    M4.73 signpost case (EXP-2026-11-23-M4.73-kiwi-guidance-junction, C-7720–C-7724): EU2011 B48R058R section 4, parcel a6bed6ee, record at tile offset 0x113ca000 (144 B inflated, w2=0x0009, country 616) holds 0=POZNAN:KALISZ:(36):RAWICZ; at name word 53 (18 words) and 2=11:25 at +0x86; the kind-0x40 RGD reply points +16=word 0, +24=word 53 (text), +28=word 9 (first guidance item). The exact string occurs 0 times in INTER021's 230 and FRWAY021's 3 inner zlib members (component words only inside street names), so it is stored verbatim, not composed at run time; those shards carry entrance/exit street names and 187 INTER node refs instead. Section-4 word-9 item grammar and the 0x00422eac k path stay open here.
   - Done when: an EXP gives the section-4 entry layout (offset, width, meaning or `unknown`) with the reading VA for each field `0x00422eac` touches, `k` derived from a section-1 record by the real `0x00424464` on one factory parcel (not chosen by the gate), and a negative control (a `k` from another parcel fails); `docs/format/map-tiles.md` §Section 4 grammar updated.
   - Stop: if no section-4 record of the two tiles has an entry that clears the `0x0900` gate, record the census and the gate's selection rule and stop.
   - Falsifier: the `k` that `0x00424464` returns on a factory parcel does not land on a section-4 entry start.
@@ -2750,8 +2751,8 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-7710–C-7719
   - Result: EXP-2026-11-22-M4.72-kiwi-route-concepts; Stop branch, r=0.1035 length vs geometry, no field confirmed, 5 claims C-7710-C-7714
 
-- [ ] **M4.73 — KIWI route-guidance data against tile section 4 (guidance) and `INTER`/`FRWAY`: intersection names, signposts, lane data**
-  - Status: in progress · Owner: task/m4.73-kiwi-guidance · Critical: no · Pair: solo
+- [x] **M4.73 — KIWI route-guidance data against tile section 4 (guidance) and `INTER`/`FRWAY`: intersection names, signposts, lane data**
+  - Status: done · Owner: task/m4.73-kiwi-guidance · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: M4.56 reads the guidance grammar from the router's consumer. KIWI has a route-guidance frame (intersection, direction signs, road names for announcements). Check whether its record list predicts the fields M4.56 looks for and the content of `INTER0nn`/`FRWAY0nn`.
@@ -2762,6 +2763,7 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: one session.
   - Falsifier: the signpost text is found in no map file (then it is composed from road names at run time).
   - Claims: C-7720–C-7729
+  - Result: EXP-2026-11-23-M4.73-kiwi-guidance-junction (C-7720–C-7724); signpost stored verbatim in B48R058R section 4 (parcel a6bed6ee, name word 53), not composed from INTER/FRWAY; KIWI 8.4 predicts field kinds, not the ZE0 container; no lane field in the two Poland shards
 
 - [ ] **M4.74 — KIWI index data against `REFER001`: address, POI and category indexes (`POINT`, `ADDRE`, `ZCODE`, `ICODE`, `COORD`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
