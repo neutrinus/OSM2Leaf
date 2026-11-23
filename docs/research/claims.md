@@ -6146,3 +6146,13 @@ into three printed classes.
 | C-8442 | For touch, `IsKeyControlNotify` drops the event when `obj[+0xc4] OR obj[+0xc5]`, masked with `0x0f`, is nonzero and the caller's pressed flag is clear; the firmware log string for that branch is `m_byKeyControl & KEP_KEY_TOUCH_ENABLE(ON)`. | VERIFIED | M | static: disassembly `0x03d273d2`–`0x03d273f2`, string `0x03d222a8`; dynamic consistency with C-8441 |
 | C-8443 | A 10-sample drag across the map and a tap leave the screenshot byte-identical (SHA-256 equal, 384 000 non-black pixels), consistent with C-8441: the UI receives no mouse message. | VERIFIED | H | EXP M8.H35 O5 |
 | C-8444 | The UI layer (buttons) and touch are blocked by the same start-up state (`INI_STARTUP`); the key-control bytes of C-8442 are written by the application side. Which process writes them and what releases them is not known. | HYPOTHESIS | M | EXP M8.H35 Result; follow-up in M8.H39 |
+
+## M1.54 — EU vs US 2011 card diff (C-8450–C-8459)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8450 | Of the files on the EU 2011 and US 2011 cards' FAT32 partitions (480 and 248), only `CMP.LST` has the same bytes on both; all other files are regional or the same name with other bytes. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O1, O2; `docs/research/card-manifests/` |
+| C-8451 | Before the FAT partition the two cards differ only in ROM A (and its copy), 39 bytes after ROM C's `physlast` (`0x058685d9`–`0x058685ff`, outside every ROM C module and file), the padding after the `BASSB` blob (`0x00` EU, `0xff` US from `0x05d88600`) and the raw `HDD_INFO` copy at `0x06000000`. ROM B, its copy and ROM C are the same bytes. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O6 |
+| C-8452 | The voice folders do not overlap: EU `SPEECH/{BE,DU,FR,GE,IT,PT,SP}`, US `SPEECH/{US,CF}`, each with `GID`, `TTS` and `VR` files. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O3 |
+| C-8453 | `HDD_INFO.TXT`: EU `QSD-302-100`, `QSD-309-101`, `02-110100-00`, `SDC08-EVEUR`, `11-05`, `470323501005`; US `QSD-301-100`, `QSD-301-103`, `02-100100-00`, `SDC08-EVNAM`, `10-30`, `470282203030`. | VERIFIED | H | EXP-2026-11-22-M1.54-eu-us-card-diff O5 |
+| C-8454 | The opening image is `OIXXEVNI.001` (EU) / `OIXXNVNI.001` (US), same size; NK1 and ROM B hold the pattern `OIXXXXXX`, so the region letters in the name most likely do not matter. | OBSERVED | M | EXP-2026-11-22-M1.54-eu-us-card-diff O4 |
+| C-8455 | After `card_mapcode.py`, the regional gap left for an EU card in a US unit, radio aside, is the voices (no `US`/`CF` folder). Whether the firmware then asks for a missing folder is not known (M1.55). | HYPOTHESIS | M | EXP-2026-11-22-M1.54-eu-us-card-diff Interpretation |

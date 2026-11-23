@@ -1514,6 +1514,19 @@ on Marek's unit), which NK1 checks first (M8.C1r, `--nk-name`,
 `--map-code-only`). Then it verifies through `cardcheck`. How to use
 it for an EU card on a US unit:
 [docs/hardware/eu-card-on-us-unit.md](../docs/hardware/eu-card-on-us-unit.md).
+
+## `card_diff.py` — compare two card images file by file (M1.54)
+
+```bash
+python3 tools/card_diff.py manifest CARD.img -o CARD.json      # path, size, SHA-256 of every FAT32 file (~4 min / 8 GB)
+python3 tools/card_diff.py compare A.json B.json [--depth 2] [--detail SPEECH/US]
+```
+
+`manifest` walks the map partition with `cardcheck.Fat32Image` and hashes
+every file; it stores no file content, so manifests can be committed
+(`docs/research/card-manifests/`). `compare` groups the files by folder into
+only-A / only-B / same / differ. Result for the 2011 EU and US cards:
+[docs/research/eu-us-card-diff.md](../docs/research/eu-us-card-diff.md).
 Record: EXP-2026-11-22-M8.C1m-unit-flash-region.
 
 ## `imgpatch.py` — patch one file inside a card image in place
