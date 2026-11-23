@@ -59,3 +59,20 @@ H141 (TL-owned, no subagent): PR #639's H132-H139 claim ranges C-8660-C-8739
 
 (outcome table appended as results arrive)
 
+
+merge stream (2026-11-24 UTC):
+  - #698 M9.77 merged as 8ac92da2. Verified CI 7/7 green, board lost 0/0,
+    todo/claims checkers OK, local fn_audit 0 new/0 gone/0 moved. Local gate
+    under 20-agent load showed ci_gate_repro 60 s timeout (flaky under load):
+    re-run --only ci_gate_repro PASS at 45.58 s, so it was not a real failure.
+    Worktree/scratch tl-merge-698 removed.
+  - Outcome so far: M9.77 done (1 pair, rounds 1 plan APPROVE + final APPROVE,
+    navigator caught two-## Method concatenation and the no-command guard).
+  - All 10 pair plan reviews resolved. Several ended CHANGES and the drivers
+    corrected their plans (M2.22 3 rounds — CMP.LST -> TTS byte; M4.99 2 rounds
+    — named section-table span + map_signals move; M8.H79 2 rounds -> blocked
+    because the M5.100 card is gone from disk; H131 2 rounds — explicit golden
+    and in-directory way; M9.80 2 rounds -> blocked, 0x00422eac returns one
+    selector; M5.83 — fold-as-data confirmed). Drivers are implementing now.
+
+(navigator catches and final table appended below)
