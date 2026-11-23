@@ -128,7 +128,10 @@ mark, so every item on it (fills, roads, street and place labels, shields)
 comes from `B48R068R` (M5.87, C-8672/C-8673). Z3 passed — 602 OSM road
 records and no factory record are drawn on the start screen (M5.88, C-8684);
 an empty odd pair must be `0xffffffff` (C-8682), and records up to 101 KB
-(L4) / 156 KB (L3) read without a size limit (C-8685).
+(L4) / 156 KB (L3) read without a size limit (C-8685). Z4 passed for areas —
+623 OSM background records (water, parks, forest, heath, urban; layers 0/3/7,
+types `0xc1..`) are drawn under the roads (M5.89, C-8694); the factory's
+urban fill is generalised, so built-up area and line layers are M5.95/M5.96.
 
 Cross-cutting tasks, independent of the rungs:
 
