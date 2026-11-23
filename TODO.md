@@ -4005,6 +4005,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8830–C-8839
 
+- [ ] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M8.H76 (done)
+  - Goal: M8.H76 shipped `sha256_file`/`sha256_bytes` and migrated the eight tools it named, but seven tools added later in the same window still hash inline: `launch_area.py`, `point_add_poi.py`, `tile_from_zero.py`, `tile_provenance.py`, `tile_relayout.py`, `ze0_l3parity.py`, `ze0_uistart.py`. Their evidence stamps can drift from the shared helpers, which is the exact failure M8.H76 was filed to prevent.
+  - Precheck: `grep -l 'import hashlib' tools/launch_area.py tools/point_add_poi.py tools/tile_from_zero.py tools/tile_provenance.py tools/tile_relayout.py tools/ze0_l3parity.py tools/ze0_uistart.py | wc -l` prints 7; `grep -nE '^def (sha256_file|sha256_bytes)' tools/hashutil.py` prints both; `python3 tools/hashutil.py --selftest` passes.
+  - Scope: only those seven files and `tools/hashutil.py` if a helper is genuinely missing; replace inline `hashlib.sha256(...).hexdigest()` with the shared call, keeping each tool's output, JSON keys and CLI byte-identical. No format, gate or board change; no claim about the hashed bytes is re-derived here.
+  - Input: `tools/hashutil.py` (M8.H76), the seven tools listed above, EXP-2026-11-23-M8.H76-hashutil.
+  - Done when: `grep -l 'import hashlib' <the seven files>` prints nothing; every replaced call site hashes one named fixture or short byte string to the same hex before and after (record the equality in an EXP); `python3 tools/selftest.py` stays green; `python3 tools/hashutil.py --selftest` passes.
+  - Stop: if a call site needs a different digest (not SHA-256 hex), leave it and list the name — do not widen the shared API for one caller.
+  - Falsifier: two call sites disagree on the hex of the same bytes after the change, or a tool's JSON output changes.
+  - Claims: C-9960–C-9969
+  - Pair: solo
+
 ## M6 — L5 bench/car: hardware and safety
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
@@ -6734,6 +6747,46 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the route computation runs but the unit-0 watch records 0 reads while the positive control records > 0 (then the graph is read from a different buffer or module).
   - Claims: C-9910–C-9919
   - Result: EXP-2026-11-23-M9.75-sec2-readers-l4 (L4 instead of L3: NK1 + unit flash route, gdb read watch; readers 0x003534d4 premap and 0x00358382 route search; unit-0 framing VERIFIED on 45,184 + 3,214 London records; search key (word 4 & 0xf, word 3 & 0x1fff); empty section 2 -> CALC_ERR_NBR); tools/ze0_sec2_watch.py; C-9910-C-9916. Attribute words (one-way, regulation): M4.98
+
+- [ ] **M9.76 — Make the rule-17 card number read a fresh ladder report, not the 2026-11-17 P0 pin**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P0
+  - Depends: M5.38 (done), M9.12 (done), M5.88/M5.90/M5.91/M5.100 (from-zero card, done)
+  - Goal: `tools/map_signals.py` prints `card_step: P0` from `~/projekty/leafre-work/m5.34/report.json` (mtime 2026-11-17 19:14Z), a factory-backed one-tile report produced before the from-zero L4 work and before M9.12/M9.75. Rule 17 defines this number as the highest card-ladder step whose gate passes; today it is a constant, so card work cannot move it. Teach the counter to read a validated step from a current gate run and publish that run.
+  - Precheck: `python3 tools/map_signals.py --json` prints `"step": "P0"` with that pinned report path; `stat -c %y ~/projekty/leafre-work/m5.34/report.json` prints the 2026-11-17 date; `grep -n '"step": "P0"' tools/map_signals.py` shows the value is assigned in `card_step_from_report`.
+  - Scope: `tools/map_signals.py` (`card_step_from_report`, `signal_card_step`, selftest) and one new report JSON outside the repo. The report's `step` must be one of P0..P4 and must agree with `python3 tools/card_ladder.py steps --check` for the card's Step tags; absent `step`, or false `cardcheck_ok`/`l2check_ok`, is NOT RUN / `none`, never a promoted number. The other three rule-17 signals are unchanged.
+  - Input: `docs/research/card-ladder.md` (P0–P4 gates), `tools/card_ladder.py`, `tools/cardcheck.py`, `tools/l2check.py`, `tools/map_signals.py`, the M5.100 from-zero card (SHA-256 prefix `1b5bafeb…aeb2f2da52` in EXP-2026-11-23-M5.100-level2-zoom-out).
+  - Done when: `python3 tools/map_signals.py --selftest` passes new cases (P0/P1 with true/true → P0/P1; missing step → NOT RUN; rc/ok disagreement flagged); a fresh report for a named generated card records its SHA-256, both gate exit codes and a ladder step; `python3 tools/map_signals.py --report <fresh>` prints that step; the four rule-17 numbers are re-quoted in TODO Priorities with the report path. If the fresh run fails a gate, the number stays P0 and the EXP says why — that still passes this task.
+  - Stop: if the host cannot reproduce the card gate (missing factory tree or extract), record the missing input, leave the pin in place and set `blocked` with a named unblock; do not let the counter guess a step.
+  - Falsifier: a report whose gate did not pass still prints a promoted step, or the printed step disagrees with `card_ladder.py steps --check`.
+  - Claims: C-9940–C-9949
+  - Pair: required
+
+- [ ] **M9.77 — `tools/exp_check.py`: accept named Method subheadings, still fail a missing falsifier**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M9.71 (done)
+  - Goal: the lint added by M9.71 matches only `1. **Sample and hash.**`-style numbered bold labels and `## ` headings, so a record whose five parts are present as `### 1. Sample and hash` … `### 5. Falsifier` (EXP-2026-11-23-M4.96) is FAILed for all five. The corpus reads 546 FAIL / 653, which hides the real gaps and makes a future gate row impossible to triage. Judge the parts by content under Method, not by one spelling, and publish the true backlog.
+  - Precheck: `python3 tools/exp_check.py docs/experiments/EXP-2026-11-23-M4.96-tile-grade-classes.md` prints FAIL with five "missing Method part" reasons; `grep -cE '^### [1-5]\.' docs/experiments/EXP-2026-11-23-M4.96-tile-grade-classes.md` prints 5; `python3 tools/exp_check.py docs/experiments` reports the current FAIL corpus count.
+  - Scope: `tools/exp_check.py` (`check_text`, `section_bodies`, selftest fixtures) plus one sentence in `docs/experiments/TEMPLATE.md` Method naming the accepted subheading form. Accept both numbered bold labels and `### N. Label` subheadings inside Method; keep hard failures for a missing part, a sample without a full SHA-256 or backticked waiver, and an elided command. Do not weaken the five-part rule, ignore the hash rule, or edit any EXP.
+  - Input: `docs/experiments/TEMPLATE.md`, `tools/exp_check.py`, EXP-M4.96 (all five parts under `### 1..5`), EXP-M1.50 and EXP-M8.H35 (the two genuine FAILs named by M9.71).
+  - Done when: M4.96's record PASSes; a synthetic EXP with one part removed FAILs naming that part; `python3 tools/exp_check.py --selftest` passes both new fixtures; the corpus run prints a lower FAIL count and an EXP lists the first ten remaining FAILs with their reason classes; `python3 tools/selftest.py --only exp_check` PASS.
+  - Stop: if accepting subheadings would also accept a record with no commands at all, keep the strict parser, set `blocked` with a negative EXP and name the exact ambiguity.
+  - Falsifier: a record missing its falsifier PASSes, or the hash/elision checks stop firing on the M1.50/M8.H35 fixtures.
+  - Claims: C-9950–C-9959
+  - Pair: required
+
+- [ ] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M9.77
+  - Goal: the 49 EXP records added between 2026-11-23 06:20Z and 19:07Z include real gaps behind the formatter noise: a sample without a full SHA-256, a Method with no runnable commands/controls/scope, or no falsifier. A reviewer cannot reproduce those results from the repo. After M9.77 separates layout from content, repair each record that still FAILs rather than waiving the lint wholesale.
+  - Precheck: `python3 tools/exp_check.py docs/experiments` still prints FAIL lines; `git log --since=2026-11-23T06:20:04Z --diff-filter=A --name-only --pretty=format: origin/main -- docs/experiments/ | grep -c 'EXP-'` prints the window size (49 at 19:13Z).
+  - Scope: only the `docs/experiments/EXP-*.md` files added in that window. For each FAIL add the missing content from the task's own Done when, Input fields and committed tool commands — never invent a hash or a control; if the original run cannot be replayed, mark that record `inconclusive` and say why. No tool, board or claim-row changes; do not edit an EXP outside the window.
+  - Input: `docs/experiments/TEMPLATE.md`, the window file list from the Precheck command, `tools/exp_check.py` after M9.77, and each record's own task block in TODO.md.
+  - Done when: `python3 tools/exp_check.py <window files>` prints PASS for every window record or an explicit, justified waiver; an EXP records the before/after FAIL list with the command that produced it; every number quoted in a claim row still has a runnable command in its record; `python3 tools/claims_check.py` stays OK.
+  - Stop: if replaying a missing hash needs the factory tree or a hardware dump that is not on this host, mark that single record `inconclusive` with the missing input named and continue with the rest; do not fabricate a hash from a hash prefix.
+  - Falsifier: an EXP is marked PASS while still lacking a full sample hash, a runnable command, a control, a counted scope or a falsifier.
+  - Claims: none (record repair; no claim rows reserved until the work commits them)
+  - Pair: required
 
 ## Retired leads
 
