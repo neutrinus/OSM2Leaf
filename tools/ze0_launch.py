@@ -92,10 +92,12 @@ UNAVAILABLE = {}
 
 
 def qemu_argv(qemu, card, nk, flash, ipl, work, lines, gdb=None, stop=False,
-              icount="shift=0,sleep=off"):
+              icount="shift=0,sleep=off", flash_rw=False):
     """The QEMU command line; ``lines`` is the list of SCIF names (sci3...)."""
     mopts = ["ze0", "dbgmsg=" + NK1_DBGMSG, "nk=" + nk, "ipl-patch=" + ipl,
              "flash=" + flash]
+    if flash_rw:
+        mopts.append("flash-rw=on")
     mopts += ["%s=c%s" % (ln, ln) for ln in lines]
     argv = [qemu, "-M", ",".join(mopts), "-kernel", card,
             "-drive", "if=sd,index=0,id=sd0,file=%s,format=raw,snapshot=on" % card]
@@ -135,6 +137,9 @@ def main(argv=None):
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--card", help="SD card image (US or EU 2011)")
     ap.add_argument("--flash", help="unit NOR flash dump (8 MiB, never committed)")
+    ap.add_argument("--flash-rw", action="store_true",
+                    help="keep the guest's flash writes in the --flash file (default: "
+                         "a temporary overlay; use a copy of the dump; M8.H18)")
     ap.add_argument("--nk", default=DEFAULT_NK, help="NK1 kernel file")
     ap.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-sh4"))
     ap.add_argument("--peer", action="append",
@@ -170,7 +175,8 @@ def main(argv=None):
     ipl_cmd = [sys.executable, os.path.join(HERE, "ze0_ipl.py"), "patch",
                args.card, "-o", ipl, "--nk", args.nk]
     qargv = qemu_argv(args.qemu, args.card, args.nk, args.flash, ipl,
-                      args.workdir, lines, args.gdb, args.stop)
+                      args.workdir, lines, args.gdb, args.stop,
+                      flash_rw=args.flash_rw)
     print("work dir: %s" % args.workdir)
     print("ipl:      %s" % " ".join(map(shlex.quote, ipl_cmd)))
     print("qemu:     %s" % " ".join(map(shlex.quote, qargv)))
@@ -236,6 +242,10 @@ def selftest():
     check("machine options",
           m, "ze0,dbgmsg=0x880404c4,nk=nk1.bin,ipl-patch=/w/ipl.txt,"
              "flash=nand.bin,sci3=csci3,sci7=csci7")
+    argv_rw = qemu_argv("q", "card.img", "nk1.bin", "f.bin", "/w/ipl.txt", w,
+                        [], flash_rw=True)
+    check("flash-rw passes through",
+          "flash-rw=on" in argv_rw[argv_rw.index("-M") + 1].split(","), True)
     check("chardev per line",
           [a for a in argv if a.startswith("socket,")],
           ["socket,id=csci3,path=/w/sci3.sock,server=on,wait=off",

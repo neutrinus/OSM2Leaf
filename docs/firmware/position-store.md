@@ -208,9 +208,12 @@ A fix passes four gates, in order:
 | 1 | GPS history ring keeps the report | `0x0046fa60` (ring `0x00dbee60`) | A0 stat byte is not 0x00/0x10/0x20/0x30 |
 | 2 | The fix converts to a map mesh | `0x00452f54` | the point is outside the map build (Poland on a US card) |
 | 3 | A current road link exists | `*0x00dbdc30`, exit at `0x00456eb0` | no saved locator state (VSram backup not loaded) |
-| 4 | Car mesh is in the loaded mesh table, distance > 13 sets bit 0x200 | `0x0049e08c`, `0x00dd48e8`, read in `0x0049fa44` | empty table |
+| 4 | Car mesh is in the loaded mesh table; distance > 13 sets bit 0x100 | `0x0049e08c`, `0x00dd48e8` | empty table |
+| 5 | Bits 0x01–0x80 and 0x100 of `*0x00dbd8ac` all set, then `0x0049e244` sets 0x200 | `0x0049eeb4` and its 7 history checks; bit 0x80 = locator input +22 ≥ 100 | no vehicle speed input (M8.H32), GPS history not steady |
 
-Only with bit 0x200 of `*0x00dbd8ac` does `0x0049fa44` write the GPS
+Gate 3 is met once the unit flash is a NOR chip (M8.H18): the saved road link
+loads with the locator backup. Only with bit 0x200 of `*0x00dbd8ac` does `0x0049fa44` write the GPS
 mesh/x/y to the state `0x00dbce00`. Evidence:
 `docs/experiments/EXP-2026-11-23-M8.H78-locator-gps-gates.md`, claims
-C-8640–C-8648.
+C-8640–C-8648; `docs/experiments/EXP-2026-11-23-M8.H18-nor-flash.md`,
+claims C-7150–C-7157.

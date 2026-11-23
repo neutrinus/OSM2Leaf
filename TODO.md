@@ -4719,8 +4719,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the guest never issues a command on port 1 even with card-detect asserted.
   - Claims: C-7140–C-7149
 
-- [ ] **M8.H18 — NOR flash (`FMD1:`) backed by a host file: settings and user data survive a restart**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H18 — NOR flash (`FMD1:`) backed by a host file: settings and user data survive a restart**
+  - Status: done · Owner: task/m8.h18-fmd1-flash · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1c (done)
   - Goal: The board has 8 MiB NOR with the product record, 'SRAM' user data and 'VFlash' (`docs/hardware/head-unit.md`). `ze0-0010` answers the product-record query only. A file-backed flash lets a test seed the last position, destinations and language, and lets a shutdown persist them.
@@ -4733,6 +4733,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7150–C-7159
   - Note: (M6.19, 2026-11-22) a real layout exists: flash at physical 0 (kernel reads `PROD` at `0xA000A000`), `SMST` stores at `0x400000`, map in `docs/hardware/unit-flash.md`; `tools/unitflash.py` reads a dump. The dump is private: build test images with the user areas erased.
     (M8.H78, 2026-11-23) on NK1 + US card with the unit flash the VSram driver fails IOCTL_FMD_READ/ERASE and OBJ_BackUp_Load errors (C-8645); without that backup the locator has no road link and no mesh table, so no GPS fix can move the car (EXP-2026-11-23-M8.H78-locator-gps-gates). M8.H78 waits on this.
+  - Result: EXP-2026-11-23-M8.H18-nor-flash; ze0-h18-nor-flash.patch (CFI-02 SST38VF6401), FMD/VSram errors gone, locator backup loads (car in Kentucky, C-7154); guest made no flash write in 400 s, so persistence (flash-rw=on) is in place but not exercised (C-7157)
 
 - [x] **M8.H19 — Where does `Navi.exe` keep the last vehicle position, and who reads it at start**
   - Status: done · Owner: task/m8.h19-position-store · Critical: no · Pair: solo
@@ -5516,8 +5517,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the gate is a learned calibration or needs DR input that M8.H32 has not modelled, record the variable and threshold and mark blocked on M8.H32.
   - Falsifier: with the gate condition met, `OBJ_CarPos` still stays at the old position.
   - Claims: C-8640–C-8649
-  - Blocker: M8.H18 (FMD1: flash, VSram backup load; C-8645)
-  - Unblock: M8.H18 done, then a fix near the restored car position
+  - Blocker: M8.H32 (vehicle speed / DR input: locator input +22 ≥ 100 for flag bit 0x80, C-7156); M8.H18 done
+  - Unblock: M8.H32 drives the +22 field, then a US fix near the restored position (Kentucky)
   - Result: EXP-2026-11-23-M8.H78-locator-gps-gates; gates named (C-8640–C-8646), stat default 0x30; car position not moved
 
 ---
