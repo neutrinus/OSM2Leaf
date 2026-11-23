@@ -4251,7 +4251,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: Navi.exe and Telema.exe start on NK1 + A with the unit flash (US card: Los Angeles; EU card with the M8.C1r overlay: London). Cause: NK1 defers all RAM at memory init when the boot type is 0, and AppLaunch MemClearThread frees it only after the creates (the earlier 'not a timing race' reading in Precheck measured after the release; C-8416). ze0_ipl.py --nk now patches the boot-type test so RAM is freed at init. EXP-2026-11-22-M8.C1q-navi-on-nk1, C-8410–C-8416; debugging guide docs/emulator/debugging.md, tools/ze0_gdb.py.
 
 - [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.c1n-ui-form-element · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1l
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). With `ze0_aui.py --object-store` every control registers and ScreenStateCC runs, but the screen state stays in `INI_STARTUP`. `NOTIFY_TRANSITION_FIRST_SCREEN` finds no window for InfoBarCC (46), UnitMainteCC (40) and EvNoticeCC (41), and 29 controls fail to initialise (C-8324, C-8325).
