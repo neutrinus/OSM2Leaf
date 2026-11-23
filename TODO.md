@@ -3500,7 +3500,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Step: tooling
 
 - [ ] **M5.68 — `tilewriter.read_jsonl` streams a way at a time: a 1.6 M-way split fits in RAM**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m5.68-stream-jsonl · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
   - Goal: M5.61 built `B50R050R` level 1 but could not build `B48R050R`: `tilewriter.read_jsonl` calls `_read_text(path).splitlines()`, so a 1,837,383,144 B split (1,641,585 single-cell ways) is one Python string plus a list of lines plus the parsed records. `/usr/bin/time -v` records `Maximum resident set size (kbytes): 5224528` and `Command terminated by signal 9` on a 7,735 MB host; a gzipped split peaks at `5,226,136` kB and is killed too. This is a tool limit, not a card or format limit, and it gates the other three Poland tiles.
@@ -3511,6 +3511,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if streaming alone does not fit (the driver's own `ways` dict is the remaining copy), record both peaks and open the next task on the driver's data structure instead of masking it with a class filter.
   - Falsifier: a "streaming" reader that still returns a list of all records, or a build whose peak is unchanged on the same split.
   - Claims: C-6790–C-6799
+  - Blocker: Driver's own nodes/ways parse OOMs at 5512296 kB before tilewriter starts (Stop-clause copy); tilewriter alone fits at 4657860 kB but stops on the M5.69 splice (75,945,11,53)
+  - Unblock: M5.99, M5.69
+  - Result: EXP-2026-11-23-M5.68-stream-jsonl (negative for end-to-end; reader proven: 5454440 signal 9 -> 4657860 no signal)
 
 - [ ] **M5.69 — the `0x2046` slot splice writes the even/odd pair together: `B50R058R` level 1 verifies**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -3703,6 +3706,21 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the added leaf joins (`joins` counts it) but the firmware walk returns the neighbouring record, or a page re-encode moves bytes outside the slot and `cmpind verify` fails.
   - Claims: C-8580–C-8589
   - Pair: required
+
+
+
+- [ ] **M5.99 — `m5_61_build_tile.py` streams its own parse: the `B48R050R` end-to-end build fits in RAM**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: P1
+  - Depends: M5.68 (`read_jsonl` streams), M5.69 (the even/odd splice)
+  - Goal: M5.68 fixed `tilewriter.read_jsonl`, and `tilewriter` alone on the 1.8 GB `B48R050R` split now completes the read + record build at 4,657,860 kB with no signal (from `origin/main`'s 5,454,440 kB `signal 9`, EXP-2026-11-23-M5.68 §Obs.1–2). But the end-to-end `tools/m5_61_build_tile.py` still OOMs at `driver_own=5512296kB` in its **own** `json.loads` pass before the `tilewriter` child is even spawned (`writer_child=0kB`): it builds `nodes` (12,739,324), `ways`, `parcel_ways` and `runs` dicts from the split, then spawns `tilewriter` which parses the split again. That second full copy is the task's Stop-clause copy, not the reader.
+  - Precheck: `python3 tools/selftest.py --only tilewriter` PASS; the M5.68 scratch exists at `$S=/home/marek/projekty/leafre-work/scratch/m5.68` (`B48R050R-L1.single.split.jsonl` SHA-256 `0c25b05b…970a6f`); `grep -n "for line in single.open" tools/m5_61_build_tile.py` shows the two `json.loads` passes (nodes, then ways).
+  - Scope: `tools/m5_61_build_tile.py` only — stream the split so the driver does not hold `nodes` and `ways` as two full dicts in the same process that then spawns `tilewriter` (e.g. hand the kept lines to `tilewriter` without re-parsing, or build the drop-rule state in `tilewriter`'s pass). No change to `tilewriter`'s format logic; keep the drop rule and the `--drop-parcel` control identical.
+  - Input: `tools/m5_61_build_tile.py` (`nodes`/`ways`/`parcel_ways`/`runs` loops), EXP-2026-11-23-M5.68-stream-jsonl §Obs.4 and C-6792, EXP-2026-11-21-M5.61-poland-card §6.
+  - Done when: `python3.13 tools/m5_61_build_tile.py --osm $S/cut-B48R050R.osm.pbf --cell B48R050R --level 1 --factory-root $FAC --out $S/B48R050R-L1.tile.DAT --scratch $S --report $S/r.json` completes under `/usr/bin/time -v` with a recorded peak below the 7,735 MB host and no `signal 9` (state the number), writes `B48R050R-L1.tile.DAT`, and the tile passes `tilewriter --readback` and its own `verify_factory` (which needs M5.69 merged); an EXP records the peak before/after on the same split.
+  - Stop: if the driver cannot both apply the drop rule and avoid a second copy without a `tilewriter` API change, record the two peaks and set `blocked` on that API change instead of masking it with `--max-drop`.
+  - Falsifier: a "streaming" driver that still holds `nodes`/`ways` as full dicts while the `tilewriter` child runs, or a run whose peak is unchanged.
+  - Claims: C-8810–C-8819
 
 - [ ] **M5.83 — Polish names on the emulated screen: an OSM name with diacritics folded to the map font, decoded at L2 and visible at L4**
   - Status: open · Owner: — · Critical: no · Pair: required
