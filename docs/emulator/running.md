@@ -27,7 +27,7 @@ python3 tools/ze0_launch.py \
   --card /path/LEAF_2011-2012_US.img \
   --flash /path/nand.bin \
   --workdir "$W/live" \
-  [--peer gps] [--peer micon] [--gdb 1240] [--timeout 1800]
+  [--peer gps] [--peer micon] [--gdb 1240 --ui-start] [--timeout 1800]
 ```
 
 It prints the IPL, QEMU and peer command lines, writes the IPL patch
@@ -70,11 +70,13 @@ with the EU kernel B (README.md) until then.
 | `sciN.sock` | the chardev socket of each line a peer is on |
 | `panel.ctl`, `gps.ctl`, `micon.ctl`, `vcan.ctl`, `uat4.ctl` | peer control sockets (one command line in, `OK …` back) |
 | `panel.log`, `panel.events` | what the panel peer did; `events` holds the decoded touch records |
+| `uistart.log` | with `--ui-start`: when the join was patched and when touch was unlocked |
 | `ipl.txt` | the IPL patch |
 
 ## 5. Driving it
 
-Tap and drag (screen pixels, 800 × 480):
+Tap and drag (panel coordinates, 800 × 480; the firmware flips y, so
+screen (x, y) is panel (x, 480 − y), see §6):
 
 ```bash
 printf 'tap 400 240\n' | socat - UNIX-CONNECT:$W/live/panel.ctl
@@ -103,13 +105,36 @@ Debugger: add `--gdb 1240` and use `tools/ze0_gdb.py` (see
 events of one SCIF to `qemu.out`; `-M ze0,…,hpbdmac-trace=on -d unimp`
 logs the DMA side.
 
-## 6. What works today (2026-11-22)
+## 6. What works today (2026-11-23)
 
 - The display link: handshake, polls, touch frames ACKed and queued, read
   by `kepdrv`.
-- Touch does **not** change the screen yet: `kepdrv` drops it because the
-  UI, still in `INI_STARTUP`, has touch locked (`docs/firmware/lcddrv.md`
-  §5). The same state is why no buttons are drawn over the map.
+- **UI and touch need `--ui-start`** (with `--gdb PORT`). Without it the
+  screen state stays in `INI_STARTUP` and `kepdrv` drops every touch.
+  Both wait for the audio side, i.e. the audio micom on `sci1`, which is
+  not modelled yet (M8.H45):
+  - `INI_STARTUP` is left on a join of `ANTITHEFT_CC_NTF_COMP_OK` and
+    `NOTICE_AUDIO_SOURCE`;
+  - the touch guard is cleared by `CApi_AntitheftUnlock`.
+
+  `--ui-start` runs `tools/ze0_uistart.py` on the gdb stub. It makes the
+  join wait for the first event only, then clears the guard at the first
+  touch. It holds the stub until that touch, so attach your own gdb after
+  `uistart.log` says `touch unlocked`. Record:
+  [`EXP-2026-11-23-M8.C1n-ini-startup-join`](../experiments/EXP-2026-11-23-M8.C1n-ini-startup-join.md).
+- With `--ui-start` on the US card, the consent screen
+  (`SRT_COLD_I_AGREE_NAM`) comes about 120 s of guest time after boot.
+  This is after AppLaunch's 60 s wait for the anti-theft module.
+  - "OK" is at screen (277, 382), so tap at panel (277, 98).
+  - The map screen then follows, and its "ZOOM IN" button (screen ≈ 765,
+    410, panel `tap 765 70`) zooms the map.
+- **Touch y is flipped.** The firmware turns the panel y around
+  (`docs/firmware/touch.md` §4), so a button at screen (x, y) takes
+  `tap x 480-y`.
+- The buttons are drawn into DU plane 1, which `ze0_screenshot.py screen`
+  does not show yet (M8.C1t). To see them, use
+  `ze0_screenshot.py plane --monitor $W/live/mon.sock -n 1 -o $W/p1.png`.
+  It writes both pages of the buffer; the UI is in rows 0–479.
 - GPS position: not yet (M8.H73).
 
 ## 7. Without the launcher

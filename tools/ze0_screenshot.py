@@ -186,6 +186,30 @@ def screen(sock_path, out_png):
         1 for i in range(0, len(rgb), 3) if rgb[i:i + 3] != b"\0\0\0")))
 
 
+def plane_png(sock_path, n, out_png, pages=2):
+    """Write plane n's buffer as it is in memory (no colour key, ``pages`` x height rows).
+
+    M8.C1n: the AUI layer draws into plane 1, whose window register (+0x34)
+    is 480 on NK1 + A, so ``screen`` shows rows 480-959 of the buffer (black)
+    and drops pixels without the 1555 alpha bit.  This view shows every row.
+    """
+    p = {q["n"]: q for q in du_planes(hmp_words(sock_path, DU_PHYS, 0x500 // 4))}.get(n)
+    if p is None:
+        raise SystemExit("plane %d is off" % n)
+    rows = p["h"] * pages
+    data = grab(sock_path, out_png + ".bin", p["addr"], rows * p["stride"] * 2)
+    os.unlink(out_png + ".bin")
+    w = min(p["w"], WIDTH)
+    rgb = bytearray()
+    for y in range(rows):
+        for (px,) in struct.iter_unpack("<H", data[y * p["stride"] * 2:(y * p["stride"] + w) * 2]):
+            rgb += bytes(((px >> 10 & 0x1f) << 3, (px >> 5 & 0x1f) << 3, (px & 0x1f) << 3))
+    with open(out_png, "wb") as f:
+        f.write(png_bytes(bytes(rgb), w, rows))
+    print("plane %d: %dx%d at 0x%08x, window (%d,%d) -> %s" % (
+        n, w, rows, p["addr"], p["sx"], p["sy"], out_png))
+
+
 def report(written, total):
     if not written:
         print("no non-zero pixel in %d bytes of VRAM" % total)
@@ -235,6 +259,11 @@ def main():
     c = sub.add_parser("screen", help="compose the DU planes into one 800x480 PNG")
     c.add_argument("--monitor", required=True, help="HMP unix socket path")
     c.add_argument("-o", "--out", required=True, help="PNG file")
+    pl = sub.add_parser("plane", help="one plane's buffer as stored, all pages (M8.C1n)")
+    pl.add_argument("--monitor", required=True, help="HMP unix socket path")
+    pl.add_argument("-n", type=int, default=1, help="plane number (default 1, the AUI layer)")
+    pl.add_argument("--pages", type=int, default=2)
+    pl.add_argument("-o", "--out", required=True, help="PNG file")
     r = sub.add_parser("render", help="render a saved VRAM dump")
     r.add_argument("dump")
     r.add_argument("-o", "--out", required=True)
@@ -244,6 +273,9 @@ def main():
         return 0
     if a.cmd == "screen":
         screen(a.monitor, a.out)
+        return 0
+    if a.cmd == "plane":
+        plane_png(a.monitor, a.n, a.out, a.pages)
         return 0
     if a.cmd == "grab":
         binpath = a.out + ".vram.bin"
