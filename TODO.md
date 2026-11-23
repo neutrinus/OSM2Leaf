@@ -4252,8 +4252,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8410–C-8419
   - Result: Navi.exe and Telema.exe start on NK1 + A with the unit flash (US card: Los Angeles; EU card with the M8.C1r overlay: London). Cause: NK1 defers all RAM at memory init when the boot type is 0, and AppLaunch MemClearThread frees it only after the creates (the earlier 'not a timing race' reading in Precheck measured after the release; C-8416). ze0_ipl.py --nk now patches the boot-type test so RAM is freed at init. EXP-2026-11-22-M8.C1q-navi-on-nk1, C-8410–C-8416; debugging guide docs/emulator/debugging.md, tools/ze0_gdb.py.
 
-- [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
+  - Status: done · Owner: task/m8.c1n-ui-startup · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1l
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). With `ze0_aui.py --object-store` every control registers and ScreenStateCC runs, but the screen state stays in `INI_STARTUP`. `NOTIFY_TRANSITION_FIRST_SCREEN` finds no window for InfoBarCC (46), UnitMainteCC (40) and EvNoticeCC (41), and 29 controls fail to initialise (C-8324, C-8325).
@@ -4265,6 +4265,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the event is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
   - Falsifier: the three CCs create their windows, and the state still does not change.
   - Claims: C-8340–C-8349
+  - Result: EXP-2026-11-23-M8.C1n-ini-startup-join (C-8340–C-8349). INI_STARTUP leaves only on SS_JON_TRANSITION_LAST_SCREEN, a join of ANTITHEFT_CC_NTF_COMP_OK and NOTICE_AUDIO_SOURCE; the second never comes because the audio side waits for the audio micom (M8.H45). Touch is locked by kepdrv m_byKeyGuardAllKey = 0xf1 until CApi_AntitheftUnlock, also on the audio path. New `ze0_uistart.py` / `ze0_launch.py --ui-start` bridges both through the gdb stub: the UI reaches the US consent screen, a tap on OK goes to the map screen, ZOOM IN works; buttons are in DU plane 1 (`ze0_screenshot.py plane`). Next: M8.C1t (screenshot of plane 1), M8.H45 (micom) removes the bridge.
+
+- [ ] **M8.C1t — Screenshot of the AUI layer: DU plane 1 window register and alpha rule**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1n
+  - Goal: after `ze0_launch.py --ui-start` the AUI draws the consent screen and the map buttons into DU plane 1, but `ze0_screenshot.py screen` shows only the map (C-8348). Marek wants the UI layer in the emulator screenshot (2026-11-22).
+  - Precheck: run `ze0_launch.py --ui-start`, tap OK at panel (277, 98); `ze0_screenshot.py plane -n 1` shows "Map Menu" / "ZOOM" in rows 0–479 while `screen` shows none of it; the DU plane 1 window register (+0x34) reads 480.
+  - Scope: (1) find the guest code that writes DU plane 1 +0x30/+0x34 and +0x48 (lcd/ddraw driver of NK1, breakpoint or `sh4xref --to 0x1ff80134`); decide whether +0x34 is a source row (page flip) or a screen position; (2) decide the transparency rule of mode `0x1002` from the code that fills plane 1/2 (key `0x83ff`/`0x3ff`, text pixels without bit 15); (3) fix `compose()` and its selftest; (4) one screenshot with map and buttons, kept outside the repository.
+  - Input: EXP-2026-11-23-M8.C1n-ini-startup-join, EXP-2026-11-22-M8.C1f (DU register layout), `tools/ze0_screenshot.py`.
+  - Done when: `ze0_screenshot.py screen` after the `--ui-start` flow shows the map buttons over the map, and the EXP gives the register evidence for the rule.
+  - Stop: one session. No vendor screenshots in the repository.
+  - Falsifier: plane 1 rows 0–479 are a back buffer that the hardware never shows (then the shown page must hold the buttons after a flip).
+  - Claims: C-8580–C-8589
 
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
