@@ -633,7 +633,7 @@
   "docs/format/firmware.md",
   "tools/l3_harness/targets.json",
  ],
- "summary": {"files": 632, "citations": 1754, "unique_va": 525, "start": 1548, "inside": 97, "corrected": 5, "gap": 84, "leaf": 84, "ambiguous": 18, "unmapped": 2},
+ "summary": {"files": 627, "citations": 1754, "unique_va": 525, "start": 1548, "inside": 97, "corrected": 5, "gap": 84, "leaf": 84, "ambiguous": 18, "unmapped": 2},
  "rows": [
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
