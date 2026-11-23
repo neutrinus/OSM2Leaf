@@ -41,6 +41,9 @@ Usage:
                [--json OUT]
   locmap_l3.py diff A.json B.json
 
+`--shape-out FILE` writes the copied shape buffer (record + 0x2c) so the
+host model can be fed the exact bytes the firmware walked.
+
 Exit codes: run: 0 the walk ran, 1 no `LOC_map` message was produced;
 diff: 0 SAME, 1 DIFFERENT; 2 usage or missing input; 3 BLOCKED.
 """
@@ -204,7 +207,7 @@ class Chain:
             self.m.put(rec + 2 * word, struct.pack("<H", value))
             self.patched.append({"word": word, "old": old, "new": value})
 
-    def run(self, mesh: int, x: int, y: int, patches=()) -> dict:
+    def run(self, mesh: int, x: int, y: int, patches=(), shape_out=None) -> dict:
         m, eng = self.m, self.eng
         self.patches = list(patches)
         self.start()
@@ -266,6 +269,10 @@ class Chain:
         res["first_reads"] = [{"pc": "%#010x" % r[0], "offset": r[1],
                                "value": struct.unpack_from("<H", bytes(eng.read_mem(shape_va + r[1], 2)))[0]}
                               for r in reads[:48]]
+        res["trace"] = [[r[0], r[1], r[2]] for r in reads]
+        if shape_out:
+            with open(shape_out, "wb") as f:
+                f.write(shape)
         table = bytes(eng.read_mem(m.u32(G_LOCTAB), 192))
         cand = bytes(eng.read_mem(m.u32(G_CAND), 4 * CAND_BYTES))
         res["result_table"] = [table[48 * i:48 * i + 48].hex() for i in range(4)]
@@ -320,7 +327,7 @@ def cmd_run(args) -> int:
     import vcard_l3 as V
     try:
         chain = Chain(args.image, args.card_image, args.replace or [])
-        res = chain.run(int(args.mesh, 0), x, y, patches)
+        res = chain.run(int(args.mesh, 0), x, y, patches, shape_out=args.shape_out)
     except V.Blocked as ex:
         print("BLOCKED: %s" % ex)
         return 3
@@ -404,6 +411,7 @@ def main(argv=None) -> int:
     p.add_argument("--xy", default="1024,1024")
     p.add_argument("--patch", action="append", metavar="WORD=VALUE")
     p.add_argument("--json")
+    p.add_argument("--shape-out", metavar="FILE", help="write the copied shape buffer")
     d = sub.add_parser("diff", help="compare two --json results")
     d.add_argument("a")
     d.add_argument("b")
