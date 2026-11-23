@@ -6434,8 +6434,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-9970–C-9979
   - Pair: required
 
-- [ ] **M9.77 — `tools/exp_check.py`: accept named Method subheadings, still fail a missing falsifier**
-  - Status: in progress · Owner: task/m9.77-exp-check-subheadings · Critical: no · Pair: required
+- [x] **M9.77 — `tools/exp_check.py`: accept named Method subheadings, still fail a missing falsifier**
+  - Status: done · Owner: task/m9.77-exp-check-subheadings · Critical: no · Pair: required
   - Depends: M9.71 (done)
   - Goal: the lint added by M9.71 matches only `1. **Sample and hash.**`-style numbered bold labels and `## ` headings, so a record whose five parts are present as `### 1. Sample and hash` … `### 5. Falsifier` (EXP-2026-11-23-M4.96) is FAILed for all five. The corpus reads 546 FAIL / 653, which hides the real gaps and makes a future gate row impossible to triage. Judge the parts by content under Method, not by one spelling, and publish the true backlog.
   - Precheck: `python3 tools/exp_check.py docs/experiments/EXP-2026-11-23-M4.96-tile-grade-classes.md` prints FAIL with five "missing Method part" reasons; `grep -cE '^### [1-5]\.' docs/experiments/EXP-2026-11-23-M4.96-tile-grade-classes.md` prints 5; `python3 tools/exp_check.py docs/experiments` reports the current FAIL corpus count.
@@ -6446,6 +6446,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a record missing its falsifier PASSes, or the hash/elision checks stop firing on the M1.50/M8.H35 fixtures.
   - Claims: C-9950–C-9959
   - Pair: required
+  - Result: EXP-2026-11-23-M9.77-exp-check-subheadings.md; M4.96 PASS, corpus 550->542, selftest 15/15
 
 - [ ] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
   - Status: open · Owner: — · Critical: no · Pair: required
