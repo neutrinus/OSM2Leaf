@@ -3255,21 +3255,14 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Status: in progress · Owner: task/m5.16-factory-reencode · Critical: no
   - Step: P2
   - Depends: M4.11, M5.4
-  - Goal: `lev3456.py` re-encodes factory records byte-identically but nothing
-    builds a level set from OSM, so a generated Poland card would show the
-    factory coarse layers over the new roads.
-  - Input: `tools/lev3456.py`, `map-tiles.md` §LEV3456R, EXP-2026-11-06-M4.11
-    (level 5 62/62 decoded, levels 3/4 1,677/41 preserved), M4.11's open items
-    (level-3 point index, the 2–6-word level-5 segment, background types),
-    2014/2016 files as controls.
-  - Done when: one level-3/4/5 set built from a mesh split of a synthetic
-    extract is accepted by `lev3456.py verify` and (with M9.18) the firmware
-    reader returns the same records; an unchanged input rebuilds
-    byte-identically.
+  - Goal: A generated Poland card needs its factory coarse layers reproduced exactly before any OSM writer is added: re-encode all LEV3456R levels 3-6 of sections 1-2 byte-identically and show the firmware reads the rebuilt file.
+  - Input: tools/lev3456.py, docs/format/map-tiles.md §LEV3456R, EXP-2026-11-06-M4.11, EXP-2026-11-20-M9.18, the EU 2011 LEV3456R (08a584fe…) and archive/head256.img.
+  - Done when: python3.13 tools/lev3456.py verify on factory levels 3-6 is OK; rebuild --all-levels reproduces the 76,066,304-byte file byte-identically (cmp silent, same SHA-256); datask_l3.py mount with the rebuilt file gives the same reads as the factory and mount_dirs_l3.py check reports MATCH; negative controls fail; a new EXP records the commands and counts.
   - Claims: C-2400–C-2404 (C-2405–C-2409 reserved)
-  - Blocker: M9.18 firmware-acceptance clause not verified (no LEV3456/section-4 L3 target). lev3456.verify acceptance and deterministic/byte-identical rebuild are proven.
-  - Unblock: M9.18 (firmware reader verdict for generated L3/4/5).
+  - Blocker: (history) the M9.18 firmware clause belonged to the earlier OSM-generator scope; the narrowed factory scope has an L3 mount verdict.
+  - Unblock: (met) M9.18 directory-level L3 targets exist (C-2440–C-2446); the rebuilt factory file is read the same as the factory (new EXP).
   - Result: EXP-2026-11-08-M5.16-lev3456-generator. `tools/lev3456gen.py` (selftest OK, python3.13 stock zlib): generates L3/4/5 road records from mesh-split synthetic extract, template-splices EU 2011 LEV3456R; unchanged template round-trip byte-identical (76,066,304 B); generated L3/4/5 accepted by `lev3456.py verify` (exit 0, L5 strict 62/62 plain+stream, 0 opaque; L3/L4 best-effort matches factory preserved pattern); `generate()` deterministic. Not `[x]`: M9.18 firmware-reader clause unmet.
+  - Scope: Re-scoped 2026-11-23 to the factory-data re-encode path only; no OSM writer is in this task (tools/lev3456gen.py remains the separate generator). The earlier Result line documents the wider, blocked attempt.
 
 - [ ] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
   - Status: open · Owner: — · Critical: yes
