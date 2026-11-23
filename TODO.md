@@ -980,8 +980,8 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: no code or PROD bytes of a real unit are committed; do not describe how to defeat the lock on a unit that is not one's own beyond what LeafSDTools already documents.
   - Claims: C-6730–C-6739
 
-- [ ] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
+  - Status: done · Owner: task/m1.49-ui-strings · Critical: no · Pair: solo
   - Step: research
   - Depends: —
   - Goal: Side track Marek will ask about once the map is Polish: menus and voice are not. Find the UI string resources (module, format, encoding, per-language tables), how a language is selected, and whether the language list is fixed in code.
@@ -992,6 +992,7 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: one session.
   - Falsifier: the strings are compiled into code sections of many modules rather than one resource.
   - Claims: C-8090–C-8099
+  - Result: EXP-2026-11-23-M1.49-ui-strings; docs/firmware/ui-strings.md: UI texts are UTF-16LE blocks in substance.skn (7/2/16 blocks EU2011/US2011/EU2014), language = setting (get_lang 0x003c0228), UI font 8/18 Polish letters; verdict: replace a block (card edit) / add needs unlocated selector
 
 - [ ] **M1.53 — move `point_tree_l3`'s STDDLL section walk onto `ce_module` (with a byte-identical capture first)**
   - Status: open · Owner: — · Critical: no · Pair: solo
