@@ -3543,7 +3543,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-23-M5.68-stream-jsonl (negative for end-to-end; reader proven: 5454440 signal 9 -> 4657860 no signal)
 
 - [ ] **M5.69 — the `0x2046` slot splice writes the even/odd pair together: `B50R058R` level 1 verifies**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.69-even-odd-splice · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
   - Goal: `B50R058R` level 1 reaches `tilewriter` with 429,120 single-cell ways and fails `verify_factory` with `section-1 record at (81, 941, 22, 59) changed but was not regenerated` (`tools/tilewriter.py:1182`); the same key at `c = 0` alone is clean while `c >= 1` changes the adjacent odd pair `2c+2`. A single-file tile must be able to hold its own records, so this is a writer defect that gates `B50R058R` and `B48R058R` and any city-centre tile.
