@@ -450,10 +450,13 @@ def decode(w, va=0, mem=None):
             return ins("lds.l @%s+,pr" % R(n))
         if i == 0x2A:
             return ins("lds %s,pr" % R(n))
+        # SH-4 manual: SHAD Rm,Rn = 0100nnnnmmmm1100, SHLD = ...1101 (QEMU
+        # target/sh4 "case 0x400c: shad"; l3_harness engine).  Before M8.H73
+        # these two were swapped here.
         if d == 0xC:
-            return ins("shld %s,%s" % (R(m), R(n)))
-        if d == 0xD:
             return ins("shad %s,%s" % (R(m), R(n)))
+        if d == 0xD:
+            return ins("shld %s,%s" % (R(m), R(n)))
         simple = {0x00: "shll", 0x01: "shlr", 0x08: "shll2", 0x09: "shlr2",
                   0x18: "shll8", 0x19: "shlr8", 0x28: "shll16", 0x29: "shlr16",
                   0x10: "dt", 0x11: "cmp/pz", 0x15: "cmp/pl", 0x21: "shar",
@@ -635,8 +638,8 @@ MOVW_POINT_WALKER = [
 M411C_RDSTM_SITES = [
     # (va, word, text)
     (0x003F52DC, 0x0029, "movt r0"),
-    (0x003F56FE, 0x431D, "shad r1,r3"),
-    (0x003F5746, 0x423D, "shad r3,r2"),
+    (0x003F56FE, 0x431D, "shld r1,r3"),
+    (0x003F5746, 0x423D, "shld r3,r2"),
     (0x003F5E1A, 0x0329, "movt r3"),
     (0x003F5E1E, 0x4221, "shar r2"),
 ]
@@ -1019,12 +1022,23 @@ def selftest():
     check("movt r0 (0x0029, 0x0n29)", decode(0x0029).text, "movt r0")
     check("movt r3 (0x0329, M4.16b 0x003f5e1a)", decode(0x0329).text, "movt r3")
     check("shar r2 (0x4221, 0x4n21, M4.16b 0x003f5e1e)", decode(0x4221).text, "shar r2")
-    check("shld r0,r0 (0x400c, 0x4n0c form)", decode(0x400C).text, "shld r0,r0")
-    check("shld r0,r3 (0x430c)", decode(0x430C).text, "shld r0,r3")
-    check("shld r1,r3 (0x431c)", decode(0x431C).text, "shld r1,r3")
-    check("shad r0,r0 (0x400d, 0x4n0d form)", decode(0x400D).text, "shad r0,r0")
-    check("shad r1,r3 (0x431d, M4.16b 0x003f56fe)", decode(0x431D).text, "shad r1,r3")
-    check("shad r3,r2 (0x423d, M4.16b 0x003f5746)", decode(0x423D).text, "shad r3,r2")
+    # M8.H73 correction: 0x4nmC is SHAD (arithmetic), 0x4nmD is SHLD.
+    check("shad r0,r0 (0x400c, 0x4n0c form)", decode(0x400C).text, "shad r0,r0")
+    check("shad r0,r3 (0x430c)", decode(0x430C).text, "shad r0,r3")
+    check("shad r1,r3 (0x431c)", decode(0x431C).text, "shad r1,r3")
+    check("shld r0,r0 (0x400d, 0x4n0d form)", decode(0x400D).text, "shld r0,r0")
+    check("shld r1,r3 (0x431d, M4.16b 0x003f56fe)", decode(0x431D).text, "shld r1,r3")
+    check("shld r3,r2 (0x423d, M4.16b 0x003f5746)", decode(0x423D).text, "shld r3,r2")
+    # Agrees with the executing engine (l3_harness PySh4), which follows QEMU.
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from l3_harness import engine as _eng
+        names = {pat: nm for mask, pat, nm, _f in _eng.DECODE_TABLE
+                 if mask == 0xF00F}
+        check("engine agrees 0x400c", names.get(0x400C), "shad")
+        check("engine agrees 0x400d", names.get(0x400D), "shld")
+    except Exception:  # noqa: BLE001 - optional cross-check
+        pass
     # The 5th M4.16b address: 0x003f52dc holds 0x0029 (movt r0), pinned above.
 
     # 6. Oracle (M1.14): pinned skip mode when absent; if present, must agree

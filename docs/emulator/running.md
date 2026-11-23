@@ -44,7 +44,7 @@ in `serial.log`).
 | Line | Device on the real unit | Peer (`--peer`) | State |
 | --- | --- | --- | --- |
 | `sci3` | display unit (touch, keys, brightness) | `panel` (default): `tools/ze0_peers/panel.py --sci3` | **real protocol**: handshake and touch frames from `docs/firmware/lcddrv.md`; the driver accepts them |
-| `sci7` | GPS receiver | `gps`: `tools/ze0_peers/gps.py --no-fix` | model: the position frame is not known yet (M8.H73), so the map does not follow it |
+| `sci7` | GPS receiver | `gps`: `tools/ze0_peers/gps.py --no-fix` | **real report frame** (36-byte `A0`, `docs/firmware/navdrv.md` "Receiver frames"): it reaches `OBJ_GpsInfo` with the sent position; the car position and the map do not follow it yet (M8.H78). Control: `gps LAT LON`, `on`, `speed`, `heading`, `alt`, `stat HEX`, `sats N` on `gps.ctl` |
 | `sci1` | audio/system microcontroller (micon) | `micon`: `tools/ze0_peers/micon.py` | model: replies are not accepted yet (`invalid TXT size`, M8.H45) |
 | `sci8` | Bluetooth module | `bt`: `tools/ze0_peers/bt.py --mode absent` | stub |
 | `uat3` | VCAN sub-micro (ACC, power, vehicle CAN) | `vcan`: `tools/ze0_peers/vcan.py` | model on the `ze0-h03` external UART: frames of `docs/firmware/can.md`, wire framing still open (M8.H49); UAT3's INTEVT is not pinned yet |
@@ -135,7 +135,7 @@ logs the DMA side.
   does not show yet (M8.C1t). To see them, use
   `ze0_screenshot.py plane --monitor $W/live/mon.sock -n 1 -o $W/p1.png`.
   It writes both pages of the buffer; the UI is in rows 0–479.
-- GPS position: not yet (M8.H73).
+- GPS: the 36-byte `A0` report reaches `OBJ_GpsInfo`; the car position and the map do not follow it yet (M8.H78).
 
 ## 7. Without the launcher
 

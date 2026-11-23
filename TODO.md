@@ -4278,7 +4278,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: `ze0_screenshot.py screen` after the `--ui-start` flow shows the map buttons over the map, and the EXP gives the register evidence for the rule.
   - Stop: one session. No vendor screenshots in the repository.
   - Falsifier: plane 1 rows 0–479 are a back buffer that the hardware never shows (then the shown page must hold the buttons after a flip).
-  - Claims: C-8580–C-8589
+  - Claims: C-8650–C-8659
 
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5488,7 +5488,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.C1o-2dg-line-variants (C-8390–C-8395). ze0-0016 draws 2DG op 0xb1 (6-word header + inline vertices, count in word 4 low half) and 0xb3 (pointer form [op,N,OFF], vertices at op+OFF, colour from reg 0xf0) as polylines with exact lengths; both layouts read from build-A XGLDLL.dll fn 0x031204ac/0x031205a4 and build-B auirtdll.dll fn 0x03d0b408/0x03d0b502 and checked against a gfx-trace dump. L4 map boot: 2676 drawn / 0 skipped (was 2669 drawn / 7 skipped, C-6936); 342/384000 screenshot pixels differ (0.09%), no map pixels lost. UI layer and 0xb2/0xb4-0xb7 remain open.
 
 - [ ] **M8.H73 — Receiver fix frame: what frame from `SCI7:` actually moves `OBJ_CarPos`?**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m8.h73-gps-frame · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H27, M8.H29, M8.H30
   - Goal: Derive the layout of the frame `navdrv.dll` forwards from `SCI7:` as a position fix — the record whose u16s at `+28`/`+34` are decoded by `Navi.exe` function `0x003752e8` — so a host peer can make the map centre move.
@@ -5499,6 +5499,22 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the layout needs a chip vendor datasheet that is not in the repo, record the sync bytes and exact FPU operations, mark blocked, and name the datasheet in `Unblock:`.
   - Falsifier: the hand-built frame leaves the position word and both screenshots unchanged (the M8.H31 negative).
   - Claims: C-8570–C-8579
+  - Blocker: the positioning cycle does not take the GPS position into OBJ_CarPos (C-8577)
+  - Unblock: M8.H78
+  - Result: EXP-2026-11-23-M8.H73-receiver-fix-frame (partial): the receiver's 36-byte A0 report is decoded (navdrv.md table, hand-built frame, gps.py), reaches OBJ_GpsInfo on NK1 with the injected position (C-8576); OBJ_CarPos and the map do not follow (C-8577); sh4dis SHAD/SHLD fixed (C-8574)
+
+- [ ] **M8.H78 — Positioning: what makes `OBJ_CarPos` take the GPS position?**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: reader
+  - Depends: M8.H73 (blocked), M8.C1n
+  - Goal: A 36-byte `A0` report from `tools/ze0_peers/gps.py` reaches `OBJ_GpsInfo` with the right position on NK1 + US card (C-8576), but the car position stays where it was (C-8577). Find the condition in the positioning cycle (US Navi `0x0049bdb0` → `0x0049fa44`, state at `0x00dbce00`) that keeps the GPS position out, and meet it from the peers.
+  - Precheck: `python3 tools/ze0_peers/gps.py --selftest` passes; `python3 tools/sh4dis.py CARD Navi.exe --image-start 0x200200 --va 0x49fa44 --count 200` lists the function.
+  - Scope: dynamic on `-M ze0` with `ze0_launch.py --peer gps --gdb P --ui-start` (record of EXP-2026-11-23-M8.H73); breakpoints in `0x0049fa44` and its callees while reports arrive; read register values after loads (C-8579). If the gate needs wheel pulses or gyro, hand over to M8.H32 with the exact variable and threshold.
+  - Input: `docs/firmware/navdrv.md` "Receiver frames", `docs/experiments/EXP-2026-11-23-M8.H73-receiver-fix-frame.md`, C-8570–C-8579.
+  - Done when: the variable and the comparison that block the GPS position are named with VAs; one run where `OBJ_CarPos_write` (`0x00401370`, called from `0x00497e5c`) carries the injected position and a `screen` screenshot differs from the one before; EXP + claims.
+  - Stop: if the gate is a learned calibration or needs DR input that M8.H32 has not modelled, record the variable and threshold and mark blocked on M8.H32.
+  - Falsifier: with the gate condition met, `OBJ_CarPos` still stays at the old position.
+  - Claims: C-8640–C-8649
 
 ---
 
