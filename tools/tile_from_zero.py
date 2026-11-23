@@ -12,11 +12,13 @@ lay the tile out.  No factory record is copied (``tile_provenance.py
 --require-zero`` is the gate).
 
     tile_from_zero.py SPLIT.jsonl --template TILE.DAT --cell B48R068R \\
-        --class-table CLASS.json --country 826 -o OUT.DAT [--json] [--no-names]
+        --class-table CLASS.json --country 826 -o OUT.DAT [--json] [--no-names] [--level2]
     tile_from_zero.py --selftest
 
 The template supplies only the container (header strings, level/box tables,
-directory boxes); M5.86 counts those bytes.  Level 1 only.  Exit codes: 0 ok,
+directory boxes); M5.86 counts those bytes.  ``--level2`` (Z6, M5.91) also
+writes level-2 road records (tertiary and up, simplified at
+``LEVEL2_TOLERANCE_M``) and level-2 urban/name odd records.  Exit codes: 0 ok,
 1 check failed, 2 usage.
 """
 from __future__ import annotations
@@ -53,14 +55,14 @@ class CheckFailed(Exception):
     pass
 
 
-def level1_dirs(m: dict) -> dict:
-    """``{(y0, x0): directory model}`` of section 1 level 1."""
+def level1_dirs(m: dict, level: int = 1) -> dict:
+    """``{(y0, x0): directory model}`` of section 1 at ``level`` (1 or 2)."""
     out = {}
     for sec in m["sections"]:
         if sec["id"] != 1:
             continue
         for L in sec["levels"]:
-            if L["level"] != 1:
+            if L["level"] != level:
                 continue
             for dm in L["dirs"]:
                 wm = dm["wm"]
@@ -68,7 +70,12 @@ def level1_dirs(m: dict) -> dict:
     return out
 
 
-def place(m: dict, built: dict, odd: dict | None = None) -> dict:
+# empty (even, odd) pair words per level: level 1 0x7fffffff / 0xffffffff
+# (M5.88), level 2 0xffffffff / 0xffffffff (factory: 794 + 88 columns)
+EMPTY_PAIRS = {1: (0x7FFFFFFF, 0xFFFFFFFF), 2: (0xFFFFFFFF, 0xFFFFFFFF)}
+
+
+def place(m: dict, built: dict, odd: dict | None = None, level: int = 1) -> dict:
     """Put ``{parcel: (plain, comp)}`` road records (even) and background
     records (``odd``) into the level-1 directories of ``m``.
 
@@ -76,7 +83,8 @@ def place(m: dict, built: dict, odd: dict | None = None) -> dict:
     (the order ``s1_wide_dir`` reads); an empty even pair is ``0x7fffffff``,
     an empty odd pair ``0xffffffff`` (M5.88)."""
     odd = odd or {}
-    dirs = level1_dirs(m)
+    dirs = level1_dirs(m, level)
+    e_even, e_odd = EMPTY_PAIRS[level]
     rows = collections.defaultdict(dict)
     missing = 0
     for part, recs in (("even", built), ("odd", odd)):
@@ -99,7 +107,7 @@ def place(m: dict, built: dict, odd: dict | None = None) -> dict:
             if c not in cols:
                 continue
             pair = {}
-            for part, empty in (("even", (EMPTY1, EMPTY1)), ("odd", (EMPTY_ODD, EMPTY_ODD))):
+            for part, empty in (("even", (e_even, e_even)), ("odd", (e_odd, e_odd))):
                 if part not in cols[c]:
                     pair[part] = empty
                     continue
@@ -111,6 +119,7 @@ def place(m: dict, built: dict, odd: dict | None = None) -> dict:
                 recs.append(comp)
                 stats["records"] += 1
                 stats[part + "_records"] += 1
+                stats["level%d_records" % level] += 1
                 stats["plain_bytes"] += len(plain)
                 stats["comp_bytes"] += len(comp)
             r["cols"][c] = dict(even=pair["even"], odd=pair["odd"], subs=[])
@@ -130,7 +139,10 @@ def place(m: dict, built: dict, odd: dict | None = None) -> dict:
 BG_TYPES = {"urban": (0, 0xC12B), "forest": (3, 0xC11A), "heath": (3, 0xC11B), "park": (3, 0xC11D),
             "riverarea": (7, 0xC114), "water": (7, 0xC115)}
 BG_TOLERANCE_M = 3.0  # M5.75 level-1 default
-BG_W34 = (0x347A, 0x2AEF)  # level-1 header words 3/4 (clarion_bg.LEVELS[1]["w34"])
+BG_W34 = {1: (0x347A, 0x2AEF), 2: (0xFFFF, 0xFFFF)}  # header words 3/4 (factory census)
+# level 2 (EU2011 London census, EXP M5.91): layer 0 0x502b urban, 1 0x5012
+# sea, lines in layers 10/11; no park/water polygons at level 2
+BG_TYPES_L2 = {"urban": (0, 0x502B)}
 MAX_SUBS, MAX_PER_SUB = 8, 255  # parse_group: <= 8 sub-groups of <= 255 shapes
 
 
@@ -210,7 +222,7 @@ def _parcels_over(bbox, level=1):
 
 
 def build_background(areas_path: str | None, country: int, only: set | None = None, urban_fill: float = 0.0,
-                     names: dict | None = None, with_places: bool = False):
+                     names: dict | None = None, with_places: bool = False, level: int = 1):
     """``{parcel: plain}`` background records and stats from an osm_areas JSONL."""
     import clarion_bg
     from bg_writer import clip_polygon
@@ -218,6 +230,9 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
     shapes = collections.defaultdict(lambda: collections.defaultdict(list))
     stats = collections.Counter()
     names = names or {}
+    types = BG_TYPES if level == 1 else BG_TYPES_L2
+    if level != 1:
+        with_places = False
     places = collections.defaultdict(list)
     translit = None
     if with_places:
@@ -231,8 +246,8 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
             if kind == "place":
                 if f.get("place") in PLACE_KINDS and with_places:
                     lon, lat = f["point"]
-                    parcel = tilewriter.parcel_of(lon, lat, 1)
-                    lon0, lat0, pw, ph = clarion_bg.parcel_geo(1, *parcel)
+                    parcel = tilewriter.parcel_of(lon, lat, level)
+                    lon0, lat0, pw, ph = clarion_bg.parcel_geo(level, *parcel)
                     x, y = tilewriter.quantise(lon, lat, lon0, lat0, pw, ph)
                     name = f["name"].upper()
                     if translit:
@@ -240,7 +255,7 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
                     places[parcel].append((x, y, name))
                     stats["places"] += 1
                 continue
-            if kind not in BG_TYPES or only and kind not in only:
+            if kind not in types or only and kind not in only:
                 stats["skipped_" + kind] += 1
                 continue
             stats["holes_ignored"] += len(f.get("holes", []))
@@ -252,8 +267,8 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
                     continue
                 xs = [p[0] for p in simp]
                 ys = [p[1] for p in simp]
-                for parcel in _parcels_over((min(xs), min(ys), max(xs), max(ys))):
-                    lon0, lat0, pw, ph = clarion_bg.parcel_geo(1, *parcel)
+                for parcel in _parcels_over((min(xs), min(ys), max(xs), max(ys)), level):
+                    lon0, lat0, pw, ph = clarion_bg.parcel_geo(level, *parcel)
                     clipped = clip_polygon(simp, (lon0, lat0, lon0 + pw, lat0 + ph))
                     if len(clipped) < 3:
                         continue
@@ -285,7 +300,7 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
                 by_kind["urban"] = [list(full)]
         layers = collections.defaultdict(list)
         for kind, rings in by_kind.items():
-            layer, typ = BG_TYPES[kind]
+            layer, typ = types[kind]
             for pts in rings:
                 layers[layer].append(dict(type=typ, ref=0xFFFF, pts=pts))
         model_layers = {}
@@ -298,10 +313,10 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
             subs = [dict(kind=0x80, shapes=items[i:i + MAX_PER_SUB]) for i in range(0, len(items), MAX_PER_SUB)]
             model_layers[layer] = dict(subs[0], more=subs[1:]) if len(subs) > 1 else subs[0]
         y0, x0, row, col = parcel
-        per = clarion_bg.LEVELS[1]["rows"] // clarion_bg.LEVELS[1]["dir_meshes"]
+        per = clarion_bg.LEVELS[level]["rows"] // clarion_bg.LEVELS[level]["dir_meshes"]
         hdr = [0] * 22
-        hdr[0], hdr[1] = clarion_bg.parcel_code(1, y0 * per + row, x0 * per + col)
-        hdr[2], (hdr[3], hdr[4]) = 0xFA, BG_W34
+        hdr[0], hdr[1] = clarion_bg.parcel_code(level, y0 * per + row, x0 * per + col)
+        hdr[2], (hdr[3], hdr[4]) = 0xFA, BG_W34[level]
         hdr[20] = country
         if places.get(parcel):
             pl = places[parcel][:255]
@@ -360,9 +375,55 @@ def set_name_flags(sec: bytes, flags: int = NAME_FLAGS) -> bytes:
     return bytes(out)
 
 
+# Road-number shields (M5.97): the firmware draws the `2=REF` part of a road
+# name as a shield only on roads of class <= 4; `provisional-v0` gives
+# primary/secondary class 5 (brown, no shield).  Class 4 keeps the brown
+# style and draws the shields at the factory's places (A4, A40, A400, A401,
+# A3201 on the London start screen).
+DEFAULT_CLASS_OVERRIDE = "primary=4,primary_link=4,secondary=4,secondary_link=4"
+
+
+def apply_class_override(table: dict, spec: str) -> dict:
+    """``highway=cls,...`` -> a copy of ``table`` with those classes replaced."""
+    out = dict(table)
+    for item in filter(None, (spec or "").split(",")):
+        hw, cls = item.split("=")
+        if hw not in out:
+            raise CheckFailed("class override for %s: not in the class table" % hw)
+        out[hw] = (out[hw][0], int(cls))
+    return out
+
+
+# Level 2 keeps the through roads (EU2011 London level 2: layer 6 classes
+# 4-7, layer 7 classes 1-2, 86 service shapes): every class of the table but
+# service/track, with the fa_encode level-2 class (motorway 1, trunk 3,
+# primary 4, secondary 5, minor 7).
+LEVEL2_DROP = {"service", "track"}
+# A level-2 parcel covers 4 x 4 level-1 parcels; with every residential street
+# one London record passes 256 KB (the unit offset word overflows). Level 2
+# keeps tertiary and up, simplified at LEVEL2_TOLERANCE_M (EXP M5.91).
+LEVEL2_KEEP = {"motorway", "motorway_link", "trunk", "trunk_link", "primary", "primary_link",
+               "secondary", "secondary_link", "tertiary", "tertiary_link"}
+LEVEL2_TOLERANCE_M = 10.0
+
+
+def level2_table(table: dict) -> dict:
+    out = {}
+    for hw, (layer, cls) in table.items():
+        if hw in LEVEL2_DROP or hw not in LEVEL2_KEEP:
+            continue
+        c2 = tilewriter.fa_encode.CLASSES.get(hw, (None, cls, cls))[1]
+        out[hw] = (layer, c2)
+    return out
+
+
 def build_records(split: str, cell: str, class_table: str | None, country: int, write_names: bool,
-                  limit: int = 0, names_out: dict | None = None):
+                  limit: int = 0, names_out: dict | None = None, class_override: str = "",
+                  level: int = 1):
     table, _src = tilewriter.load_class_table(class_table)
+    table = apply_class_override(table, class_override)
+    if level == 2:
+        table = level2_table(table)
     ways, imf_stats = tilewriter.load_imf(split, cell)
     if write_names:
         from transliterate import apply, load_table
@@ -370,11 +431,15 @@ def build_records(split: str, cell: str, class_table: str | None, country: int, 
         for way in ways:
             way["name"] = label_of(way.get("name", ""), way.get("ref", ""),
                                    lambda t: apply(t, present, mapping))
-    runs = tilewriter.ways_to_runs(ways, 1, table, cell)
+    if level == 2:
+        from slot_budget import dp_simplify
+        ways = [dict(w, points=dp_simplify(w["points"], LEVEL2_TOLERANCE_M)[0])
+                for w in ways if w["highway"] in table]
+    runs = tilewriter.ways_to_runs(ways, level, table, cell)
     built, sizes = {}, []
     trim = collections.Counter()
     for parcel in sorted(runs):
-        res, dropped = fit_record(parcel, runs[parcel], table, country, write_names, limit)
+        res, dropped = fit_record(parcel, runs[parcel], table, country, write_names, limit, level)
         if dropped:
             trim["parcels"] += 1
             trim["runs"] += dropped
@@ -389,7 +454,7 @@ def build_records(split: str, cell: str, class_table: str | None, country: int, 
     return built, sizes, imf_stats
 
 
-def fit_record(parcel, runs, table, country, write_names, limit=0):
+def fit_record(parcel, runs, table, country, write_names, limit=0, level=1):
     """Build the record; drop the least important runs until it fits ``limit``.
 
     The class table's second value is the rank (1 motorway ... 9 service);
@@ -399,18 +464,22 @@ def fit_record(parcel, runs, table, country, write_names, limit=0):
     rank = lambda r: table[tilewriter._run_fields(r)[1]][1]  # noqa: E731
     order = sorted(runs, key=lambda r: (rank(r), -len(tilewriter._run_fields(r)[0])))
     keep = len(order)
-    res = tilewriter.build_road_record(1, parcel, order, table, country, write_names=write_names)
+    res = tilewriter.build_road_record(level, parcel, order, table, country, write_names=write_names)
     while limit and res is not None and len(res[0]) > limit and keep > 1:
         keep = max(1, keep - max(1, keep // 10))
-        res = tilewriter.build_road_record(1, parcel, order[:keep], table, country, write_names=write_names)
+        res = tilewriter.build_road_record(level, parcel, order[:keep], table, country, write_names=write_names)
     if limit and res is not None and len(res[0]) > limit:
         raise CheckFailed("parcel %r: one run alone exceeds %d B" % (parcel, limit))
     return res, len(order) - keep
 
 
-def from_zero(template: bytes, built: dict, pad: bool = True, odd: dict | None = None) -> tuple[bytes, dict]:
+def from_zero(template: bytes, built: dict, pad: bool = True, odd: dict | None = None,
+              built2: dict | None = None, odd2: dict | None = None) -> tuple[bytes, dict]:
     m = tile_relayout.empty_model(tile_relayout.read_model(template))
-    st = place(m, built, odd)
+    st = collections.Counter(place(m, built, odd))
+    if built2 or odd2:
+        st.update(place(m, built2 or {}, odd2, level=2))
+    st = dict(st)
     out, wst = tile_relayout.write_model(m)
     if pad:
         out = tilewriter.pad_directory_reads(out)
@@ -527,6 +596,19 @@ def selftest() -> int:
        "places appended: 3 entries, road offset kept, sub-table moved intact")
     ok(label_of("1=King Street", "A4;A400") == "1=KING STREET;2=A4" and label_of("", "A4") == "2=A4",
        "label: upper case, first ref")
+    t2 = apply_class_override({"primary": (6, 5), "residential": (5, 8)}, "primary=4")
+    ok(t2 == {"primary": (6, 4), "residential": (5, 8)}, "class override keeps the layer, replaces the class")
+    try:
+        apply_class_override({"primary": (6, 5)}, "motorway=1")
+        ok(False, "override of an unknown highway is refused")
+    except CheckFailed:
+        ok(True, "override of an unknown highway is refused")
+    t2 = level2_table({"motorway": (7, 1), "primary": (6, 4), "tertiary": (5, 8),
+                       "residential": (5, 8), "service": (5, 8)})
+    ok(t2 == {"motorway": (7, 1), "primary": (6, 4), "tertiary": (5, 7)},
+       "level 2 keeps tertiary and up with the fa_encode level-2 class: %s" % t2)
+    ok(EMPTY_PAIRS[2] == (0xFFFFFFFF, 0xFFFFFFFF) and EMPTY_PAIRS[1] == (0x7FFFFFFF, 0xFFFFFFFF),
+       "empty pairs: level 1 even 0x7fffffff, odd and level 2 0xffffffff")
     print("tile_from_zero selftest: %s (%d failure(s))" % ("OK" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -542,10 +624,14 @@ def main(argv=None) -> int:
     ap.add_argument("--areas", help="osm_areas.py JSONL: write level-1 background records (Z4)")
     ap.add_argument("--urban-fill", type=float, default=0.0,
                     help="fill a parcel with one urban ring when its urban rings cover >= this share (0 = off)")
+    ap.add_argument("--class-override", default=DEFAULT_CLASS_OVERRIDE,
+                    help="highway=cls,... replacing classes of the table (default: %(default)s; '' = none)")
     ap.add_argument("--places", action="store_true", help="write place=* labels from --areas (M5.90)")
     ap.add_argument("--areas-kinds", help="comma list of kinds to write (default: all of BG_TYPES)")
     ap.add_argument("--max-plain", type=lambda v: int(v, 0), default=0,
                     help="drop the least important roads of a parcel until its record fits (0 = no limit)")
+    ap.add_argument("--level2", action="store_true",
+                    help="also write level-2 road and urban records (Z6, M5.91)")
     ap.add_argument("-o", "--out")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
@@ -558,14 +644,27 @@ def main(argv=None) -> int:
     try:
         names = {}
         built, sizes, imf_stats = build_records(args.split, args.cell, args.class_table, args.country,
-                                                not args.no_names, args.max_plain, names_out=names)
+                                                not args.no_names, args.max_plain, names_out=names,
+                                                class_override=args.class_override)
         odd, bg_stats = {}, {}
         if args.areas or names:
             only = set(args.areas_kinds.split(",")) if args.areas_kinds else None
             plains, bg_stats = build_background(args.areas, args.country, only, args.urban_fill, names, args.places)
             odd = {k: (v, tilewriter.compress(v)) for k, v in plains.items()}
-        out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd)
+        built2, odd2, bg2 = {}, {}, {}
+        if args.level2:
+            names2 = {}
+            built2, _s2, _i2 = build_records(args.split, args.cell, args.class_table, args.country,
+                                              not args.no_names, args.max_plain, names_out=names2,
+                                              class_override=args.class_override, level=2)
+            if args.areas or names2:
+                plains2, bg2 = build_background(args.areas, args.country, {"urban"}, args.urban_fill,
+                                                names2, False, level=2)
+                odd2 = {k: (v, tilewriter.compress(v)) for k, v in plains2.items()}
+        out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd, built2=built2, odd2=odd2)
         st["background"] = bg_stats
+        if args.level2:
+            st["level2"] = dict(parcels=len(built2), odd=len(odd2), background=bg2)
     except (CheckFailed, tilewriter.CheckFailed, tilewriter.WriterError) as exc:
         print("tile_from_zero: FAIL %s" % exc)
         return 1
