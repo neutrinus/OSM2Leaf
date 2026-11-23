@@ -125,7 +125,10 @@ its gate passes, not when the code exists.
 pixel-identical screen (M5.85, C-8762). Z2 passed — the empty container is
 accepted at L1/L3/L4 and the start screen goes black except the position
 mark, so every item on it (fills, roads, street and place labels, shields)
-comes from `B48R068R` (M5.87, C-8672/C-8673).
+comes from `B48R068R` (M5.87, C-8672/C-8673). Z3 passed — 602 OSM road
+records and no factory record are drawn on the start screen (M5.88, C-8684);
+an empty odd pair must be `0xffffffff` (C-8682), and records up to 101 KB
+(L4) / 156 KB (L3) read without a size limit (C-8685).
 
 Cross-cutting tasks, independent of the rungs:
 

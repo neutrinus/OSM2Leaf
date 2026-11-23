@@ -3771,8 +3771,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8670–C-8679
   - Result: EXP-2026-11-23-M5.87-empty-london-tile; empty container accepted (L1/L3/L4), screen black: everything at the start screen comes from B48R068R
 
-- [ ] **M5.88 — Z3: London roads from OSM in a from-zero tile (level 1)**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M5.88 — Z3: London roads from OSM in a from-zero tile (level 1)**
+  - Status: done · Owner: — · Critical: yes · Pair: solo
   - Step: Z3
   - Depends: M5.87, M5.86
   - Goal: the first tile with no factory record that the real `Navi.exe` draws: OSM roads for the whole London bbox at level 1, written into the Z2 container.
@@ -3782,6 +3782,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `tile_provenance.py --require-zero` exits 0; `harness.py verify` and `tilewriter --readback` pass; `cardcheck --image` PASS; L3 mount parses; the L4 London screenshot shows the OSM roads (pixel-diff count and by-eye notes vs M8.H71's spliced screen) and no new error lines in the serial log.
   - Stop: if a parcel overflows a limit, write it reduced and list it; the overflow fix is M5.93.
   - Claims: C-8680–C-8689
+  - Result: Z3 passed: 602 OSM road records, 0 factory records, L1/L3/L4 accepted, roads drawn (EXP-2026-11-23-M5.88, C-8680–C-8686)
 
 - [ ] **M5.89 — Z4: London background from OSM — water, parks, forest, urban area, rivers in every parcel**
   - Status: open · Owner: — · Critical: no · Pair: solo

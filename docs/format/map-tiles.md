@@ -129,6 +129,13 @@ offsets) and the `-M ze0` start screen is pixel-identical to the factory card
 follows the pointers and depends on no factory offset: a writer may place
 every table, directory and block itself.
 
+**Empty pairs in a section-1 level-1 column (M5.88).** The even pair of an
+empty column is `0x7fffffff` (bit 31 clear, or the row reads as wide), the
+odd pair `0xffffffff`. The firmware adds the odd lengths of earlier columns
+to the record offset, so a `0x7fffffff` odd pair sends the read 4 GiB away
+(`<MeshDtChk>READ DATA NG!`). A road record with an empty odd partner is
+accepted (C-8682, C-8683).
+
 ## Descriptor tables (`0x1ac` and `0x2ac`)
 
 Both are the same container:

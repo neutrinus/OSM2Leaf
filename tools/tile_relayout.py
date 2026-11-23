@@ -434,15 +434,19 @@ def empty_model(m: dict) -> dict:
         for L in sec["levels"]:
             for dm in L["dirs"]:
                 if dm["model"] == "wide":
-                    # A narrow level-1 row never sets bit 31 (it would read as
-                    # wide, M5.53): the factory's empty level-1 pair is
-                    # 0x7fffffff; level 2 uses 0xffffffff.
+                    # A narrow level-1 row never sets bit 31 in its even
+                    # words (it would read as wide, M5.53): the factory's
+                    # empty level-1 even pair is 0x7fffffff, its empty odd
+                    # pair 0xffffffff (1,549 columns, never 0x7fffffff: the
+                    # firmware adds 2 * 0x7fffffff to the record offset and
+                    # reads 4 GiB away, M5.88); level 2 uses 0xffffffff.
                     e = 0x7FFFFFFF if L["level"] == 1 else 0xFFFFFFFF
+                    o = 0xFFFFFFFF
                     for row in dm["wm"]["rows"]:
                         row["wide"] = False
                         row["tag"] = 0xFFFFFFFF
                         row["records"] = []
-                        row["cols"] = [dict(even=(e, e), odd=(e, e), subs=[]) for _ in row["cols"]]
+                        row["cols"] = [dict(even=(e, e), odd=(o, o), subs=[]) for _ in row["cols"]]
                 elif dm["model"] == "s4wide":
                     head = bytearray(dm["head"])
                     struct.pack_into(">H", head, 0, 0x1046)
