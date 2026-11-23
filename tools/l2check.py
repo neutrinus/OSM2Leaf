@@ -596,6 +596,65 @@ def check_tile_section_list(root: Path, report: cardcheck.Report,
     check.stats["unnamed"] = unnamed
 
 
+def check_tile_parcel_guard(root: Path, report: cardcheck.Report,
+                            declared_files: list[Path],
+                            factory_root: Path | None,
+                            level: int = 1) -> None:
+    """M5.71: a tile's changed parcels must equal the declared change set.
+
+    For each ``ze0-declared-parcels/1`` JSON file, compare the card's
+    ``MAPAL001/<cell>.DAT`` with ``--factory-root``'s copy through
+    ``tilewriter.check_declared_parcels``: a declared parcel left at factory
+    fails ("byte-identical to factory"), and a parcel that changed but was not
+    declared fails ("holds ways not in its box" — a directory written from a
+    neighbouring directory).  Records are walked position by position, so a
+    parcel moved one slot is a diff at both positions.  Reachable from
+    ``--semantic-tiles``/``--tiles`` runs by passing ``--parcel-declared``.
+
+    No vendor data: the selftest builds a synthetic factory and a synthetic
+    card (``tilewriter.make_factory``), one pristine (PASS) and one whose two
+    parcels changed but only one is declared (FAIL, "not in its box").
+    """
+    check = report.add(cardcheck.Check("tile_parcel_guard"))
+    import json as _json
+
+    import tilewriter as _tw  # noqa: PLC0415 - tools dir is on sys.path
+
+    if factory_root is None:
+        check.skip("no --factory-root: nothing to compare the declared set with")
+        return
+    checked = 0
+    for declared_file in declared_files:
+        try:
+            data = _json.loads(Path(declared_file).read_text(encoding="utf-8"))
+        except (OSError, _json.JSONDecodeError) as exc:
+            check.error(f"{declared_file}: cannot read declared parcels: {exc}")
+            continue
+        cell = data.get("cell")
+        parcels = data.get("parcels")
+        if not cell or not isinstance(parcels, list):
+            check.error(f"{declared_file}: needs 'cell' and a 'parcels' list")
+            continue
+        name = cell if str(cell).upper().endswith(".DAT") else f"{cell}.DAT"
+        generated = root / "MAPAL001" / name
+        factory = factory_root / "MAPAL001" / name
+        if not generated.is_file() or not factory.is_file():
+            check.warn(f"{name}: missing on card or in --factory-root; skipped")
+            continue
+        checked += 1
+        declared = {tuple(int(v) for v in p) for p in parcels}
+        try:
+            info = _tw.check_declared_parcels(
+                factory.read_bytes(), generated.read_bytes(), level, declared)
+        except _tw.CheckFailed as exc:
+            check.error(f"{name}: {exc}")
+            continue
+        check.stats[name] = {"declared": info["declared"], "changed": info["changed"]}
+    check.stats["checked"] = checked
+    if checked == 0 and not check.errors:
+        check.warn("no declared-parcel tile was compared")
+
+
 def check_tile_mutation(root: Path, report: cardcheck.Report,
                         tile: str = "B30R060R.DAT") -> None:
     check = report.add(cardcheck.Check("tile_mutation"))
@@ -1131,6 +1190,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="factory card root: a tile identical to its MAPAL001/<name> "
                              "is factory bytes kept verbatim, so a short section list there "
                              "is INFO, not a failure (M5.62)")
+    parser.add_argument("--parcel-declared", default="",
+                        help="comma-separated ze0-declared-parcels/1 JSON files; with "
+                             "--factory-root, each is checked against its tile "
+                             "(tile_parcel_guard, M5.71)")
     parser.add_argument("--skip-mutation", action="store_true")
     parser.add_argument("--image", help="optional raw image for the golden hash")
     parser.add_argument("--hash-image", action="store_true",
@@ -1207,6 +1270,13 @@ def main(argv: list[str] | None = None) -> int:
             root, report, section_tiles,
             Path(args.factory_root) if args.factory_root else None, explicit,
         )
+        declined = [Path(t.strip()) for t in args.parcel_declared.split(",")
+                    if t.strip()]
+        if declined:
+            check_tile_parcel_guard(
+                root, report, declined,
+                Path(args.factory_root) if args.factory_root else None,
+            )
         graph_tiles = [t.strip() for t in args.graph_tiles.split(",") if t.strip()]
         if graph_tiles:
             check_tile_graph(root, report, graph_tiles,
@@ -1393,6 +1463,81 @@ def selftest() -> int:
                                     "--factory-root", str(factory)])
         ok(rc == 1 and "[tile_section_list] FAIL" in out,
            f"short list differing from factory -> FAIL (got {rc})")
+
+    # M5.71: tile_parcel_guard on a synthetic factory + synthetic card.
+    import tilewriter as _tw_guard
+    import clarion_bg as _cg_guard
+    with tempfile.TemporaryDirectory(prefix="l2check-parcels-") as tmp:
+        root = Path(tmp) / "root"
+        factory = Path(tmp) / "factory"
+        cell = "B48R058R"
+        _fixture_root(root, cell)
+        _fixture_root(factory, cell)
+        base = ["--partial", "--no-golden", "--no-cmp"]
+        yb, xb = _tw_guard.cell_mesh(cell)
+
+        def _rec(parcel):
+            y0, x0, row, col = parcel
+            lon0, lat0, w, h = _cg_guard.parcel_geo(1, y0, x0, row, col)
+            pts = [(lon0 + w * 0.2, lat0 + h * 0.2),
+                   (lon0 + w * 0.6, lat0 + h * 0.6)]
+            return _tw_guard.build_road_record(
+                1, parcel, [(pts, "residential")],
+                _tw_guard.default_class_table(), 616, write_names=False)
+
+        factory_tile = factory / "MAPAL001" / f"{cell}.DAT"
+        card_tile = root / "MAPAL001" / f"{cell}.DAT"
+        p1, p2 = (yb, xb, 2, 1), (yb, xb, 3, 1)
+        r1, r2 = _rec(p1), _rec(p2)
+        blob, _cont = _tw_guard.splice_factory(
+            factory_tile.read_bytes(), 1,
+            {p1: dict(plain=r1[0], comp=r1[1], names_sec=None),
+             p2: dict(plain=r2[0], comp=r2[1], names_sec=None)})
+        card_tile.write_bytes(blob)
+
+        def _decl(path, parcels):
+            path.write_text(json.dumps({"format": "ze0-declared-parcels/1",
+                                        "cell": cell,
+                                        "parcels": [list(p) for p in parcels]}),
+                            encoding="utf-8")
+            return path
+
+        d_ok = _decl(Path(tmp) / "ok.json", [p1, p2])
+        rc, out, _err = _run_main(
+            ["--root", str(root)] + base + ["--tiles", f"{cell}.DAT",
+             "--factory-root", str(factory), "--parcel-declared", str(d_ok)])
+        ok("[tile_parcel_guard] OK" in out,
+           f"declared set == changed set -> tile_parcel_guard OK (got {rc})")
+        # The swapped/wrong-parcel case: p2 changed but only p1 is declared.
+        d_bad = _decl(Path(tmp) / "bad.json", [p1])
+        rc, out, _err = _run_main(
+            ["--root", str(root)] + base + ["--tiles", f"{cell}.DAT",
+             "--factory-root", str(factory), "--parcel-declared", str(d_bad)])
+        ok(rc == 1 and "[tile_parcel_guard] FAIL" in out
+           and "not in its box" in out,
+           f"parcel changed but undeclared -> FAIL 'not in its box' (got {rc})")
+        # Declared but factory: declared p2, but p2 was not actually written.
+        card_tile.write_bytes(_tw_guard.splice_factory(
+            factory_tile.read_bytes(), 1,
+            {p1: dict(plain=r1[0], comp=r1[1], names_sec=None)})[0])
+        d_missing = _decl(Path(tmp) / "missing.json", [p1, p2])
+        rc, out, _err = _run_main(
+            ["--root", str(root)] + base + ["--tiles", f"{cell}.DAT",
+             "--factory-root", str(factory), "--parcel-declared", str(d_missing)])
+        ok(rc == 1 and "[tile_parcel_guard] FAIL" in out
+           and "byte-identical to factory" in out,
+           f"declared but factory -> FAIL 'byte-identical' (got {rc})")
+        # No --factory-root: SKIP, never a pass (H103/H104; status in the JSON).
+        jpath = Path(tmp) / "noguard.json"
+        rc, out, _err = _run_main(
+            ["--root", str(root)] + base + ["--tiles", f"{cell}.DAT",
+             "--parcel-declared", str(d_ok), "--json", str(jpath)])
+        _doc = json.loads(jpath.read_text(encoding="utf-8"))
+        _guard = next(c for c in _doc["checks"] if c["id"] == "tile_parcel_guard")
+        ok(rc == 0 and _guard["status"] == "SKIP"
+           and "no --factory-root" in (_guard.get("skipped") or ""),
+           f"no --factory-root -> tile_parcel_guard SKIP in JSON (got {rc}, "
+           f"{_guard['status']})")
 
     # M5.36: tile_class_roundtrip on a tile whose class the writer emitted.
     import tile_class_roundtrip as tcr
