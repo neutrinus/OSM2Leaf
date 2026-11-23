@@ -4853,7 +4853,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7070–C-7079
 
 - [ ] **M8.H11 — L3 against L4: the `MMAIN001` reader and the `DRSTR` parser return the same values in both**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h11-l3-l4-parity · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: Every L3 verdict assumes the harness runs the function the way the unit does. Check it once on the two readers that certainly run at mount: break at their entry and exit in the full system, dump arguments and outputs, and compare with the L3 targets.
