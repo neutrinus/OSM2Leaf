@@ -2653,8 +2653,8 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-7640–C-7649
   - Result: EXP-2026-11-23-M4.65-kiwi-sources; KIWI V1.22 chapter PDFs reachable in Wayback (1,5,6,10 hashed), JIS D 0810:2004 renumbers the same clauses, kiwiread tags match V1.22 14/14; C-7640-C-7646
 
-- [ ] **M4.66 — KIWI basic types against our bytes: the `SWS` size word, the `D` offset word and the 4-byte address `ssssssss ssssssss ssssssss DLnnnnnn`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.66 — KIWI basic types against our bytes: the `SWS` size word, the `D` offset word and the 4-byte address `ssssssss ssssssss ssssssss DLnnnnnn`**
+  - Status: done · Owner: task/m4.66-kiwi-types · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: KIWI counts sizes in words and addresses data by sector + logical-sector fields (chapter 1.2.x as quoted in `kiwiread.c`). Our tile and container tables hold offsets and lengths whose unit was fitted from bytes. Test whether they are these KIWI types — a yes explains every offset table at once.
@@ -2665,6 +2665,7 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: one session; a table that fits neither reading is listed, not explained.
   - Falsifier: a table 'fits' on one card and fails on the other.
   - Claims: C-7650–C-7659
+  - Result: EXP-2026-11-23-M4.66-kiwi-basic-types; SWS dirs 24/24 EU + 16/16 US, slot pairs 4854/4854 + 4292/4292; SA 0 informative on both; 10 claims C-7650-C-7659
 
 - [x] **M4.67 — KIWI Level / Block Set / Block Management Records against `MMAIN001.DAT` and the tile level tables**
   - Status: done · Owner: task/m4.67-kiwi-level-blocks · Critical: no · Pair: solo
