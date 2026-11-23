@@ -44,6 +44,7 @@ import sys
 import zlib
 
 import zlibinfo
+import hashutil  # noqa: E402
 
 SECT_OFF = 0x800
 LEVEL_OFF = 0x1ac
@@ -1104,9 +1105,7 @@ def cmd_info(args):
     return 0
 
 
-def sha256(data):
-    import hashlib
-    return hashlib.sha256(data).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 def identity_only_error(exc: BaseException) -> bool:

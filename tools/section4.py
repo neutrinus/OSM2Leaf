@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import re
 import struct
@@ -123,8 +124,7 @@ class ShapeError(Exception):
     """The input or model is malformed (exit 2)."""
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 def is_zlib(data: bytes, off: int = 0) -> bool:

@@ -55,6 +55,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import hashutil
 import io
 import json
 import re
@@ -193,8 +194,7 @@ class FieldRead:
     rule: str = ""
 
 
-def sha256(raw: bytes) -> str:
-    return hashlib.sha256(raw).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 def read_file(path: Path) -> bytes:

@@ -67,6 +67,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import os
 import struct
@@ -408,8 +409,7 @@ def run_compare(image: bytes, card: bytes | None, unit_code: bytes,
 # commands
 
 
-def _sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+_sha = hashutil.sha256_bytes
 
 
 def cmd_extract(args) -> int:

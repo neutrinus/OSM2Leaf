@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import os
 import platform
@@ -61,12 +62,7 @@ STAGE_TOOLS = {
 }
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for block in iter(lambda: fh.read(1 << 20), b""):
-            h.update(block)
-    return h.hexdigest()
+sha256_file = hashutil.sha256_file
 
 
 def run(argv: list[str], env: dict[str, str], *, cwd: Path = ROOT,

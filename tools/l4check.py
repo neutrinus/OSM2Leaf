@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import os
 import re
@@ -169,12 +170,7 @@ class CardError(Exception):
 # --------------------------------------------------------------------------
 
 
-def _sha256(path: Path, chunk: int = 1 << 20) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for block in iter(lambda: fh.read(chunk), b""):
-            h.update(block)
-    return h.hexdigest()
+_sha256 = hashutil.sha256_file
 
 
 def derive_card_values(card: Path) -> dict:

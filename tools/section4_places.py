@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import os
 import struct
@@ -57,8 +58,7 @@ EXIT_CHECK_FAILED = 1
 EXIT_BAD_INPUT = 2
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 def read_jsonl_places(path, kinds=PLACE_KINDS, bbox=None, limit=400):

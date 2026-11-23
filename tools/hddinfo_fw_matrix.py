@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import os
 import sys
@@ -56,8 +57,7 @@ import hddinfo  # noqa: E402
 MODEL_TO_FW = {"PASS": "ACCEPT", hddinfo.CHECK1_CODE: "REJECT"}
 
 
-def _sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+_sha = hashutil.sha256_bytes
 
 
 def load_variants(var_dir: Path) -> list[tuple[str, bytes]]:

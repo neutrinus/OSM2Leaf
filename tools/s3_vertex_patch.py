@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import math
 import sys
@@ -100,8 +101,7 @@ class PatchError(Exception):
     pass
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 def signed16(v: int) -> int:

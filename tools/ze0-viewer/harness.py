@@ -31,6 +31,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, 'tools_ze0'))
 sys.path.insert(0, HERE)
 
+_TOOLS = os.path.abspath(os.path.join(HERE, ".."))
+if _TOOLS not in sys.path:
+    sys.path.insert(0, _TOOLS)
+import hashutil  # noqa: E402
+
 import clarion_bg
 import clarion_rd
 import clarion_tile
@@ -40,12 +45,7 @@ import ze0_decode
 import ze0_tile_io
 
 
-def sha256(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        for b in iter(lambda: f.read(1 << 20), b''):
-            h.update(b)
-    return h.hexdigest()
+sha256 = hashutil.sha256_file
 
 
 def header_strings(data):

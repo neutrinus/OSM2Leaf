@@ -66,6 +66,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import cerom  # noqa: E402
+import hashutil  # noqa: E402
 import pdata  # noqa: E402
 import point_walk_l3 as pw  # noqa: E402  (module_sections, CODE, EXEC)
 import sh4scan  # noqa: E402  (M3.19 scan engine; H48: delegated scan primitive)
@@ -132,12 +133,7 @@ def default_image():
     return None
 
 
-def sha256_file(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
+sha256_file = hashutil.sha256_file
 
 
 def sections_of(data, image_start, module):

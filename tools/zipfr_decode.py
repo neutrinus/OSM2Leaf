@@ -45,6 +45,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import cmpind  # noqa: E402
+import hashutil  # noqa: E402
 
 HEADER_TEXT = 0x180
 HEADER = 0x200
@@ -371,9 +372,7 @@ def cmd_census(args: argparse.Namespace) -> int:
     return 0
 
 
-def _sha256(data: bytes) -> str:
-    import hashlib
-    return hashlib.sha256(data).hexdigest()
+_sha256 = hashutil.sha256_bytes
 
 
 def synth_blob(n: int = 8) -> bytes:

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import math
 import struct
@@ -82,8 +83,7 @@ def read_file(source, rel: str) -> bytes:
     return source.read_range(name.path, 0, name.size)
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 def decode_point(source, stem: str) -> bytes:

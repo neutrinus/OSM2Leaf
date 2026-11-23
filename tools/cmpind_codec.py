@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import re
 import struct
 import sys
@@ -381,8 +382,7 @@ def refit_stream_in_slot(
 # ---------------------------------------------------------------------------
 
 
-def _sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+_sha = hashutil.sha256_bytes
 
 
 def selftest() -> int:
