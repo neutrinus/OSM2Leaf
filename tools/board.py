@@ -29,6 +29,7 @@ Commands (``python3 tools/board.py CMD --help`` for each)::
     done ID --result TEXT           [x], Status: done, Result: TEXT
     block ID --blocker T --unblock IDS [--result T]
     field ID KEY VALUE [--append]   set (or extend) one field of one task
+    unfield ID KEY --match TEXT     drop duplicate fields KEY whose text holds TEXT
     add-task --section H FILE|-     insert a new task block at the end of a stream
              [--after ID]
     archive ID … --to HISTORY.md    move done task blocks to a todo-history file
@@ -566,6 +567,29 @@ def op_field(bf: BoardFile, tid: str, key: str, value: str, append: bool = False
     return join_lines(out), len(out) - len(bf.lines)
 
 
+def op_unfield(bf: BoardFile, tid: str, key: str, match: str) -> tuple[str, int]:
+    """Remove a duplicate field *key* of task *tid* whose text contains *match*.
+
+    A block that accumulated two ``  - Unblock:`` lines (a merge or a second
+    ``board.py field``) keeps both, and ``field``/``block`` only ever edit the
+    first, so the rule-15 scan reads the stale one forever. This removes the
+    hitting occurrence(s) but refuses to remove the last one of the key —
+    a field's only value must not be deleted by accident.
+    """
+    a, b = find_task(bf.lines, tid)
+    hits = [f for f in _fields(bf.lines, a, b)
+            if f[0] == key and match in _field_text(bf.lines, f[1], f[2])]
+    all_of_key = [f for f in _fields(bf.lines, a, b) if f[0] == key]
+    if not hits:
+        raise BoardError(f"task {tid}: no {key} field contains {match!r}")
+    if len(hits) >= len(all_of_key):
+        raise BoardError(f"task {tid}: refusing to remove the only {key} field")
+    block = bf.lines[a:b]
+    for _, s, e in sorted(hits, reverse=True):
+        block[s - a:e - a] = []
+    return bf.splice(a, b, block)
+
+
 def op_done(bf: BoardFile, tid: str, result: str) -> tuple[str, int]:
     text, _ = op_status(bf, tid, "done", None, tick=True)
     text, delta = op_field(bf, tid, "Result", result, lines=split_lines(text))
@@ -988,6 +1012,8 @@ def main(argv=None) -> int:
     p.add_argument("--unblock", required=True); p.add_argument("--result")
     p = sub.add_parser("field"); p.add_argument("id"); p.add_argument("key"); p.add_argument("value")
     p.add_argument("--append", action="store_true", help="add VALUE as a continuation line")
+    p = sub.add_parser("unfield"); p.add_argument("id"); p.add_argument("key")
+    p.add_argument("--match", required=True, help="only remove the KEY field whose text contains this")
     p = sub.add_parser("add-task"); p.add_argument("file", help="block file, or - for stdin")
     p.add_argument("--section", help="stream heading token (H, M5, …); default from the ID")
     p.add_argument("--after", help="insert right after this task instead")
@@ -1036,7 +1062,7 @@ def _dispatch(args) -> int:
         a, b = find_task(bf.lines, args.id)
         print(join_lines(bf.lines[a:b]))
         return 0
-    if c in ("claim", "release", "status", "done", "block", "field"):
+    if c in ("claim", "release", "status", "done", "block", "field", "unfield"):
         bf = BoardFile(args.todo)
         if c == "claim":
             text, d = op_status(bf, args.id, "in progress", args.owner)
@@ -1049,6 +1075,8 @@ def _dispatch(args) -> int:
             text, d = op_done(bf, args.id, args.result)
         elif c == "block":
             text, d = op_block(bf, args.id, args.blocker, args.unblock, args.result)
+        elif c == "unfield":
+            text, d = op_unfield(bf, args.id, args.key, args.match)
         else:
             text, d = op_field(bf, args.id, args.key, args.value, args.append)
         bf.write(text, delta=d, target=args.id, dry_run=dry)
@@ -1320,6 +1348,20 @@ def run_selftest() -> int:
         ok("  - Goal: short.\n  - Done when" in todo.read_text(), "field replaced incl. continuation")
         ok(run("field", "H2", "Goal", "more.", "--append") == 0
            and "  - Goal: short.\n    more.\n" in todo.read_text(), "field --append")
+
+        # unfield: a duplicate Unblock is removed by content; the last one is kept
+        reset()
+        t = todo.read_text().replace(
+            "  - Done when: x.\n",
+            "  - Done when: x.\n  - Unblock: NEW-ONE\n  - Unblock: OLD-DONE\n")
+        todo.write_text(t, encoding="utf-8")
+        ok(run("unfield", "H2", "Unblock", "--match", "OLD-DONE") == 0, "unfield exit 0")
+        b = task_blocks(todo.read_text())["H2"]
+        ok("OLD-DONE" not in b and "  - Unblock: NEW-ONE" in b, "unfield removed the match only")
+        reset()
+        t = todo.read_text().replace("  - Done when: x.\n", "  - Done when: x.\n  - Unblock: ONLY\n")
+        todo.write_text(t, encoding="utf-8")
+        ok(run("unfield", "H2", "Unblock", "--match", "ONLY") != 0, "unfield refuses the only field")
 
         # add-task: end of its stream, guarded ID/claims
         reset()

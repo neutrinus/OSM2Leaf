@@ -1,0 +1,104 @@
+TL run — 2026-11-23 06:28 UTC start
+Model: Hy4 flash Free
+End: (pending)
+origin/main at start: 36a4d251ee603c6b1726463bbf71eaceecc108f5
+
+Inputs read: AGENTS.md, prompt_common.txt, prompt_tl.txt, TODO.md (board,
+Priorities, critical path, task blocks), dev_assignments.md (untracked; earlier
+batch of 8 tasks today), open PR list, wt list, gh PR list --draft=false.
+
+Initial state, quoted from commands:
+- git fetch; git pull --ff-only on main: already up to date; HEAD == origin/main.
+- gh pr list --state open --draft=false: empty -> no non-draft PR to clear.
+- 13 open PRs, all drafts; 8 were opened 06:13-06:14 UTC by an earlier TL batch
+  (M1.49, M4.65, M5.68, M5.70, M5.71, M2.20, M8.H11, M9.67), 5 older ones.
+- wt list: 28 worktrees, 7 dirty; 8 fresh task worktrees belong to the earlier
+  batch and are left untouched.
+- Board parse (read-only): H41 3 reverse deps, M3.13 5, M9.12 4, H28 4,
+  H29 3, M5.61 3, M8.H3 3, M8.B5 3, M8.H18 0, M8.H39 0.
+
+Actions:
+1. Queried bottleneck tasks from the user list and their Unblock fields.
+2. M8.B5 is not missing: it is DONE and archived in
+   docs/research/todo-history-2026-11-22.md (line 1020): F1 filesys.exe and
+   device.exe. Three old task blocks still name it in Depends; no new task.
+3. Selected bottleneck unblockers that are open, deps done on origin/main,
+   and not claimed by an open PR: H41 (3 downstream), M9.31 (unblocks M9.12,
+   4 downstream), M8.C1n (unblocks M8.H39). Pair H41 and M9.31; M8.C1n solo
+   per its Pair: solo field (no gate semantics).
+4. Skipped, with reasons: M3.13/M9.12/M5.61/M8.H3/M8.H39 are blocked and can
+   only be reached through their Unblock tasks; M3.32's Depends still names
+   blocked M3.13 (circular) and M3.30 waits on blocked M3.29 -> PO board fix;
+   H28 waits on blocked M9.12; H29 needs hardware (M6); M5.69 touches
+   tilewriter.py, which the in-flight M5.68/M5.70 PRs touch (disjoint-files
+   rule); M8.H73 and M8.H18 are Pair: required QEMU/model tasks and the host
+   has 8 CPUs with load 6.6, one process at 46.5 % RAM, so their boots would
+   starve the in-flight batch.
+5. Created three worktrees/branches from origin/main with wt --no-cd --yes;
+   the hook linked archive/ in each.
+6. Launch pair/solo subagents; they claim in their first commit, push, open
+   draft PR, then build. TL verifies Done when and merges one PR at a time.
+
+7. Pair rounds: both navigators returned CHANGES on the plans (H41: wrong
+   positive-control counts, one-way baseline, status-token normalization;
+   M9.31: build pairing US/EU, DRY_RUN fake-pass, unfrozen US VAs, stale note).
+   Drivers implemented all fixes; round-4 review found only record defects
+   (moved corpus counts, untyped claim numbers, elided commands, tmpfs quota
+   misread). Drivers fixed those in final record-only commits; TL checked the
+   arithmetic against the EXP text and the re-run commands.
+8. TL verification: on both rebased branches board.py lost --base origin/main
+   = 0/0, todo_check and claims_check --strict --count-check OK, changed-tool
+   selftests pass (H41 25/25; M9.31 34 checks/1 skipped). PR #633 ready, CI
+   l1l2 green; PR #634 ready, CI l1l2 green; quality jobs still pending.
+9. M8.C1n duplicate: another agent merged PR #636 ("UI leaves INI_STARTUP",
+   task/m8.c1n-ui-startup) while our solo driver was writing a negative EXP.
+   Main marks M8.C1n done, so PR #635 was closed with a comment naming #636,
+   its remote branch deleted and the worktree removed with wt remove -D.
+
+Task modes and outcomes:
+- H41 — pair (driver ses_df8e6aa67ffeNWQXPpvGcjwLhA, navigator
+  ses_df8ac21d0ffen5NtbHB3gwy15K), 2 review rounds, done, PR #634,
+  EXP-2026-11-23-H41-l1l2-progress-matrix.md. Navigator caught the H69
+  missing-key trap and the stale passed-count; TL re-checked 8 new/7 new.
+- M9.31 — pair (navigator override: Pair: solo fixed to required because the
+  task edits gate semantics), 2 review rounds, done, PR #633,
+  EXP-2026-11-23-M9.31-baseline-no-diff-verdicts.md. Navigator caught
+  EU-fn-on-US-card pairing and DRY_RUN exit-0 fake pass.
+- M8.C1n — solo (Pair: solo, static investigation), returned negative/blocked,
+  PR #635 closed as duplicate of merged #636; its EXP stays in the closed PR.
+
+Decisions: focused on the bottleneck unblockers that were actually takeable;
+did not take blocked tasks themselves (rule 1); did not take M5.69 because
+M5.68/M5.70 in-flight PRs touch tilewriter.py; kept QEMU-heavy M8.H18 out
+because host load/RAM was saturated. M8.B5 is already done and archived.
+
+Problems: main advanced four times during the run (36a4d251 → 11bc06b5);
+two rebases with board.py resolve on claims.md; whole-tree selftest.py and
+gate.py are red on origin/main from pre-existing fn-audit corpus drift and
+tmpfs space exhaustion, recorded in the two EXPs but not caused by them;
+many worktrees from earlier batches remain (left alone).
+
+Handoff: next TL/QA should refresh the fn-audit corpora and the tmpfs quota
+situation, and PO should fix M3.32's Depends (it names blocked M3.13) so
+M3.32 can unblock M3.13; M9.31 now unblocks M9.12, H41 unblocks H42/H104.
+
+Merge results (all CI jobs green on the final rebased heads):
+- PR #633 merged to origin/main as eab43d53 ([M9.31]); remote branch deleted,
+  worktree removed with wt remove.
+- PR #634 merged to origin/main as fbf332b5 ([H41]); needed one more rebase
+  with board.py resolve on claims.md after #633 landed; CI re-ran green;
+  remote branch and worktree to be removed after this commit.
+- PR #635 closed as a duplicate of merged #636; branch/worktree removed.
+- Rule 15 applied on main: M9.12 and M8.H39 set back to `open · Owner: —`
+  with their blocker lines kept as notes, in the same commit as this log.
+
+End: 2026-11-23 08:35 UTC; origin/main fbf332b5f... at end.
+Untracked dev_assignments.md from the earlier 06:12 batch left untouched.
+
+Anomaly (recorded after the commit): the primary checkout's TODO.md contained
+uncommitted board edits from another run (H98 blocked note, M3.13/16/4.23/4.24
+record fields, M3.14 re-opened). They were staged together with this log's
+two rule-15 fields and are now on main in 8b8aeb03. todo_check and
+claims_check --strict --count-check pass on the result; nothing was reverted
+or force-pushed. Future TL runs must `git status` and review the TODO diff
+before staging it in the primary checkout.

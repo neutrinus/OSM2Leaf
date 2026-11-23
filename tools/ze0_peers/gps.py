@@ -69,9 +69,11 @@ END = 0xF0
 UNITS_PER_DEGREE = 60000                 # 1/1000 arc-minute, from fn 0x43f2c
 OBJ_SCALE = 30.72                        # OBJ_GpsInfo: double at 0x00497c9c
 # Status byte of the A0 report (payload[0]).  Bits 0-3 are flags, bits 4-6
-# a mode that OBJ_GpsInfo maps to 1..7 (0x40 is rejected).  0x2f is the
-# value the M8.H73 run used; see the EXP for what each bit was seen to do.
-DEFAULT_STAT = 0x2f
+# a mode that OBJ_GpsInfo maps to 1..7 (0x40 is rejected).  The locator's
+# history ring (US Navi 0x0046fa60) keeps a report only when the whole byte
+# is 0x00, 0x10, 0x20 or 0x30, so flag bits must be clear (M8.H78, C-8640).
+# 0x2f (the M8.H73 value) reaches OBJ_GpsInfo but never the locator.
+DEFAULT_STAT = 0x30
 
 
 def frame_length(start):

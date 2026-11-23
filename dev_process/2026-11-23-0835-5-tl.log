@@ -1,0 +1,63 @@
+role: TL (team lead), hands-on board repair on the owner's instruction. Model: opencode/strong
+start: 2026-11-23 08:10 UTC  end: 2026-11-23 08:40 UTC
+origin/main at start: 7b648c4b
+
+inputs read: the SM/SE/PO/QA cycle logs of 2026-11-23 (0620-1-sm, 0631-2-se,
+0702-3-po, 0716-4-qa) + retro 2026-11-23.md; TODO.md rules 1-17 and Priorities;
+AGENTS.md (worktrunk, board.py).
+
+Owner decisions this thread (not re-derived):
+  - #2 branch protection: owner merges by hand on purpose. No change.
+  - #4 M5.72 duplicate branch: remove it. Done.
+  - #5 rule-15 dead unblocks: re-open them ("pewnie ktoś zrobi").
+  - #6 M5.1 scar: good.
+  - #7 remote branch deletion 403: leave it.
+  - #8 claim collisions: accepted as distributed work.
+  - a) do it: fix H98 board truth and PR #639's H132 premise.
+
+actions, in order:
+  1. Read all four role logs and the retro; verified the owner-visible claims.
+  2. Found branch protection is APPLIED, not 404: `gh api .../branches/main/
+     protection` lists 4 required contexts (quality py3.11/py3.13, l1l2 py3.11/
+     py3.13), enforce_admins=false. #636 was merged red by the admin bypass,
+     which is the owner's choice. H98 and QA's H132 premise ("no protection")
+     are stale.
+  3. #4: `wt remove -D task/m5.72-locmap-ref-word` (PR #481 was CLOSED, not
+     merged; the merged branch is ...-ref-words/#613). No branch/worktree left.
+  4. Rule 15: re-opened M3.29 (owner released), M3.14, M3.16, M3.18 (M3.30 was
+     open); M3.30 Depends corrected to its done deps (M3.29/M9.38/M3.28);
+     M8.H39 re-opened (M8.C1n done; remaining gate = key-control bytes);
+     M4.51/M4.23/M4.24 kept blocked with live blockers (M8.E4 open, M4.24
+     blocked, M4.97 as the live section-2 path). Rewrote stale Unblocks that
+     named done/archived IDs (M9.38/M3.23/M1.2f/M8.E1/M4.25/M4.26/M4.53).
+  5. Filled the strict-field gaps: Precheck/Scope/Stop on M3.13, M8.C, M1.38.
+  6. Found the root board defect: M3.13/M3.14/M3.16/M3.18 had TWO `Unblock:`
+     fields; board.py field edits only the first, so the rule-15 scan read the
+     stale second one forever. Added `board.py unfield ID KEY --match TEXT`
+     (removes the matching duplicate, refuses to remove the only field) with
+     two selftests (108 checks OK). Used it on M3.16/M3.18.
+  7. H98: board truth written, status blocked (owner-only policy), Blocker/
+     Unblock/Result + Note record that protection exists and the bypass is
+     deliberate; Note says the "throwaway red commit cannot merge" half is
+     unreachable while the bypass is intentional.
+  8. Priorities: removed the now-resolved "M5.72 duplicate branch decision" line
+     (prose edit; single splice).
+
+result: `todo_check --strict` 18 -> 0 ERROR (148-150 warnings); `board.py lost`
+0/0; claims_check OK; board selftest 108 OK. No claims added or edited.
+
+open for the owner: PR #639's H132 text still says "the refusal does not
+exist"; I left it for the TL merge after rebase (its C-8640 duplicate is
+already fixed on main by #640). Manual merges remain the owner's call.
+
+handoff: TL should rebase #639 and fix H132's premise (protection exists, the
+gap is main_watch --prs visibility + the admin bypass), or close H132 as
+covered by H98's record. Branch protection may now be done with no work.
+
+anomaly (after commit): a parallel TL run committed this thread's uncommitted
+TODO.md board edits in 8b8aeb03 ("chore: TL work log and rule-15 re-opens")
+before 9dbcc7b6 landed; 9dbcc7b6 therefore carries only tools/board.py + this
+log. No duplication or loss: on main the H98 note, the M3.16 rewrite and
+`def op_unfield` each appear once, todo_check --strict = 0, board.py lost 0/0.
+The other run recorded the same sweep in its own log. Lesson for #6: the
+primary checkout is not exclusive; board edits should be committed at once.

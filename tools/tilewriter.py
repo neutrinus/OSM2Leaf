@@ -387,6 +387,40 @@ def load_class_table(path: str | None):
     return table, "file %s" % path
 
 
+DECLARED_PARCELS_FORMAT = "ze0-declared-parcels/1"
+
+
+def load_declared_parcels(path: str) -> set[tuple]:
+    """Read a ``ze0-declared-parcels/1`` JSON file into a set of parcels.
+
+    ``{"format":"ze0-declared-parcels/1","parcels":[[y,x,row,col], ...]}``.
+    An empty ``parcels`` is a real declaration ("nothing changed") and is kept
+    as an empty set, not confused with ``None`` (check disabled).
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except OSError as exc:
+        raise WriterError("cannot read declared parcels %s: %s" % (path, exc)) from exc
+    except json.JSONDecodeError as exc:
+        raise WriterError("declared parcels %s is not JSON: %s" % (path, exc)) from exc
+    if data.get("format") != DECLARED_PARCELS_FORMAT:
+        raise WriterError(
+            "declared parcels %s: format must be %r" % (path, DECLARED_PARCELS_FORMAT)
+        )
+    parcels = data.get("parcels")
+    if not isinstance(parcels, list):
+        raise WriterError("declared parcels %s: 'parcels' must be a list" % path)
+    out = set()
+    for entry in parcels:
+        if not isinstance(entry, (list, tuple)) or len(entry) != 4:
+            raise WriterError(
+                "declared parcels %s: %r is not [y,x,row,col]" % (path, entry)
+            )
+        out.add(tuple(int(v) for v in entry))
+    return out
+
+
 @contextlib.contextmanager
 def _class_mapping(table):
     """Install ``table`` for the duration of one ``fa_encode`` call.
@@ -1138,7 +1172,72 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs)
                 names_missing_partner=stats["names_missing_partner"])
 
 
-def verify_factory(factory: bytes, blob: bytes, level: int, built, container=None):
+def _parcel_of_key(key, level) -> tuple[int, int, int, int]:
+    """``(dir_y, dir_x, row, col)`` of a ``records_by_position`` key.
+
+    A key is ``(dir_y, dir_x, slot, pair)``; ``pair`` may be
+    ``(pair_index, "subN")`` for a wide-row sub-record, whose parcel is the
+    even pair's column.
+    """
+    dy, dx, slot, pair = key
+    if isinstance(pair, tuple):
+        pair = pair[0]
+    return dy, dx, slot, pair // 2
+
+
+def check_declared_parcels(factory: bytes, blob: bytes, level: int, declared):
+    """M5.71: compare the caller's declared change set with the observed diff.
+
+    ``declared`` is the set of parcels ``(dir_y, dir_x, row, col)`` the caller
+    says it wrote.  Every declared parcel must differ from the factory, and
+    every parcel that differs must be declared, in both directions.  This is
+    the reverse of the ``verify_factory`` records loop: that loop catches
+    "changed but not declared"; this catches "declared but left at factory"
+    (the M5.61 ``--drop-parcel`` falsifier, where a parcel the input says must
+    be written keeps its factory bytes because the caller skipped its ways), and
+    it names a parcel holding another parcel's ways as "not in its declared
+    box" (a directory written from a neighbouring directory).
+
+    Records are compared by position (``records_by_position``, a dict keyed
+    ``(dir_y, dir_x, slot, pair)``), never as a set of raw bytes: a moved
+    record leaves its old key and appears at a new one, so it is a diff at both
+    keys and the parcel it left and the parcel it entered are both observed.
+    """
+    before = read_tile_rows(factory)
+    after = read_tile_rows(blob)
+    old = records_by_position(before, 1, level)
+    new = records_by_position(after, 1, level)
+    declared = {tuple(int(v) for v in parcel) for parcel in declared}
+    observed: dict[tuple[int, int, int, int], list] = {}
+    for key in set(old) | set(new):
+        if old.get(key) != new.get(key):
+            observed.setdefault(_parcel_of_key(key, level), []).append(key)
+    missing = sorted(declared - set(observed))
+    if missing:
+        parcel = missing[0]
+        sample = sorted(observed)[0] if observed else None
+        extra = ""
+        if sample is not None and sample != parcel:
+            extra = "; a neighbouring parcel %r did change" % (sample,)
+        raise CheckFailed(
+            "declared parcel %d,%d,%d,%d is byte-identical to factory: it "
+            "carries ways the input says must be written but its section-1 "
+            "records did not change%s" % (parcel + (extra,))
+        )
+    undeclared = sorted(set(observed) - declared)
+    if undeclared:
+        parcel = undeclared[0]
+        key = sorted(observed[parcel])[0]
+        raise CheckFailed(
+            "parcel %d,%d,%d,%d holds ways not in its box: record at %r "
+            "changed but the parcel was not declared (written from a "
+            "neighbouring directory?)" % (parcel + (key,))
+        )
+    return dict(declared=len(declared), changed=len(observed))
+
+
+def verify_factory(factory: bytes, blob: bytes, level: int, built, container=None,
+                   declared=None):
     """Fail loudly if the splice broke the header or any unchanged section."""
     before = read_tile_rows(factory)
     after = read_tile_rows(blob)
@@ -1193,6 +1292,8 @@ def verify_factory(factory: bytes, blob: bytes, level: int, built, container=Non
             raise CheckFailed(
                 "section-1 record at %r changed but was not regenerated" % (key,)
             )
+    if declared is not None:
+        check_declared_parcels(factory, blob, level, declared)
     return check_section4(after, strict=False)
 
 
@@ -1374,7 +1475,8 @@ def readback(blob: bytes, imf_path: str, cell: str, table, level: int = 1):
 def build(imf_path: str, cell: str, *, factory_path: str | None = None,
           class_table_path: str | None = None, level: int = 1, country: int = 616,
           data_version: str | None = None, output: str | None = None,
-          write_names: bool = True, transliterate: bool = False):
+          write_names: bool = True, transliterate: bool = False,
+          declared_parcels=None):
     """Build the tile bytes and the report; raise on any broken invariant."""
     if not 0 <= country <= 0xFFFF:
         raise WriterError("--country %d does not fit a u16" % country)
@@ -1421,7 +1523,8 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
     if factory_path:
         factory_bytes = _read_bytes(factory_path)
         blob, container = splice_factory(factory_bytes, level, built)
-        section4_info = verify_factory(factory_bytes, blob, level, built, container)
+        section4_info = verify_factory(factory_bytes, blob, level, built, container,
+                                       declared=declared_parcels)
         report.update(
             mode="factory",
             factory=dict(path=factory_path, size=len(factory_bytes),
@@ -2214,6 +2317,76 @@ def selftest():
         check("dry-run exit 0 and no file",
               code == EXIT_OK and not dry_path.exists(), code)
 
+        # M5.71: the declared-parcel guard (reverse of the records loop).
+        def _guard_rec(parcel):
+            gy, gx, grow, gcol = parcel
+            glon, glat, gw, gh = clarion_bg.parcel_geo(1, gy, gx, grow, gcol)
+            pts = [(glon + gw * 0.2, glat + gh * 0.2),
+                   (glon + gw * 0.6, glat + gh * 0.6)]
+            return build_road_record(1, parcel, [(pts, "residential")],
+                                     default_class_table(), 616, write_names=False)
+
+        grec = _guard_rec((72, 936, 4, 5))
+        gbuilt = {(72, 936, 4, 5): dict(plain=grec[0], comp=grec[1], names_sec=None)}
+        gblob, gcont = splice_factory(factory, 1, gbuilt)
+        check("M5.71 guard: untouched factory passes (declared empty)",
+              check_declared_parcels(factory, factory, 1, set())
+              == dict(declared=0, changed=0))
+        check("M5.71 guard: declared splice passes",
+              check_declared_parcels(factory, gblob, 1, {(72, 936, 4, 5)})
+              == dict(declared=1, changed=1))
+        verify_factory(factory, gblob, 1, gbuilt, gcont,
+                       declared={(72, 936, 4, 5)})
+        check("M5.71 guard: verify_factory threads the declared set",
+              True)
+        gmsg = ""
+        try:
+            check_declared_parcels(factory, factory, 1, {(72, 936, 4, 5)})
+        except CheckFailed as exc:
+            gmsg = str(exc)
+        check("M5.71 guard: declared-but-factory fails naming the parcel",
+              "72,936,4,5" in gmsg and "byte-identical to factory" in gmsg, gmsg)
+        gmsg = ""
+        try:
+            check_declared_parcels(factory, gblob, 1, {(72, 936, 4, 6)})
+        except CheckFailed as exc:
+            gmsg = str(exc)
+        check("M5.71 guard: synthetic parcel moved one slot fails",
+              "72,936,4,6" in gmsg and "byte-identical to factory" in gmsg, gmsg)
+        gmsg = ""
+        try:
+            check_declared_parcels(factory, gblob, 1, set())
+        except CheckFailed as exc:
+            gmsg = str(exc)
+        check("M5.71 guard: undeclared change fails naming the record",
+              "72,936,4,5" in gmsg and "not in its box" in gmsg
+              and "(72, 936, 4, 10)" in gmsg, gmsg)
+        gpath = root / "declared.json"
+        gpath.write_text(json.dumps({"format": DECLARED_PARCELS_FORMAT,
+                                     "parcels": [[72, 936, 4, 5]]}), encoding="utf-8")
+        check("M5.71 guard: declared-parcels JSON round-trips",
+              load_declared_parcels(str(gpath)) == {(72, 936, 4, 5)})
+        # prompt_tl (d): a lost duplicate must not read "unchanged".  Write the
+        # SAME record bytes at two parcels, then leave the second at factory; a
+        # value-set comparison would see one distinct stream and miss the loss,
+        # but the position-keyed walk names the parcel that lost its record.
+        dup = {(72, 936, 4, 5): dict(plain=grec[0], comp=grec[1], names_sec=None),
+               (72, 936, 4, 6): dict(plain=grec[0], comp=grec[1], names_sec=None)}
+        dblob, _dcont = splice_factory(factory, 1, dup)
+        half = {(72, 936, 4, 5): dict(plain=grec[0], comp=grec[1], names_sec=None)}
+        hblob, _hcont = splice_factory(factory, 1, half)
+        hmsg = ""
+        try:
+            check_declared_parcels(factory, hblob, 1, {(72, 936, 4, 5), (72, 936, 4, 6)})
+        except CheckFailed as exc:
+            hmsg = str(exc)
+        check("M5.71 guard: a lost duplicate stream is caught, names the parcel",
+              "72,936,4,6" in hmsg and "byte-identical to factory" in hmsg, hmsg)
+        check("M5.71 guard: two identical streams at two parcels both count",
+              check_declared_parcels(factory, dblob, 1,
+                                     {(72, 936, 4, 5), (72, 936, 4, 6)})
+              == dict(declared=2, changed=2))
+
     failed = [name for name, ok, _detail in checks if not ok]
     print("tilewriter selftest: %s (%d/%d checks)"
           % ("OK" if not failed else "FAIL " + ", ".join(failed),
@@ -2252,6 +2425,11 @@ def build_parser():
     parser.add_argument("--background", metavar="OSM.XML",
                         help="write water/river/forest from a small OSM XML extract into "
                              "one odd background record of a factory tile (M5.74)")
+    parser.add_argument("--declared-parcels", metavar="FILE",
+                        help="JSON list of parcels this build declares it wrote "
+                             "(ze0-declared-parcels/1); with --factory, fail when a "
+                             "declared parcel is left at factory or an undeclared "
+                             "parcel changes (M5.71)")
     parser.add_argument("--json", action="store_true", help="write the report as JSON")
     parser.add_argument("--dry-run", action="store_true", help="build and check, write nothing")
     parser.add_argument("--readback", metavar="TILE.DAT",
@@ -2328,6 +2506,8 @@ def main(argv=None):
         parser.error("--cell %r is not a BxxRyyR name" % (cell,))
 
     try:
+        declared = (load_declared_parcels(args.declared_parcels)
+                    if args.declared_parcels else None)
         blob, report = build(
             args.imf, cell,
             factory_path=args.factory,
@@ -2338,6 +2518,7 @@ def main(argv=None):
             output=args.out,
             write_names=not args.no_names,
             transliterate=args.transliterate,
+            declared_parcels=declared,
         )
         report["dry_run"] = bool(args.dry_run)
         if not args.dry_run:
