@@ -110,7 +110,89 @@ jobs:
             echo
             echo '- Hard gate (blocking): `tools/gate.py` (`selftest.py` + `claims_check.py --strict --count-check` + `todo_check.py` + `board.py check HEAD` + `fn_audit.py --corpus/--overlay`, one PASS/FAIL/SKIP policy) on Python 3.11 and 3.13.'
             echo '- `board.py check HEAD` fails a PR that drops a claim row or task block it does not own (H121: PR #340 lost 42 blocks and 199 rows while every other gate passed); it diffs against `origin/main`, which the "Board merge base" step fetches with depth 200.'
-            echo '- A SKIP (missing `archive/head256.img` here) is listed in the job summary and is never counted as PASS; the manual H84 job has the image and requires the l3 gate to PASS.'
+            echo '- A SKIP (missing `archive/head256.img` here) is listed in the job summary and is never counted as PASS; the separate manual H84 real-image workflow has the image and passes it to `fn_audit --require-image` — it is not the H28 synthetic L3 job.'
             echo '- Informational (non-blocking): Python 3.14 job, because `zlib-ng` builds may diverge from stock zlib 1.3.1 byte-identical behavior (H9). This gate does not claim byte-identical recompression.'
             echo '- No vendor data, no IMG256/full card tree, no QEMU build, no L4 hardware tests.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  l3:
+    name: L3 synthetic corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: L3 check (synthetic corpus)
+        id: l3
+        shell: bash
+        run: |
+          # H28: --json PATH writes the same document atomically (H55 form).
+          # The tool exit is propagated unchanged: 0 PASS, 1 FAIL, 2 usage
+          # error (no JSON), 3 NO_RUNNABLE. No continue-on-error, no rewrite
+          # of BLOCKED/SKIP/NO_RUNNABLE into a pass.
+          set +e
+          python3 tools/l3check.py --build-corpus --json l3.json 2>&1 | tee l3.txt
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          import json, os
+          if not os.path.isfile('l3.json'):
+              raise SystemExit('l3check wrote no JSON (usage error); not a pass')
+          with open('l3.json', encoding='utf-8') as f:
+              d = json.load(f)
+          c = d['counts']
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## L3 synthetic corpus (H28)\n\n')
+              out.write('| target | reader | entry | claims | RESULT |\n')
+              out.write('| --- | --- | --- | --- | --- |\n')
+              for r in d['targets']:
+                  out.write('| `%s` | %s | %s | %s | **%s** |\n' % (
+                      r['name'], r['reader'], r['entry'] or '-',
+                      ','.join(r['claims']) or '-', r['status']))
+              out.write('\npass=%d fail=%d skip=%d blocked=%d runnable=%d/%d; '
+                        'result=**%s**; exit=%d\n' % (
+                            c['pass'], c['fail'], c['skip'], c['blocked'],
+                            c['runnable'], c['total'], d['result'], d['exit']))
+              if d['result'] == 'NO_RUNNABLE':
+                  out.write('\n**NO RUNNABLE TARGETS** (exit 3): no L3 verdict '
+                            'was produced; this is not PASS and not SKIP.\n')
+              out.write('\n- BLOCKED (reader has no located entry point) is counted, '
+                        'not a FAIL and not a PASS; SKIP (absent backend) claims nothing.\n')
+              out.write('- Synthetic corpus only: `probe-zlib-cmf` is a runner/dispatcher '
+                        'fixture (`synthetic: true`, `l3_claim: false`); the two '
+                        'firmware-fragment PASS rows ran on synthetic corpus data. '
+                        '**No card acceptance claim (rule 13)**; no L4/L5.\n')
+          PY
+          exit $rc
+
+      - name: L3 policy
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## L3 policy (H28)'
+            echo
+            echo '- Blocking: `python3 tools/l3check.py --build-corpus --json l3.json` on the synthetic corpus; the tool exit is propagated (3 stays RED).'
+            echo '- `BLOCKED` is counted, never a FAIL or PASS; `NO_RUNNABLE` is labelled `NO RUNNABLE TARGETS`, never a green SKIP.'
+            echo '- PASS rows are runner/firmware-fragment evidence on synthetic data, not card acceptance (rule 13); no L4/L5.'
+            echo '- No vendor image, IMG256, network fetch or full card tree in this job; the separate manual H84 workflow owns the real-image job.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload L3 report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l3-synthetic-corpus
+          path: |
+            l3.json
+            l3.txt
+          if-no-files-found: warn
+          retention-days: 7
