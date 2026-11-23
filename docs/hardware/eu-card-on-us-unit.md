@@ -17,6 +17,10 @@ the unit changes. To undo it, put the original card back.
   in the same setup (EXP-2026-11-22-M8.C1q-navi-on-nk1). Before that fix it
   failed on both cards: an emulator timing gap (deferred RAM), not the region.
 - With the card's kernel B instead (M8.C1m), Navi drew the EU map.
+- With Marek's whole unit flash, the EU card crashed `Navi.exe` until area
+  0 of the unit's `SRAM` was erased. After that the map drew and the car
+  followed a GPS fix to Wrocław (EXP-2026-11-23-M1.57, see
+  [Reset area 0](#reset-area-0-of-the-units-sram)).
 
 **It has not been tested in a car yet.** The emulator has no GPS, no radio and no
 vehicle bus. Before the car test, back up the unit's flash (M6.18).
@@ -111,10 +115,14 @@ That is for the car test to show.
    by hand, and `--map-code-only` skips it (that card would stop at
    `NK Version Error`).
 
-5. Write the image to the SD card (`dd if=eu_card.img of=/dev/sdX bs=4M
+5. Reset the navigation's saved state on the unit (area 0 of `SRAM`). See
+   [Reset area 0 of the unit's SRAM](#reset-area-0-of-the-units-sram)
+   below. Without it, the EU card crashed `Navi.exe` in the emulator.
+
+6. Write the image to the SD card (`dd if=eu_card.img of=/dev/sdX bs=4M
    conv=fsync`), lock it with the unit's PIN, and put it in the car.
 
-6. Check and note:
+7. Check and note:
    - whether the map starts (or `DIFFERENT MAP CODE` / FailSafe appears);
    - whether the car's position shows in Wrocław and not Kentucky
      (M1.50/M1.51);
@@ -124,6 +132,69 @@ That is for the car test to show.
 
 To undo: put the original card back, or run `set --code QSD-302-100
 --nk-name X210ECNI.158` on the patched copy.
+
+## Reset area 0 of the unit's SRAM
+
+**Why.** The unit keeps the navigation's own state in `SRAM` (LeafSDTools
+name; flash `0x400000–0x4FFFFF`, the `VSram` stores). This is state the
+navigation writes by itself, not destinations: on Marek's unit the
+navigation was never used, and all navigation and personal data had been
+cleared in the menus. With the unit's full `SRAM`, the patched EU card
+crashed `Navi.exe` before the first map draw (2 of 2 runs). In other
+variants it stopped before the first map draw, with
+`CarPosCountry=255`. With only area 0 erased, the map drew, and with a
+moving GPS fix the car went to Wrocław. The rest of the unit's data was
+Marek's, unchanged. Details: EXP-2026-11-23-M1.57-eu-card-unit-data-wroclaw
+(O6–O8).
+
+**What area 0 is.** In the `SRAM` file it is the first `0x60000` bytes (the
+`SMST` store at `+0x0` and its second copy at `+0x30000`; layout in
+`tools/unitflash_anon.py`, `AREAS`). With it erased, the firmware loads its
+defaults for six objects (`OBJ_BackUp_Load Error` ×5 in the log). The other
+areas stay as they are: car position backup, history, Bluetooth, and VFlash
+(phone books, the TCU/CARWINGS server URL). The only URL in the user areas is
+the firmware default `http://biz.nissan-gev.com/…` in VFlash. Area 0 holds
+no URL.
+
+**Tool.** LeafSDTools, menu `SRAM` (`LeafSDTools/UserSRAM.cpp`
+upstream):
+
+- `DUMP TO SD` writes `\SystemSD\sram_<productId>_<serial>.bin` (1 MiB)
+  and `vflash_….bin`;
+- `RESTORE SRAM` writes `sram_<productId>_<serial>.bin` from the card back
+  to flash blocks `0x47–0x56`, which is the same 1 MiB.
+
+**Steps.**
+
+1. In LeafSDTools: `SRAM` → `DUMP TO SD`. Copy `sram_….bin` from the card
+   to the PC and keep that copy as the backup. It also holds personal data,
+   so do not share it or commit it.
+2. Erase area 0 in the file on the card. Keep the file name, because
+   `RESTORE SRAM` looks for that exact name:
+
+   ```bash
+   F=/media/sd/sram_XXXXXXXX_XXXXXXXX.bin       # the file on the card
+   head -c 393216 /dev/zero | tr '\0' '\377' | dd of="$F" conv=notrunc
+   ls -l "$F"                                   # still 1048576 bytes
+   head -c 393216 "$F" | tr -d '\377' | wc -c   # 0 = area 0 is erased
+   ```
+
+   (`393216` = `0x60000`.)
+3. In LeafSDTools: `SRAM` → `RESTORE SRAM`, and wait for
+   `Wrote 1048576 bytes`.
+4. Switch off, put in the patched EU card (step 6 above), and switch on.
+   Expect the navigation's start-up as after a reset. Settings stored in area
+   0 return to their defaults. Which settings those are is not known.
+
+**Undo.** Put the backup copy back under the same name on the LeafSDTools
+card and run `RESTORE SRAM`. When the US card goes back in, the
+navigation writes area 0 again on its own. A US card with an erased area 0 was
+not tested in the emulator.
+
+**Risk.** This writes the unit's flash. It touches only the `SRAM` blocks,
+the same ones LeafSDTools restores, and not NK1, PROD or the boot blocks.
+The emulator has no vehicle bus, audio controller or real power-off, so the
+car result is still to be seen.
 
 ## The other way round (not recommended)
 
