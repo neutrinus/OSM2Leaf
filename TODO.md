@@ -4511,6 +4511,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: plane 1 rows 0–479 are a back buffer that the hardware never shows (then the shown page must hold the buttons after a flip).
   - Claims: C-8500–C-8509
 
+- [x] **M8.C1u — 2DG area fill: water and parks drawn as rectangles (pattern texture over a stencil polygon)**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1f
+  - Goal: Marek (2026-11-23): on every emulator screenshot water and parks are only rectangles. Find whether that is rendering or data, and fix the renderer if it is.
+  - Precheck: B+A London start screen on the current series; St James's Park drawn as blocks with a curved outline.
+  - Scope: dump the 2DG commands of one screen; fix the command that draws areas; before/after screenshots (B+A and NK1 zoom).
+  - Input: `hw/sh4/ze0_2dg.c` (ze0-0014/0016), EXP-2026-11-22-M8.C1f.
+  - Done when: a patch in `tools/qemu-ze0/patches/`, an EXP with the op evidence and before/after screen hashes, areas following their outlines.
+  - Stop: one session.
+  - Claims: C-8840–C-8849
+  - Result: Areas are 0xe0/0xd0 stencil polygon + 0x82 32x32 pattern; texquad() stretched the pattern over the box. Patch ze0-hc1u repeats it and masks by the polygon: water and parks follow their outlines (factory 3ccbb525…, NK1 zoom on factory and from-zero cards). Older L4 hashes are box-fill renders. EXP-2026-11-23-M8.C1u-2dg-area-pattern, C-8840–C-8844.
+
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Step: model

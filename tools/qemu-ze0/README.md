@@ -310,6 +310,13 @@ kept), so the next run extracts cleanly.
   its build name. **NK1's serial log prints the card's lock password: never
   commit or share it.** See
   [`EXP-2026-11-22-M8.C1r-nk1-boot.md`](../../docs/experiments/EXP-2026-11-22-M8.C1r-nk1-boot.md).
+- `ze0-hc1u` (M8.C1u): map areas (water, parks) are a `0xd0` stencil
+  polygon followed by a `0x82` 32×32 pattern over its box. The pattern is
+  now repeated and masked by the polygon, so areas follow their outlines
+  instead of showing as pixelated rectangles. It sorts after `ze0-h46` on
+  purpose, because it is made against the tree with every other patch
+  applied. Screen hashes taken before it are box-fill renders. See
+  [`EXP-2026-11-23-M8.C1u-2dg-area-pattern.md`](../../docs/experiments/EXP-2026-11-23-M8.C1u-2dg-area-pattern.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
