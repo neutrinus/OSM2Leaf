@@ -117,8 +117,8 @@ worktree at commit `ca9b0ee5` plus the H131 implementation).
 - After splice: features `21`, digest
   `a0eb21a7cba1c3b5ad9b33a185eaaa7b289235191e1bc7cdebd8fbe6d34a30d2`;
   tile 32,948 B, SHA-256 `3c4e1283…78c3`. The decoded new features are road
-  layer `205` (`0x1005`), type `0x1005`, first coordinate `(12.1999969,
-  48.2999980)`.
+  layer `205` (`0xcd`), kind `64`, type `4101` (`0x1005`), first coordinate
+  `(12.1999969, 48.2999980)`.
 - Good tree, `python3 tools/l2check.py --root "$W/out" --semantic-tiles
   B48R058R.DAT --profile "$W/out/golden.json" --cmp-limit 20`:
   `[tile_semantic] OK (B48R058R.DAT=21)`, `RESULT: PASS`, rc `0`.
@@ -129,7 +129,11 @@ worktree at commit `ca9b0ee5` plus the H131 implementation).
   `make_l2_semantic_fixtures selftest: PASS`, `features=21 digest=a0eb21a7…d30d2`,
   `good rc=0 RESULT: PASS`, `mutant 0x7a02 0x5b->0x5a rc=1 RESULT: FAIL`.
 - `python3 tools/selftest.py --only make_l2_semantic_fixtures`: PASS.
-- `python3 tools/selftest.py`: full suite green.
+- `python3 tools/selftest.py --timeout 180`: full suite green,
+  `passed=269 failed=0 skipped=21 total=290`. At the default 60 s timeout a
+  concurrent-agent run gave `268/1` only because `ci_gate_repro` (48.46 s in
+  isolation) hit the 60 s per-tool limit; `python3 tools/selftest.py --only
+  ci_gate_repro` passes with rc 0.
 - Ordering trap (navigator): when `golden.json` is written to `DIR` but
   `DRSTR001.DAT` is rebuilt before it, the good run FAILs
   `[drstr_roundtrip] FAIL (size=912)`. With `drstr_ze0.build(root)` called LAST
