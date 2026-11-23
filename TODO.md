@@ -6493,7 +6493,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
 
 - [ ] **M9.80 — Rule 13 for our generated section-4 names: read an M5.65 tile's place-name list in L3 (first slice of M9.18)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.80-section4-names-l3 · Critical: yes · Pair: required
   - Depends: M5.65 (OSM names written, done), M9.53 (record block read in L3, done), M9.18 (owns the LEV3456R half; this task takes only the section-4 name list)
   - Goal: reader-coverage row 19 says a generated tile carries 37 OSM place names but "no L3/L4 run reads our generated names (rule 13)". M9.18 owns the coarse-level reader and the section-4 consumer together and has stayed unowned for two cycles; split off the name-list half so one pair can finish it in one session. Without a firmware verdict on our bytes, the name writer is accepted on L2 only.
   - Precheck: `python3 tools/board.py show M5.65 | grep -m1 Result:` names the 37/37 OSM names; `python3 tools/mount_dirs_l3.py --help` and `python3 tools/datask_l3.py --help` run; `grep -n 'name list not read' docs/research/reader-coverage.md` finds row 19's gap.
