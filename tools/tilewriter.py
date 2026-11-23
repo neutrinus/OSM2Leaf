@@ -174,6 +174,7 @@ X_FIELD_BIAS = 1024
 UNITS = 2048
 #: Points per link; longer runs are split into a chain of links.
 MAX_LINK_POINTS = 64
+MAX_SHAPE_POINTS = 255   # M5.88: the shape point-count byte (fa_encode.parse_record)
 
 CELL_RE = re.compile(r"^B[0-9A-F]{2}R[0-9A-F]{3}R$")
 DATA_VERSION_RE = re.compile(r"^\d{2}/\d{2}/\d{2}/\d{2}$")
@@ -637,21 +638,31 @@ def build_road_record(level, parcel, runs, table, country, write_names=True):
             local.append(xy)
         if len(local) < 2:
             continue
-        base = len(nodes)
-        nodes.extend(local)
-        links = []
-        link_id = 1
-        step = MAX_LINK_POINTS - 1
-        start = 0
-        while start < len(local) - 1:
-            stop = min(start + step, len(local) - 1)
-            links.append((link_id, base + start, base + stop, local[start + 1:stop]))
-            link_id += 1
-            start = stop
-        chains.append(links)
-        hws.append(highway)
-        labels.append(name if (write_names and name) else "")
-        points += len(local)
+        # M5.88: one shape holds at most MAX_SHAPE_POINTS points (the shape's
+        # point-count byte, read as ``w[p+1] & 0xff``); a longer run becomes
+        # several shapes that share their end points.
+        pieces = []
+        k = 0
+        while k < len(local) - 1:
+            stop = min(k + MAX_SHAPE_POINTS - 1, len(local) - 1)
+            pieces.append(local[k:stop + 1])
+            k = stop
+        for piece in pieces:
+            base = len(nodes)
+            nodes.extend(piece)
+            links = []
+            link_id = 1
+            step = MAX_LINK_POINTS - 1
+            start = 0
+            while start < len(piece) - 1:
+                stop = min(start + step, len(piece) - 1)
+                links.append((link_id, base + start, base + stop, piece[start + 1:stop]))
+                link_id += 1
+                start = stop
+            chains.append(links)
+            hws.append(highway)
+            labels.append(name if (write_names and name) else "")
+            points += len(piece)
     if not chains:
         return None
     has_names = bool(write_names and any(labels))

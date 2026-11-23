@@ -6182,6 +6182,26 @@ into three printed classes.
 | C-5218 | The EU 2011 card's image A (`X210ECNI.158`) has the same `physfirst` `0x8CAE1000` and `dlllast` `0x01F90000` as the US one, so by address it fits the US unit's flash kernel. The kernel still refuses it by build name (C-8401, found in parallel by M8.C1r). | OBSERVED | M | EXP-2026-11-22-M6.19-unit-flash-map O3; `python3 tools/cerom.py --image-start 0x200200 EU64 romhdr` |
 | C-5219 | The unit's boot loaders are `BOOTIPL` (reads a mode switch: `MONI`, `FACT`, `PROD` aging, `SubT`, `NORMAL`), `BASE` (serial monitor, memory tests), the Microsoft Ethernet boot loader, and `BOOTENHN` (SD unlock with `Clarion95321`, `PRODUCT.INF`, writer for `NK1`/`NK2`/`UPNK`/`PM`/`PS`, flash types `SST64`/`SST16`/`NORMAL`), all built Dec 14 2010; image kinds are `IP BS EB EH OI PS UP UE W1 X1 W2 X2 PM UT`. The hand-over order is a hypothesis from address literals. | OBSERVED | M | EXP-2026-11-22-M6.19-unit-flash-map O8 |
 
+## M5.84 — from-zero map plan (C-8750–C-8759)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8750 | The EU 2011 London tile `B48R068R.DAT` (SHA-256 `76aa5246…d3e60e`) has sections 1, 2 and 4 with directories only at levels 2/1 (sec 1, sec 2) and level 1 (sec 4): 4 + 64, 4 + 64 and 55 directories. | VERIFIED | H | EXP-2026-11-23-M5.84-from-scratch-plan; `python3 tools/dir_read_len.py predict B48R068R.DAT` |
+| C-8751 | All 68 section-1 directories of `B48R068R` parse and re-encode byte-identically with the M5.53 wide-row model: kinds 0x2046×36 … 0x2f46×1, 84 wide rows, 912 sub-records in 228 parcels, 117,305 records, 0 bad. | VERIFIED | H | EXP-2026-11-23-M5.84-from-scratch-plan; `python3 tools/s1_wide_dir.py census B48R068R.DAT` |
+| C-8752 | The generic 512-byte-row reader `clarion_tile.read_dir` misplaces 628 row tags of `B48R068R`'s wide directories, so a layout writer must use the wide-row model for section 1 level 1. | VERIFIED | H | EXP-2026-11-23-M5.84-from-scratch-plan; `python3 tools/s1_wide_dir.py census B48R068R.DAT` (`rows_512_reader_wrong_tag`) |
+| C-8753 | The largest section-1 level-1 directory of `B48R068R` is 24,204 B (15 wide rows) against the firmware read length 0x8100 (33,024 B); the read length allows at most 31 wide rows. | VERIFIED | H | EXP-2026-11-23-M5.84-from-scratch-plan; `python3 tools/dir_read_len.py predict B48R068R.DAT` |
+| C-8754 | Every OSM result so far (M5.4, M5.30, M5.74, M8.H71) splices records into a factory tile; no tile without factory records has been read by the firmware at L3 or L4. | OBSERVED | H | EXP-2026-11-23-M5.84-from-scratch-plan; `docs/research/osm-from-scratch.md` |
+
+## M5.85 — Z1 tile relayout (C-8760–C-8769)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8760 | `tools/tile_relayout.py relayout` writes EU2011 `B48R068R` with 5,379 of 5,450 components (3 tables, 191 directories, 5,256 blocks) at new offsets, 0 non-zero input bytes outside the model, and `compare` finds 0 differences in records, directory bodies or boxes. | VERIFIED | H | EXP-2026-11-23-M5.85-tile-relayout O1; `python3 tools/tile_relayout.py relayout B48R068R.DAT -o OUT --json` |
+| C-8761 | The re-laid London tile mounts at L3 (51.5098 N, 0.1342 W) with the same 28 reads and 18 parsed tile reads as the factory card; the only differences are five directory reads of `B48R068R` at the directories' new offsets. | VERIFIED | H | EXP-2026-11-23-M5.85-tile-relayout O4; `python3 tools/datask_l3.py diff FAC.json Z1.json` |
+| C-8762 | On `-M ze0` the card with the re-laid tile draws a London start screen pixel-identical to the factory card (both screenshots SHA-256 `7e23cc73…259f74`) and logs the same 1,043 error/fail lines. | VERIFIED | H | EXP-2026-11-23-M5.85-tile-relayout O5; `bash tools/qemu-ze0/run.sh … --sd Z1.qcow2` + `python3 tools/ze0_screenshot.py screen` |
+| C-8763 | The firmware depends on no factory offset inside a tile: it follows the section-table, directory and slot/row pointers, so a writer may place every component itself. | VERIFIED | H | EXP-2026-11-23-M5.85-tile-relayout Interpretation; C-8760–C-8762 |
+| C-8764 | `clarion_tile.read_dir` misreads section 1 level 2 and section 4 level 1 directories of `B48R068R` (relayout through it loses records: 27 non-zlib records, one overlap, two section-4 directories differ); the wide-row parsers are required. | VERIFIED | H | EXP-2026-11-23-M5.85-tile-relayout O2; `python3 tools/s1_wide_dir.py census OUT` |
+| C-8765 | `B48R068R` section 4 level 1 follows the M4.93 row grammar: 55 directories, 84 wide rows, 3,946 records, 0 bad (`section4_wide.py` and the `tile_relayout` parser agree). | VERIFIED | H | EXP-2026-11-23-M5.85-tile-relayout O1; `python3 tools/section4_wide.py census B48R068R.DAT` |
+| C-8766 | The factory `B48R068R` has no non-zero byte outside its tables, directories and record blocks (677,804 B of zero padding). | VERIFIED | H | EXP-2026-11-23-M5.85-tile-relayout O1; `python3 tools/tile_relayout.py relayout B48R068R.DAT -o OUT --json` (`uncovered_nonzero`) |
+
 ## M8.C1n — INI_STARTUP join and the kepdrv key guard (C-8340–C-8349)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
@@ -6209,6 +6229,33 @@ into three printed classes.
 | C-8577 | In the same run `OBJ_CarPos` (written by `0x00497db4` from the positioning state at `0x00dbce00`) stays at (33.92, −118.52) and 9 screenshots are byte-identical, for stat `2f/3f/1f/5f/6f/7f/0f` and a 150 s track at 50 km/h. | OBSERVED | H | EXP-2026-11-23-M8.H73-receiver-fix-frame O9 |
 | C-8578 | The positioning cycle (`0x0049bdb0` → `0x0049fa44`) takes the GPS position only together with dead-reckoning input (wheel pulses, gyro) or after a plausibility gate that a stationary DR state fails. | HYPOTHESIS | M | EXP-2026-11-23-M8.H73-receiver-fix-frame Interpretation; M8.H78, M8.H32 |
 | C-8579 | On `-M ze0` the gdb stub reads guest-virtual memory only for pages present in the SH-4 UTLB at that moment (software-refilled TLB), so data reads at a breakpoint can return `E14` inside a mapped module; register values right after a load avoid it. | VERIFIED | M | EXP-2026-11-23-M8.H73-receiver-fix-frame O10 |
+
+## M5.87 — Z2 empty London tile (C-8670–C-8679)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8670 | `tools/tile_relayout.py empty` writes a 2,226,688 B London tile with the factory section tables' shape and all 191 directories (68 s1, 68 s2, 55 s4) empty and narrow; both wide-row censuses accept it (0 records). | VERIFIED | H | EXP-2026-11-23-M5.87-empty-london-tile O1; `python3 tools/tile_relayout.py empty B48R068R.DAT -o OUT --pad` |
+| C-8671 | Empty level-1 pairs: even `0x7fffffff` (factory: 20,168 columns); `0xffffffff` in the even words sets bit 31 and makes a narrow level-1 row read as wide (64/68 directories failed the census). The empty **odd** pair is `0xffffffff` (corrected by M5.88, C-8682). Level 2 uses `0xffffffff` (882), section 2 an all-`0xff` body (70). | VERIFIED | H | EXP-2026-11-23-M5.87-empty-london-tile Method 3; `python3 tools/s1_wide_dir.py census OUT` |
+| C-8672 | The card with the empty tile passes `cardcheck --image` once DRSTR001 is rebuilt, mounts at L3 with the same 28 reads (18 parsed), and boots on `-M ze0` to `Pow Off 1st Detect` with the same 1,043 error/fail log lines as the factory card. | VERIFIED | H | EXP-2026-11-23-M5.87-empty-london-tile O2–O4; `python3 tools/datask_l3.py mount … --card-image Z2.img` |
+| C-8673 | With the London tile empty, the level-1 start screen is black except the 126-pixel position mark (SHA-256 `8ef5ee62…e29be2`): land/water/park fills, roads, street labels, shields and place labels all come from `B48R068R`. | VERIFIED | H | EXP-2026-11-23-M5.87-empty-london-tile O4; `python3 tools/ze0_screenshot.py screen` |
+| C-8674 | The place labels of the start screen (SOHO, PICCADILLY CIRCUS) are the odd background records' point-label anchors (`0x..0c`) with names, not section 4. | HYPOTHESIS | M | EXP-2026-11-23-M5.87-empty-london-tile Interpretation; test in M5.89 |
+
+## M5.86 — tile provenance (C-8660–C-8669)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8660 | `tools/tile_provenance.py` matches records by the SHA-256 of their inflated payload: the M5.85 re-laid London tile counts 172,319/172,319 factory records (all sections and levels) although its components moved. | VERIFIED | H | EXP-2026-11-23-M5.86-tile-provenance; `python3 tools/tile_provenance.py FAC.DAT Z1.DAT` |
+| C-8661 | The M5.87 empty London tile has 0 records and `--require-zero` passes; its 4 KiB header equals the factory's in 4,088 bytes (all but the section-table addresses). | VERIFIED | H | EXP-2026-11-23-M5.86-tile-provenance; `python3 tools/tile_provenance.py FAC.DAT Z2.DAT --require-zero` |
+| C-8662 | 544 records the M5.85 relayout carries are zero-length sub-record entries; provenance does not count them. | OBSERVED | M | EXP-2026-11-23-M5.86-tile-provenance Interpretation |
+
+## M5.88 — Z3 London roads from zero (C-8680–C-8689)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8680 | `tools/tile_from_zero.py` writes 602 OSM level-1 road records (London bbox, 376,492 ways) into the empty London container; `tile_provenance --require-zero` reports 0/602 factory records and 4,089/4,096 header bytes equal to the template; `s1_wide_dir` census and `harness.py verify` pass. | VERIFIED | H | EXP-2026-11-23-M5.88-london-roads-from-zero O1; `python3 tools/tile_from_zero.py SPLIT --template B48R068R.DAT --cell B48R068R --class-table CLASS --country 826 -o OUT` |
+| C-8681 | A level-1 shape holds at most 255 points; `tilewriter.build_road_record` splits longer runs into pieces that share end points (a 302-point way failed the readback before). | VERIFIED | H | EXP-2026-11-23-M5.88-london-roads-from-zero O2; `python3 tools/tile_from_zero.py --selftest` |
+| C-8682 | In a section-1 level-1 column an empty odd pair is `0xffffffff` (factory: 1,549 columns, never `0x7fffffff`); with `0x7fffffff` the firmware reads the even record 4 GiB past its offset (`0x10048ca00` for `0x48ca00`), inflate fails, L3 reply `sub 9`, L4 log `<MeshDtChk>READ DATA NG!`, black screen. | VERIFIED | H | EXP-2026-11-23-M5.88-london-roads-from-zero O2; `python3 tools/datask_l3.py mount … --request 0xa6accdef` |
+| C-8683 | A level-1 road record with no odd partner (odd pair `0xffffffff`) is read and drawn, although the factory never writes one. | VERIFIED | H | EXP-2026-11-23-M5.88-london-roads-from-zero O3–O4 |
+| C-8684 | The from-zero card passes `cardcheck --image`, reads the 101,128-B start-parcel record at L3 (reply `sub 3`, inflate window = size rounded up to 256), and boots on `-M ze0` with the factory's 1,043 error/fail lines; the start screen shows the OSM roads (68,906 non-black pixels, SHA-256 `806d6ce8…113aa3`). | VERIFIED | H | EXP-2026-11-23-M5.88-london-roads-from-zero O3–O4; `python3 tools/ze0_screenshot.py screen` |
+| C-8685 | A 156,356-B level-1 record reads at L3 (reply `sub 3`, window `0x26300`); no record-size ceiling was found up to that size (factory max in the tile ≈ 59 KB). | VERIFIED | M | EXP-2026-11-23-M5.88-london-roads-from-zero O3; L4 for > 101 KB is M5.92 |
+| C-8686 | `<MeshDtChk>READ DATA NG! mid=… did=…` (string at VA `0x00179980`, logged by `fn 0x004048cc`) compares the parcel code the request expects (`mid`) with the first word of the inflated record (`did`); a differing `did` per build means a wrong read, not a size check. | OBSERVED | M | EXP-2026-11-23-M5.88-london-roads-from-zero O2 |
 
 ## M8.H78 — locator gates for the GPS position (C-8640–C-8649)
 | ID | Claim | Status | Confidence | Evidence |
