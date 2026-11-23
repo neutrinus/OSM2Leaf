@@ -6636,7 +6636,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: an EXP lists, for one factory record, every unit-0/unit-2 word read with its reading VA and module, with a positive control (a watch on a region the same run demonstrably reads) and a negative control (a section-1 record behind the same pointers is rejected or read differently); the field table goes into `docs/format/map-tiles.md`; then M4.55 returns to `open` (rule 15) and its `Unblock:` clears.
   - Stop: if binding OBJDLL needs more than wiring the M9.65 loader (a shared global map the engine cannot provide), record the missing state and block on the engine change it needs; do not guess a walker from a byte pattern.
   - Falsifier: after binding, the unit-0 watch still records 0 reads while the positive control records > 0 (then the reader is in a third module or an unissued message).
-  - Claims: C-8850–C-8859
+  - Claims: C-8880–C-8889
 
 ## Retired leads
 
