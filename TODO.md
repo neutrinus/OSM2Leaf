@@ -3542,8 +3542,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M5.99, M5.69
   - Result: EXP-2026-11-23-M5.68-stream-jsonl (negative for end-to-end; reader proven: 5454440 signal 9 -> 4657860 no signal)
 
-- [ ] **M5.69 — the `0x2046` slot splice writes the even/odd pair together: `B50R058R` level 1 verifies**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.69 — the `0x2046` slot splice writes the even/odd pair together: `B50R058R` level 1 verifies**
+  - Status: done · Owner: task/m5.69-even-odd-splice · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
   - Goal: `B50R058R` level 1 reaches `tilewriter` with 429,120 single-cell ways and fails `verify_factory` with `section-1 record at (81, 941, 22, 59) changed but was not regenerated` (`tools/tilewriter.py:1182`); the same key at `c = 0` alone is clean while `c >= 1` changes the adjacent odd pair `2c+2`. A single-file tile must be able to hold its own records, so this is a writer defect that gates `B50R058R` and `B48R058R` and any city-centre tile.
@@ -3554,6 +3554,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the pair is inherently in-place (the factory's odd records have no room), record the two record shapes and set `blocked` on a directory-aware container change instead of special-casing one key.
   - Falsifier: a fix that makes `verify_factory` skip the check, or one that passes `B50R058R` but breaks a M5.53/M5.54 wide-row kind.
   - Claims: C-6800–C-6809
+  - Result: EXP-2026-11-23-M5.69-even-odd-splice; at measured origin/main df5133c6f85d626b7940f4db20a7e68ce8b4c2ce the reported (81,941,22,59) failure does not reproduce (tilewriter_rc 0, focus X=490, append path); 118/118 selftest with 4 pair/falsifier cases; B50R058R+B50R050R verify_factory PASS; M5.71 guard rc 1; l2check --semantic-tiles PASS
 
 - [x] **M5.70 — level 2: the writer can create an even slot (1,313 `B50R050R` parcels have none)**
   - Status: done · Owner: task/m5.70-l2-even-slot · Critical: no · Pair: required
