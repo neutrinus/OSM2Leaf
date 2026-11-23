@@ -271,3 +271,16 @@ bundled libpng (C-6506). Which object id maps to which ROM image is
   objects, and whether the unit rejects a trailer whose part number differs
   from the card (the part number is the same string the version database
   reports).
+
+## UI text pools (M1.49)
+
+The object tree also carries the **user-visible UI strings**: the language
+labels, menu items and prompts are UTF-16LE frames inside the player
+`substance.skn`, not firmware resources. A pool frame is
+`[u32 byte_length][UTF-16LE text][NUL pad to 4]`, and each language is one
+block of 35-54 frames headed by the same language-selector list (EU2011 7
+blocks / 8 labels, US2011 2/3, EU2014 16/17). The UI text is rasterized by the
+same FDL font as the map text (`RASTERIZER_DLL.dll` `0x03431020`). Layout,
+selection path and the Polish verdict are in
+[`../firmware/ui-strings.md`](../firmware/ui-strings.md); claims C-8090–C-8099,
+evidence EXP-2026-11-23-M1.49-ui-strings. Reader: `python3 tools/aui_strings.py`.
