@@ -1351,7 +1351,7 @@ route line (C-9911, C-9916 hypothesis).
 
 | Field | Meaning | Read at | Status |
 | --- | --- | --- | --- |
-| `w2 >> 14` | direction at this end: 0 free, 1 may leave here, 2 may not leave here, 3 closed; a one-way link is 1 at one end and 2 at the other | `0x00363834` | VERIFIED (4,263,724 London pairs, 0 exceptions) |
+| `w2 >> 14` | direction at this end: 0 free, 1 may leave here, 2 may not leave here, 3 closed; a one-way link is 1 at one end and 2 at the other | `0x00363834` | VERIFIED (4,263,724 London pairs, 0 exceptions); L4: all one-ways reversed → no route (C-9939) |
 | `(w2 & 0x3fc0) >> 6` turn words | top nibble = target link index at the node (`0xf` = condition record); low byte `0xff` banned, other = condition index | `0x00354018` | VERIFIED (code), counts in EXP |
 | `w2 & 0x3f` | second condition block | `0x00354810` | OBSERVED |
 | `w5` | cost/time: `(w5 & 0xfff) × {1,2,4,40}[w5>>12 & 3]` | `0x003582a4` | VERIFIED (code) |
@@ -1361,7 +1361,37 @@ route line (C-9911, C-9916 hypothesis).
 | `w0 & 0x4000` | cost multiplier | `0x00341980` | OBSERVED |
 | unit 0 words 4–25 | 11 (nodes, links) pairs summing to the counts | — | VERIFIED (45,184/45,184) |
 | header halfword 26 | ISO 3166 country code | `0x0040517e` | VERIFIED (826/250/56/528 in London) |
-| `w4 & 0x30`, `w4 & 0x4000`, words 7–8, node `w2 & 0x2000`, unit 1 | — | — | UNKNOWN |
+| `w4 & 0x30`, `w4 & 0x4000`, words 7–8, node `w2 & 0x2000` | — | — | UNKNOWN |
+
+#### Level 2 and its link to level 1 (M4.98, C-9938)
+
+Section 2 has levels 1, 2, 4 and 5; `B48R068R` fills only levels 1 (45,184
+records) and 2 (6,428). Level-2 mesh keys (record halfwords 0, 1) end in
+`…f` / `…2` and cover 4 × 4 level-1 meshes: level-1 key =
+(`w0 & 0xfff0` + 12 + row, `w1 & 0xfff0` + 12 + col). A level-2 node's x, y
+are level-1 x, y / 4 across those 16 meshes (x from col, y from row).
+
+Level-2 records come in pairs with the same key: one holds unit 0 (the
+level-2 graph, same format as level 1; 559 also hold unit 2) and the other
+holds only **unit 1**, served by request kind `0x10` (`0x00405078`, header
+pair 1) and read by `0x0036d530` (called from `0x0036e1bc` ← `0x0036e51c` ←
+`0x00360f10`):
+
+| Item | Layout |
+| --- | --- |
+| word 0 | level-2 node count of the paired unit 0 |
+| word 1 | `0x?100` (top nibble 2…c); meaning unknown |
+| entries | one per level-2 node, grouped by level-1 record (not in node order) |
+| entry header | `link count << 12` (= the node's level-2 link count) |
+| self triple | (level-2 node, selector `row << 14 \| col << 6`, level-1 node index): the same junction at level 1 |
+| link triples | one per level-2 link, in link order: (link target node, selector, level-1 node index); the level-1 node is a direct level-1 neighbour of the self level-1 node, i.e. the first level-1 step of that level-2 link |
+| trailer | the record's own mesh key (2 words) |
+
+Triples are `2K+1` words in the code; `K = 1` in all factory data. A writer
+that emits level 2 most likely has to emit this map too (not yet tested: the search would have no way to descend from
+level 2 to drivable level-1 links). `tools/sec2_fields.py TILE --level2`
+checks it.
+
 
 ### The `LOC_map` walk of a served road record (M9.66, EU2011 build A)
 
