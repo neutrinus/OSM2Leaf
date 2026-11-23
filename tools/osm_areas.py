@@ -42,6 +42,7 @@ HEATH_NATURAL = {"heath", "scrub", "grassland"}
 URBAN_LANDUSE = {"residential", "commercial", "industrial", "retail", "railway", "construction",
                  "brownfield", "garages", "education", "institutional"}
 LINE_WATERWAY = {"river", "canal"}
+PLACES = {"city", "town", "suburb", "quarter", "neighbourhood", "village", "hamlet", "locality"}
 KINDS = ("water", "riverarea", "river", "park", "forest", "heath", "urban")
 RIVER_WATER = {"river", "canal", "stream"}
 
@@ -159,11 +160,19 @@ def extract(path: str, bbox, elements=None) -> tuple[list[dict], dict]:
             continue
         feats_w.append((w.id, kind, w.refs))
         need.update(w.refs)
-    # pass 3: nodes
+    # pass 3: nodes (and place labels, M5.90)
     coords = {}
+    feats = []
     for el in it():
-        if el[0] == "node" and el[1] in need:
+        if el[0] != "node":
+            continue
+        if el[1] in need:
             coords[el[1]] = (el[3], el[2])  # (lon, lat)
+        tags = el[4] if len(el) > 4 else {}
+        if tags.get("place") in PLACES and tags.get("name") and in_bbox([(el[3], el[2])], bbox):
+            feats.append(dict(id="n%d" % el[1], kind="place", place=tags["place"], name=tags["name"],
+                              point=[el[3], el[2]]))
+            stats["place"] += 1
 
     def pts(refs):
         out = [coords[r] for r in refs if r in coords]
@@ -171,7 +180,6 @@ def extract(path: str, bbox, elements=None) -> tuple[list[dict], dict]:
             stats["missing_nodes"] += len(refs) - len(out)
         return out
 
-    feats = []
     for wid, kind, refs in feats_w:
         p = pts(refs)
         if len(p) < 2 or not in_bbox(p, bbox):
@@ -206,6 +214,7 @@ def selftest() -> int:
 
     W, R = osm_ingest.OsmWay, osm_ingest.OsmRelation
     nodes = [("node", i, 51.5 + 0.001 * (i // 10), -0.1 + 0.001 * (i % 10), {}) for i in range(100)]
+    nodes[55] = ("node", 55, 51.505, -0.095, {"place": "suburb", "name": "Soho"})
     els = nodes + [
         ("way", W(1, [0, 1, 11, 10, 0], {"leisure": "park"})),
         ("way", W(2, [20, 21, 22], {"waterway": "river"})),
@@ -217,7 +226,8 @@ def selftest() -> int:
     ]
     feats, st = extract("", (-0.2, 51.4, 0.0, 51.6), elements=els)
     kinds = collections.Counter(f["kind"] for f in feats)
-    ok(kinds == {"park": 1, "river": 1, "forest": 1, "water": 1}, "park, river, forest (relation), water kept; farmland dropped: %s" % dict(kinds))
+    ok(kinds == {"park": 1, "river": 1, "forest": 1, "water": 1, "place": 1},
+       "park, river, forest (relation), water, place kept; farmland dropped: %s" % dict(kinds))
     rel = [f for f in feats if f["id"] == "r9"][0]
     ok(len(rel["rings"]) == 1 and rel["rings"][0][0] == rel["rings"][0][-1] and len(rel["rings"][0]) == 5,
        "two half-ways join into one closed ring")

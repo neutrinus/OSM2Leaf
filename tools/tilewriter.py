@@ -543,7 +543,7 @@ def load_imf(path: str, cell: str):
         if name:
             stats["ways_named"] += 1
         ways.append({"id": str(record.get("id")), "highway": str(highway),
-                     "name": name, "points": points})
+                     "name": name, "ref": str(tags.get("ref") or ""), "points": points})
     if multi:
         raise WriterError(
             "%d way(s) still span several cells (%s); run tools/mesh_split.py "
