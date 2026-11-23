@@ -4560,7 +4560,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.C1n-ini-startup-join (C-8340–C-8349). INI_STARTUP leaves only on SS_JON_TRANSITION_LAST_SCREEN, a join of ANTITHEFT_CC_NTF_COMP_OK and NOTICE_AUDIO_SOURCE; the second never comes because the audio side waits for the audio micom (M8.H45). Touch is locked by kepdrv m_byKeyGuardAllKey = 0xf1 until CApi_AntitheftUnlock, also on the audio path. New `ze0_uistart.py` / `ze0_launch.py --ui-start` bridges both through the gdb stub: the UI reaches the US consent screen, a tap on OK goes to the map screen, ZOOM IN works; buttons are in DU plane 1 (`ze0_screenshot.py plane`). Next: M8.C1t (screenshot of plane 1), M8.H45 (micom) removes the bridge.
 
 - [ ] **M8.C1t — Screenshot of the AUI layer: DU plane 1 window register and alpha rule**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.c1t-plane1-alpha · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1n
   - Goal: after `ze0_launch.py --ui-start` the AUI draws the consent screen and the map buttons into DU plane 1, but `ze0_screenshot.py screen` shows only the map (C-8348). Marek wants the UI layer in the emulator screenshot (2026-11-22).
