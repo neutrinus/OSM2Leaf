@@ -5982,12 +5982,12 @@ parts are covered by `tools/l3_harness/selftest.py`.
     the missing mapping.
   - Claims: C-5970–C-5979 (was C-2370–C-2379; fresh block for this run)
 
-- [ ] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M9.18 — L3 targets for `LEV3456R` and the tile sections (H11 G8)**
+  - Status: done · Owner: task/m9.18-lev3456-l3-targets · Critical: no
   - Re-opened (rule 15, PO 2026-11-20): M9.53 merged (#349) — `datask_l3.py mount --request MESH` reads and inflates a record block (C-5910–C-5917), so the record-level G/F pair below can run. The blocker line is kept as history.
   - Blocker (history): the mount reads no record block (state 2, `0x1507` undelivered), so coarse records and the section-4 name list cannot be compared; directory level is done.
   - Unblock (met): M9.53 (a map request reads a record block; then rerun the EXP's G/F pair at record level with `lev3456.py decode_record` / `section4.py parse`).
-  - Result: EXP-2026-11-20-M9.18-lev3456r-sec4-l3 (C-2440–C-2446). New `tools/mount_dirs_l3.py` (`check`/`compare`/`changed`, selftest 11) checks each mount read against `lev3456.py`/`clarion_tile`: factory `LEV3456R` 9/9 and `B48R058R` 9/9 (incl. section-4 table + directory, parser `0x00415330`, typ `0x93`) MATCH; a `lev3456gen.py` file is SAME-RELOCATED; controls (L3 dir rows, s4 dir header, wrong model) MISMATCH. The level-3 directory read is the one under the start position (4 positions). Defect: `lev3456gen.py` writes L3 roads into the wrong directory (C-2445) → M5.59. Targets `lev3456_reader`, `tile_section4_reader` registered as blocked entries naming the tools; rows 18–20 updated.
+  - Result: EXP-2026-11-23-M9.18-lev3456r-sec4-records; LEV 109,960 B and S4 640 B records MATCH lev3456.decode_record/section4.parse_record on factory and generated files; 3 firmware-side controls MISMATCH; selftest 266/0/21, gate 5 PASS
   - Step: P2
   - Depends: M9.13 (matrix rows 18–20)
   - Precheck: M9.13 `tile_reader` pattern/runner path is available; VAs for
