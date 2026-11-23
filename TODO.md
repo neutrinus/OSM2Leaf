@@ -3554,7 +3554,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the pair is inherently in-place (the factory's odd records have no room), record the two record shapes and set `blocked` on a directory-aware container change instead of special-casing one key.
   - Falsifier: a fix that makes `verify_factory` skip the check, or one that passes `B50R058R` but breaks a M5.53/M5.54 wide-row kind.
   - Claims: C-6800–C-6809
-  - Result: EXP-2026-11-23-M5.69-even-odd-splice; reported (81,941,22,59) failure does not reproduce on current main (tilewriter_rc 0, focus X=490, append path); 118/118 selftest with 4 pair-readback/falsifier cases; B50R058R+B50R050R verify_factory PASS; M5.71 guard rc 1; l2check --semantic-tiles PASS
+  - Result: EXP-2026-11-23-M5.69-even-odd-splice; at measured origin/main df5133c6f85d626b7940f4db20a7e68ce8b4c2ce the reported (81,941,22,59) failure does not reproduce (tilewriter_rc 0, focus X=490, append path); 118/118 selftest with 4 pair/falsifier cases; B50R058R+B50R050R verify_factory PASS; M5.71 guard rc 1; l2check --semantic-tiles PASS
 
 - [x] **M5.70 — level 2: the writer can create an even slot (1,313 `B50R050R` parcels have none)**
   - Status: done · Owner: task/m5.70-l2-even-slot · Critical: no · Pair: required

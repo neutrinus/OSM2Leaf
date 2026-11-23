@@ -2416,13 +2416,18 @@ def selftest():
         # rewriting it would silence this check.
         tam_partner = bytearray(nn_blob)
         tam_partner[pos + 3] ^= 0x55
+        # The two parcels the fixture writes must be passed as ``built``:
+        # otherwise verify_factory fires on the *directory* comparison first
+        # and the record-level skip set is never exercised (round-2 navigator).
+        written = {(_my, _mx, 4, 3), (_my, _mx, 5, 3)}
         caught_partner = ""
         try:
-            verify_factory(factory, bytes(tam_partner), 1, {}, nn_rep["container"])
+            verify_factory(factory, bytes(tam_partner), 1, written, nn_rep["container"])
         except CheckFailed as exc:
             caught_partner = str(exc)
         check("M5.69 falsifier: unregistered partner corruption fails verify_factory",
-              "changed but was not regenerated" in caught_partner, caught_partner)
+              "section-1 record at" in caught_partner
+              and "changed but was not regenerated" in caught_partner, caught_partner)
 
         # M5.22: a factory splice must preserve a non-spliceable (opaque) directory
         # whose slot-table structure is modelled (header/tags/bodies/tail), and
