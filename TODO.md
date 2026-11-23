@@ -1096,8 +1096,8 @@ The 23rd-pass text is in git (`af469580`).
   - Falsifier: no caller of `0x0003aa80` is reachable from a screen (dead code).
   - Claims: C-8255–C-8259
 
-- [ ] **M1.57 — EU card on Marek's unit data in `-M ze0`: does Navi take a Wrocław fix, and is the card safe for the car**
-  - Status: in progress · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+- [x] **M1.57 — EU card on Marek's unit data in `-M ze0`: does Navi take a Wrocław fix, and is the card safe for the car**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
   - Depends: —
   - Goal: Marek (2026-11-23): before writing the patched EU card for his car, boot it in the emulator on his unit's NK1 and flash dump, inject a GPS fix in Wrocław and check that the map shows.
   - Precheck: `python3 tools/card_mapcode.py show --image EUCARD` prints `QSD-301-100` and `X210NBNI.147` after `set --from-nk1`.
@@ -1106,6 +1106,7 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: one session; nothing is written to a card or unit.
   - Falsifier: the full dump boots the EU card to the map (then there is no flash-side risk).
   - Claims: C-8880–C-8889
+  - Result: EXP-2026-11-23-M1.57-eu-card-unit-data-wroclaw; launcher passes; VSram erased → map + car in Wrocław; full VSram → Navi.exe exception (2/2); trigger in 0x400000–0x43FFFF, not the car position
 
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
