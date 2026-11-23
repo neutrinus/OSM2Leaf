@@ -2959,8 +2959,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8630–C-8639
   - Pair: required
 
-- [ ] **M4.98 — Section-2 link attributes (one-way, travel time, regulation) from the route search's matched-link reads, then a mutation in L4**
-  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: required
+- [x] **M4.98 — Section-2 link attributes (one-way, travel time, regulation) from the route search's matched-link reads, then a mutation in L4**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: required
   - Step: P2
   - Depends: M9.75 (done: readers `0x003534d4` and `0x00358382`, framing and key VERIFIED)
   - Goal: M9.75 caught the route search in L4 but stopped before the reads that follow a link match, so the words that make a link one-way, give its cost or restrict a turn are still unnamed. Name them from the firmware, then prove one by changing it on the factory card and watching the route change.
@@ -2971,7 +2971,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: if the matched-link reads go through an index built by `0x003534d4` (12-byte entries) and never touch unit 0 again, watch the index instead; if that also fails in one session, block with the VAs found.
   - Falsifier: the flipped word changes nothing in the route while the guest demonstrably read it.
   - Claims: C-9930–C-9939
-  - Result: partial: EXP-2026-11-23-M4.98-sec2-fields-ghidra (Ghidra decompile; direction w2>>14 VERIFIED on all London pairs, turn words, cost w5, length w6, boundary links w4&0x8000, header pairs; level-2 unit 1 = level-2 to level-1 node map, VERIFIED; L4: reversed one-ways give no route, re-encoded control unchanged, two-way unchanged; tools/sec2_fields.py, tools/ghidra/; C-9930-C-9939). Open: single-link detour proof in L4, runtime cost tables (w1 categories).
+  - Result: EXP-2026-11-23-M4.98-sec2-fields-ghidra: direction w2>>14, turn words, cost w5, length w6, boundary links, header pairs and level-2 unit 1 named from the decompiled route search and checked on all of B48R068R (tools/sec2_fields.py, tools/ghidra/); L4: one closed route link gives a detour, a closed off-route link and the re-encode control do not, all one-ways reversed gives no route (C-9930-C-9939). Follow-up: runtime cost tables for the w1 categories.
 
 - [ ] **M4.99 — Name the class-d residual of `B48R058R`: padding or a record block, and the covering span if it is real**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -3269,7 +3269,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-19-M5.37-route-graph-golden — `tools/tile_graph_roundtrip.py` + `l2check --graph-tiles`: PASS on the synthetic fixture (2/2) and on the real `B48R058R` splice with 32 writer-emitted section-2 records (32/32, 73,384 others factory-identical); FAIL on a moved endpoint, a dropped link and an unclaimed change; `preserved` (73,416) for an untouched section 2; factory re-emit 67,674/69,345 records, 0 failures. Compared: parcel, nodes, links (id, direction), edge entries; `UNKNOWN`: w4, w5, class/cost words, countries, part b (C-5160–C-5166).
 
 - [ ] **M5.57 — Section-2 writer: the full route graph of a generated tile from OSM (attributes, not only framing)**
-  - Status: blocked · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: required
   - Step: P2
   - Depends: M4.40 (section-2 grammar incl. part b), M5.37 (L2 graph round-trip, done), M4.39 (link key `(parcel, class & 0xf, w3 & 0x1fff)`, done), M5.23 (section-1 record fields)
   - Unblock: M4.40 (field table for part a and part b in `docs/format/map-tiles.md` with the reading VA per field)
@@ -3284,6 +3284,17 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-5850–C-5859
   - Note: 2026-11-23 M9.75 (L4): unit-0 framing and the route-search link key are read off firmware (EXP-2026-11-23-M9.75-sec2-readers-l4, C-9914/C-9915); the attribute words are M4.98. A from-zero card with empty section 2 cannot route (C-9910).
     2026-11-23 M4.98: direction (w2>>14), cost (w5), length (w6), turn words and boundary links are named (EXP-2026-11-23-M4.98-sec2-fields-ghidra); a first writer can set them from OSM oneway/highway and leave conditions out.
+    2026-11-23 first writer (tools/sec2_writer.py, tile_from_zero --sec2): the London OSM card routes and draws in L4 after one-way traps are removed (EXP-2026-11-23-M5.57-sec2-writer-l4, C-10050–C-10057). Open: level-2/4 section 2 + unit 1 from OSM (M5.103), done-when 1 (factory re-emit).
+
+- [ ] **M5.103 — Section 2 at levels 2 and 4 from OSM (with the level-2 → level-1 map), so long routes work on a from-zero card**
+  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
+  - Step: P2
+  - Depends: M5.57 (level-1 writer, London card routes in L4), M4.98 (level-2 unit 1, C-9938)
+  - Goal: the firmware searches long routes top-down: `LEV4Top`, then `LEV2DSIDE`, `LEV1DSIDE` (C-10057). Our cards hold section 2 at level 1 only, so a destination outside the local search cannot be reached. Write the level-2 graph (unit 0), its unit 1 (level-2 node → level-1 junction, first level-1 step per link) and level 4 (in `LEV3456R.DAT` or the grid tile, find out which) from the same OSM graph.
+  - Input: `tools/sec2_writer.py`, `tools/sec2_fields.py --level2`, EXP-2026-11-23-M5.57-sec2-writer-l4, EXP-2026-11-23-M4.98-sec2-fields-ghidra (level-2 section), `docs/format/map-tiles.md` "Level 2 and its link to level 1".
+  - Done when: (1) `sec2_fields.py --level2` passes on our tile with the factory's counts of rule hits (100 %); (2) in L4 a route from the London start to a destination two or more meshes away on our card prints `LEV2DSIDE`/`LEV4Top` (or the level our card has) and draws.
+  - Falsifier: the route search ignores our level 2 (same stages and result with level 2 removed).
+  - Claims: C-10060–C-10069
 
 - [x] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: done · Owner: task/m5.38-card-ladder · Critical: yes · Pair: solo

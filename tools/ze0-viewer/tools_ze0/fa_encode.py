@@ -168,7 +168,8 @@ def patch_point_refs(unit, at, chains, level, styles):
             return p + ((unit[p + 1] >> 13) & 1) + 2
         for p, q in zip(starts[0::2], starts[1::2]):
             sp, sq = slot(p), slot(q)
-            if sp < len(unit) and sq < len(unit) and unit[sp] == 0xFFFF and unit[sq] == 0xFFFF:
+            # a reference is one word: a start past word 0xfffe of the unit stays unpaired
+            if sp < len(unit) and sq < len(unit) and unit[sp] == 0xFFFF and unit[sq] == 0xFFFF and max(p, q) < 0xFFFF:
                 unit[sp], unit[sq] = q, p
                 patched += 1
         for p in starts[len(starts) // 2 * 2:]:

@@ -7,10 +7,17 @@ of a tile obey it.  Reads only the tile; prints counts, never vendor bytes.
 
     python3 tools/sec2_fields.py TILE.DAT [--sample N]
     python3 tools/sec2_fields.py TILE.DAT --level2
+    python3 tools/sec2_fields.py TILE.DAT --s1-direction [--limit N]
+    python3 tools/sec2_fields.py TILE.DAT --census
+    python3 tools/sec2_fields.py FACTORY.DAT --sense OTHER.DAT [--limit N]
     python3 tools/sec2_fields.py --selftest
 
 ``--level2`` checks the level-2 unit-1 layout (the level-2 to level-1 node map
 read by ``0x0036d530``) against the level-2 graph and the level-1 records.
+``--s1-direction`` pairs each section-2 entry with its drawn section-1 link
+(key ``(parcel, class, id)``, C-5150) and counts (section-1 point y bits
+15-14, section-2 ``w2 >> 14``, entry at the drawn last point): the factory
+has 1 = one-way along the drawn points, 2 = against, 3 = closed (M5.57).
 """
 from __future__ import annotations
 
@@ -131,7 +138,7 @@ def check_level2(key, u0, u1, l1, st: collections.Counter) -> None:
         st["L2 entries"] += 1
         st["L2 entry: neighbour count == node link count"] += (h >> 12) == len(links[a])
         nodes = l1.get(l1_key(key, sel))
-        if nodes and b < len(nodes[0]):
+        if nodes and b < len(nodes[0]) and a < nn:
             x1, y1 = nodes[0][b]
             gx, gy = (((sel >> 6) & 3) * 2048 + x1) / 4, ((sel >> 14) * 2048 + y1) / 4
             st["L2 entry: level-1 node on the level-2 node (1/4 scale, +-1)"] += (
@@ -139,7 +146,7 @@ def check_level2(key, u0, u1, l1, st: collections.Counter) -> None:
         for j, (a2, s2, b2) in enumerate(tr[1:]):
             st["L2 link triples"] += 1
             st["L2 link triple: node == link target (w0 & 0x3fff)"] += (links[a][j][0] & 0x3FFF) == a2
-            if s2 == sel and nodes:
+            if s2 == sel and nodes and b < len(nodes[1]):
                 st["L2 link triple in same level-1 record"] += 1
                 st["L2 link triple: level-1 node is a level-1 neighbour of the entry's"] += b2 in nodes[1][b]
 
@@ -184,6 +191,131 @@ def run_level2(tile: str) -> collections.Counter:
     return st
 
 
+def run_s1_direction(tile: str, limit: int = 0) -> collections.Counter:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "ze0-viewer", "tools_ze0"))
+    import route_link_join as R
+    T = R.Tile(tile)
+    st = collections.Counter()
+    codes = [c for c in T.sec2 if c in T.shape_rec]
+    for code in codes[:limit or None]:
+        try:
+            sh, g = T.shapes(code), T.graph(code)
+        except Exception:
+            st["parcels unreadable"] += 1
+            continue
+        if not sh or not g:
+            continue
+        w, _unit, shapes = sh
+        bits = {}
+        for s in shapes:
+            for off, (role, lid) in s["points"].items():
+                if lid is not None and role in ("end", "vertex") and off + 1 < len(w):
+                    bits.setdefault((s["cls"], lid & 0x1FFF), set()).add(w[off + 1] >> 14)
+        for nd in g["nodes"]:
+            for e in nd["entries"]:
+                k = (e["cls"] & 0xF, e["id"] & 0x1FFF)
+                if e["cls"] & 0x8000 or k not in bits:
+                    continue
+                st["s1 bits %s, s2 dir %d, at last point %s"
+                   % ("/".join(map(str, sorted(bits[k]))), e["w5"] >> 14, bool(e["id"] & 0x2000))] += 1
+    return st
+
+
+def level1_records(tile: str):
+    """Yield the plain halfwords of every section-2 level-1 record of a tile."""
+    import tile_relayout
+    m = tile_relayout.read_model(open(tile, "rb").read())
+    for sec in m["sections"]:
+        if sec["id"] != 2:
+            continue
+        for L in sec["levels"]:
+            if L["level"] != 1:
+                continue
+            for dm in L["dirs"]:
+                for un in dm["units"]:
+                    for raw in un["recs"]:
+                        if raw:
+                            pl = zlib.decompress(raw)
+                            yield list(struct.unpack(">%dH" % (len(pl) // 2), pl[:len(pl) // 2 * 2]))
+
+
+def census_record(w: list[int], st: collections.Counter) -> None:
+    """Count (direction, class, w4 type nibble) per inner link entry and one-way traps per node."""
+    o, n = (w[6] << 16) | w[7], (w[8] << 16) | w[9]
+    if o == 0xFFFFFFFF:
+        return
+    _xy, links = graph(w[o:o + n])
+    for ls in links:
+        inner = [lw for lw in ls if not lw[4] & 0x8000]
+        dirs = [lw[2] >> 14 for lw in inner]
+        if len(ls) == 1 and inner:
+            st["node: dead end, direction %d" % dirs[0]] += 1
+        if inner and len(inner) == len(ls):
+            st["node: no way out (all 2/3)"] += all(d in (2, 3) for d in dirs)
+            st["node: no way in (all 1/3)"] += all(d in (1, 3) for d in dirs)
+        for lw in inner:
+            st["dir %d class %2d type %2d" % (lw[2] >> 14, lw[4] & 0xF, (lw[4] >> 8) & 0xF)] += 1
+            st["dir %d w4 & 0x10 %s" % (lw[2] >> 14, bool(lw[4] & 0x10))] += 1
+
+
+def run_census(tile: str) -> collections.Counter:
+    st = collections.Counter()
+    for w in level1_records(tile):
+        census_record(w, st)
+    return st
+
+
+def drawn_links(T, code):
+    """[(first point, last point, one-way bits)] of the drawn links of one parcel (section 1)."""
+    sh = T.shapes(code)
+    if not sh:
+        return []
+    w, _unit, shapes = sh
+    out = []
+    for s in shapes:
+        bits = collections.defaultdict(set)
+        for off, (_role, lid) in s["points"].items():
+            if lid is not None and off + 1 < len(w):
+                bits[lid & 0x1FFF].add(w[off + 1] >> 14)
+        for lid, (a, b) in zip(s["links"], s["ends"]):
+            bb = bits.get(lid & 0x1FFF, set()) - {0}
+            out.append((a, b, max(bb) if bb else 0))
+    return out
+
+
+def sense_pairs(fac, oth, tol=3):
+    """Pair one-way drawn links of ``fac`` with ``oth`` links whose ends lie within ``tol``;
+    yield (factory sense, other sense), +1 = along the factory link's first->last points."""
+    near = lambda p, q: abs(p[0] - q[0]) <= tol and abs(p[1] - q[1]) <= tol  # noqa: E731
+    idx = collections.defaultdict(list)
+    for a, b, d in oth:
+        idx[(a[0] // 4, a[1] // 4)].append((a, b, d))
+    for a, b, d in fac:
+        if d not in (1, 2):
+            continue
+        for oa, ob, od in idx.get((a[0] // 4, a[1] // 4), []) + idx.get((b[0] // 4, b[1] // 4), []):
+            if near(a, oa) and near(b, ob):
+                flip = 1
+            elif near(a, ob) and near(b, oa):
+                flip = -1
+            else:
+                continue
+            yield (1 if d == 1 else -1), (0 if od == 0 else (1 if od == 1 else -1) * flip)
+            break
+
+
+def run_sense(tile: str, other: str, limit: int = 0) -> collections.Counter:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "ze0-viewer", "tools_ze0"))
+    import route_link_join as R
+    F, O = R.Tile(tile), R.Tile(other)
+    st = collections.Counter()
+    codes = [c for c in F.shape_rec if c in O.shape_rec]
+    for code in codes[:limit or None]:
+        for fs, os_ in sense_pairs(drawn_links(F, code), drawn_links(O, code)):
+            st["factory one-way %+d, other %+d" % (fs, os_)] += 1
+    return st
+
+
 def run(tile: str, sample: int | None) -> collections.Counter:
     import tile_relayout
     m = tile_relayout.read_model(open(tile, "rb").read())
@@ -222,6 +354,13 @@ def selftest() -> int:
     assert st["boundary link at a mesh-edge node"] == 1, st
     assert st["header: sum of 11 pair firsts == node count"] == 1, st
     assert link_words(1, 0x0041, 0x4000) == 4
+    fac = [((0, 0), (100, 0), 1), ((0, 50), (0, 90), 2)]
+    oth = [((101, 1), (1, 0), 2), ((0, 50), (0, 91), 0)]
+    assert list(sense_pairs(fac, oth)) == [(1, 1), (-1, 0)]
+    st = collections.Counter()
+    census_record(w + u, st)
+    assert st["node: dead end, direction 2"] == 1 and st["node: no way out (all 2/3)"] == 1, st
+    assert st["dir 1 class  5 type  0"] == 1 and st["node: no way in (all 1/3)"] == 0, st
     # level 2: two nodes joined by one link, mapped to level-1 nodes 0 and 1 of record (0, 0)
     u0 = [0, 2, 0, 2] + [0, 0] * 11 + [0x1004, 0x0004, 0, 1, 0, 0, 0, 0, 0, 0,
                                          0x1008, 0x0004, 0, 0, 0, 0, 1, 0, 0, 0]
@@ -233,7 +372,7 @@ def selftest() -> int:
     assert st["L2 link triple: node == link target (w0 & 0x3fff)"] == 2, st
     assert st["L2 entry: level-1 node on the level-2 node (1/4 scale, +-1)"] == 2, st
     assert st["L2 link triple: level-1 node is a level-1 neighbour of the entry's"] == 2, st
-    print("selftest OK: link size, one-way pairing, boundary links, header pairs, level-2 unit 1")
+    print("selftest OK: link size, one-way pairing, boundary links, header pairs, census, level-2 unit 1")
     return 0
 
 
@@ -242,13 +381,27 @@ def main(argv=None) -> int:
     ap.add_argument("tile", nargs="?")
     ap.add_argument("--sample", type=int)
     ap.add_argument("--level2", action="store_true", help="check level-2 unit 1 instead")
+    ap.add_argument("--s1-direction", action="store_true",
+                    help="pair section-2 directions with the section-1 one-way bits")
+    ap.add_argument("--limit", type=int, default=0, help="--s1-direction: first N parcels only")
+    ap.add_argument("--census", action="store_true",
+                    help="count (direction, class, type) per link end and one-way traps per node")
+    ap.add_argument("--sense", metavar="OTHER",
+                    help="compare section-1 one-way sense of TILE (factory) with OTHER on links with matching ends")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
     if not a.tile:
         ap.error("TILE required")
-    st = run_level2(a.tile) if a.level2 else run(a.tile, a.sample)
+    if a.s1_direction:
+        st = run_s1_direction(a.tile, a.limit)
+    elif a.sense:
+        st = run_sense(a.tile, a.sense, a.limit)
+    elif a.census:
+        st = run_census(a.tile)
+    else:
+        st = run_level2(a.tile) if a.level2 else run(a.tile, a.sample)
     for k, v in sorted(st.items()):
         print("%-55s %d" % (k, v))
     return 0

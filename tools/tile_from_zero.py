@@ -429,7 +429,7 @@ def level2_table(table: dict) -> dict:
 
 def build_records(split: str, cell: str, class_table: str | None, country: int, write_names: bool,
                   limit: int = 0, names_out: dict | None = None, class_override: str = "",
-                  level: int = 1):
+                  level: int = 1, graphs_out: dict | None = None):
     table, _src = tilewriter.load_class_table(class_table)
     table = apply_class_override(table, class_override)
     if level == 2:
@@ -449,7 +449,16 @@ def build_records(split: str, cell: str, class_table: str | None, country: int, 
     built, sizes = {}, []
     trim = collections.Counter()
     for parcel in sorted(runs):
-        res, dropped = fit_record(parcel, runs[parcel], table, country, write_names, limit, level)
+        res, dropped = fit_record(parcel, runs[parcel], table, country, write_names, limit, level,
+                                  graph=graphs_out is not None)
+        if res is not None and graphs_out is not None:
+            import math
+            from clarion_bg import parcel_geo
+            lon0, lat0, width, height = parcel_geo(level, *parcel)
+            unit_m = (width / UNITS * 111320.0 * math.cos(math.radians(lat0 + height / 2)),
+                      height / UNITS * 110574.0)
+            code = struct.unpack_from(">HH", res[0], 0)
+            graphs_out[parcel] = (code, tilewriter.build_road_record.last_graph, unit_m)
         if dropped:
             trim["parcels"] += 1
             trim["runs"] += dropped
@@ -464,7 +473,7 @@ def build_records(split: str, cell: str, class_table: str | None, country: int, 
     return built, sizes, imf_stats
 
 
-def fit_record(parcel, runs, table, country, write_names, limit=0, level=1):
+def fit_record(parcel, runs, table, country, write_names, limit=0, level=1, graph=False):
     """Build the record; drop the least important runs until it fits ``limit``.
 
     The class table's second value is the rank (1 motorway ... 9 service);
@@ -474,19 +483,26 @@ def fit_record(parcel, runs, table, country, write_names, limit=0, level=1):
     rank = lambda r: table[tilewriter._run_fields(r)[1]][1]  # noqa: E731
     order = sorted(runs, key=lambda r: (rank(r), -len(tilewriter._run_fields(r)[0])))
     keep = len(order)
-    res = tilewriter.build_road_record(level, parcel, order, table, country, write_names=write_names)
+    res = tilewriter.build_road_record(level, parcel, order, table, country, write_names=write_names,
+                                       graph=graph, allow_oversize=bool(limit))
     while limit and res is not None and len(res[0]) > limit and keep > 1:
         keep = max(1, keep - max(1, keep // 10))
-        res = tilewriter.build_road_record(level, parcel, order[:keep], table, country, write_names=write_names)
+        res = tilewriter.build_road_record(level, parcel, order[:keep], table, country, write_names=write_names,
+                                           graph=graph, allow_oversize=bool(limit))
     if limit and res is not None and len(res[0]) > limit:
         raise CheckFailed("parcel %r: one run alone exceeds %d B" % (parcel, limit))
     return res, len(order) - keep
 
 
 def from_zero(template: bytes, built: dict, pad: bool = True, odd: dict | None = None,
-              built2: dict | None = None, odd2: dict | None = None) -> tuple[bytes, dict]:
+              built2: dict | None = None, odd2: dict | None = None,
+              sec2: dict | None = None) -> tuple[bytes, dict]:
     m = tile_relayout.empty_model(tile_relayout.read_model(template))
     st = collections.Counter(place(m, built, odd))
+    if sec2:
+        import sec2_writer
+        st.update({"sec2_" + k: v for k, v in sec2_writer.place(m, sec2).items()})
+        st["records"] += len(sec2)
     if built2 or odd2:
         st.update(place(m, built2 or {}, odd2, level=2))
     st = dict(st)
@@ -644,6 +660,8 @@ def main(argv=None) -> int:
                     help="drop the least important roads of a parcel until its record fits (0 = no limit)")
     ap.add_argument("--level2", action="store_true",
                     help="also write level-2 road and urban records (Z6, M5.91)")
+    ap.add_argument("--sec2", action="store_true",
+                    help="also write the level-1 route graph (section 2, M5.57; links split at junctions)")
     ap.add_argument("-o", "--out")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
@@ -655,9 +673,14 @@ def main(argv=None) -> int:
         return 2
     try:
         names = {}
+        graphs = {} if args.sec2 else None
         built, sizes, imf_stats = build_records(args.split, args.cell, args.class_table, args.country,
                                                 not args.no_names, args.max_plain, names_out=names,
-                                                class_override=args.class_override)
+                                                class_override=args.class_override, graphs_out=graphs)
+        sec2, sec2_stats = {}, {}
+        if args.sec2:
+            import sec2_writer
+            sec2, sec2_stats = sec2_writer.build(graphs, args.country)
         odd, bg_stats = {}, {}
         if args.areas or names:
             only = set(args.areas_kinds.split(",")) if args.areas_kinds else None
@@ -673,11 +696,14 @@ def main(argv=None) -> int:
                 plains2, bg2 = build_background(args.areas, args.country, only, args.urban_fill,
                                                 names2, args.places, level=2)
                 odd2 = {k: (v, tilewriter.compress(v)) for k, v in plains2.items()}
-        out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd, built2=built2, odd2=odd2)
+        out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd, built2=built2, odd2=odd2,
+                            sec2=sec2)
+        if args.sec2:
+            st["sec2"] = sec2_stats
         st["background"] = bg_stats
         if args.level2:
             st["level2"] = dict(parcels=len(built2), odd=len(odd2), background=bg2)
-    except (CheckFailed, tilewriter.CheckFailed, tilewriter.WriterError) as exc:
+    except (CheckFailed, tilewriter.CheckFailed, tilewriter.WriterError, ValueError, LookupError) as exc:
         print("tile_from_zero: FAIL %s" % exc)
         return 1
     Path(args.out).write_bytes(out)
