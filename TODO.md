@@ -1096,6 +1096,17 @@ The 23rd-pass text is in git (`af469580`).
   - Falsifier: no caller of `0x0003aa80` is reachable from a screen (dead code).
   - Claims: C-8255–C-8259
 
+- [ ] **M1.57 — EU card on Marek's unit data in `-M ze0`: does Navi take a Wrocław fix, and is the card safe for the car**
+  - Status: in progress · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: Marek (2026-11-23): before writing the patched EU card for his car, boot it in the emulator on his unit's NK1 and flash dump, inject a GPS fix in Wrocław and check that the map shows.
+  - Precheck: `python3 tools/card_mapcode.py show --image EUCARD` prints `QSD-301-100` and `X210NBNI.147` after `set --from-nk1`.
+  - Scope: `tools/ze0_launch.py --peer panel --peer gps --gdb P --ui-start` with the EU 2011 card patched by `card_mapcode.py set --from-nk1`, the unit dump as `--flash`; GPS peer fix in Wrocław; bisect the flash dump's VSram area when the boot fails.
+  - Done when: an EXP with the outcome per flash variant (full dump, VSram erased, halves) and the screen with the fix in Wrocław; claims.
+  - Stop: one session; nothing is written to a card or unit.
+  - Falsifier: the full dump boots the EU card to the map (then there is no flash-side risk).
+  - Claims: C-8880–C-8889
+
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: — (serves M5.61 and M5.35: their gates run the card verifier chain on hosts we do not control; rule 17)
