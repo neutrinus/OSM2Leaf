@@ -1,0 +1,92 @@
+Role: QA (test engineer), cycle 20. Model: opencode/strong.
+Start 2026-11-23 07:16Z. origin/main at start: 2df20bdd; moved mid-run
+78dc8a84 then 68cbef5b (both fetched and re-checked, see below).
+
+Inputs: prompt_common.txt, prompt_qa.txt, AGENTS.md, TODO.md rules 1-17;
+docs/retro/2026-11-23.md; SM/SE/PO logs 2026-11-23-{0620-1-sm,0631-2-se,
+0702-3-po}; .github/workflows/{ci,l1l2-fixtures,main-watch}.yml + README;
+tools/{gate,selftest,cardcheck,l2check,l3check,realcheck,todo_check,
+claims_check,fn_audit,progress_report,l4_status}.py; reader-coverage.md;
+docs/research/test-system.md.
+
+CI runs checked (gh run list "CI quality gate" --branch main, 40 rows
+2026-11-22..23; gh pr checks 636)
+- GREEN: 36 runs, latest tip 68cbef5b (45133473643); 2df20bdd (45129811953),
+  5785a14f (45127042711), 1744ecc5, 36a4d251, c77a832d, 5ff6442e, ...
+- RED on main: 78dc8a84 (45132541996) stand-ing gate: selftest FAIL 75.87 s +
+  todo_check FAIL 0.05 s, gate 2 pass/2 fail/1 skip; e5f50d4f (45068958201):
+  ci_gate_repro timeout 60.06 s; a92f5a9b (45005779931) and af469580
+  (45003382271): todo_check FAIL. All four since 2026-11-22, none in the
+  retro's "green" window (retro's window ended 36a4d251 06:20Z today).
+- CANCELLED: 9 in the 40-row window (concurrency de-dup, never counted red).
+- PR #636 (merge of 78dc8a84) was RED before the merge: 3 quality jobs fail,
+  l1l2 pass. The red was not introduced by the merge; it was merged red.
+
+Mechanical watch: main_watch at 07:47Z = 1 salient, 1 shadowed, 9 cancelled,
+exit 1 (RED, issue #418 updated); after the 68cbef5b merge = 0 salient,
+1 shadowed, GREEN exit 0. Reports one merge late, by design (H117).
+
+Local gate on a clean detached worktree (not the primary checkout):
+- 68cbef5b with archive/head256.img: gate 3 pass, 2 fail, 0 skip --
+  selftest FAIL (fn_audit_l3_image) + fn_audit FAIL; at 5785a14f both 0 new,
+  exit 0. fn_audit stale on tip: DOCS BASE 1 new, L3 OVERLAY 7 new (open
+  TODO blocks + M6.19/M8.H73 EXPs). PR CI SKIPs fn_audit on the missing head.
+- todo_check default OK on 68cbef5b; --strict 18 ERROR (8 Unblock-done,
+  3 Precheck, 2 Scope, 3 Stop, 2 archived-ID-as-ERROR). At 78dc8a84: 19,
+  the extra one was overlapping claims C-8580 (M5.82/M8.C1t), fixed by
+  68cbef5b.
+- l3check --build-corpus: pass=3 fail=0 blocked=10 runnable=3/13, and a
+  "NOT RUN (no tree)" row is inside pass=3 with no count field.
+- realcheck IMG256 (the quoted command) = 8 SKIP, exit 2 on a host that HAS
+  the head; realcheck archive/head256.img = 8 PASS. Cause: fopen("IMG256").
+- Workflows: 0 steps run l3check/progress_report/realcheck; only
+  main-watch.yml has workflow_dispatch/schedule (no firmware job, H84 open).
+
+Per-level gaps (progress signal, SKIP never pass)
+- L1: cardcheck baseline tool planned (H104) but not a CI step; no H0/L1
+  matrix rows in a PR summary.
+- L2: per-file/per-feature matrix (H41) and committed baseline (H57) open;
+  l1l2-fixtures publishes one aggregate line, no PASS->SKIP check.
+- L3: H28/H96/H107 open; the verdict line cannot distinguish executed vs
+  replayed (H136); no PR step at all.
+- L4: l4check.py/l4_status.py exist, never in CI; readiness only (H44).
+- L5: H29/H44 readiness package, not automatable; correctly NOT RUN.
+- Cross-level: no regression step (H139); no per-level summary in a PR (H137);
+  IMG256/weekly job absent and its command token is broken (H134); red merge
+  not refused/visible on PRs (H132); red gate hides behind a CI SKIP (H138).
+
+Tasks added (8; H132-H139; claims C-8660-C-8739 in order)
+- H132 red PR #636 merged -> main red; main_watch --prs red-head sweep.
+- H133 todo_check --strict 18 ERROR; rule 15 dead, 2 archived-ID errors.
+- H134 IMG256/weekly job absent + realcheck IMG256 token bug (fopen).
+- H135 image_audit.py: if:/continue-on-error/--require-image scanner.
+- H136 l3check: executed vs replayed vs not_run; PASS with 3/13 unearned.
+- H137 one progress table per level in the two PR workflows (H41/H42/H56/H55).
+- H138 fn_audit live check stale on every map PR; gate --no-live-check/weekly.
+- H139 wire H57/H104 baselines into l1l2-fixtures as a blocking step.
+
+Decisions and rejected alternatives
+- Did not duplicate H41/H42/H56/H57/H84/H96/H107/H108/H120/H131/M9.62/M9.71:
+  each new task names the existing one it depends on/extends (or says
+  "close me if H57/H104 already wire it").
+- Did not re-file the retro's six dead Unblocks as new tasks: H133 repairs
+  them (rule 17, fixed where found).
+- Did not edit TODO.md with the editor except the H132/H133 insert: their
+  claim block (8640) had just been taken by 68cbef5b between my read and
+  write; board.py refused, so I re-took 8720/8730 and inserted after the
+  six the tool added. board.py lost/check to confirm nothing dropped.
+- No merge: QA plans, the owners ship. No L5 work planned as near-term.
+
+Problems
+- The window "CI green" claim in the retro holds only for its own window
+  (ended 06:20Z); two reds landed after it, one of them merged red.
+- The H53 pointer in prompt_qa.txt is stale (archived); the live count is
+  H133's 18.
+
+Handoff
+- TL: 8 open tasks, all H (test-system). H132/H133/H138 are the three that
+  make the board's own "green" claim true; H136/H139 need H96/H57 first.
+- Human: branch protection (H98) is still the only refusal; H132 is the
+  visible half.
+- Next QA pass: run main_watch --prs and compare the run list to this log's
+  four red SHAs; expect H133 to have moved strict to 0.

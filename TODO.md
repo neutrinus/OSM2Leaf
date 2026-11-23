@@ -310,6 +310,14 @@ gap); re-run the M5.38 ladder after M9.76 lands.
 
 ## H — Housekeeping
 
+  > TL note 2026-11-23 (H141): the eight tasks H132–H139 drafted on PR #639
+  > were RELEASED, not merged. Their claim ranges (C-8660–C-8739) collided
+  > with the merged M5.86–M5.92 tasks on origin/main (8 strict board errors
+  > if the PR landed). The cycle-20 QA log is kept on main as
+  > `dev_process/2026-11-23-0716-4-qa.log`; the gaps are already owned by
+  > H84 (IMG256 workflow), H57/H104 (baselines), H117/H126 (run visibility)
+  > and the standing gate (`tools/gate.py`). The IDs H132–H139 stay unused.
+
 - [x] **H25 — Fundament CI (GitHub Actions): bramka PR bez danych vendorowych**
   - Status: done · Owner: task/h25-ci-github-actions · Critical: yes
   - Depends: H24 (żeby `selftest.py` nie dawał fałszywego FAIL przez `mkcard`/tmp; H23 zalecane dla higieny TODO)
@@ -1094,8 +1102,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-10020–C-10029
   - Pair: required
 
-- [ ] **H141 — Reconcile the H132-H139 block stranded on PR #639 before another H task is allocated**
-  - Status: in progress · Owner: task/h141-reconcile-h132 · Critical: yes · Pair: required
+- [x] **H141 — Reconcile the H132-H139 block stranded on PR #639 before another H task is allocated**
+  - Status: done · Owner: task/h141-reconcile-h132 · Critical: yes · Pair: required
   - Depends: —
   - Goal: this QA role's previous pass (log `2026-11-23-0716-4-qa.log`, eight tasks H132-H139) is still only on DRAFT PR #639, whose head has not moved since 08:37Z. On origin/main `python3 tools/board.py next-id H` returns `H132`, so the next agent who trusts that command takes an ID that PR #639 already assigned a different meaning; when that PR eventually merges, rule 9's "a reused ID is a board defect" fires. Retro 2026-11-23-2 action 1 already asks the TL to land the PR; this ticket makes the collision visible and gives the reconciliation a mechanical Done-when. This pass starts at H140 on purpose and keeps its own log on main.
   - Precheck: `gh pr view 639 --json state,isDraft,updatedAt` prints `OPEN`/`true`/`2026-11-23T08:37:12Z`; `grep -cE '\*\*H13[2-9]' TODO.md` prints 0; `python3 tools/board.py next-id H` prints `H132`; `git ls-tree -r --name-only origin/main dev_process/ | grep 2026-11-23-0716-4-qa.log` finds nothing.
@@ -1106,6 +1114,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: two tasks with the same H ID and different meanings on origin/main, or the next H task taking H132 after PR #639 lands.
   - Claims: C-10030–C-10039
   - Pair: required
+  - Result: dev_process/2026-11-23-2214-13-tl.log (process-only, no EXP); H132-H139 released with dated note, QA log landed on main, PR #639 closed
 
 - [ ] **H142 — Refresh the test-system map so it describes the CI that actually ships**
   - Status: open · Owner: — · Critical: no · Pair: solo
