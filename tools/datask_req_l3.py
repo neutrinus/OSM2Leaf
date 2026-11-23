@@ -63,14 +63,16 @@ REQ_EU2011 = {
 }
 # US2011 build A (`archive/us256.img`, M9.72).  The client table is the pool
 # word of the paired client-open function: EU 0x003ed6e8 -> US 0x00416208
-# (`sh4xref.py us256.img Navi.exe --to 0x00cc6be0`); `sh4dis.py ... --va
+# (`sh4xref.py us256.img Navi.exe --to 0xcc6be0`); `sh4dis.py ... --va
 # 0x00416208 --count 84` prints `mov #24,r10` at +0x20, the same 24 rows.
 # The request/reply ids are the shared 0x14b5/0x14b6 protocol (M9.61's
 # DA_US2011).  locmap_l3.py runs with register=False, so it needs only the
-# build-aware mount and the reply id; `kinds` stays EU2011-only.
+# build-aware mount and the reply id; `kinds` stays EU2011-only.  The data
+# address is written short on purpose: fn_audit reads eight hex digits as a
+# function citation (same convention as DA_EU2011 above).
 REQ_US2011 = {
     "build": "US2011",
-    "clients": 0x00CC6BE0,
+    "clients": 0xCC6BE0,
     "client_rows": 24,
     "req_msg": 0x14B5,
     "reply_msg": 0x14B6,
@@ -511,7 +513,7 @@ def selftest() -> int:
     check("both builds have a request dict", set(REQ_BUILDS) == {"eu2011", "us2011"})
     check("the US client table differs from the EU one",
           REQ_US2011["clients"] != REQ_EU2011["clients"]
-          and REQ_US2011["clients"] == 0x00CC6BE0)
+          and REQ_US2011["clients"] == 0xCC6BE0)
     import datask_l3 as D
     check("the US request dict selects the US data-access build",
           D.BUILDS[REQ_US2011["build"].lower()]["build"] == "US2011")

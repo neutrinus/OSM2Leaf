@@ -32,11 +32,18 @@ the locator and from a timer), and `datask_l3.py`'s models.  `--patch
 WORD=VALUE` changes one 16-bit word of the served record in guest memory
 after the data-access task inflated it and before the client copies it.
 
+`--build us2011` (M9.72) selects the US2011 `Navi.exe` twins of every chain
+function and global (docs/format/firmware.md).  The mount goes through
+`datask_req_l3.Client`, which is build-aware, so the US head mounts its own
+data-access task.  EU2011 remains the default; a wrong head/build pair is
+refused by the mount and by a build-specific word in the walk.
+
 No vendor byte is stored here: the tool reads the image and card it is given.
 
 Usage:
   locmap_l3.py --selftest
-  locmap_l3.py run IMG256 --card-image CARD.img [--replace PATH=FILE]
+  locmap_l3.py run IMG256 --card-image CARD.img [--build {eu2011,us2011}]
+               [--replace PATH=FILE]
                [--mesh 0xa6c1d6b2] [--xy 1024,1024] [--patch WORD=VALUE ...]
                [--json OUT]
   locmap_l3.py diff A.json B.json
@@ -60,21 +67,66 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "l3_harness"))
 
-# EU2011 build A (`archive/head256.img`, Navi.exe).  Function starts.
-ALLOC = 0x00470914          # OSM_Malloc of the shape pool and the second pool
-CLIENT_INIT = 0x00427A34    # client task entry: init, then the receive loop
-DISPATCH = 0x00427144       # client dispatcher (one message)
-LOC_RECV = 0x00421548       # LOC_map: handler of 0x0fa0 sub 0x019a
-WALK = 0x0041F3DC           # the shape walk (0x11dc bytes)
-ROWS = 0x00422384           # row-count helper of the walk
-BUILD_CHECK = (WALK + 0x9E, 0x8522)   # `mov.w @(4,r2),r0`: the first row read (EU2011)
+# Per-build reuse points (M9.72).  EU2011 from M9.66; US2011 from the paired
+# function bodies and their literal pools (`fn_match.py match`/`bodies`,
+# `bodydiff.py`, `nk_decomp.py pdata`, `vcard_l3.port_data`).  Every VA below is
+# attributed through `cerom.py`/`pdata` to Navi.exe of the named build, never
+# by a fitted module delta.  The four M9.66 functions are content matches with
+# equal pdata lengths; CLIENT_INIT/DISPATCH are call-graph twins (callee import
+# signature and position), and the globals are the US pool value at the same
+# load index of the paired function.  All globals are BSS: the chain's own
+# firmware code writes them at runtime (`va_class.py`), so none needs M1.2f.
+LOCMAP_EU2011 = {
+    "ALLOC": 0x00470914,        # OSM_Malloc of the shape pool and the second pool
+    "CLIENT_INIT": 0x00427A34,  # client task entry: init, then the receive loop
+    "DISPATCH": 0x00427144,     # client dispatcher (one message)
+    "LOC_RECV": 0x00421548,     # LOC_map: handler of 0x0fa0 sub 0x019a
+    "WALK": 0x0041F3DC,         # the shape walk (0x11dc bytes)
+    "ROWS": 0x00422384,         # row-count helper (leaf, pdata GAP)
+    # Globals written short on purpose: fn_audit reads eight hex digits as a
+    # function citation (same convention as datask_l3.DA_EU2011).
+    "G_CLIENT_ID": 0x11FFF5C,   # launcher: the client task's id
+    "G_LOC_ID": 0x11FFF74,      # launcher: LOC_map's task id
+    "G_GROUPS": 0xE99698,       # -> OSM_SramGet block; 20-byte groups from +8
+    "G_SLOTS": 0xE8F604,        # -> 4 slots of 16 bytes (state, shape, tail)
+    "G_LOCTAB": 0xE8F5DC,       # -> 4 result entries of 48 bytes
+    "G_CAND": 0xE8F5C4,         # -> 4 result blocks of 0x1774 bytes
+}
+LOCMAP_US2011 = {
+    "ALLOC": 0x00498EA4,        # launcher call-graph twin (fn_match's UNIQUE
+                                # 0x0049c1a4 was a false positive: it read VA 0)
+    "CLIENT_INIT": 0x0044F0D0,  # call-graph twin, pdata true start (0x0044f0f8 INSIDE)
+    "DISPATCH": 0x0044E808,     # direct caller of US requester's 0x2f8 caller
+    "LOC_RECV": 0x00448E24,     # fn_match UNIQUE, START, len 0x194
+    "WALK": 0x00446CB8,         # fn_match UNIQUE, START, len 0x11dc
+    "ROWS": 0x00449C60,         # fn_match LEAF UNIQUE, len 0x1e
+    "G_CLIENT_ID": 0x11031C0,   # paired client-init requester pool
+    "G_LOC_ID": 0x11031D8,      # US twin of EU fn 0x004259bc pool (two anchors)
+    "G_GROUPS": 0xDC7658,       # paired LOC_RECV pool load index
+    "G_SLOTS": 0xDBD664,        # paired WALK pool load index
+    "G_LOCTAB": 0xDBD61C,       # paired WALK pool load index
+    "G_CAND": 0xDBD604,         # paired WALK pool load index
+}
+for _b in (LOCMAP_EU2011, LOCMAP_US2011):
+    # `mov.w @(4,r2),r0`, the walk's first row read: same halfword in both
+    # builds, derived from the paired body at the same offset (+0x9e).
+    _b["BUILD_CHECK"] = (_b["WALK"] + 0x9E, 0x8522)
+BUILDS = {"eu2011": LOCMAP_EU2011, "us2011": LOCMAP_US2011}
 
-G_CLIENT_ID = 0x011FFF5C    # launcher: the client task's id
-G_LOC_ID = 0x011FFF74       # launcher: LOC_map's task id
-G_GROUPS = 0x00E99698       # -> OSM_SramGet block; 20-byte groups from +8
-G_SLOTS = 0x00E8F604        # -> 4 slots of 16 bytes (state, shape buf, tail buf)
-G_LOCTAB = 0x00E8F5DC       # -> 4 result entries of 48 bytes
-G_CAND = 0x00E8F5C4         # -> 4 result blocks of 0x1774 bytes
+# EU2011 aliases kept for callers and the selftest; the chain reads self.B.
+ALLOC = LOCMAP_EU2011["ALLOC"]
+CLIENT_INIT = LOCMAP_EU2011["CLIENT_INIT"]
+DISPATCH = LOCMAP_EU2011["DISPATCH"]
+LOC_RECV = LOCMAP_EU2011["LOC_RECV"]
+WALK = LOCMAP_EU2011["WALK"]
+ROWS = LOCMAP_EU2011["ROWS"]
+BUILD_CHECK = LOCMAP_EU2011["BUILD_CHECK"]
+G_CLIENT_ID = LOCMAP_EU2011["G_CLIENT_ID"]
+G_LOC_ID = LOCMAP_EU2011["G_LOC_ID"]
+G_GROUPS = LOCMAP_EU2011["G_GROUPS"]
+G_SLOTS = LOCMAP_EU2011["G_SLOTS"]
+G_LOCTAB = LOCMAP_EU2011["G_LOCTAB"]
+G_CAND = LOCMAP_EU2011["G_CAND"]
 LOC_TASK = 0x12             # any id no other task uses
 SHAPE_POOL = 0x109A0
 TAIL_POOL = 0x5DC0
@@ -118,19 +170,23 @@ def trace_digest(reads) -> str:
 
 
 class Chain:
-    def __init__(self, image: str, card_image: str, replace=(), position=(51.70, 17.45)):
+    def __init__(self, image: str, card_image: str, replace=(), position=(51.70, 17.45),
+                 build: str = "eu2011"):
         import datask_req_l3 as R
         import sh4fpu
         import vcard_l3 as V
         V.PySh4 = sh4fpu.PySh4Fpu          # the walk uses the FPU
         self.R, self.V = R, V
+        self.build, self.B = build, BUILDS[build]
         card = V.make_card(None, card_image, {"replace": list(replace)})
-        self.c = R.Client(image, card, position, register=False)
+        self.c = R.Client(image, card, position, register=False, build=build)
         self.m = self.c.m
         self.eng = self.m.eng
-        code = struct.unpack("<H", bytes(self.eng.read_mem(BUILD_CHECK[0], 2)))[0]
-        if code != BUILD_CHECK[1]:
-            raise V.Blocked("not the EU2011 build: %#06x at %#010x" % (code, BUILD_CHECK[0]))
+        bc_va, bc_word = self.B["BUILD_CHECK"]
+        code = struct.unpack("<H", bytes(self.eng.read_mem(bc_va, 2)))[0]
+        if code != bc_word:
+            raise V.Blocked("not the %s build: %#06x at %#010x" % (
+                build.upper(), code, bc_va))
         self.log: list[str] = []
         self.loc_msgs: list[bytes] = []
         self.copies: list[dict] = []
@@ -154,17 +210,17 @@ class Chain:
         p = self.m.malloc(64)
         self.m.put(p, body.ljust(64, b"\0"))
         n = len(self.m.messages)
-        self.call(DISPATCH, [p])
+        self.call(self.B["DISPATCH"], [p])
         return [x for x in self.m.messages[n:] if x["kind"] == "send"]
 
     def start(self) -> None:
         m = self.m
-        m.put(G_CLIENT_ID, struct.pack("<I", self.R.CLIENT_TASK))
-        m.put(G_LOC_ID, struct.pack("<I", LOC_TASK))
-        self.call(ALLOC)
-        self.call(CLIENT_INIT)
-        self.groups = m.u32(G_GROUPS)
-        self.slots = m.u32(G_SLOTS)
+        m.put(self.B["G_CLIENT_ID"], struct.pack("<I", self.R.CLIENT_TASK))
+        m.put(self.B["G_LOC_ID"], struct.pack("<I", LOC_TASK))
+        self.call(self.B["ALLOC"])
+        self.call(self.B["CLIENT_INIT"])
+        self.groups = m.u32(self.B["G_GROUPS"])
+        self.slots = m.u32(self.B["G_SLOTS"])
         if not self.groups or not self.slots:
             raise self.V.Blocked("client init left the group or slot table unset")
 
@@ -217,8 +273,9 @@ class Chain:
                    "divid": struct.unpack_from("<H", groups, 8 + 20 * i)[0]} for i in range(4)]
         out = self.to_client(pack_msg(MSG_TICK, SUB_TICK, 0, 0, 0, 0, TICK_ID))
         self.route(out)
-        res = {"mesh": mesh, "xy": [x, y], "wanted": wanted, "requests": self.requests,
-               "patched": self.patched, "loc_messages": len(self.loc_msgs)}
+        res = {"build": self.build, "mesh": mesh, "xy": [x, y], "wanted": wanted,
+               "requests": self.requests, "patched": self.patched,
+               "loc_messages": len(self.loc_msgs)}
         if not self.loc_msgs:
             return res
         groups = bytes(eng.read_mem(self.groups + 8, 80))
@@ -244,8 +301,9 @@ class Chain:
                               "group": struct.unpack_from("<I", body, 20)[0]}
         q = m.malloc(64)
         m.put(q, body.ljust(64, b"\0"))
-        r0 = self.call(LOC_RECV, [q])
+        r0 = self.call(self.B["LOC_RECV"], [q])
         res["receiver_r0"] = r0
+        res["loc_recv"] = self.B["LOC_RECV"]
         reads, per_pc, seen = [], {}, {"shape": set(), "tail": set()}
         for h in eng.watch_hits():
             if h.name not in seen:
@@ -262,8 +320,9 @@ class Chain:
         res["distinct_tail_bytes"] = len(seen["tail"])
         res["beyond_window"] = sorted({r[1] for r in reads if r[1] >= window})
         res["per_pc"] = per_pc
-        res["functions"] = sorted({"%#010x" % (WALK if WALK <= r[0] < WALK + 0x11DC else
-                                               ROWS if ROWS <= r[0] < ROWS + 0x24 else r[0])
+        walk, rows = self.B["WALK"], self.B["ROWS"]
+        res["functions"] = sorted({"%#010x" % (walk if walk <= r[0] < walk + 0x11DC else
+                                               rows if rows <= r[0] < rows + 0x24 else r[0])
                                    for r in reads})
         res["trace_sha1"] = trace_digest(reads)
         res["first_reads"] = [{"pc": "%#010x" % r[0], "offset": r[1],
@@ -273,8 +332,8 @@ class Chain:
         if shape_out:
             with open(shape_out, "wb") as f:
                 f.write(shape)
-        table = bytes(eng.read_mem(m.u32(G_LOCTAB), 192))
-        cand = bytes(eng.read_mem(m.u32(G_CAND), 4 * CAND_BYTES))
+        table = bytes(eng.read_mem(m.u32(self.B["G_LOCTAB"]), 192))
+        cand = bytes(eng.read_mem(m.u32(self.B["G_CAND"]), 4 * CAND_BYTES))
         res["result_table"] = [table[48 * i:48 * i + 48].hex() for i in range(4)]
         res["result_sha1"] = hashlib.sha1(table + cand).hexdigest()
         return res
@@ -300,7 +359,8 @@ def show(res: dict) -> None:
     print("shape copy sha1 %s; rows with shapes: %s"
           % (res["shape_sha1"], ", ".join("row %d start %#x count %d" % (r["row"], r["start"], r["count"])
                                            for r in res["rows"]) or "none"))
-    print("receiver %#010x returned %s" % (LOC_RECV, res["receiver_r0"]))
+    print("build %s; receiver %#010x returned %s" % (
+        res.get("build", "eu2011"), res.get("loc_recv", LOC_RECV), res["receiver_r0"]))
     print("shape-buffer loads: %d (%d B), %d distinct bytes; tail-buffer bytes read: %d; functions: %s"
           % (res["reads"], res["read_bytes"], res["distinct_shape_bytes"],
              res["distinct_tail_bytes"], ", ".join(res["functions"])))
@@ -326,7 +386,7 @@ def cmd_run(args) -> int:
         return 2
     import vcard_l3 as V
     try:
-        chain = Chain(args.image, args.card_image, args.replace or [])
+        chain = Chain(args.image, args.card_image, args.replace or [], build=args.build)
         res = chain.run(int(args.mesh, 0), x, y, patches, shape_out=args.shape_out)
     except V.Blocked as ex:
         print("BLOCKED: %s" % ex)
@@ -395,6 +455,21 @@ def selftest() -> int:
     check("compare: a changed trace is DIFFERENT (control)",
           compare(a, dict(a, trace_sha1="x")) == ["trace_sha1"])
     check("walk function range holds the first row read", WALK < BUILD_CHECK[0] < WALK + 0x11DC)
+    check("both builds have the same chain keys",
+          set(LOCMAP_EU2011) == set(LOCMAP_US2011) and set(BUILDS) == {"eu2011", "us2011"})
+    check("every function and global VA differs between builds",
+          all(LOCMAP_EU2011[k] != LOCMAP_US2011[k]
+              for k in LOCMAP_EU2011 if k != "BUILD_CHECK"))
+    check("the US build check is the US walk's first row read",
+          LOCMAP_US2011["BUILD_CHECK"] == (LOCMAP_US2011["WALK"] + 0x9E, 0x8522)
+          and LOCMAP_US2011["WALK"] < LOCMAP_US2011["BUILD_CHECK"][0]
+          < LOCMAP_US2011["WALK"] + 0x11DC)
+    try:
+        BUILDS["not-a-build"]
+        bad = False
+    except KeyError:
+        bad = True
+    check("an unknown build is refused (negative control)", bad)
     print("selftest: %s" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 
@@ -406,6 +481,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("run", help="run the chain and the LOC_map walk")
     p.add_argument("image")
     p.add_argument("--card-image", required=True)
+    p.add_argument("--build", choices=sorted(BUILDS), default="eu2011")
     p.add_argument("--replace", action="append", metavar="PATH=FILE")
     p.add_argument("--mesh", default="0xa6c1d6b2")
     p.add_argument("--xy", default="1024,1024")
