@@ -242,9 +242,29 @@ CLASS_NOTE = {
     "a": "unparsed section-3/5 record block",
     "b": "M4.93 section-4 row-block residual",
     "c": "padding/slack (0xff fill)",
-    "d": "section-table span artifact (no reader VA)",
+    "d": "section header table span (count-word bounded; reader=clarion_tile)",
     "other": "unclassified (injected control lands here)",
 }
+
+
+def count_word_bounded(data: bytes, span: tuple[int, int, int] | None) -> bool:
+    """True iff ``u16@taddr == table_words`` and the span holds the bytes.
+
+    A section header table is a named record block only when its first big-
+    endian ``u16`` (the word count read by ``clarion_tile.read_tile``) equals
+    the span's own word count, so ``[taddr, taddr + 2*count)`` is exactly the
+    table.  This test can fail: overwriting that word breaks the bound (and
+    makes the parser raise).  Zero-fill tails outside the span carry 0 nonzero
+    bytes and are padding, not part of the class-d figure.
+    """
+    if span is None:
+        return False
+    _sid, ta, tb = span
+    if ta + 2 > len(data):
+        return False
+    import struct
+    count = struct.unpack_from(">H", data, ta)[0]
+    return count == (tb - ta) // 2
 
 
 def section_table_spans(tile: dict) -> list[tuple[int, int, int]]:
@@ -408,6 +428,9 @@ def analyze(data: bytes) -> dict[str, Any]:
         r["outside_nz"] = outside
         r["table_overlaps"] = overlaps
         r["table_span"] = chosen
+        r["block"] = ("section-table-header" if letter == "d"
+                      and count_word_bounded(data, chosen) else "unclassified")
+        r["count_word_bounded"] = count_word_bounded(data, chosen)
         class_bytes[letter] += r["bytes"]
         class_ranges[letter] += 1
     graded_sum = sum(class_bytes.values())
@@ -517,9 +540,10 @@ def render_text(result: dict, groups: list[dict], top: int) -> str:
     for r in result["graded"]:
         span = r["table_span"]
         sdesc = "sec%d %#x..%#x" % span if span else "-"
-        lines.append("  %#x..%#x %8d B  %-5s %s in=%d out=%d overlaps=%d  %s" % (
+        lines.append("  %#x..%#x %8d B  %-5s %s in=%d out=%d overlaps=%d block=%s  %s" % (
             r["start"], r["end"], r["bytes"], r["class"], sdesc,
-            r["inside_nz"], r["outside_nz"], r["table_overlaps"], r["class_note"]))
+            r["inside_nz"], r["outside_nz"], r["table_overlaps"],
+            r["block"], r["class_note"]))
     lines.append("CLASSES (graded = post-s1/s4 remaining; nonzero bytes; a+b+c+d+other == still unexplained)")
     lines.append("class    bytes  ranges  meaning")
     for c in CLASSES:
@@ -598,6 +622,46 @@ def selftest() -> int:
             print("  info two-span synthetic gap: %#x..%#x %d B  %s  chosen=%s" % (
                 mg["start"], mg["end"], mg["bytes"], " ".join(per_span),
                 mg["class_note"].split()[0]))
+
+        # M4.99: every class-d row is a named section-table header block,
+        # count-word bounded (u16@taddr == table_words).  This can fail.
+        import struct
+        drows = [r for r in base["graded"] if r["class"] == "d"]
+        chk(bool(drows) and all(r["block"] == "section-table-header"
+                                and r["count_word_bounded"] for r in drows),
+            "positive control: every class-d row is a count-word bounded section-table block")
+        chk(all(r["inside_nz"] == r["bytes"] and r["outside_nz"] == 0
+                for r in drows if r["table_overlaps"] == 1),
+            "positive control: a single-span class-d row holds all its nonzero bytes inside the bound")
+
+        # Mandatory negative mutation (T3): add one nonzero byte past the table
+        # end.  outside_nz must become > 0 and the class sum must grow, so the
+        # "inside/outside" byte test is load-bearing, not cosmetic.
+        if drows:
+            dr = drows[0]
+            sid, ta, tb = dr["table_span"]
+            mut = bytearray(clean)
+            mut[tb] = 0x5a
+            mutated = analyze(bytes(mut))
+            mutated_d = [r for r in mutated["graded"]
+                         if r["start"] <= ta < r["end"]]
+            chk(bool(mutated_d) and mutated_d[0]["outside_nz"] >= 1
+                and mutated["remaining_bytes"] > base["remaining_bytes"],
+                "negative control: a byte past the table end flips outside_nz and the sum")
+            print("  info table-end mutation: outside_nz %d->%d remaining %d->%d" % (
+                dr["outside_nz"], mutated_d[0]["outside_nz"] if mutated_d else -1,
+                base["remaining_bytes"], mutated["remaining_bytes"]))
+            # corrupting the count word itself must fail the bound test (and a
+            # real read_tile must raise — the word is load-bearing)
+            cmut = bytearray(clean)
+            struct.pack_into(">H", cmut, ta, 1)
+            chk(not count_word_bounded(bytes(cmut), dr["table_span"]),
+                "negative control: corrupting the count word fails the bound test")
+            try:
+                clarion_tile.read_tile(bytes(cmut))
+                chk(False, "negative control: read_tile must reject a corrupt count word")
+            except (IndexError, struct.error, ValueError, AssertionError):
+                chk(True, "negative control: read_tile rejects a corrupt count word")
         chk(grade_range(b"\x00\xff\xff\x00", 0, 4, (), [], [])[0] == "c",
             "positive control: 0xff slack is class c")
         chk(grade_range(b"\x78\x9c\x00\x09", 0, 4, (4, 1, "0x1046", "even", "slot0"),
