@@ -360,9 +360,29 @@ def set_name_flags(sec: bytes, flags: int = NAME_FLAGS) -> bytes:
     return bytes(out)
 
 
+# Road-number shields (M5.97): the firmware draws the `2=REF` part of a road
+# name as a shield only on roads of class <= 4; `provisional-v0` gives
+# primary/secondary class 5 (brown, no shield).  Class 4 keeps the brown
+# style and draws the shields at the factory's places (A4, A40, A400, A401,
+# A3201 on the London start screen).
+DEFAULT_CLASS_OVERRIDE = "primary=4,primary_link=4,secondary=4,secondary_link=4"
+
+
+def apply_class_override(table: dict, spec: str) -> dict:
+    """``highway=cls,...`` -> a copy of ``table`` with those classes replaced."""
+    out = dict(table)
+    for item in filter(None, (spec or "").split(",")):
+        hw, cls = item.split("=")
+        if hw not in out:
+            raise CheckFailed("class override for %s: not in the class table" % hw)
+        out[hw] = (out[hw][0], int(cls))
+    return out
+
+
 def build_records(split: str, cell: str, class_table: str | None, country: int, write_names: bool,
-                  limit: int = 0, names_out: dict | None = None):
+                  limit: int = 0, names_out: dict | None = None, class_override: str = ""):
     table, _src = tilewriter.load_class_table(class_table)
+    table = apply_class_override(table, class_override)
     ways, imf_stats = tilewriter.load_imf(split, cell)
     if write_names:
         from transliterate import apply, load_table
@@ -527,6 +547,13 @@ def selftest() -> int:
        "places appended: 3 entries, road offset kept, sub-table moved intact")
     ok(label_of("1=King Street", "A4;A400") == "1=KING STREET;2=A4" and label_of("", "A4") == "2=A4",
        "label: upper case, first ref")
+    t2 = apply_class_override({"primary": (6, 5), "residential": (5, 8)}, "primary=4")
+    ok(t2 == {"primary": (6, 4), "residential": (5, 8)}, "class override keeps the layer, replaces the class")
+    try:
+        apply_class_override({"primary": (6, 5)}, "motorway=1")
+        ok(False, "override of an unknown highway is refused")
+    except CheckFailed:
+        ok(True, "override of an unknown highway is refused")
     print("tile_from_zero selftest: %s (%d failure(s))" % ("OK" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -542,6 +569,8 @@ def main(argv=None) -> int:
     ap.add_argument("--areas", help="osm_areas.py JSONL: write level-1 background records (Z4)")
     ap.add_argument("--urban-fill", type=float, default=0.0,
                     help="fill a parcel with one urban ring when its urban rings cover >= this share (0 = off)")
+    ap.add_argument("--class-override", default=DEFAULT_CLASS_OVERRIDE,
+                    help="highway=cls,... replacing classes of the table (default: %(default)s; '' = none)")
     ap.add_argument("--places", action="store_true", help="write place=* labels from --areas (M5.90)")
     ap.add_argument("--areas-kinds", help="comma list of kinds to write (default: all of BG_TYPES)")
     ap.add_argument("--max-plain", type=lambda v: int(v, 0), default=0,
@@ -558,7 +587,8 @@ def main(argv=None) -> int:
     try:
         names = {}
         built, sizes, imf_stats = build_records(args.split, args.cell, args.class_table, args.country,
-                                                not args.no_names, args.max_plain, names_out=names)
+                                                not args.no_names, args.max_plain, names_out=names,
+                                                class_override=args.class_override)
         odd, bg_stats = {}, {}
         if args.areas or names:
             only = set(args.areas_kinds.split(",")) if args.areas_kinds else None

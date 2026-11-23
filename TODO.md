@@ -3881,8 +3881,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session per item.
   - Claims: C-8780–C-8789
 
-- [ ] **M5.97 — Z5b: road-number shields (A4, A400) in the from-zero London tile**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.97 — Z5b: road-number shields (A4, A400) in the from-zero London tile**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: Z5
   - Depends: M5.90
   - Goal: M5.90 writes `1=NAME;2=REF` road names and the labels draw, but no shield does (C-8704). Find what makes the factory draw the A4/A400/A401/A3201 shields on the London start screen and write it.
@@ -3892,6 +3892,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: an L4 screenshot of the from-zero tile shows at least one shield at its road, with the structure that draws it as a VERIFIED claim.
   - Stop: one session; if no candidate draws a shield, record which were tried.
   - Claims: C-8790–C-8799
+  - Result: Shields drawn in the from-zero tile: 2=REF draws a shield only on class <= 4 roads; default --class-override primary/secondary=4 (EXP-2026-11-23-M5.97, C-8790–C-8795)
 
 - [ ] **M5.98 — Z5c: OSM highway → road class measured on the factory London roads**
   - Status: open · Owner: — · Critical: no · Pair: solo

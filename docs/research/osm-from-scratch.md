@@ -133,7 +133,8 @@ an empty odd pair must be `0xffffffff` (C-8682), and records up to 101 KB
 types `0xc1..`) are drawn under the roads (M5.89, C-8694); the factory's
 urban fill is generalised, so built-up area and line layers are M5.95/M5.96.
 Z5 passed for names — OSM street names and place labels are drawn (M5.90,
-C-8702/C-8703); shields (M5.97) and the measured class table (M5.98) remain.
+C-8702/C-8703). Shields draw on class <= 4 roads (M5.97, C-8792/C-8794);
+the measured class table (M5.98) remains.
 
 Cross-cutting tasks, independent of the rungs:
 
