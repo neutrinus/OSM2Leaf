@@ -86,8 +86,11 @@ so the area filter `fn 0x03bcc564` selects them for Euro and for every other
 area: `update mode starts for area 0x30: yes` at the launch-table level. The
 EU card's build A carries a `Navi.exe` module but no launch table; an area-USA
 unit on the EU card starts build-B record #80 from the EU card's (identical)
-B table. Whether the update programs are reached once selected is M6.17's
-path, a hypothesis here. See EXP-2026-11-23-M2.20-region-recoverable.
+B table. These are facts about **card image B**; the normal-mode table is the
+flash kernel's copy (M6.19, C-5216), and which copy the update path uses (card B
+per C-5191 vs flash) is open (C-6268). Whether the update programs are reached
+once selected is M6.17's path, a hypothesis here. See
+EXP-2026-11-23-M2.20-region-recoverable.
 
 The same launcher reads the card's `\SystemSD\VER_INFO\HDD_INFO.TXT` and
 compares it with unit-side target info fetched by
