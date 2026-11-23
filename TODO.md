@@ -3670,7 +3670,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8810–C-8819
 
 - [ ] **M5.83 — Polish names on the emulated screen: an OSM name with diacritics folded to the map font, decoded at L2 and visible at L4**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.83-polish-names-l4 · Critical: no · Pair: required
   - Step: P3
   - Depends: M4.87 (Polish glyph coverage, done), M5.65 (section-4 place names from OSM, done), M8.H71 (OSM tile on the emulated screen, done)
   - Goal: the three halves of "a Polish name is drawn" exist separately: M4.87 lists the map font's glyphs, C-1799 says shipped text is CP1252 with non-Latin-1 letters transliterated (`Cesk` for `Česk`), and M5.65 writes OSM place names into a factory section-4 record. Nobody has run one Polish name with `ą ć ę ł ń ó ś ź ż` from an OSM tag through the compiler and shown what the firmware actually draws — so "our names render" is an assumption, not a measured result.
