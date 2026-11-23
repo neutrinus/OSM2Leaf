@@ -257,13 +257,21 @@ qemu-system-misc gdb-multiarch`.
 ## Priorities (PO grooming 2026-11-23, 25th pass; `origin/main` `e84436f1`)
 
 **The four rule-17 numbers, first** (`python3 tools/map_signals.py --factory-root
-/home/marek/projekty/leafre-work/m5.4/card-factory`):
+/home/marek/projekty/leafre-work/m5.4/card-factory --report
+/home/marek/projekty/leafre-work/scratch/m9.76/report.json`):
 `readers: located 18 partial 1 unlocated 1` · `l3_rows: l3-running 8` ·
 `tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.29%` ·
-`card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)`.
-**None moved — fourth consecutive cycle.** The window merged the card gate
-(M9.12), L4 readers (M9.75), the from-zero card and M9.76; the counter still
-reads a 2026-11-17 report. M9.76 is the task that can make it move.
+`card_step: P0 (cardcheck_ok=True l2check_ok=True cardcheck_rc=0 l2check_rc=0
+card_sha256=b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237)`.
+**None moved — fifth consecutive cycle.** M9.76 replaced the 2026-11-17 pin
+with a fresh report for the P0 card `b0faf119…c33237` (both gate rc values 0,
+full SHA and ladder step recorded in
+`~/projekty/leafre-work/scratch/m9.76/report.json`; EXP-2026-11-24-M9.76).
+The step stays P0 because the freshly gated card is the P0 one-tile card; a
+higher-step card must be built and gated to move it (the report's step is
+validated against `card_ladder.py steps --check`, whose board-hygiene rc is 1
+today for 7 missing + 7 bad unrelated Step tags). The other three numbers are
+byte-identical to the prior pass.
 
 **Critical path — what blocks a car card, in order:**
 
@@ -6438,8 +6446,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-9910–C-9919
   - Result: EXP-2026-11-23-M9.75-sec2-readers-l4 (L4 instead of L3: NK1 + unit flash route, gdb read watch; readers 0x003534d4 premap and 0x00358382 route search; unit-0 framing VERIFIED on 45,184 + 3,214 London records; search key (word 4 & 0xf, word 3 & 0x1fff); empty section 2 -> CALC_ERR_NBR); tools/ze0_sec2_watch.py; C-9910-C-9916. Attribute words (one-way, regulation): M4.98
 
-- [ ] **M9.76 — Make the rule-17 card number read a fresh ladder report, not the 2026-11-17 P0 pin**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M9.76 — Make the rule-17 card number read a fresh ladder report, not the 2026-11-17 P0 pin**
+  - Status: done · Owner: task/m9.76-fresh-card-step · Critical: yes · Pair: required
   - Step: P0
   - Depends: M5.38 (done), M9.12 (done), M5.88/M5.90/M5.91/M5.100 (from-zero card, done)
   - Goal: `tools/map_signals.py` prints `card_step: P0` from `~/projekty/leafre-work/m5.34/report.json` (mtime 2026-11-17 19:14Z), a factory-backed one-tile report produced before the from-zero L4 work and before M9.12/M9.75. Rule 17 defines this number as the highest card-ladder step whose gate passes; today it is a constant, so card work cannot move it. Teach the counter to read a validated step from a current gate run and publish that run.
@@ -6451,6 +6459,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a report whose gate did not pass still prints a promoted step, or the printed step disagrees with `card_ladder.py steps --check`.
   - Claims: C-9970–C-9979
   - Pair: required
+  - Note: Fresh report ../../leafre-work/scratch/m9.76/report.json for P0 card b0faf119..c33237; both gates rc=0; card_ladder steps --check rc=1 (7 missing+7 bad unrelated tags), step read from parsed P0 group
+  - Result: EXP-2026-11-24-M9.76-fresh-card-step; selftest 26/26, negative mutations 4/4, four numbers re-quoted in Priorities
 
 - [x] **M9.77 — `tools/exp_check.py`: accept named Method subheadings, still fail a missing falsifier**
   - Status: done · Owner: task/m9.77-exp-check-subheadings · Critical: no · Pair: required
