@@ -1,0 +1,127 @@
+role: TL (team lead), batch driver. Model: opencode/hy4-flash-free
+start: 2026-11-23 11:04 UTC
+origin/main at start: 6baa6786
+
+inputs read: prompt_common.txt, prompt_tl.txt, AGENTS.md, TODO.md rules 1-17,
+  dev_process/2026-11-23-1055-6-tl.log, dev_process/2026-11-23-0835-5-tl.log,
+  dev_assignments.md (untracked, from batch 6), open PR list.
+
+actions, in order:
+  - git fetch; primary checkout already on main at origin/main (no-op ff).
+  - Queue scan: one non-draft PR (#652, M5.100, conflicting) and six drafts
+    (#650 M5.82, #639 H132, #523 M4.85, #501 M9.62, #496 M9.65, #472 M9.64)
+    owned by other threads; drafts are not this run's to clear.
+  - #652 is Marek's project-thread branch: 21 commits, of which all but two
+    are already squash-merged on main; only M5.100 work + M5.101 board line
+    remain. Plan: cherry-pick the delta onto a fresh tlmerge branch (the
+    #646/#645 pattern), verify, PR, CI, merge, close #652 with a note.
+  - Baseline gate on main: 5 pass / 0 fail / 0 skip (TMPDIR in scratch).
+  - tlmerge-652: cherry-picked 38863260 (M5.100) + ab38624b (M5.101);
+    board.py resolve merged claims.md by ID; final diff matches #652's
+    6-file delta; board lost 0/0; gate 5 pass / 0 fail / 0 skip.
+  - PR #655 opened (supersedes #652); l1l2 green, quality checks running.
+  - Selected 6 tasks, all qualifying and disjoint: M9.72, M5.69, M4.96,
+    M9.12, M9.71 (pairs) + M8.H76 (solo, Pair: solo housekeeping refactor).
+    M9.72/M9.12 are critical-path; M5.69 unblocks the blocked P1 card.
+  - Created 6 worktrees from origin/main; archive symlinks present in each;
+    wrote dev_assignments_batch7.md; launched 6 drivers in background.
+    Navigators launch after each driver's plan.
+  - Skipped: M6/L5 (no hardware); M8.H64/M8.H12/M5.83/M5.92 (QEMU/L4 on
+    shared 8 CPUs); M5.61 (blocked, unblocked by M5.69); M4.97 (blocked on
+    M9.65 draft); M5.81 (US tree not extracted); M5.73/M4.66 (lower value,
+    file overlap); all IDs in open PR titles.
+  - PR #655 merged (squash 127252df); #652 closed with a supersede comment;
+    tlmerge-652 branch/worktree removed; main gate re-run 5 pass / 0 fail /
+    0 skip. Rule 15: no blocked task names M5.100; M5.101 was created open by
+    the merged PR.
+  - All six drivers claimed and opened drafts: #656 M8.H76, #657 M4.96,
+    #658 M9.71, #659 M9.72, #660 M5.69, #661 M9.12. Three plans received;
+    navigators launched for M4.96/M9.71/M9.72.
+  - Queue scan note: #662 (M8.C1u, Marek's thread) and #496 (M9.65, another
+    thread) became non-draft *after* the initial scan and are actively being
+    pushed; left to their owners rather than merged mid-flight.
+  - Round 1 (plan + EXP Method) returned CHANGES on all five pairs; drivers
+    applied them. Notable navigator catches: M9.71's "## Scope" does not exist
+    in TEMPLATE (it is Method part 4); M5.69's proposed appended-slot fix
+    cannot work (read_dir bound is reader-side) and its M5.71 control had
+    changed from pass to rc 1; M9.12's H51 build label would have falsely
+    attributed EU2011 firmware to a US card; M9.72 missed datask_req_l3.py.
+  - Round 2 returned CHANGES on all five. Main advanced to bae2e753 via other
+    threads; every branch was stale and several had DROPPED other agents' rows
+    (M1.57, M3.43, M6.24/25, M9.74/75, C-6026.., C-9900..). TL rebased all six
+    branches centrally with board.py resolve; lost is now 0/0 everywhere and
+    the dropped rows are restored. This was the PR #340 failure mode, caught
+    by the navigators before merge.
+  - Typed-number fixes (round 2) checked by TL against command output: H18
+    grep count 8, not 4; C-8521 one measurement at 940152d7; C-8625 9/11 B
+    now printed by tile_unknown --selftest; M9.72's four WARN lines / three
+    tasks; M9.12 has a real ## Overtaken by a later commit section.
+  - Round 3 only for M5.69 (substantive falsifier fix): APPROVE. Its
+    falsifier now fails for the record-level reason, not the directory
+    comparison. TL fixed one non-blocking reproduction nit (self-contained
+    venv setup in the EXP) and pushed it.
+  - Modes: M9.72/M5.69/M4.96/M9.12/M9.71 = pair (driver+navigator, 2-3
+    rounds); M8.H76 = solo (Pair: solo, byte-identical housekeeping refactor,
+    Done when is a reproducible byte/exit check), TL self-checked.
+  - TL gate sweep initially red on all six (ze0_ui + one count mismatch).
+    Diagnosed as the TL's own long TMPDIR: ze0_ui's mock QMP socket path
+    exceeded the AF_UNIX 108-byte limit, so the server exited 1 and
+    claims_check --count-check saw a changed count. Short TMPDIR paths make
+    the gates green; no task code is implicated. /tmp itself is at 80 %
+    quota, so all checks use home-tree TMPDIR.
+  - A dedicated tl-batch7-log worktree/branch was created so this log can be
+    committed to main without committing in the primary checkout.
+
+merge sweep (resumed after the session went idle with CI pending):
+  - At resume, origin/main was 2be044cd (four M1.57 doc commits had landed
+    while the six PRs waited). All six heads were CI-green; #661 and #660
+    were still mergeable clean and merged directly as b3b26386 and edba1871.
+  - Each later PR conflicted on docs/research/claims.md after the preceding
+    squash merged. For #659, #658, #657 and #656: rebase onto fresh
+    origin/main, `board.py resolve` by ID, `board.py lost --base origin/main`
+    = 0 tasks / 0 claims, local `tools/gate.py` = 5 pass / 0 fail / 0 skip
+    on the rebased head, force-push with lease, wait for CI = 4 pass /
+    0 pending, then squash: 46edbbae, cda3028d, d12a92f2, 491a0da4.
+  - A new non-draft PR #672 (M9.75, owner thread) appeared at 16:28 with no
+    CI and a dirty merge against main. Cherry-picked its unique commit
+    97d7b5bb onto tlmerge-672; the four non-board files are byte-identical
+    to the PR head (verified with git show + diff); ze0_sec2_watch.py
+    --selftest OK, claims_check --strict --count-check OK, todo_check OK
+    (two pre-existing WARN), gate 5 pass / 0 fail / 0 skip. Opened #673,
+    CI 4 pass / 0 pending, squashed as b1d7313f. Closed #672 with two
+    comments naming the squash SHA. Kept the owner's
+    claude/project-thread-htvnth branch: it is their working branch, not
+    a task branch of this batch.
+  - Six task worktrees and remote branches deleted after their merges;
+    tlmerge-672 removed after #673 merged. No branch was removed before its
+    squash was on origin/main.
+  - /tmp had exceeded its 3095 MiB tmpfs quota (git reported "Quota
+    exceeded" copying index files). Verified no /tmp entry had been touched
+    in over two hours, removed 114 stale entries, and used short home-tree
+    TMPDIR paths for every gate. /tmp now reports 106 MiB used / 3.7 GiB free.
+  - Rule 15: M9.75's own commit re-opened M4.55 and M9.74 (their Unblock
+    lines were cleared with the L4 reader evidence). M5.61 and M5.68 name
+    M5.69 but still have unmet unblocks (M5.68 is blocked and M5.99 is
+    open), so they remain blocked; their blocker item about the splice is
+    stale and should be re-triaged by the PO.
+  - Final check on origin/main b1d7313f: tools/gate.py 5 pass / 0 fail /
+    0 skip. Only draft PRs remain open (#639, #523, #501, #472); none are
+    this run's to merge.
+
+outcome table (batch 7):
+| Task | Mode | Rounds | Outcome | PR | EXP |
+| --- | --- | --- | --- | --- | --- |
+| M9.12 | pair (driver + separate navigator subagent) | 3 | done | #661 / b3b26386 | EXP-2026-11-23-M9.12-card-gate-reopen.md |
+| M9.72 | pair (driver + navigator) | 2 | done | #659 / 46edbbae | EXP-2026-11-23-M9.72-us-locmap-walk |
+| M5.69 | pair (driver + navigator) | 3 | done (negative: splice failure does not reproduce) | #660 / edba1871 | EXP-2026-11-23-M5.69-even-odd-splice |
+| M4.96 | pair (driver + navigator) | 2 | done | #657 / d12a92f2 | EXP-2026-11-23-M4.96-tile-grade-classes |
+| M9.71 | pair (driver + navigator) | 2 | done | #658 / cda3028d | EXP-2026-11-23-M9.71-exp-check |
+| M8.H76 | solo (Pair: solo; byte-identical refactor, byte/exit Done when covered by --selftest) | 1 | done | #656 / 491a0da4 | EXP-2026-11-23-M8.H76-hashutil |
+| M9.75 | owner-thread work, verified and re-landed by TL (pair-equivalent: independent tool check + gate) | n/a | done | #673 / b1d7313f (supersedes #672) | EXP-2026-11-23-M9.75-sec2-readers-l4 |
+
+navigator catches worth keeping: M9.71's TEMPLATE section mismatch;
+M5.69's proposed fix could not work because the read_dir bound is
+reader-side, plus its drifting M5.71 control; M9.12's H51 build label
+would have misattributed EU2011 firmware to a US card; M9.72's omitted
+datask_req_l3.py citation. Round 2 also found other agents' dropped claim
+rows in five branches; board.py resolve restored all of them before merge.
