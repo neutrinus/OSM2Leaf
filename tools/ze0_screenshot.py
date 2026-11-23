@@ -147,14 +147,37 @@ def du_planes(regs):
     return planes
 
 
-def compose(planes, fetch):
-    """Return 800 x 480 RGB bytes; fetch(addr, size) gives plane memory."""
+def compose(planes, fetch, notes=None):
+    """Return 800 x 480 RGB bytes; fetch(addr, size) gives plane memory.
+
+    A keyed plane is fetched where its window (+0x30/+0x34) points.  When that
+    band holds no visible (un-keyed) pixel but another page of the plane
+    (``+0x34`` points one 480-row page on) does, that page is used instead and
+    a note is appended: the NK1 AUI draws into one page while the window
+    register stays on the other (M8.C1t), and a strict window composition
+    would show an empty plane.  A plane whose pages are both keyed is left as
+    its window says.
+    """
     out = bytearray(WIDTH * HEIGHT * 3)
     for p in sorted(planes, key=lambda p: -p["n"]):
         w, h = min(p["w"], WIDTH), min(p["h"], HEIGHT)
+        keyed = (p["mode"] & 0xf000) == 0x1000
         base = p["addr"] + (p["sy"] * p["stride"] + p["sx"]) * 2
         data = fetch(base, ((h - 1) * p["stride"] + w) * 2)
-        keyed = (p["mode"] & 0xf000) == 0x1000
+        if keyed and not _visible(data, p, w, h):
+            for page_row in (0, 2 * h):
+                if page_row == p["sy"]:
+                    continue
+                page = p["addr"] + page_row * p["stride"] * 2
+                alt = fetch(page, ((h - 1) * p["stride"] + w) * 2)
+                if _visible(alt, p, w, h):
+                    data = alt
+                    if notes is not None:
+                        notes.append("plane %d: window row %d is empty; "
+                                     "showing page rows %d-%d (M8.C1t)" %
+                                     (p["n"], p["sy"], page_row,
+                                      page_row + h - 1))
+                    break
         for y in range(h):
             row = data[y * p["stride"] * 2:(y * p["stride"] + w) * 2]
             for x, (px,) in enumerate(struct.iter_unpack("<H", row)):
@@ -167,13 +190,24 @@ def compose(planes, fetch):
     return bytes(out)
 
 
+def _visible(data, p, w, h):
+    """True when at least one pixel of the band survives the plane's key."""
+    for y in range(h):
+        row = data[y * p["stride"] * 2:(y * p["stride"] + w) * 2]
+        for (px,) in struct.iter_unpack("<H", row):
+            if not (not px & 0x8000 or (px & 0x7fff) == p["key"]):
+                return True
+    return False
+
+
 def screen(sock_path, out_png):
     planes = du_planes(hmp_words(sock_path, DU_PHYS, 0x500 // 4))
 
     def fetch(addr, size):
         return grab(sock_path, out_png + ".bin", addr, size)
 
-    rgb = compose(planes, fetch)
+    notes = []
+    rgb = compose(planes, fetch, notes)
     if os.path.exists(out_png + ".bin"):
         os.unlink(out_png + ".bin")
     with open(out_png, "wb") as f:
@@ -182,6 +216,8 @@ def screen(sock_path, out_png):
         print("plane %d: mode 0x%04x %dx%d at 0x%08x stride %d window (%d,%d)"
               % (p["n"], p["mode"], p["w"], p["h"], p["addr"], p["stride"],
                  p["sx"], p["sy"]))
+    for note in notes:
+        print(note)
     print("%s: %d non-black pixels" % (out_png, sum(
         1 for i in range(0, len(rgb), 3) if rgb[i:i + 3] != b"\0\0\0")))
 
@@ -243,6 +279,33 @@ def selftest():
         assert rgb[0:3] == b"\xf8\x00\x00", rgb[0:3]       # key: plane 4 shows
         assert rgb[3:6] == b"\x00\x00\xf8", rgb[3:6]       # plane 2 blue on top
         assert rgb[6:9] == b"\x7c\x00\x00" or rgb[6:9] == b"\xf8\x00\x00", rgb[6:9]  # alpha bit clear: plane 4
+        # M8.C1t: a keyed plane whose window row is empty falls back to its page
+        regs = [0] * (0x500 // 4)
+        regs[(0x100 * 1) // 4] = 0x1002
+        regs[(0x100 * 1 + 4) // 4] = WIDTH
+        regs[(0x100 * 1 + 0x10) // 4] = WIDTH
+        regs[(0x100 * 1 + 0x14) // 4] = HEIGHT
+        regs[(0x100 * 1 + 0x20) // 4] = 0x1000
+        regs[(0x100 * 1 + 0x34) // 4] = HEIGHT
+        regs[(0x100 * 1 + 0x48) // 4] = 0x03ff
+        page = struct.pack("<H", 0x801f) * (WIDTH * HEIGHT)
+        mem = {0x1000: page, 0x1000 + HEIGHT * WIDTH * 2: struct.pack("<H", 0x83ff) * (WIDTH * HEIGHT)}
+        notes = []
+        rgb = compose(du_planes(regs), lambda a, n: mem[a][:n], notes)
+        assert rgb[0:3] == b"\x00\x00\xf8", rgb[0:3]    # page 0 blue, not the empty window
+        assert len(notes) == 1 and "window row 480" in notes[0], notes
+        notes = []
+        rgb = compose(du_planes(regs), lambda a, n: struct.pack("<H", 0x801f) * (WIDTH * HEIGHT), notes)
+        assert notes == [] and rgb[0:3] == b"\x00\x00\xf8", (notes, rgb[0:3])
+        # the drawn page may be the second one: window on page 0, content on page 1
+        regs[(0x100 * 1 + 0x34) // 4] = 0
+        mem2 = {0x1000: struct.pack("<H", 0x83ff) * (WIDTH * HEIGHT),
+                0x1000 + HEIGHT * WIDTH * 2: struct.pack("<H", 0x83ff) * (WIDTH * HEIGHT),
+                0x1000 + HEIGHT * WIDTH * 4: page}
+        notes = []
+        rgb = compose(du_planes(regs), lambda a, n: mem2[a][:n], notes)
+        assert rgb[0:3] == b"\x00\x00\xf8", rgb[0:3]
+        assert len(notes) == 1 and "showing page rows 960-1439" in notes[0], notes
     print("ze0_screenshot selftest: ok")
 
 

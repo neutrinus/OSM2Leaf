@@ -1716,6 +1716,17 @@ python3 tools/ze0_screencmp.py shot.ppm host.png     # 0 equal, 1 differ, 2 bad 
 python3 tools/ze0_screencmp.py --selftest
 ```
 
+`ze0_screenshot.py screen` composes the DU planes with the window register
+(`+0x30`/`+0x34` = first visible source column/row). When a keyed plane's
+window band holds no visible (un-keyed) pixel but the plane's other page
+does, it shows that page and prints a note: the NK1 AUI draws into rows 0–479
+of an 800 × 960 plane 1 while `+0x34` stays at 480 on the consent screen
+(M8.C1t, C-8500–C-8505). A plane whose window band has content is composed
+from the window, unchanged. `ze0_screenshot.py --selftest` covers both
+directions. Note the key rule: AUI widget/text pixels carry bit 15 clear, so
+they stay keyed out until the 2DG blit that sets the opacity bit is modelled
+(M8.C1v); `plane -n 1` shows the raw page.
+
 ## `ze0_ui.py` — scripted L4 scenarios against a live `-M ze0` guest (M8.H7)
 
 Runs a scenario file (one step per line) against the QEMU monitor and the peer

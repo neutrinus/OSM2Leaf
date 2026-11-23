@@ -5,12 +5,15 @@ planes on the host, so there was no QEMU console: -display gtk/sdl/vnc and
 HMP screendump had nothing to show and run.sh always passed -nographic.
 
 ze0-gfx now optionally registers a graphic console (property display,
-default on) named ze0-gfx and composes DU plane 1-4 exactly like
-ze0_screenshot.py compose(): the plane with the higher number first, plane
-1 on top, a keyed plane (mode bits 0xf000 == 0x1000) drops pixels with bit
-15 clear or the colour key, (A)RGB1555 -> x8r8g8b8.  The composition is
-re-run when a 2DG display list finishes (SCLR = 1) and on a console
-invalidate/gfx_update request, so screendump, VNC and a live window show
+default on) named ze0-gfx and composes DU plane 1-4 the way
+ze0_screenshot.py compose() does: the plane with the higher number first,
+plane 1 on top, a keyed plane (mode bits 0xf000 == 0x1000) drops pixels
+with bit 15 clear or the colour key, (A)RGB1555 -> x8r8g8b8.  A keyed
+plane whose window band (sx/sy) holds no visible pixel but whose other
+480-row page does shows that page, because the NK1 AUI draws into one
+page while +0x34 stays on the other (M8.C1t); the host tool does the same.
+The frame is recomposed when a 2DG display list ends (SCLR = 1) and on a
+console invalidate/gfx_update, so screendump, VNC and a live window show
 the same frame the host tool composes.  gfx-display=off is the control for
 a run with no console at all.
 
@@ -53,7 +56,7 @@ none) is unchanged.
  
  /* DU registers (offsets seen in the gdisubdrv.dll init and the OAL ISR). */
  #define DU_DSYSR    0x00
-@@ -96,6 +97,114 @@
+@@ -96,6 +97,161 @@
      }
  }
  
@@ -71,10 +74,37 @@ none) is unchanged.
 +    return ze0_reg(s, 0, 0x100 * n + off);
 +}
 +
++static bool ze0_band_visible(uint64_t base, uint32_t stride, uint32_t w,
++                             uint32_t h, bool keyed, uint32_t key)
++{
++    uint8_t row[ZE0_DU_W * 2];
++    uint32_t x, y;
++
++    if (!keyed) {
++        return true;
++    }
++    for (y = 0; y < h; y++) {
++        if (address_space_read(&address_space_memory,
++                               base + (uint64_t)y * stride * 2,
++                               MEMTXATTRS_UNSPECIFIED, row, w * 2) != MEMTX_OK) {
++            continue;
++        }
++        for (x = 0; x < w; x++) {
++            uint32_t px = lduw_le_p(row + x * 2);
++
++            if ((px & 0x8000) && (px & 0x7fff) != key) {
++                return true;
++            }
++        }
++    }
++    return false;
++}
++
 +static void ze0_gfx_compose(Ze0GfxState *s)
 +{
++    static const uint32_t page_rows[2] = { 0, 960 };
 +    int order[4] = { 4, 3, 2, 1 };
-+    int i, x, y;
++    int i, j, x, y, r;
 +
 +    if (!s->fb) {
 +        return;
@@ -91,7 +121,7 @@ none) is unchanged.
 +        uint32_t sy = ze0_plane_reg(s, n, 0x34);
 +        uint32_t key = ze0_plane_reg(s, n, 0x48) & 0x7fff;
 +        bool keyed = (mode & 0xf000) == 0x1000;
-+        uint64_t base;
++        uint64_t base, addrs;
 +        uint32_t w, h;
 +
 +        if (!(pw && ph && addr && stride)) {
@@ -99,11 +129,30 @@ none) is unchanged.
 +        }
 +        w = MIN(pw, ZE0_DU_W);
 +        h = MIN(ph, ZE0_DU_H);
-+        base = ((addr & 0x1fffffffu) +
-+                ((uint64_t)sy * stride + sx) * 2);
++        addrs = addr & 0x1fffffffu;
++        base = addrs + ((uint64_t)sy * stride + sx) * 2;
++        /*
++         * A keyed plane whose window band holds no visible pixel but whose
++         * other 480-row page does: the NK1 AUI draws into one page while
++         * +0x34 stays on the other (M8.C1t), so show the page with content.
++         */
++        if (!ze0_band_visible(base, stride, w, h, keyed, key)) {
++            for (j = 0; j < 2; j++) {
++                uint64_t page;
++
++                if (page_rows[j] == sy) {
++                    continue;
++                }
++                page = addrs +
++                       ((uint64_t)page_rows[j] * stride + sx) * 2;
++                if (ze0_band_visible(page, stride, w, h, keyed, key)) {
++                    base = page;
++                    break;
++                }
++            }
++        }
 +        for (y = 0; y < h; y++) {
 +            uint8_t row[ZE0_DU_W * 2];
-+            int r;
 +
 +            r = address_space_read(&address_space_memory,
 +                                   base + (uint64_t)y * stride * 2,
@@ -125,6 +174,7 @@ none) is unchanged.
 +        }
 +    }
 +}
++
 +
 +static bool ze0_gfx_display_update(void *opaque)
 +{
@@ -168,7 +218,7 @@ none) is unchanged.
  static uint64_t ze0_gfx_rd(Ze0GfxState *s, int blk, hwaddr off, unsigned size)
  {
      uint8_t *m = s->regs[blk] + off;
-@@ -157,6 +266,9 @@
+@@ -157,6 +313,9 @@
          }
          s->g2_sr |= G2_TRA;
          stl_le_p(m, v & ~1u);
@@ -178,7 +228,7 @@ none) is unchanged.
      }
      ze0_gfx_update(s);
  }
-@@ -206,6 +318,13 @@
+@@ -206,6 +365,13 @@
      sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq[0]);
      sysbus_init_irq(SYS_BUS_DEVICE(s), &s->irq[1]);
      s->vbl = timer_new_ns(QEMU_CLOCK_VIRTUAL, ze0_gfx_vblank, s);
@@ -192,7 +242,7 @@ none) is unchanged.
  }
  
  static void ze0_gfx_reset(DeviceState *dev)
-@@ -214,6 +333,9 @@
+@@ -214,6 +380,9 @@
  
      memset(s->regs, 0, sizeof(s->regs));
      s->du_sr = s->g2_sr = 0;
@@ -202,7 +252,7 @@ none) is unchanged.
      timer_mod(s->vbl, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
                NANOSECONDS_PER_SECOND / 60);
  }
-@@ -221,6 +343,7 @@
+@@ -221,6 +390,7 @@
  static const Property ze0_gfx_props[] = {
      DEFINE_PROP_BOOL("trace", Ze0GfxState, trace, false),
      DEFINE_PROP_BOOL("exec", Ze0GfxState, exec, true),
@@ -212,23 +262,23 @@ none) is unchanged.
  static void ze0_gfx_class_init(ObjectClass *oc, const void *data)
 --- a/hw/sh4/ze0.c
 +++ b/hw/sh4/ze0.c
-@@ -39,6 +39,7 @@
- #include "hw/sh4/ze0_sdhi.h"
- #include "hw/sh4/ze0_hpbdmac.h"
+@@ -43,6 +43,7 @@
+ #include "hw/sh4/ze0_ssi.h"
+ #include "hw/core/or-irq.h"
  #include "hw/sh4/ze0_gfx.h"
 +#include "monitor/qdev.h"
  #include "system/blockdev.h"
  #include "system/system.h"
  #include "system/reset.h"
-@@ -175,6 +176,7 @@
-     bool hpbdmac_serial;
+@@ -189,6 +190,7 @@
+     uint32_t ssi_selftest;
      bool gfx;
      bool gfx_trace;
 +    bool gfx_display;
      bool sd_pwd_tofu;
      bool sd_start_locked;
      bool scif_stubs;
-@@ -995,6 +997,10 @@
+@@ -1120,6 +1122,10 @@
          int gi;
  
          qdev_prop_set_bit(g, "trace", ZE0_MACHINE(machine)->gfx_trace);
@@ -239,7 +289,7 @@ none) is unchanged.
          sysbus_realize_and_unref(SYS_BUS_DEVICE(g), &error_fatal);
          sysbus_connect_irq(SYS_BUS_DEVICE(g), 0, ze0_intc_irq(intc, ZE0_IRQ_DU));
          sysbus_connect_irq(SYS_BUS_DEVICE(g), 1,
-@@ -1095,6 +1101,16 @@
+@@ -1251,6 +1257,16 @@
      ZE0_MACHINE(obj)->gfx = value;
  }
  
@@ -256,7 +306,7 @@ none) is unchanged.
  static bool ze0_get_gfx_trace(Object *obj, Error **errp)
  {
      return ZE0_MACHINE(obj)->gfx_trace;
-@@ -1281,6 +1297,12 @@
+@@ -1469,6 +1485,12 @@
      object_property_set_description(obj, "gfx",
          "display engine registers (DU 0xfff80000, 2D 0xffe80000 and their "
          "29-bit aliases; default on, off = old unassigned behaviour)");

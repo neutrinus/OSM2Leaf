@@ -4560,7 +4560,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.C1n-ini-startup-join (C-8340–C-8349). INI_STARTUP leaves only on SS_JON_TRANSITION_LAST_SCREEN, a join of ANTITHEFT_CC_NTF_COMP_OK and NOTICE_AUDIO_SOURCE; the second never comes because the audio side waits for the audio micom (M8.H45). Touch is locked by kepdrv m_byKeyGuardAllKey = 0xf1 until CApi_AntitheftUnlock, also on the audio path. New `ze0_uistart.py` / `ze0_launch.py --ui-start` bridges both through the gdb stub: the UI reaches the US consent screen, a tap on OK goes to the map screen, ZOOM IN works; buttons are in DU plane 1 (`ze0_screenshot.py plane`). Next: M8.C1t (screenshot of plane 1), M8.H45 (micom) removes the bridge.
 
 - [ ] **M8.C1t — Screenshot of the AUI layer: DU plane 1 window register and alpha rule**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.c1t-plane1-alpha · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1n
   - Goal: after `ze0_launch.py --ui-start` the AUI draws the consent screen and the map buttons into DU plane 1, but `ze0_screenshot.py screen` shows only the map (C-8348). Marek wants the UI layer in the emulator screenshot (2026-11-22).
@@ -4571,6 +4571,22 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session. No vendor screenshots in the repository.
   - Falsifier: plane 1 rows 0–479 are a back buffer that the hardware never shows (then the shown page must hold the buttons after a flip).
   - Claims: C-8500–C-8509
+  - Result: EXP-2026-11-23-M8.C1t-plane1-alpha-rule (C-8500–C-8506, negative for the screenshot: plane +0x34/+0x30 are source row/column, writer 0x03d73fe0-0x03d74004; consent screen leaves +0x34 at 480, the tap writes 0; key 0x03ff, only 1,502 bit-15-set widget px survive)
+  - Blocker: AUI text and button labels reach plane 1 with bit 15 clear, so the colour key drops them; the 2DG blit that sets the opacity bit is not in ze0-0014 (raw page shows the text, screen does not)
+  - Unblock: M8.C1v
+
+- [ ] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1n
+  - Goal: M8.C1t showed the map screen with the AUI widget pixels but not the button labels: the AUI text reaches plane 1 with bit 15 clear and the colour key drops it (C-8502, C-8505). The unit makes the text opaque through a 2DG blit that ze0-0014 does not render (C-8506). Marek wants the interface (plane 1 buttons) over the map in the emulator screenshot (2026-11-22).
+  - Precheck: ze0_launch.py --ui-start reaches the map screen after a tap at panel (277, 98) with the display link at REG_OK (C-8504), and ze0_screenshot.py plane -n 1 shows the consent text + Map Menu/ZOOM OUT/IN; ze0_screenshot.py screen shows the map and only the 1,502 opaque widget pixels, not the labels (C-8505).
+  - Scope: (1) find the 2DG op the AUI uses to blit its text/bitmaps into plane 1 (the emitters in auirtdll.dll; C1f notes 0xa8xxxxxx alpha glyph and 0xb0.. ops) and whether it sets bit 15 of the destination pixel; (2) render that op in ze0-0014 (or model the destination alpha) so the labels become opaque under the 0x03ff key; (3) ze0_screenshot.py screen then shows Map Menu/ZOOM OUT/1-16mi/ZOOM IN over the map - one screenshot kept outside the repository; (4) the leftover consent page under the widgets is a guest lazy-redraw artefact (C-8505), note it and do not chase it here.
+  - Input: EXP-2026-11-23-M8.C1t-plane1-alpha-rule, EXP-2026-11-23-M8.C1n-ini-startup-join (O5, O8), EXP-2026-11-22-M8.H35-sci3-display-link, `docs/firmware/lcddrv.md`, `tools/ze0_peers/panel.py`, `tools/ze0_uistart.py`, `tools/ze0_screenshot.py`.
+  - Done when: ze0_screenshot.py screen after the --ui-start flow shows the map with the AUI labels (Map Menu, ZOOM OUT/IN) over it, pixel evidence in the EXP (label pixels now have bit 15 set / survive the key and their count is given), and the 2DG op that sets it is named with its VA; a screenshot hash is recorded, kept outside the repository.
+  - Stop: if the labels come from a plane/surface that is not 2DG (e.g. a CPU blit through gdisubdrv), record that and hand it back to a plane/surface task instead of widening ze0-0014.
+  - Falsifier: the labels appear only with a non-key composition (plane -n 1), never from the windowed screen - then the key/alpha rule of C-8502 is what the unit relies on and the 2DG blit is a red herring.
+  - Claims: C-9920–C-9929
 
 - [x] **M8.C1u — 2DG area fill: water and parks drawn as rectangles (pattern texture over a stencil polygon)**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
