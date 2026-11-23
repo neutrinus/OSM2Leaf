@@ -22,10 +22,10 @@ optional on machines without a compiler).
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent / "sdlock-pico"
@@ -44,22 +44,27 @@ def run(cc: str | None, verbose: bool) -> int:
     if cc is None:
         print("SKIP: no C compiler (cc/gcc/clang) on PATH")
         return 0
-    with tempfile.TemporaryDirectory() as tmp:
-        exe = Path(tmp) / "test_sdlock"
+    scratch = Path.home() / "projekty/leafre-work/scratch/sdlock_pico_check"
+    scratch.mkdir(parents=True, exist_ok=True)
+    try:
+        exe = scratch / "test_sdlock"
         cmd = [cc, *CFLAGS, f"-I{ROOT / 'src'}",
                *[str(ROOT / s) for s in SOURCES], "-o", str(exe)]
-        build = subprocess.run(cmd, capture_output=True, text=True)
+        env = {**os.environ, "TMPDIR": str(scratch)}
+        build = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if build.returncode != 0:
             print("FAIL: build\n" + build.stdout + build.stderr)
             return 1
         proc = subprocess.run([str(exe)], capture_output=True, text=True,
-                              timeout=60)
+                              timeout=60, env=env)
         out = proc.stdout.strip()
         if verbose or proc.returncode != 0:
             print(out)
         else:
             print(out.splitlines()[-1] if out else "(no output)")
         return 0 if proc.returncode == 0 else 1
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:

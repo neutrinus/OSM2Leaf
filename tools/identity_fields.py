@@ -35,6 +35,8 @@ import os
 import re
 import struct
 import sys
+import shutil
+from pathlib import Path
 
 CODE_FILL = 0x3F
 CODE_START = 0x18C
@@ -304,6 +306,15 @@ def _synthetic_card(path: str, cut_after: int | None = None, hole: int | None = 
 
 
 def run_selftest() -> int:
+    scratch = Path.home() / "projekty/leafre-work/scratch/identity_fields"
+    scratch.mkdir(parents=True, exist_ok=True)
+    try:
+        return _selftest(scratch)
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _selftest(scratch: Path) -> int:
     failures = 0
 
     def expect(label: str, ok: bool) -> None:
@@ -350,7 +361,7 @@ def run_selftest() -> int:
         "Path = SPEECH\\CF\\TTS\\TCF00000.TTS",
         "Path = MAPAL001/B28R070R.DAT",
     ]
-    tmp = os.path.join(os.environ.get("TMPDIR", "/tmp"), f"identity_fields_selftest_{os.getpid()}.txt")
+    tmp = str(scratch / f"identity_fields_selftest_{os.getpid()}.txt")
     try:
         with open(tmp, "w", encoding="utf-8") as f:
             f.write("\n".join(listing) + "\n")
@@ -362,7 +373,7 @@ def run_selftest() -> int:
     finally:
         os.remove(tmp)
 
-    base = os.path.join(os.environ.get("TMPDIR", "/tmp"), f"identity_fields_card_{os.getpid()}")
+    base = str(scratch / f"identity_fields_card_{os.getpid()}")
     try:
         _synthetic_card(base + ".img")
         got = card_extract(base + ".img", "BICON001/BICON001.DAT")
