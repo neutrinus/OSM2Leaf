@@ -583,6 +583,19 @@ Firmware access path / reader search: see `INTER0nn` above and
 path and corrected record layout confirmed, C-2210–C-2219). Offline decode:
 `EXP-2026-11-22-M4.82-frway-decode.md` (C-7830–C-7839).
 
+**Route-guidance field names vs signpost text (M4.73, EU2011 shard 021).**
+The FRWAY021 schema block at `0x1400` carries the names `FREEWAY-NAME`,
+`ENTRANCE/EXIT`, `Entrance/Exit name`, `area code`, `route number`,
+`attribute code`, `dndc-id`; INTER021 has no such guidance schema names but its
+decoded bytes contain 187 `40 00 00 00 XXXX` node refs. The exact signpost
+`0=POZNAN:KALISZ:(36):RAWICZ` occurs **0** times in INTER021's 230 and FRWAY021's
+3 inner zlib members — its words appear only inside street names (`ULICA
+POZNANSKA`, `ULICA RAWICZA`). The signpost is stored verbatim in tile
+`B48R058R` section 4 (parcel `a6bed6ee`, name at word 53, country 616), fetched
+by the router's kind-`0x40` `RGD_DATA` request (C-5925). `LANE` is absent from
+both schemas; scope is two Poland shards, not a claim about other files.
+Evidence: `EXP-2026-11-23-M4.73-kiwi-guidance-junction.md` (C-7720–C-7724).
+
 ## `ICADM0nn` — administrative country data
 
 - The 4096-byte common CLARION header is followed by an ISO/tier-label table at
