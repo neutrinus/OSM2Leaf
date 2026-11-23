@@ -3251,8 +3251,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     clusters+dir entry). Partner road name not resolved. Artifacts outside repo.
   - Claims: C-2050–C-2059
 
-- [ ] **M5.16 — `LEV3456R.DAT` generator: levels 3–6 from OSM (H11 G4)**
-  - Status: in progress · Owner: task/m5.16-factory-reencode · Critical: no
+- [x] **M5.16 — `LEV3456R.DAT` generator: levels 3–6 from OSM (H11 G4)**
+  - Status: done · Owner: task/m5.16-factory-reencode · Critical: no
   - Step: P2
   - Depends: M4.11, M5.4
   - Goal: A generated Poland card needs its factory coarse layers reproduced exactly before any OSM writer is added: re-encode all LEV3456R levels 3-6 of sections 1-2 byte-identically and show the firmware reads the rebuilt file.
@@ -3261,7 +3261,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-2400–C-2404 (C-2405–C-2409 reserved)
   - Blocker: (history) the M9.18 firmware clause belonged to the earlier OSM-generator scope; the narrowed factory scope has an L3 mount verdict.
   - Unblock: (met) M9.18 directory-level L3 targets exist (C-2440–C-2446); the rebuilt factory file is read the same as the factory (new EXP).
-  - Result: EXP-2026-11-08-M5.16-lev3456-generator. `tools/lev3456gen.py` (selftest OK, python3.13 stock zlib): generates L3/4/5 road records from mesh-split synthetic extract, template-splices EU 2011 LEV3456R; unchanged template round-trip byte-identical (76,066,304 B); generated L3/4/5 accepted by `lev3456.py verify` (exit 0, L5 strict 62/62 plain+stream, 0 opaque; L3/L4 best-effort matches factory preserved pattern); `generate()` deterministic. Not `[x]`: M9.18 firmware-reader clause unmet.
+  - Result: EXP-2026-11-23-M5.16-factory-reencode; whole-file factory rebuild byte-identical (76,066,304 B, sha256 08a584fe..., cmp silent); verify levels 3-6 OK, 6 regions; L3 mount MATCH 9/9 and diff SAME 28/28 for the rebuilt file; 3 negative controls fail; gate 5 pass, selftest 253/0/21
   - Scope: Re-scoped 2026-11-23 to the factory-data re-encode path only; no OSM writer is in this task (tools/lev3456gen.py remains the separate generator). The earlier Result line documents the wider, blocked attempt.
 
 - [ ] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
