@@ -14,6 +14,12 @@ UI remain the unit's US build.
 > (EXP-2026-11-06-M2.7, C-780–C-789). The NAND address `0xA022`, the US/card
 > behaviour and the audio path remain external (`OBSERVED`/`HYPOTHESIS`) until a
 > spare unit confirms them. See [`claims.md`](claims.md).
+>
+> **Update 2026-11-22 (M6.19):** Marek's US unit was dumped. The unit runs its
+> own kernel from flash, the market byte is flash `0xA021`, and the unit side
+> of the map-code check is `QSD-301-100` in that kernel's header. See
+> "Settled by the unit flash dump" below and
+> [`unit-flash.md`](../hardware/unit-flash.md).
 
 ## Verified on the EU 2011 image
 
@@ -42,7 +48,7 @@ object; it is not a compiled-in market table, and there is no setter.
 The value comes from a 4-byte **Target ID** read by
 `KernelIoControl(0x01013208, in = {1}, 4, out = 4 bytes)` in build B
 `0x03c0c830` / C `0x03bec98c`. Byte `+4` must be non-zero and not `0xFF`;
-byte `+5` is the area. On Marek's unit the LeafSDTools Product ID (PROD `+0x20`) reads `10 20 02 12`, which fits Target ID = PROD `+0x20..+0x23` with the area at flash `0xA021` (C-5201, HYPOTHESIS; C-078's `0xA022` holds `0x02`). The firmware logs `Target ID Code >> %02X%02X%02X%02X`
+byte `+5` is the area. On Marek's unit PROD `+0x20` reads `10 20 02 12`, and the flash kernel's handler (`nk.exe` `fn 0x88048724`) returns exactly these four bytes from the record at `0xA000A000`: Target ID = PROD `+0x20..+0x23`, area at flash `0xA021` (C-5215, VERIFIED; C-078's `0xA022` is retracted). The firmware logs `Target ID Code >> %02X%02X%02X%02X`
 from these four bytes.
 
 `AppLaunch.dll` (`0x03bb…` in B, `0x03b9…` in C) maps the area:
@@ -80,11 +86,38 @@ unit-vs-card; no area or region value from the card enters them.
 | Version | `NAVI VERSION NG` compares the card's version/record with the unit's `NAVI-1`; the launcher's unit-side record is read through `KernelIoControl` (see above), not from the card. | PARTLY VERIFIED (firmware path) / HYPOTHESIS (screen assignment) |
 | Map code | `DIFFERENT MAP CODE` compares the card's `VER_INFO/HDD_INFO.TXT` with a unit-side target-info record (`manufacturer_id`, `userdata_type`, `destination_id`, map-DB range); the unit side cannot be supplied by the card. | PARTLY VERIFIED (firmware path) / HYPOTHESIS (field mapping) |
 | Unit region | The market is a NAND byte in the PROD block at `0xA022` (`0x10` JP/world, `0x20` US, `0x30` EU, `0x40` RU, `0x50` CN). The firmware confirms the **values and the five-way switch**, but reads the byte as part of a 4-byte Target ID via `KernelIoControl(0x01013208)`; the `0xA022` address itself is external. The old "`AppLaunch` compares against `0x10`" wording is wrong: `0x10` is only the Japan branch. | VALUES VERIFIED / ADDRESS HYPOTHESIS |
-| Firmware | Navi app `NB00` on card / `NB04` in NAND are build copies; the card's build is not executed while the unit runs its own. **Contested (C-5192, EXP-2026-11-19-M6.17):** the QY7 unit flash is 8 MiB and A is 24.4 MB, so the card build is most likely what runs; M6.19 decides. Audio CPU is separate: `70F3355` JP, `70F3356` US, `70F3357` EU. The EU image's `Navi.exe` is compiled `## COMPILE OPTION ## EUROPE FOR NISSAN ##`; the launcher name block also carries a JP-specific `NxJpNavi.exe`. | EU card image build OBSERVED; NB04/US build and audio mapping HYPOTHESIS |
+| Firmware | Navi app `NB00` on card / `NB04` in NAND are build copies; the card's build is not executed while the unit runs its own. **Decided by M6.19 (C-5213):** both earlier readings were half right. The kernel runs from the unit flash (`X110NBNI.147`), the applications including `Navi.exe` run from the card (image A, `X210NBNI.147` on the US card). Audio CPU is separate: `70F3355` JP, `70F3356` US, `70F3357` EU. The EU image's `Navi.exe` is compiled `## COMPILE OPTION ## EUROPE FOR NISSAN ##`; the launcher name block also carries a JP-specific `NxJpNavi.exe`. | EU card image build OBSERVED; NB04/US build and audio mapping HYPOTHESIS |
 | Precedent | A US QY7210NN booted and drew European streets from an EU card (leafsdtools issue #3). | OBSERVED / HEARSAY |
 | JP→EU teardown | PROD byte alone changed little and broke TV/hangs. PROD + EU loader + EU card gave EU languages, time zones and map, but killed all audio. | OBSERVED / HEARSAY |
 | Anti-theft | `SECURE` is a CAN/VIN check. Clearing PROD `A0A0–A0A3` or grounding `TEST_B1` disables it. | OBSERVED / HEARSAY |
 | Full US→EU | No published recipe. Commercial converters exist; success rate and audio survival are unproven. | UNKNOWN |
+
+## Settled by the unit flash dump (M6.19, 2026-11-22)
+
+From Marek's US unit (EXP-2026-11-22-M6.19-unit-flash-map, C-5210–C-5219):
+
+| Gate | Unit side, where | Value on this US unit | What an EU card brings |
+| --- | --- | --- | --- |
+| Map code (`DIFFERENT MAP CODE`, `0x50`) | flash kernel header `+0x60`, flash `0x040060` | `QSD-301-100` | `HDD_INFO.TXT` line 1 = `QSD-302-100` → mismatch |
+| Map-DB window (`MAP DATA BASE UNMATCH`, `0x51`) | flash kernel header `+0x70` | 16..16 | 16 → inside |
+| Area | PROD `+0x21`, flash `0xA021` | `0x20` USA | nothing; the card cannot set it |
+| Build name (`NK Version Error`, `0x42`) | flash kernel header `+0x20`, characters 2–11, against the label of card image A | `10NBNI.147` | `X210ECNI.158` → mismatch (C-8401, M8.C1r) |
+
+So an EU card fails two checks on this unit, and both compared values are
+**on the card**: the label of image A (both copies) and the first line of
+`VER_INFO/HDD_INFO.TXT` (the file in the FAT partition, not the raw copy at
+`0x06000000`, C-8356). `tools/card_mapcode.py set --from-nk1` changes both.
+In the emulator, with Marek's flash dump, the changed EU card passes both
+checks, `Navi.exe` starts and draws the EU map (C-8357, C-8402, M8.C1q). No
+flash write is needed. On the real unit this is still a HYPOTHESIS: the
+emulator does not model the audio microcontroller, the SD lock or what the
+EU applications do with a USA area.
+
+The area stays USA in that experiment. The flash kernel's launch table
+starts the same `\windows\Navi.exe` for USA and for Euro (two records, same
+path), so the EU `Navi.exe` would be started; the Euro-only drivers `TNR2:`
+(RDS) and `TMC1:` (traffic) would not, and the USA-only `TNR3:` (XM) and
+`TNR4:` (RBDS) would (C-5216).
 
 ## Interpretation
 
@@ -116,9 +149,11 @@ area/UI/firmware layer, not the map files.
   `REFER001`/`MAPAL001`/`RDSTM001`/…), if the SD lock is satisfied and the
   unit-vs-card record/map-DB checks pass. The map engine does not consult the
   market area.
-- **Cannot:** change the unit's market/area, UI language set, launcher table or
-  the running `Navi.exe` build. The card's firmware area is an update payload,
-  not the code the unit executes.
+- **Cannot:** change the unit's market/area or its launcher table: both are
+  in the unit flash. (Corrected 2026-11-22: the card's image A *is* executed,
+  so the card does supply `Navi.exe` and the UI resources. The flash kernel
+  refuses an image A with another build name, C-8401, but that name is on
+  the card.)
 - **Practical consequence:** an unmodified EU card in a US unit is expected to
   fail the launcher record/version checks before `Navi.exe` starts. Matching
   the card's `HDD_INFO` (and map-DB value) to the US unit's target info is the
@@ -153,7 +188,7 @@ Use a **spare card first, then a spare unit**. Never the owner's only card.
    so the result should depend only on the record/version gates. If an
    untouched EU card passes, the unit's target-info values and map-DB window
    already accept EU data.
-4. **Unit NAND, one byte (spare unit):** PROD `A022` `0x20→0x30` plus the PROD
+4. **Unit NAND, one byte (spare unit):** PROD `A021` `0x20→0x30` plus the PROD
    checksum. Expect the JP-class failure mode (wrong assets, hangs, black
    screen). Recover via test pin + NAND restore.
 5. **Unit NAND, donor EU `NB04`/`NB00` (spare unit):** the commercial path.

@@ -24,7 +24,7 @@ not described here (M1.38).
 | CPU | Renesas SH-4A, little endian. BSP name `R0P7772A00020S` points to the SH-NaviJ family (SH7772x); the exact part is not proven. The kernel runs on QEMU's `sh7785` model. | core VERIFIED, part HYPOTHESIS |
 | OS | Windows CE 5.0, OEM platform `CETUS`, kernel built Oct 23 2008 | VERIFIED |
 | RAM | DRAM starts at physical `0x08000000`. The firmware uses it up to `0x0e600000` (102 MiB), so the board has at least that; 128 MiB (`0x08000000`–`0x0fffffff`) is the natural size. | lower bound VERIFIED, 128 MiB HYPOTHESIS |
-| Flash on the board | 8 MiB NOR (`FMD1:`), 135 erase blocks. Holds the boot loader (IPL), the product record (model, serial, region, SD PIN), and user data. Too small for the OS: the OS images (24 MB + 7 MB) live on the SD card. | size and layout VERIFIED from LeafSDTools source; chip (SST 38VF6401) external lead |
+| Flash on the board | 8 MiB NOR (`FMD1:`) at physical 0, 135 erase blocks. Holds four boot loaders, the product record (model, serial, region, SD PIN), **the normal-mode CE kernel `X110NBNI.147` (2.9 MiB)**, a sub-test program, a crash log and user data. The application image A (24 MB) and the update/test kernels live on the SD card. Map: [`unit-flash.md`](unit-flash.md). | VERIFIED on Marek's dump (M6.19, C-5210–C-5219); chip (SST 38VF6401) external lead |
 | Main storage | SD card in the main slot (`DSK1:`, `\SystemSD`): three CE ROM images + FAT32 with maps. Second slot (`DSK8:`, `\UserSD`). | VERIFIED |
 | Display | 800 × 480, 16 bit per pixel; the display unit is driven over a serial link (`SCI3:`) besides the video signal | resolution VERIFIED |
 | Other processors | audio microcontroller (NEC/Renesas 70F335x), "VCAN" sub-microcontroller for the vehicle CAN, Bluetooth module, display controller. Each has its own updater on the card. | existence VERIFIED (updaters), parts external |
@@ -33,7 +33,7 @@ not described here (M1.38).
 
 | Physical range | Size | Use | Status |
 | --- | --- | --- | --- |
-| `0x08000000`–`0x086e18a4` | 6.9 MiB | kernel image (build B or C), copied here from the SD card by the boot loader, runs in place | VERIFIED (ROMHDR) |
+| `0x08000000`–`0x086e18a4` | 6.9 MiB | kernel image. Normal mode: `X110NBNI.147` from the unit flash (ends at `0x082cdae8`, C-5213). Update mode: build B from the SD card (ends at `0x086e18a4`); test mode: build C | VERIFIED (ROMHDR) |
 | `0x09980000`–`0x09e40000` | 4.75 MiB | fixed driver buffers: serial, SD host, USB host (`0x099a1000`, 128 KiB), audio, `VSram` (`0x09a40000`, 1 MiB mirror of the flash user area), `FlashManager` (`0x09b40000`) | VERIFIED (driver literals, registry) |
 | `0x09e40000`–`0x0cae1000` | 44.6 MiB | CE RAM in normal mode (programs + object store, `FSRamPercent` = 0x28) | VERIFIED (ROMHDR of A) |
 | `0x0cae1000`–`0x0e2788e0` | 23.6 MiB | application image A (Navi.exe and 148 more modules), runs in place (US 2011; EU 2011 ends at `0x0e233c88`) | VERIFIED |
@@ -44,16 +44,20 @@ not described here (M1.38).
 So an application sees about 45 MiB of RAM, shared with the RAM file system.
 This is the budget any new or larger binary has to fit into.
 
-Flash (`FMD1:`, 8 MiB; blocks 0–7 are 8 KiB, the rest 64 KiB), from the
-LeafSDTools source:
+Flash (`FMD1:`, 8 MiB at physical 0; blocks 0–7 are 8 KiB, the rest
+64 KiB). The full map from Marek's dump is in
+[`unit-flash.md`](unit-flash.md); in short:
 
 | Region | Content |
 | --- | --- |
-| block 0… | boot loader (IPL) |
-| block 5 (`0xA000`) | product record `PROD`: Product ID, model, serial, market byte, IMMO data, SD PIN |
-| blocks `0x47`–`0x56` (1 MiB) | "SRAM": user data (destinations, settings) |
-| blocks `0x57`–`0x84` (2.875 MiB) | "VFlash" |
-| rest | named `BASE`, `EBOOT`, `ENHANCE`, `APP X/W1`, `PS+MEM` in the tool; content unknown until the dump of M6.18 is read (M6.19) |
+| `0x000000` | boot loader `IP10XENI.017` (IPL) |
+| `0x00A000` (block 5) | product record `PROD`: Target ID with the market byte at `+0x21`, model, serial, IMMO data, SD PIN |
+| `0x010000`, `0x020000`, `0x030000` | `BASE` (monitor), `EBOOT` (Ethernet loader), `ENHANCE` (card unlock, flash writer) |
+| `0x040000`–`0x30DAE7` | CE kernel `X110NBNI.147`, the kernel of normal mode |
+| `0x360000` | crash log (`ASLG`) |
+| `0x3A0000` | sub-test program `PS10XXXX.009`, runs in place |
+| `0x400000`–`0x4FFFFF` (blocks `0x47`–`0x56`) | "SRAM": four doubled `SMST` stores (settings, user data) |
+| `0x500000`–`0x7DFFFF` (blocks `0x57`–`0x84`) | "VFlash": phone book, stored places |
 
 ## Serial ports: who talks on which line
 
