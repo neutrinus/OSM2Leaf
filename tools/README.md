@@ -1062,6 +1062,26 @@ python3 tools/progress_report.py --l1l2-json /tmp/opencode/h27-l1l2.json \
 Schema: `osm2leaf.progress_report/v2` (`schema_legacy` v1). Claims C-2770–C-2779;
 see [`../docs/experiments/EXP-2026-11-08-H27-progress-dashboard.md`](../docs/experiments/EXP-2026-11-08-H27-progress-dashboard.md).
 
+## `progress_snapshot.py` — one-command per-level progress snapshot (H56)
+
+Thin driver over the offline chain: `l1l2_fixtures.py` → `l1l2_matrix.py`
+(against the H41 baseline) → `l3check.py --build-corpus --json` →
+`progress_report.py`. It prints ONE Markdown table with columns
+`level / runnable PASS / FAIL / SKIP / NOT_COVERED / NOT_RUNNABLE / BLOCKED /
+verdict` for L1/L2/L3 plus explicit L4-emulator and L5-bench rows. Those two
+rows are readiness-only `NOT RUN (hardware/QEMU unavailable)` unless an explicit
+status JSON is supplied with `--l4-status`/`--l5-status` (a PASS without
+evidence is not accepted). No vendor data, QEMU or network is used.
+
+```bash
+python3 tools/progress_snapshot.py --selftest
+python3 tools/progress_snapshot.py --json progress-snapshot.json --md progress-snapshot.md
+```
+
+Exit 1 on a runnable FAIL or an H41 baseline regression (a synthetic
+PASS→FAIL fixture mutation is covered by `--selftest`); 0 otherwise. Schema
+`osm2leaf.progress_snapshot/v1`; claims C-3720–C-3729.
+
 ## `l3check.py` — L3 rung of the verification ladder
 
 Runs every target declared in `tools/l3_harness/targets.json` through

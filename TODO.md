@@ -485,8 +485,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-3710–C-3719
   - Result: EXP-2026-11-15-H55-l3check-json-path; `--json` is `nargs="?", const="-"`, `PATH` written atomically (UTF-8), `-`/bare = stdout; schema `osm2leaf.l3check/v1` and verdicts unchanged; fixed-corpus file is `cmp`-identical to bare `--json`; `progress_report.py --l3-json` reads it (exit 0). Claims C-3710–C-3713.
 
-- [ ] **H56 — Per-level generated-card progress snapshot (L1/L2/L3 PASS counts + L4/L5 readiness, SKIP never PASS)**
-  - Status: in progress · Owner: task/h56-progress-snapshot · Critical: yes · Pair: required
+- [x] **H56 — Per-level generated-card progress snapshot (L1/L2/L3 PASS counts + L4/L5 readiness, SKIP never PASS)**
+  - Status: done · Owner: task/h56-progress-snapshot · Critical: yes · Pair: required
   - Depends: H41 (L1/L2 matrix), H55 (L3 JSON file), H40 (generated fixture)
   - Goal: the QA target asks for "how far a generated card gets, per level". Today `progress_report.py` aggregates inputs but needs each input handed to it, and no single command answers "where does our generated card stand at L1/L2/L3, and is L4/L5 ready?" without manual assembly.
   - Precheck: `python3 tools/progress_report.py --selftest` passes; `python3 tools/progress_report.py --l1l2-matrix-json <H41 output>` and `--l3-json <H55 output>` accept the shapes (help/EXP-2026-11-09-H47).
@@ -496,6 +496,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: `python3 tools/<name> --selftest` passes on a synthetic fixture and separates PASS/FAIL/SKIP/NOT_COVERED/NOT_RUNNABLE/BLOCKED; the default PR job can run it with no vendor data; the EXP links one run and maps each column to a level per `test-system.md`; a PASS->FAIL regression in the fixture makes it fail.
   - Stop: if H41 is not landed, build the L3 + readiness rows only and mark L1/L2 `NOT COVERED (H41)` rather than guessing the matrix.
   - Claims: C-3720–C-3729
+  - Result: EXP-2026-11-23-H56-progress-snapshot; selftest 27/27; table L1 1P/L2 8P1S2NC/L3 3P10B; PASS->FAIL rc=1; C-3720-C-3729
 
 - [ ] **H57 — Fixture regression baseline: a committed no-vendor baseline and a documented PASS->FAIL gate**
   - Status: open · Owner: — · Critical: no · Pair: solo
