@@ -2984,7 +2984,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-23-M4.98-sec2-fields-ghidra: direction w2>>14, turn words, cost w5, length w6, boundary links, header pairs and level-2 unit 1 named from the decompiled route search and checked on all of B48R068R (tools/sec2_fields.py, tools/ghidra/); L4: one closed route link gives a detour, a closed off-route link and the re-encode control do not, all one-ways reversed gives no route (C-9930-C-9939). Follow-up: runtime cost tables for the w1 categories.
 
 - [ ] **M4.99 — Name the class-d residual of `B48R058R`: padding or a record block, and the covering span if it is real**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m4.99-class-d-residual · Critical: no · Pair: required
   - Depends: M4.96 (grade into classes, done), M4.93 (section-4 wide rows, done), M4.86 (unexplained ranking, done)
   - Goal: M4.96 graded the "still unexplained" bytes of the worst tile into classes a–d and every range landed in class d ("other"): `d=1326 B/2 ranges` on `B48R058R` and `d=176 B/3 ranges` on `B30R048R`, a=b=c=0. The grade deliberately stopped before a decoder, so the `tile_bytes` number (76.29 % / 95.86 %) still has no named next block. Classify class d by the tile header's section table and directory kinds: slack/padding, or one record block with a reader. This is the smallest slice that can move the number or close the lead honestly.
   - Precheck: `python3 tools/tile_unknown.py /home/marek/projekty/leafre-work/m5.4/card-factory/MAPAL001/B48R058R.DAT --top 12` prints the ranked ranges; `python3 tools/map_signals.py --factory-root /home/marek/projekty/leafre-work/m5.4/card-factory` prints the three tile percentages.
