@@ -10,6 +10,8 @@ Commands:
   python3 tools/kiwi_road_probe.py --selftest
   python3 tools/kiwi_road_probe.py record TILE --offset 0x...
   python3 tools/kiwi_road_probe.py frame TILE [--level 1] [--limit N] [--json OUT]
+  python3 tools/kiwi_road_probe.py --tree ROOT --tile B48R058R  # M4.69 replay
+  python3 tools/kiwi_road_probe.py --card IMG --tile B48R058R   # one FAT file, no 7z
 """
 import argparse
 import hashlib
@@ -23,6 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "ze0-viewer" / "tools_z
 import clarion_tile  # noqa: E402
 
 import tilewriter  # noqa: E402
+
+import _kiwi_replay as replay  # noqa: E402
 
 
 def D(v):
@@ -156,8 +160,9 @@ def selftest():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--selftest", action="store_true")
-    sub = ap.add_subparsers(dest="cmd")
     ap.add_argument("--hex", help="hex bytes of one inflated road record")
+    replay.add_source_args(ap)
+    sub = ap.add_subparsers(dest="cmd")
     p = sub.add_parser("frame")
     p.add_argument("tile")
     p.add_argument("--level", type=int, default=1)
@@ -171,6 +176,22 @@ def main(argv=None):
         ok, why, detail = kiwi_road_frame(bytes.fromhex(a.hex.replace(" ", "")))
         print("KIWI road frame: %s (%s) %s" % ("FIT" if ok else "NO FIT", why, detail))
         return 0
+    try:
+        source = replay.resolve(a)
+    except replay.SourceError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
+    if source is not None:
+        out = frame_tile(source.path, level=1, limit=3, max_records=3000)
+        print("file %s sha256 %s" % (source.display, out["sha256"]))
+        print("records=%d reasons=%s" % (out["records"], out["reasons"]))
+        for s in out["samples"]:
+            print("  dir %s slot %d rec %d len %d %s %s" %
+                  (s["dir"], s["slot"], s["rec"], s["size"], s["reason"], s["detail"][:140]))
+        fits = out["reasons"].get("fit", 0)
+        summary = "%s fits=%d/%d records=%d reasons=%s" % (
+            replay.norm_tile(a.tile), fits, out["records"], out["records"], out["reasons"])
+        return replay.replay_line(source, "EXP-2026-11-22-M4.69-kiwi-road-frame", summary)
     if a.cmd == "frame":
         out = frame_tile(a.tile, a.level, a.limit, a.max_records)
         if a.json:

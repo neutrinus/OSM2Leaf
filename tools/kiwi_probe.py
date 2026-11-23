@@ -19,6 +19,8 @@ Usage::
     python3 tools/kiwi_probe.py header FILE          # 0xa0, 0x800, 0x184, 0x1ac
     python3 tools/kiwi_probe.py words 9b8f d3ff ...  # 22 road-header words
     python3 tools/kiwi_probe.py shape 0039c112...    # 14+ background-shape bytes
+    python3 tools/kiwi_probe.py --tree ROOT --tile MMAIN001      # M4.67 replay
+    python3 tools/kiwi_probe.py --card IMG --tile MMAIN001       # one FAT file, no 7z
 """
 
 from __future__ import annotations
@@ -28,6 +30,8 @@ import hashlib
 import struct
 import sys
 from pathlib import Path
+
+import _kiwi_replay as replay  # noqa: E402
 
 # Byte sizes of the packed KIWI structures, derived from the field lists in
 # kiwiread.c (big-endian, #pragma pack(1)).  Used as a cross-check in the EXP.
@@ -314,6 +318,7 @@ def selftest() -> int:
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--selftest", action="store_true", help="run synthetic checks and exit")
+    replay.add_source_args(ap)
     sub = ap.add_subparsers(dest="command")
     sub.add_parser("sizes", help="print packed KIWI structure sizes")
     p_header = sub.add_parser("header", help="probe a tile or MMAIN header")
@@ -328,6 +333,25 @@ def main(argv=None):
     args = ap.parse_args(argv)
     if args.selftest:
         return selftest()
+    try:
+        source = replay.resolve(args)
+    except replay.SourceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    if source is not None:
+        args.file = str(source.path)
+        cmd_header(args)
+        buf = source.path.read_bytes()
+        bad, details = 0, {}
+        for fn in CHECKS:
+            ok, detail = fn(buf)
+            details[fn.__name__] = detail
+            bad += not ok
+        summary = "%s checks=%d/%d | %s | %s" % (
+            replay.norm_tile(args.tile), len(CHECKS) - bad, len(CHECKS),
+            details["check_pdmdh"], details["check_lmr"])
+        return replay.replay_line(
+            source, "EXP-2026-11-22-M4.67-kiwi-level-blocks", summary)
     if args.command == "sizes":
         return cmd_sizes(args)
     if args.command == "header":

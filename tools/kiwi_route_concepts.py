@@ -9,6 +9,8 @@ edge-entry count, and whether any section-2 field can be a level-up pointer.
 Commands:
   python3 tools/kiwi_route_concepts.py --selftest
   python3 tools/kiwi_route_concepts.py check TILE [--every K] [--json OUT]
+  python3 tools/kiwi_route_concepts.py --tree ROOT --tile B48R058R  # M4.72 replay
+  python3 tools/kiwi_route_concepts.py --card IMG --tile B48R058R   # one FAT file, no 7z
 """
 import argparse
 import collections
@@ -23,6 +25,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "ze0-viewer" / "tools_ze0"))
 import clarion_rd  # noqa: E402
 import clarion_tile  # noqa: E402
+
+import _kiwi_replay as replay  # noqa: E402
 
 
 def pearson(xs, ys):
@@ -104,6 +108,7 @@ def selftest():
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--selftest", action="store_true")
+    replay.add_source_args(ap)
     sub = ap.add_subparsers(dest="cmd")
     p = sub.add_parser("check")
     p.add_argument("tile")
@@ -112,6 +117,25 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
+    try:
+        source = replay.resolve(a)
+    except replay.SourceError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
+    if source is not None:
+        out = check(source.path, every=16)
+        print("file %s sha256 %s" % (source.display, out["sha256"]))
+        print("counts %s" % out["counts"])
+        print("link length vs geometry: n=%d r=%.4f; travel time r=%.4f" %
+              (out["link_length_pairs"], out["r_length_vs_geometry"],
+               out["r_traveltime_vs_geometry"]))
+        print("node entries=%d degrees=%s" % (out["node_entries"], out["degree_histogram"]))
+        print("level-up: %s" % out["level_up_field"])
+        summary = "%s sampled=%d links=%d r_length=%.4f r_time=%.4f nodes=%d" % (
+            replay.norm_tile(a.tile), out["counts"].get("sampled", 0),
+            out["link_length_pairs"], out["r_length_vs_geometry"],
+            out["r_traveltime_vs_geometry"], out["node_entries"])
+        return replay.replay_line(source, "EXP-2026-11-22-M4.72-kiwi-route-concepts", summary)
     if a.cmd == "check":
         out = check(a.tile, a.every)
         if a.json:
