@@ -4278,7 +4278,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: `ze0_screenshot.py screen` after the `--ui-start` flow shows the map buttons over the map, and the EXP gives the register evidence for the rule.
   - Stop: one session. No vendor screenshots in the repository.
   - Falsifier: plane 1 rows 0–479 are a back buffer that the hardware never shows (then the shown page must hold the buttons after a flip).
-  - Claims: C-8650–C-8659
+  - Claims: C-8500–C-8509
 
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
