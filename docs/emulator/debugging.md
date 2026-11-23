@@ -151,6 +151,12 @@ EOF
 - **Single-stepping goes through interrupts.** A step can land in the
   exception vector (`0x8801xxxx`) and the timer. Filter the trace by the
   address range of the function you care about.
+- **A watch stop names the watchpoint, not the access.** The `T05…rwatch:ADDR`
+  reply carries the start of the watched range, and pc is already past the
+  load. Recompute the address from the load at pc-2 and the registers
+  (`tools/ze0_sec2_watch.py decode` does this). Kill a client only after it
+  removed its `Z3`s, or the next client gets a stale stop first (`watch`
+  drains it).
 - **Watchpoints are slow.** A watch on a busy counter stops the guest on
   every write; the boot then takes hours. Prefer a breakpoint on the code
   that writes it.

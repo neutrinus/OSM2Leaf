@@ -2483,7 +2483,7 @@ The 23rd-pass text is in git (`af469580`).
   - Result: EXP-2026-11-20-M4.54-section2-read-watch (C-5710–C-5717, `tools/rgd_reply_l3.py`): the reply path was driven for factory `B48R058R` section-2 record `0xb91d078` (`k=221`) — `0x004268c0` copies the block's plain 3508 B into the slot buffer and sets state 2 (a pass-through; it stored a section-1 block too), and `0x00422eac` clears the `0x0900` gate and reads `k+15` block word 236 `0x0919` (node 7 entry 1 `cls`), `k+7` word 228 `0x0717` (entry 0 `cls`), `k+6`=d word 227 `0x0008` (entry 0 `id`), `k+d` word 229 `0x003b` (entry 0 `a`), `out=7`; `k` is part-a node 7's header word 0 (`x=0x4fd`, count 3). Section-1 controls at the same `k` (`0x176a800`, `0x66700`) and a declared `k=0` all `GATE-REJECT`; second tile `B30R058R` `0x5759f4` passes (`k=78`, there `k` is an entry's `a`), `B28R070R` 0/303 has a passing `k`. Census 24,483/65,274 records pass on `B48R058R`; `d` = entry 0 `id` 4513/4513 but `k+d` = entry 0 `a` only 92/4513 (C-5715). `k`'s real source `0x00424464` and the reply's block granularity stay open — M4.40 returns to `open` with these offsets; also `map-tiles.md` word table, precheck `0x004066ac` is 145 functions not 140 (C-5718).
 
 - [ ] **M4.55 — Section-2 reader in the route path finder: drive the kind-8/`0x10` reply and read-watch unit 0**
-  - Status: blocked · Owner: task/m4.55-sec2-unit0-walk · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: P2
   - Depends: M4.40 (blocked on this; requester and reply named)
   - Goal: M4.40 found that section 2 is not read by the router (`RGD_DATA` fetches section 4) but requested by the route path finder `RPF_PreMap_start` `0x00336bf0` (EU2011) with kinds 8 and `0x10`, and that the data-access task replies with pointers to units 0 and 2 of the level-1 record (C-5922, C-5923). Find the RPF code that receives that `0x14b6` reply and walks unit 0, and read the section-2 field table off it (M4.40's goal).
@@ -2496,7 +2496,7 @@ The 23rd-pass text is in git (`af469580`).
   - Falsifier: the RPF handler reads no word through `+16`/`+24`, or reads bytes outside the record's units.
   - Claims: C-6020–C-6029
   - Blocker: With M9.65's STDDLL binding the RPF reply handler 0x00336dc0 stores the kind-8 unit-0 pointer but never dereferences it: unit0 watch 0 reads vs replylist watch 10/20/30 (positive control); 0x003367a0 takes (mode, mp, mp, buffers), so the field table's reading VAs are in code not runnable with today's bindings.
-  - Unblock: M9.74
+  - Unblock: — (cleared 2026-11-23: M9.75 done in L4; the unit-0 readers are 0x003534d4 premap and 0x00358382 route search, reached by a map drag and New Destination, not by the reply handler — EXP-2026-11-23-M9.75-sec2-readers-l4. An L3 rerun can now drive those two functions directly.)
   - Result: EXP-2026-11-23-M4.55-rpf-reply-handler-negative (negative with positive control); tools/rpf_reply_l3.py added; C-6026-C-6029
   - Note: M9.65 merged: vcard_l3 binds STDDLL's real exports via Client(... native=('STDDLL.dll', ...)); the 0x003367a0 thunk now runs. It does NOT dereference unit 0 itself (C-6745): it copies the reply entry to 0x0061a020, so the unit-0 walk is a later RPF stage. Re-run from docs/experiments/m4.55-repro.py and follow the 0x0061a020 pointer (EXP-2026-11-22-M9.65-stddll-mesh-import).
 
@@ -3089,6 +3089,19 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-8630–C-8639
   - Pair: required
 
+- [ ] **M4.98 — Section-2 link attributes (one-way, travel time, regulation) from the route search's matched-link reads, then a mutation in L4**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: P2
+  - Depends: M9.75 (done: readers `0x003534d4` and `0x00358382`, framing and key VERIFIED)
+  - Goal: M9.75 caught the route search in L4 but stopped before the reads that follow a link match, so the words that make a link one-way, give its cost or restrict a turn are still unnamed. Name them from the firmware, then prove one by changing it on the factory card and watching the route change.
+  - Precheck: `python3 tools/ze0_sec2_watch.py --selftest` passes; `python3 tools/ze0_sec2_watch.py frame $FAC/MAPAL001/B48R068R.DAT` prints `'exact': 45184` for level 1; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x003583ca --count 40` shows the `0x1fff` id compare.
+  - Scope: EU2011 build A, NK1 + unit flash L4 run (`ze0_launch.py --flash nand.bin --ui-start`, dump never in the repo), factory `B48R068R`. (1) Static: follow `0x003583ca` past the id match and list every load relative to the link pointer `r9`. (2) Run: `ze0_sec2_watch.py watch` with small windows (≤ 0x100) on the matched links only, so the guest stays fast; log words 0–6 and the extra words with reading VA. (3) Mutation: pick one link on the factory route of EXP-2026-11-23-M9.75 (same drag + New Destination), flip the candidate one-way bit in the decompressed record, re-deflate (`tools/imgpatch.py` in place), rerun; the route must change (or the run is negative). No writer.
+  - Input: EXP-2026-11-23-M9.75-sec2-readers-l4, `tools/ze0_sec2_watch.py`, `tools/tile_relayout.py`, `tools/ze0-viewer/tools_ze0/clarion_rd.py`, `docs/format/map-tiles.md` §"Section-2 readers in a running Navi.exe".
+  - Done when: an EXP names at least the one-way word/bit and the cost word(s) with reading VA, the mutation changes the route (screenshot hash + `NAVI_ROUTE_CC_NTF_*` counts) while an untouched control link changes nothing, and the field table in `map-tiles.md` gains the rows.
+  - Stop: if the matched-link reads go through an index built by `0x003534d4` (12-byte entries) and never touch unit 0 again, watch the index instead; if that also fails in one session, block with the VAs found.
+  - Falsifier: the flipped word changes nothing in the route while the guest demonstrably read it.
+  - Claims: C-9930–C-9939
+
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
 Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
@@ -3400,6 +3413,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if factory re-emit is not byte-identical after two rounds, record the differing fields and stop; do not ship an approximate graph to a card.
   - Falsifier: the round-trip passes on a tile whose emitted graph has one link with reversed direction.
   - Claims: C-5850–C-5859
+  - Note: 2026-11-23 M9.75 (L4): unit-0 framing and the route-search link key are read off firmware (EXP-2026-11-23-M9.75-sec2-readers-l4, C-9914/C-9915); the attribute words are M4.98. A from-zero card with empty section 2 cannot route (C-9910).
 
 - [x] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: done · Owner: task/m5.38-card-ladder · Critical: yes · Pair: solo
@@ -6645,7 +6659,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
 
 - [ ] **M9.74 — Bind OBJDLL exports in `vcard_l3` and find the section-2 unit-0 walker (unblocks M4.55)**
-  - Status: blocked · Owner: task/m9.74-objdll-unit0-walker · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.65 (native second-module binding for `STDDLL`, done), M4.55 (negative EXP that locates the gap)
   - Goal: EXP-2026-11-23-M4.55 proved the RPF reply handler `0x00336dc0` stores the kind-8 reply's unit-0 pointer (`0x302abbf2`) into the RPF buffer but never dereferences it: with a live reply-list watch (10/20/30 hits) the unit-0 watch records 0 reads in every reached path, and `0x003367a0` takes `(mode, mp, mp, buffers)` rather than the reply list (C-6026–C-6029). The word reads and reading VA that M4.40 needs are therefore in code not runnable with today's bindings — most likely an OBJDLL export reached with a translated mesh pointer, or a route-search stage triggered by a destination message. Make that code runnable in L3 and log the unit-0/unit-2 reads.
@@ -6658,11 +6672,11 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: after binding, the unit-0 watch still records 0 reads while the positive control records > 0 (then the reader is in a third module or an unissued message).
   - Claims: C-9900–C-9909
   - Blocker: OBJDLL now binds natively (all 400 imports) and runs after mount, but the RPF reply path still records 0 unit-0 reads with a live 10/20/30 reply-list control; the unit-0 walker is in a later route-computation stage for which no L3 trigger tool exists.
-  - Unblock: M9.75
+  - Unblock: — (cleared 2026-11-23: M9.75 done in L4; the unit-0 readers are 0x003534d4 premap and 0x00358382 route search, reached by a map drag and New Destination, not by the reply handler — EXP-2026-11-23-M9.75-sec2-readers-l4. An L3 rerun can now drive those two functions directly.)
   - Result: EXP-2026-11-23-M9.74-objdll-binding-negative (negative with controls); tools/vcard_l3.py multi-module binding; C-9900-C-9903
 
-- [ ] **M9.75 — Trigger a route computation in L3 and read-watch section-2 unit 0 (unblocks M9.74)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M9.75 — Trigger a route computation in L3 and read-watch section-2 unit 0 (unblocks M9.74)**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.74 (OBJDLL native binding, negative EXP), M9.65 (STDDLL binding, done), M4.55 (reply path mapped, blocked)
   - Goal: M9.74 bound all 400 OBJDLL exports into the L3 engine (post-mount, with compressed sections mapped) and still recorded **0** unit-0 reads while the reply-list watch recorded 10/20/30 (C-9900–C-9903). The unit-0 pointer is therefore consumed by a later stage, not by the reply handler. Find the message or entry point that starts route computation, run it in L3 on the factory record, and log every unit-0/unit-2 word read with reading VA and module.
@@ -6674,6 +6688,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if no route-request message can be driven in L3 after two named candidates, record their IDs and block with the missing harness model; do not infer a field table from the data side alone.
   - Falsifier: the route computation runs but the unit-0 watch records 0 reads while the positive control records > 0 (then the graph is read from a different buffer or module).
   - Claims: C-9910–C-9919
+  - Result: EXP-2026-11-23-M9.75-sec2-readers-l4 (L4 instead of L3: NK1 + unit flash route, gdb read watch; readers 0x003534d4 premap and 0x00358382 route search; unit-0 framing VERIFIED on 45,184 + 3,214 London records; search key (word 4 & 0xf, word 3 & 0x1fff); empty section 2 -> CALC_ERR_NBR); tools/ze0_sec2_watch.py; C-9910-C-9916. Attribute words (one-way, regulation): M4.98
 
 ## Retired leads
 
