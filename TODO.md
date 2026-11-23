@@ -2418,7 +2418,7 @@ The 23rd-pass text is in git (`af469580`).
 - [ ] **M4.40 — Tile section 2 (route graph) grammar read from the router's reader, not guessed from bytes**
   - Status: blocked · Owner: task/m4.40-sec2-field-table · Critical: yes · Pair: required
   - Blocker (2026-11-20, second run): the router's reader does not read section 2 — `RGD_DATA READ` `0x004266ec` (EU2011) requests kind `0x40`, which the data-access task serves with the parcel's **section-4** record (L3 on the EU card, C-5921); section 2 is requested with kinds 8/`0x10` by the route path finder `RPF_PreMap_start` `0x00336bf0` (C-5923), whose reply points at units 0 and 2 of the record (C-5922). The section-2 field table must be read from the route path finder's reply handler (M4.55).
-  - Unblock: M9.65 (M4.55 is blocked on the harness binding it needs: STDDLL exports for Navi.exe thunks)
+  - Unblock: M4.55 (the unit-0 walker is the remaining gap; M9.65 bound the STDDLL thunk)
   - Blocker (resolved 2026-11-20 by M4.54, kept as a note): the reply `0x14b6` is copied by `0x004268c0` into a per-slot buffer read by `0x00422eac`; M4.54 ran that path in L3 and mapped the four words it reads to part-a fields (C-5710–C-5717).
   - Start (from M4.54; premise retracted by C-5924, the buffer holds section 4): `0x00422eac` on factory `B48R058R` section-2 record `0xb91d078` (`k=221`, part-a node 7 header; `k+6` = entry 0 `id`, `k+7`/`k+15` = entry 0/1 `cls`, `k+d` = entry 0 `a`). Read the part-a table in `docs/format/map-tiles.md` §"What the four words are (M4.54, L3)" and extend it to the whole record; `k`'s real source `0x00424464(19, …)` is still unknown (the census shows `k` is not always a node header, C-5714/C-5716).
   - Step: P2
@@ -2464,7 +2464,7 @@ The 23rd-pass text is in git (`af469580`).
   - Falsifier: the RPF handler reads no word through `+16`/`+24`, or reads bytes outside the record's units.
   - Claims: C-6020–C-6029
   - Blocker: The RPF reply consumer 0x003367a0 faults at 0x003367c2 on an unmodelled import STDDLL!STD_MeshPnt_isValid (thunk 0x003d1640 -> IAT 0x0055da88) before its first unit-0 read; vcard_l3.py has 81 import models and none is a STDDLL mesh export. Same exports run in poi_position_l3.py, so it is a harness binding gap, not a firmware limit.
-  - Unblock: M9.65
+  - Unblock: —
   - Result: EXP-2026-11-21-M4.55-rpf-consumer-import-block (negative); call chain + kind-8 reply recorded, 0 unit-0 reads
   - Note: M9.65 merged: vcard_l3 binds STDDLL's real exports via Client(... native=('STDDLL.dll', ...)); the 0x003367a0 thunk now runs. It does NOT dereference unit 0 itself (C-6745): it copies the reply entry to 0x0061a020, so the unit-0 walk is a later RPF stage. Re-run from docs/experiments/m4.55-repro.py and follow the 0x0061a020 pointer (EXP-2026-11-22-M9.65-stddll-mesh-import).
 
