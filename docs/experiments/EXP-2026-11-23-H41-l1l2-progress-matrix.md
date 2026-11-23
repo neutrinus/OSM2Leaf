@@ -90,15 +90,26 @@ below). `python3 -VV`: `Python 3.15.0 (3.15.0-1.fc45.x86_64, Oct 9 2026,
    before `board.py add-claims`, which printed `added 10 claim row(s):
    +14 lines`. `tools/claims_check.py` → `claims_check: OK` (rc=0);
    `tools/todo_check.py` → `todo_check: OK` (rc=0).
-8. Full `python3 tools/selftest.py`: `passed=244 failed=1 skipped=21
-   total=266 time=157.44s`, `selftest_all_rc=1`. The sole FAIL is the
-   builtin `fn_audit_l3_image` with `CORPUS STALE: DOCS BASE: 1 new / 0
-   gone / 0 moved` and `DOCS BASE new TODO.md:0x0041f3dc fn`; the new tool
-   is listed as `tool:l1l2_matrix PASS 0.03s`. `python3 tools/gate.py`
-   → `gate: 3 pass, 2 fail, 0 skip` (`gate_rc=1`), also on
-   `L3 OVERLAY: 4 new` (three `EXP-2026-11-22-M6.19-unit-flash-map.md`
-   VAs). `git show origin/main:TODO.md` contains `fn 0x0041f3dc`, so the
-   drift predates this branch (corpus snapshot dated 2026-11-16).
+8. Full `python3 tools/selftest.py` is host-dependent, not an H41 result:
+   on this driver host it printed `passed=245 failed=1 skipped=21
+   total=267 time=143.00s` (`selftest_all_rc=1`), with the builtin
+   `fn_audit_l3_image` failing on `CORPUS STALE: DOCS BASE: 1 new / 0 gone /
+   0 moved` and `DOCS BASE new TODO.md:0x0041f3dc fn`; `tool:l1l2_matrix
+   PASS 0.04s`. On the navigator host it printed `passed=243 failed=3
+   skipped=21 total=267`: two extra tool failures there were `/tmp`
+   quota (`OSError Errno 122` in `identity_fields`, gcc write error in
+   `sdlock_pico_check`), not H41. `python3 tools/gate.py` → `gate: 3 pass,
+   2 fail, 0 skip` (`gate_rc=1`) with `CORPUS STALE: DOCS BASE: 1 new /
+   0 gone / 0 moved` and `CORPUS STALE: L3 OVERLAY: 8 new / 0 gone /
+   0 moved`; the new overlay lines include
+   `EXP-2026-11-23-H41-l1l2-progress-matrix.md:0x0041f3dc fn` and three
+   `EXP-2026-11-22-M6.19-unit-flash-map.md` VAs. Materialising HEAD twice
+   with `git archive HEAD` into scratch (image symlinked) and deleting
+   only this EXP gave `L3 OVERLAY: 8 new` with it and `7 new` without it:
+   **this EXP itself adds one L3 OVERLAY citation.** The separate DOCS
+   BASE `1 new` (`TODO.md:0x0041f3dc fn`) is genuinely pre-existing:
+   `git show origin/main:TODO.md` contains that `fn 0x0041f3dc`, and the
+   corpus snapshot is dated 2026-11-16.
 
 ## Interpretation
 
@@ -115,8 +126,10 @@ below). `python3 -VV`: `Python 3.15.0 (3.15.0-1.fc45.x86_64, Oct 9 2026,
 
 **Conclusion.** `tools/l1l2_matrix.py`, its 12-row committed baseline, the
 workflow step/artifact and the README regression policy implement H41's Done
-when. The gate remains red only because of merged, unrelated citation drift;
-H41's own selftest passes 25/25 and both board checkers pass.
+when. The gate remains red on citation drift: the DOCS BASE row comes from
+merged tasks, while this EXP itself contributes one of the eight L3 OVERLAY
+rows (Observation 8). H41's own selftest passes 25/25 and both board
+checkers pass.
 
 ## Corrections after navigator review
 
@@ -147,11 +160,36 @@ H41's own selftest passes 25/25 and both board checkers pass.
 ```bash
 cd /home/marek/projekty/OSM2Leaf.task-h41-l1l2-progress-matrix
 python3 tools/l1l2_matrix.py --selftest                       # 25/25 OK
-D=~/projekty/leafre-work/scratch/h41-nav
+D=~/projekty/leafre-work/scratch/h41-rec; mkdir -p "$D"
 python3 tools/l1l2_fixtures.py --json "$D/l1l2.json" --md "$D/l1l2.md" --no-stdout-md
 python3 tools/l1l2_matrix.py --input "$D/l1l2.json" --json "$D/matrix.json" --md "$D/matrix.md" --no-stdout-md
-python3 tools/l1l2_matrix.py --input "$D/matrix.json" --check-baseline tools/fixtures/l1l2-matrix-baseline.json --no-stdout-md   # rc=0
-# mutate one PASS row to FAIL in matrix.json, re-run: rc=1; delete the POIs row: rc=1
+python3 tools/l1l2_matrix.py --input "$D/matrix.json" --check-baseline tools/fixtures/l1l2-matrix-baseline.json --no-stdout-md   # rc=0, baseline matches
+# Negative 1: report PASS -> FAIL (both mutants below were re-run after the rebase)
+python3 - "$D/matrix.json" "$D/mutant.json" <<'PY'
+import json, sys
+src, dst = sys.argv[1], sys.argv[2]
+r = json.load(open(src, encoding='utf-8'))
+i = next(i for i, x in enumerate(r['rows']) if x['status'] == 'PASS')
+print(f"mutated row {i}: {r['rows'][i]['level']}|{r['rows'][i]['file']}|{r['rows'][i]['feature']}: PASS -> FAIL")
+r['rows'][i]['status'] = 'FAIL'
+open(dst, 'w', encoding='utf-8').write(json.dumps(r))
+PY
+python3 tools/l1l2_matrix.py --input "$D/mutant.json" --check-baseline tools/fixtures/l1l2-matrix-baseline.json --no-stdout-md
+# printed: REGRESSION: L1|ZE0 generated fixture tree|structural: PASS -> FAIL ; rc=1
+# Negative 2: delete a baseline key from the report
+python3 - "$D/matrix.json" "$D/missing.json" <<'PY'
+import json, sys
+src, dst = sys.argv[1], sys.argv[2]
+r = json.load(open(src, encoding='utf-8'))
+before = len(r['rows'])
+r['rows'] = [x for x in r['rows']
+             if not (x['level'] == 'L2' and x['file'] == 'REFER001/POINT0nn'
+                     and x['feature'] == 'POIs')]
+open(dst, 'w', encoding='utf-8').write(json.dumps(r))
+print(f"deleted key: L2|REFER001/POINT0nn|POIs (rows {before} -> {len(r['rows'])})")
+PY
+python3 tools/l1l2_matrix.py --input "$D/missing.json" --check-baseline tools/fixtures/l1l2-matrix-baseline.json --no-stdout-md
+# printed: REGRESSION: MISSING L2|REFER001/POINT0nn|POIs (was PASS) ; rc=1
 ```
 
 ## Follow-ups
@@ -162,3 +200,11 @@ python3 tools/l1l2_matrix.py --input "$D/matrix.json" --check-baseline tools/fix
       merged `0x0041f3dc` / M6.19 citations so `gate.py` is green again.
 - [ ] Delete the scratch directory `~/projekty/leafre-work/scratch/h41-nav/`
       after this record is committed.
+
+## Navigator final review (round 4)
+
+**CHANGES** — all mandatory mutants pass: baseline stored-value edit → `REGRESSION … PASS -> SKIP`, rc=1; extra baseline key → `MISSING …`, rc=1; report PASS→FAIL → rc=1; deleting the real POIs row → `MISSING … (was PASS)`, rc=1; 12/12 keys unique on both sides; NOT-status sources map to NOT_COVERED/SKIP/NOT_RUNNABLE/FAIL with `counted_PASS 0`. Counts re-quoted: fixture 10/8/0/1/1, matrix 12/9/0/1/2, selftest 25/25, baseline SHA-256 matches.
+
+1. Observation 8 and C-3289 cite a moved number and wrong cause. Re-run `python3 tools/gate.py` → `L3 OVERLAY: 8 new / 0 gone / 0 moved`, not `4 new`. Materialising HEAD twice and removing only this EXP (`git archive HEAD` → scratch) gives `8 new` with it, `7 new` without it: **this EXP itself adds one L3 OVERLAY citation**. Correct the count and state the self-inflicted line; keep the separate, pre-existing DOCS BASE drift (`1 new`) as not caused by H41.
+2. Full `selftest.py` here prints `passed=243 failed=3 skipped=21 total=267`: two extra tool failures are `/tmp` disk-quota (`OSError Errno 122` in `identity_fields`, gcc write error in `sdlock_pico_check`), not H41. Do not call `fn_audit_l3_image` "the sole FAIL" without naming the host/quota condition.
+3. Reproduction block still elides the missing-key mutation behind a comment; paste the exact delete-and-recheck commands (or point to the shipped selftest check by name) so both negatives are re-runnable.
