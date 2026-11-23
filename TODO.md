@@ -5733,6 +5733,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: A task that re-preserves the M5.100 from-zero card (rebuild tile 0717a913… from pinned PBF b26a178b… with stock zlib 1.3.1 and re-apply the M5.100 map-code patch), confirmed by sha256sum prefix 1b5bafeb…aeb2f2da52; plus M8.C1p for the EU-card consent skip so --ui-start reaches map state. Rule 15 re-opens M8.H79 when that task merges
   - Result: EXP-2026-11-23-M8.H79-from-zero-card-unavailable (negative; 0/17 card hashes match, selftests pass, bad-mmain control FAIL at F4; task falsifier untestable without the card)
 
+- [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: —
+  - Goal: M8.H79 recorded a negative: the M5.100 from-zero card (SHA-256 prefix `1b5bafeb…aeb2f2da52`) was reaped with its scratch directory, so there was no card to boot at L4. Rebuild it from pinned inputs and confirm the SHA-256 prefix, then rule 15 re-opens M8.H79. This is a data-preservation task, not a writer change.
+  - Precheck: `grep -c '^1b5bafeb' ~/projekty/leafre-work/scratch/m8.h79/all-card-hashes.txt` prints `0` (17 images >=7 GiB hashed, M8.H79 negative EXP); `python3 tools/zlibinfo.py` on this host does not report stock zlib 1.3.1 (zlib-ng makes a byte-identical rebuild unverifiable here).
+  - Scope: rebuild tile `0717a913…d878b49d` (or its successor `7ffabd97…`) from pinned PBF `b26a178b…` with stock zlib 1.3.1 (python3.13 or equivalent), re-apply the M5.100 map-code patch with `card_mapcode.py`, and confirm `sha256sum` of the rebuilt card starts with `1b5bafeb…aeb2f2da52`; keep the card in `~/projekty/leafre-work/` outside the repo, record its full SHA-256 in the EXP. Then set M8.H79 back to `Status: open · Owner: —` with board.py field and a dated note; leave the negative EXP in place as the reason the task has a Precheck. Exclusions: no card image in the repo, no L4 boot here (M8.H79 owns that), no change to M8.C1p.
+  - Input: EXP-2026-11-23-M8.H79-from-zero-card-unavailable, EXP-2026-11-23-M5.100-level2-zoom-out (tile and PBF pins), `tools/tile_from_zero.py`, `tools/card_mapcode.py`, `tools/mkcard.py`, `tools/zlibinfo.py`.
+  - Done when: an EXP quotes the rebuilt card's full SHA-256 (prefix `1b5bafeb…`), the exact rebuild commands and the interpreter that produced the bytes (`zlibinfo --stamp`), and the card exists on disk for M8.H79; M8.H79 is back to `open` in the same commit (rule 15); `board.py lost --base origin/main` prints `tasks=0 claims=0` and `todo_check`/`claims_check` pass.
+  - Stop: if stock zlib 1.3.1 cannot be obtained on any available host, record `blocked` with the exact `zlibinfo` output and an Unblock naming a host with stock zlib; never substitute a card whose SHA-256 differs (P0 card, M5.91 tile A are not M5.100's card).
+  - Falsifier: an off-SHA card is accepted as the rebuilt M5.100 card, or M8.H79 is re-opened without the card being present on disk.
+  - Claims: C-10080–C-10089
+  - Pair: required
+
 ---
 
 ## M9 — L3 toolkit: run firmware functions against our data
