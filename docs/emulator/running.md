@@ -135,7 +135,7 @@ logs the DMA side.
   does not show yet (M8.C1t). To see them, use
   `ze0_screenshot.py plane --monitor $W/live/mon.sock -n 1 -o $W/p1.png`.
   It writes both pages of the buffer; the UI is in rows 0–479.
-- GPS position: not yet (M8.H73).
+- GPS: the 36-byte `A0` report reaches `OBJ_GpsInfo`; the car position and the map do not follow it yet (M8.H78).
 
 ## 7. Without the launcher
 
