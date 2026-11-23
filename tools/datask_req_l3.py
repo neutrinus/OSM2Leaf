@@ -241,10 +241,11 @@ def kinds_from_image(image: str):
 class Client:
     """A mounted data-access task plus one registered client."""
 
-    def __init__(self, image: str, card, position, register: bool = True):
+    def __init__(self, image: str, card, position, register: bool = True,
+                 native: tuple[str, tuple[str, ...]] | None = None):
         import datask_l3 as D
         self.D = D
-        self.t = D.DataTask(image, card, position=position)
+        self.t = D.DataTask(image, card, position=position, native=native)
         self.mount_end = self.t.run(0, False)
         self.m = self.t.m
         self.card = card

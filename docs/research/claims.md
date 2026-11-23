@@ -6512,3 +6512,45 @@ into three printed classes.
 | C-7017 | reserved (M8.H4). | UNKNOWN | — | — |
 | C-7018 | reserved (M8.H4). | UNKNOWN | — | — |
 | C-7019 | reserved (M8.H4). | UNKNOWN | — | — |
+
+
+## M9.65 — L3 harness: run STDDLL exports for Navi.exe import thunks (unblocks M4.55)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-6740 | `vcard_l3.Machine` gained a `native=(module, export_names)` binding (M9.65): it loads the named module's uncompressed executable sections into the same engine, checks each range against the existing map before adding it (an overlap is a loud `BLOCKED`), and re-points the importer's IAT slots for those exports at the export VAs. The slot comes from `cerom.py imports Navi.exe` and the address from `cerom.py exports`, never from a literal in prose. | VERIFIED (tool + run) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 tools/vcard_l3.py --selftest` |
+| C-6741 | For EU2011 build A, `STDDLL.dll` has one uncompressed executable section (`rva 0x1000`, `vsize 0x19ce8`, `realaddr 0x03461000`, flags `0x68000020`); bound at `0x03461000..0x0347b000` it does not overlap `Navi.exe` sec0/1/2 (`0x00011000..0x0055d000`, `0x0055d000..0x0154f000`, `0x0154f000..0x0155e000`), the heap `0x30000000`, the trampolines `0x7e000000` or the stack `0x7f000000`. | VERIFIED (run) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 - <<PY … print(m.eng._regions)` as in the EXP |
+| C-6742 | `cerom.py imports Navi.exe` resolves the mesh slots `STD_MeshPnt_initPrm 0x0055da84`, `STD_MeshPnt_isValid 0x0055da88`, `STD_MeshID_getAny 0x0055da8c`, `STD_MeshPnt_chgLv 0x0055da90`, `STD_MeshID_judgeLevel 0x0055daec`, `STD_MeshPnt_chgMapPnt 0x0055db1c`; `cerom.py exports STDDLL.dll` gives their VAs `0x034736b8`, `0x03473940`, `0x0346cbf8`, `0x03473a68`, `0x0346c36c`, `0x03473cc8`. | VERIFIED (tool) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 tools/cerom.py --image-start 0x200200 archive/head256.img imports Navi.exe --resolve-with 0x3e00200`; `… exports STDDLL.dll` |
+| C-6743 | With the binding the M4.55 repro `docs/experiments/m4.55-repro.py` no longer faults at `0x003367c2`: the consumer `0x003367a0` calls the real `STD_MeshPnt_isValid` (twice, two valid mesh points) and returns `r0 0x0`. Unbound, the same call stops with `Blocked: missing import model: STDDLL!STD_MeshPnt_isValid (called from 0x003367c2)`. This is the negative control for the binding. | VERIFIED (EU 2011, emulated) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 docs/experiments/m4.55-repro.py` |
+| C-6744 | The bound `STD_MeshPnt_isValid` gives the same verdict as `poi_position_l3.py` on the 3 sampled `POINT010` records (3/3): the parity script takes the mesh point `poi_position_l3` returns and calls `isValid` inside a `vcard_l3.Machine` with the native binding; it recomputes no verdict. | VERIFIED (EU 2011, emulated) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 docs/experiments/m9.65-stddll-parity.py archive/head256.img --dir DIR --file POINT010 --count 3` |
+| C-6745 | `0x003367a0` (EU2011) does not dereference the reply's unit-0 pointer: it dispatches on `mov #76,r0; mov.l @(r0,r15),r2` (the caller's out-pointer) against `#1/#2/#3` and calls `0x0033629c(mode, mp, out)` (`initPrm` + `chgLv` + `isValid`) via `jsr @r13`; it copies the reply entry into the buffer at `0x0061a020` (`0x00336dc0`). `unit0 reads: 0` is therefore correct for this function, not a remaining fault. | VERIFIED (static + run) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 tools/sh4dis.py archive/head256.img Navi.exe --image-start 0x200200 --va 0x003367a0 --count 40`; `python3 tools/sh4dis.py … --va 0x003368fe --count 6` |
+| C-6746 | The unit-0 pointer the RPF reply carries (C-6021) is left in the buffer at `0x0061a020` by `0x003367a0`/`0x00336dc0`; the code that walks unit 0 is a later RPF stage, not this consumer, so M4.55's read order is downstream of `0x003367a0`. | OBSERVED | M | EXP-2026-11-22-M9.65-stddll-mesh-import |
+| C-6747 | `tools/vcard_l3.py --selftest` covers the native binding without vendor data: `native_slots` maps three named `STDDLL` slots, ignores another DLL's slot, an ordinal-only import and an unexported name, and the suite reports `ok`. | VERIFIED (tool) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 tools/vcard_l3.py --selftest` |
+| C-6748 | The native engine is `sh4fpu.PySh4Fpu` when `native=` is given (the `STDDLL` mesh math uses the FPU); without `native=` the engine stays `PySh4`, so no existing run changes. `MODELS` is unchanged at 82 entries with no `Mesh*` key: native exports are not host stubs. | VERIFIED (tool) | H | EXP-2026-11-22-M9.65-stddll-mesh-import; `python3 -c "import sys;sys.path.insert(0,'tools');import vcard_l3 as V;print(len(V.MODELS),[k for k in V.MODELS if 'Mesh' in k])"` |
+| C-6749 | Scope and limits: EU2011 build A only; `STDDLL.dll's one uncompressed executable section (four compressed sections unmapped); six `STDDLL` imports bound by name (the task's five plus `STD_MeshID_getAny`, the next the consumer calls). Not run: M4.55's downstream unit-0 walker, US2011, the `STDDLL` data exports. | OBSERVED | high | EXP-2026-11-22-M9.65-stddll-mesh-import |
+
+## M3.43 — L4 zoom-out INTER/FRWAY reader observation (C-8850–C-8859)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8850 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8851 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8852 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8853 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8854 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8855 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8856 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8857 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8858 | reserved (M3.43). | UNKNOWN | — | — |
+| C-8859 | reserved (M3.43). | UNKNOWN | — | — |
+
+## M6.24 — anonymous unit flash image (C-8860–C-8869)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8860 | An `SMST` store of the unit flash ends with a u32 at `end − 0x10` equal to the sum of all little-endian u32 words before it, then 8 zero bytes and `SMED`; this holds for all 8 stores of the US unit dump. | VERIFIED | H | EXP-2026-11-23-M6.24-anonymous-unit-flash O2; `python3 tools/unitflash_anon.py check DUMP` |
+| C-8861 | The firmware checks that sum: with one bit flipped in both copies of store 0, NK1 `VSram.dll` logs `CheckAreaData : SUM NG [0x96012500][0x960124FF]` twice, and stores written by `unitflash_anon.py` give no `NG` line. | VERIFIED | H | EXP-2026-11-23-M6.24-anonymous-unit-flash O3, O6 |
+| C-8862 | On `-M ze0` (NK1 + US card) the flash needs only `PROD` and the NK1 image to reach the map: with boot loaders, crash log, `VEUP`, sub-test program, `SRAM` and VFlash erased the boot runs to the map at the firmware default position, with 6 `AreaStartID NG` and 11 `OBJ_BackUp_Load Error` (objects 02 03 05 06 07 09 0A 0C 10 17 19). | OBSERVED | H | EXP-2026-11-23-M6.24-anonymous-unit-flash O3 run B |
+| C-8863 | The VSram RAM mirror at physical `0x09a40000` holds the four store areas back to back (`0x30000`, `0x10000`, `0x10000`, `0x30000`) with their `SMST` headers, and a second copy `0x80000` higher; the FlashManager buffer at `0x09b40000` equals VFlash byte for byte (736 of 736 pages after a boot on the real dump). | OBSERVED | H | EXP-2026-11-23-M6.24-anonymous-unit-flash O4 |
+| C-8864 | On an erased flash the drivers build default stores in RAM; `SRAM` and VFlash made from those mirrors (`unitflash_anon.py capture`) are accepted on the next boot: no `[VSRAM] NG` line, and `OBJ_BackUp_Load Error` falls from 11 to 1 (object 0A). | OBSERVED | H | EXP-2026-11-23-M6.24-anonymous-unit-flash O3 runs D, F, G |
+| C-8865 | Object 17 of the object store is kept in VFlash, the other ten that fail on an erased flash in `SRAM`; six of them (03 05 0A 0C 10 19) are in store area 0. | OBSERVED | M | EXP-2026-11-23-M6.24-anonymous-unit-flash O3 runs C, D; O6 |
+| C-8866 | The committed anonymous image (`firmware/unit-flash/*-anon.bin` + NK1, SHA-256 `256a0bd3…12b49`) holds none of the real dump's serial, card PIN, 16-byte password or repeated position words (0 hits each); of 4133 strings and 813 digit runs of the dump's user areas, 22 and 9 occur in it, all of them also present after a boot on erased flash. | VERIFIED | H | EXP-2026-11-23-M6.24-anonymous-unit-flash O5; `python3 tools/unitflash_anon.py scan IMAGE --dump DUMP --list-shared` |
+| C-8867 | The real dump's `PROD` holds the serial twice (`+0x50` and `+0x142`, after a 2-byte prefix at `+0x140`) and the PIN twice (`+0x60`, `+0x100`); the record with all four replaced and the sum at `+0x2D0` recomputed is accepted (`Target ID Code >> 10200212`, `Area:20 >> USA`). | VERIFIED | H | EXP-2026-11-23-M6.24-anonymous-unit-flash O1, O3 |
+| C-8868 | UNKNOWN: what object 0A is and which event first saves it; a boot to the map does not (the error stays after a second generation of mirrors). | UNKNOWN | M | EXP-2026-11-23-M6.24-anonymous-unit-flash O3 run G |

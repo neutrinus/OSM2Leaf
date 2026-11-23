@@ -13,9 +13,13 @@ command starts all of it: `tools/ze0_launch.py`.
 | QEMU with the `ze0` series up to `ze0-h02` | `bash tools/qemu-ze0/build.sh` (step 2 of README.md) | patches only |
 | NK1 kernel | `firmware/unit-flash/nk1-QY7200ND.bin` (default of `--nk`) | yes (owner decision, M8.C1k) |
 | Unit flash dump (8 MiB, `nand.bin`) | your own dump (M6.18) | **never** |
+| Anonymous unit flash | `--flash anon` (built from `firmware/unit-flash/*-anon.bin`, M6.24) | yes: firmware defaults, fictitious serial and PIN |
 | Card image | `LEAF_2011-2012_US.img` or the EU card | **never** |
 
-The flash dump decides the region (the US unit's flash gives the US map
+Without a dump of your own, pass `--flash anon`: the launcher builds an
+image with the US product record and factory-default stores. The car then
+starts at the firmware default position (Los Angeles), not where a real car
+last was. The flash dump decides the region (the US unit's flash gives the US map
 area, M8.C1m). An 8 MiB dump is emulated as the unit's NOR chip (M8.H18), so
 the saved settings and the locator backup load too: the car starts where
 the unit last was. Guest writes are discarded unless you pass `--flash-rw`;
@@ -24,14 +28,22 @@ directory out of the repository and never commit its files.
 
 ## 2. Start
 
+With nothing but this repository and a card image:
+
 ```bash
+bash tools/qemu-ze0/build.sh                       # once; prints the qemu path
+python3 tools/fetch_image.py --image US -o archive/sd-images/LEAF_2011-2012_US.img
 python3 tools/ze0_launch.py \
   --qemu "$QEMU" \
-  --card /path/LEAF_2011-2012_US.img \
-  --flash /path/nand.bin \
+  --card archive/sd-images/LEAF_2011-2012_US.img \
+  --flash anon \
   --workdir "$W/live" \
   [--peer gps] [--peer micon] [--gdb 1240 --ui-start] [--timeout 1800]
 ```
+
+`--flash anon` writes `$W/live/flash-anon.bin` from
+`firmware/unit-flash/` (M6.24) and boots it. With your own dump, pass its
+path instead: `--flash /path/nand.bin`.
 
 It prints the IPL, QEMU and peer command lines, writes the IPL patch
 (`ze0_ipl.py patch CARD --nk NK1`), starts QEMU and then the peers, and stops

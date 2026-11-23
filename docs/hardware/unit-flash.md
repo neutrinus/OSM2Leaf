@@ -181,6 +181,11 @@ then returns fields of the RAM copy at `0x89E439B8`.
   2); the two copies of a store differ by one generation, so the driver
   writes them in turn and the higher counter is the current one. Sizes in
   blocks: 3 + 3, 1 + 1, 1 + 1, 3 + 3. This is what `VSram.dll` mirrors in RAM.
+  A store ends with a u32 sum of all little-endian u32 words before it (at
+  `end − 0x10`), 8 zero bytes and `SMED`; `VSram.dll` checks start tag,
+  version, end tag and sum (`CheckAreaData`), and one flipped bit gives
+  `SUM NG` (M6.24, C-8860, C-8861). In RAM the four areas lie back to back
+  at physical `0x09a40000` (work copy) and `0x09ac0000` (second copy).
 - **VFlash (`0x500000`, 2.875 MiB).** No common header. It holds a POI and
   address store, a UTF-16 phone book and device names. Not decoded here.
 - **Crash log (`0x360000`).** `ASLG` header, then text records from the
@@ -199,6 +204,11 @@ then returns fields of the RAM copy at `0x89E439B8`.
 - The NOR model of M8.H18 can use the real layout: product record at
   `0xA000`, `SMST` stores at `0x400000`. An erased image is not what the
   drivers see on a car.
+- An image with no data of a real unit is in the repository (M6.24):
+  `tools/unitflash_anon.py build`, or `ze0_launch.py --flash anon`. Its user
+  areas are the firmware's own defaults, taken from a boot on erased flash.
+  It needs only `PROD` and the kernel; boot loaders, the crash log and
+  `VEUP` are left erased and the boot does not miss them.
 - A whole dump is private and stays out of Git. A shareable flash image
   needs the user areas (`0x360000`–`0x38FFFF`, `0x400000`–`0x7DFFFF`) erased
   and the PIN and serial fields of `PROD` replaced. Serial logs of a flash
@@ -211,6 +221,7 @@ then returns fields of the RAM copy at `0x89E439B8`.
   build (`X110EC…`). Only one unit is dumped.
 - The `SUM4` rule as a formula (LeafSDTools Companion recomputes it; not
   re-derived here), the `VEUP` fields, the bytes after the kernel image, the
-  record formats inside SRAM and VFlash.
+  record formats inside SRAM and VFlash (the store frame and its sum are
+  known, M6.24; the objects inside are not).
 - The flash chip. `ENHANCE` selects between `SST64`, `SST16` and `NORMAL`
   write routines, which fits the SST 38VF6401 lead but does not prove it.
