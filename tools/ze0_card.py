@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import struct
 import sys
@@ -140,16 +141,10 @@ def describe(image_path: Path, *, with_hash: bool = True) -> dict:
     }
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+_sha256 = hashutil.sha256_file
 
 
-def _sha256_bytes(raw: bytes) -> str:
-    return hashlib.sha256(raw).hexdigest()
+_sha256_bytes = hashutil.sha256_bytes
 
 
 def materialize(image_path: Path, workdir: Path, *, verinf: str | None,

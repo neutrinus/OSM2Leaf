@@ -101,6 +101,7 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
+import hashutil  # noqa: E402
 import cerom  # noqa: E402
 
 MEM_EXECUTE = 0x20000000
@@ -826,7 +827,7 @@ def selftest() -> int:
         fh.write(b"not an image")
         tmp = fh.name
     try:
-        digest = sha256_file(tmp)
+        digest = sha256_prefix(tmp)
         try:
             check_head(tmp, {"sha256": digest}, "US")
             check("check_head: matching hash passes", True)
@@ -2003,20 +2004,27 @@ def cmd_bodies(args) -> int:
 FIXTURE_SCHEMA = "osm2leaf.fn_match.fixture/v1"
 
 
-def sha256_file(path, limit=None):
+def sha256_prefix(path, limit=None):
+    """Hash ``path``, or only its first ``limit`` bytes for a fixture prefix.
+
+    M8.H76: the two-argument call in ``check_head`` is a byte limit, not a
+    chunk size, so it cannot be an alias of ``hashutil.sha256_file``. Only the
+    prefix branch keeps a local hashlib loop; the common case is shared.
+    """
+    if limit is None:
+        return hashutil.sha256_file(path)
     h = hashlib.sha256()
     with open(path, "rb") as fh:
         remaining = limit
         while True:
-            n = 1 << 20 if remaining is None else min(1 << 20, remaining)
+            n = min(1 << 20, remaining)
             if n <= 0:
                 break
             chunk = fh.read(n)
             if not chunk:
                 break
             h.update(chunk)
-            if remaining is not None:
-                remaining -= len(chunk)
+            remaining -= len(chunk)
     return h.hexdigest()
 
 
@@ -2061,9 +2069,9 @@ def check_head(path, want, label):
             print("FAIL %s is %d bytes, fixture needs at least %d"
                   % (label, size, want_bytes))
             raise SystemExit(2)
-        got = sha256_file(path, want_bytes)
+        got = sha256_prefix(path, want_bytes)
     else:
-        got = sha256_file(path)
+        got = sha256_prefix(path)
     if got != want["sha256"]:
         print("FAIL %s SHA-256 %s, fixture expects %s" % (
             label, got, want["sha256"]))

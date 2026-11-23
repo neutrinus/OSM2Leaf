@@ -36,6 +36,11 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 
+_TOOLS = str(Path(__file__).resolve().parent.parent)
+if _TOOLS not in sys.path:
+    sys.path.insert(0, _TOOLS)
+import hashutil  # noqa: E402
+
 SCHEMA = "osm2leaf.l3.manifest/v1"
 GENERATOR = "tools/l3_harness/manifest.py"
 
@@ -147,12 +152,7 @@ class ManifestError(ValueError):
         super().__init__("; ".join(self.problems))
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+sha256_file = hashutil.sha256_file
 
 
 def load(path) -> dict:

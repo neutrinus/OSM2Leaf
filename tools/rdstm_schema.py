@@ -77,6 +77,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import struct
 import sys
@@ -134,8 +135,7 @@ def _flatten(chunks: list[list[int]] | None) -> list[int]:
     return out
 
 
-def sha256(blob: bytes) -> str:
-    return hashlib.sha256(blob).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 def byte_diversity(column: bytes) -> float:

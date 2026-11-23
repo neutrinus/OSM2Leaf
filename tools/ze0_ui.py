@@ -60,6 +60,7 @@ Method and results: docs/experiments/EXP-2026-11-22-M8.H7-ui-scenario.md.
 
 import argparse
 import hashlib
+import hashutil
 import json
 import os
 import re
@@ -207,12 +208,7 @@ def peer_command(path, command, timeout=5.0):
     return reply
 
 
-def sha256_file(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for block in iter(lambda: fh.read(1 << 16), b""):
-            h.update(block)
-    return h.hexdigest()
+sha256_file = hashutil.sha256_file
 
 
 def parse_hash(value):
@@ -519,8 +515,7 @@ def _wait_socket(path, proc, timeout=10.0):
     raise RuntimeError("server %s did not appear" % path)
 
 
-def _sha(data):
-    return hashlib.sha256(data).hexdigest()
+_sha = hashutil.sha256_bytes
 
 
 def selftest():

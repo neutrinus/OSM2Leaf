@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import io
 import os
 import shutil
@@ -60,12 +61,7 @@ def _p32(v: int) -> bytes:
     return struct.pack("<I", v & 0xFFFFFFFF)
 
 
-def sha256_file(path: Path) -> str:
-    d = hashlib.sha256()
-    with path.open("rb") as f:
-        for b in iter(lambda: f.read(COPY_CHUNK), b""):
-            d.update(b)
-    return d.hexdigest()
+sha256_file = hashutil.sha256_file
 
 
 def mbr_entries(data: bytes) -> list[dict]:

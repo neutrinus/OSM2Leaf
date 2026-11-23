@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import os
 import re
@@ -98,12 +99,7 @@ CELL_RE = re.compile(r"^(B[0-9A-F]{2}R[0-9A-F]{3}R|LEV3456R)$", re.IGNORECASE)
 # helpers
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(8 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+sha256_file = hashutil.sha256_file
 
 
 def file_info(path: Path) -> dict:

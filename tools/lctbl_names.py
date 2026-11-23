@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import hashutil
 import json
 import re
 import statistics
@@ -51,12 +52,7 @@ FIRST_STREAM = 0x316600
 # observed record; that is the anchor used by the extractor.
 
 
-def sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+sha256 = hashutil.sha256_file
 
 
 def scan_streams(data: bytes, start: int = FIRST_STREAM) -> list[dict]:

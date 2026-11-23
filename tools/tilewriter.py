@@ -101,6 +101,7 @@ import collections
 import contextlib
 import gzip
 import hashlib
+import hashutil
 import json
 import math
 import re
@@ -206,8 +207,7 @@ class CheckFailed(Exception):
     """An internal consistency check failed (exit 1)."""
 
 
-def sha256(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+sha256 = hashutil.sha256_bytes
 
 
 # --------------------------------------------------------------------------
