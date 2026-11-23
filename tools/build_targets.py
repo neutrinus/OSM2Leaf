@@ -203,6 +203,22 @@ _DATA_TASK_US = (
     ("da_len_table", None, 0x001605E0, "16-row directory length table"),
     ("da_len_table_pool", None, 0x00431148, "pool cell naming da_len_table"),
 )
+# M9.72: the US2011 LOC_map chain VAs (`tools/locmap_l3.py`) are function
+# starts in the US image but mid-function in the EU head.  Like the M9.61
+# data-access set, they belong in the fn_audit skip set only; they are not
+# reusable L3 targets, so they are not ROLES and never enter targets.json or
+# the firmware.md owned table.  Every value is a pdata START (ROWS is a leaf,
+# BUILD_CHECK is the walk's +0x9e instruction site in the same function).
+_LOCMAP_US = (
+    ("locmap_alloc", 0x00498EA4),
+    ("locmap_client_init", 0x0044F0D0),
+    ("locmap_dispatch", 0x0044E808),
+    ("locmap_loc_recv", 0x00448E24),
+    ("locmap_walk", 0x00446CB8),
+    ("locmap_rows", 0x00449C60),
+    ("locmap_build_check", 0x00446D56),
+    ("locmap_msg_sender", 0x0044D080),
+)
 KINDS = ("start", "helper", "data", "const")
 
 # US 2011 Navi.exe entry point (C-3487); a start, but not an L3 reuse point.
@@ -250,6 +266,7 @@ def us_starts(fixture: Path = FIXTURE) -> frozenset:
     """
     return frozenset(set(roles("us2011", kinds=("start",)).values())
                      | {us for _k, _eu, us, _w in _DATA_TASK_US}
+                     | {us for _k, us in _LOCMAP_US}
                      | fixture_us_starts(fixture) | {US_ENTRY})
 
 
@@ -427,8 +444,13 @@ def selftest() -> int:
     for r in ROLES:
         if r[2] != "start":
             check("non-start %s kept out of US starts" % r[0], r[4] not in starts)
-    check("US starts are 64 (33 before M9.61 + 31 new data-access VAs)",
-          len(starts) == 64)
+    check("US starts are 72 (33 before M9.61 + 31 data-access + 8 LOC_map)",
+          len(starts) == 72)
+    check("every M9.72 LOC_map US VA is a start to skip",
+          all(v in starts for _k, v in _LOCMAP_US))
+    check("LOC_map US VAs are unique and not in the data-access set",
+          len({v for _k, v in _LOCMAP_US}) == len(_LOCMAP_US)
+          and not ({v for _k, v in _LOCMAP_US} & set(data_task_us().values())))
     check("every data-access US VA is a start to skip",
           all(v in starts for v in data_task_us().values()))
     check("data-access keys and US VAs are unique",

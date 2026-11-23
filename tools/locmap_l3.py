@@ -94,8 +94,9 @@ LOCMAP_EU2011 = {
 }
 LOCMAP_US2011 = {
     "ALLOC": 0x00498EA4,        # launcher call-graph twin (fn_match's UNIQUE
-                                # 0x0049c1a4 was a false positive: it read VA 0)
-    "CLIENT_INIT": 0x0044F0D0,  # call-graph twin, pdata true start (0x0044f0f8 INSIDE)
+                                # candidate was a false positive: it read VA 0)
+    "CLIENT_INIT": 0x0044F0D0,  # call-graph twin, pdata true start of a mid-
+                                # function address named in EXP-2026-11-23-M9.72
     "DISPATCH": 0x0044E808,     # direct caller of US requester's 0x2f8 caller
     "LOC_RECV": 0x00448E24,     # fn_match UNIQUE, START, len 0x194
     "WALK": 0x00446CB8,         # fn_match UNIQUE, START, len 0x11dc
