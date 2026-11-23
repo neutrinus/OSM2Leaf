@@ -5760,7 +5760,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8120–C-8129
 
 - [ ] **M8.H68 — `tools/ze0_ps.py`: process, thread and module list of the running guest from kernel structures**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h68-ze0-ps · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: Several tasks need 'is process X running, what is thread Y waiting on' (M8.H47, M8.H45). CE 5 keeps fixed-layout kernel tables; read them from guest memory over the monitor or gdbstub.
@@ -5771,6 +5771,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the structure layout differs from public CE 5.0 headers, document the offsets found and stop at the process list.
   - Falsifier: the listed process names do not match the launcher's DBGMSG lines of the same run.
   - Claims: C-8130–C-8139
+  - Blocker: User-slot lpszProcName VAs (0x0405fec4 etc.) return Cannot access memory via HMP x and E14 via gdbstub m, so only NK.EXE (2 threads) is named on the live guest
+  - Unblock: M8.H68a
+  - Result: EXP-2026-11-23-M8.H68-ze0-ps (negative); selftest 25/25; 59 modules; 1/4 processes named
 
 - [x] **M8.H69 — Breakpoints by name: a symbol file for the guest from `.pdata` and exports**
   - Status: done · Owner: task/m8.h69-symbols · Critical: no · Pair: solo
@@ -5876,6 +5879,32 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.H78-locator-gps-gates; gates named (C-8640–C-8646), stat default 0x30; car position not moved
   - Note: 2026-11-23 M8.H32: with wheel pulses and stat 0x00 all bits 0x01–0x200 are set, but the next cycle resets the car (mesh not in table, map-matching 0xffff, lost-road counter *0x00dbd5ac stays 0); see EXP-2026-11-23-M8.H32-trailer-test O6/O7.
     (M8.H32 follow-up, 2026-11-23) answered: OBJ_CarPos takes a far GPS position through the map-matching branch 0x00458994 once five consecutive samples at >10 km/h have reported speed/heading matching the position track (C-8830–C-8833); on ze0 the car moves Kentucky→Chicago with gps.py 'drive on'.
+
+- [ ] **M8.H68a — Resolve CE user-slot VAs for `ze0_ps.py` process names**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: tooling
+  - Depends: —
+  - Goal: M8.H68 found the CE 5.0 SH-4 process/thread/module tables but
+    `PROCESS.lpszProcName` (`+0x20`) points into user slots that HMP `x` and
+    gdbstub `m` cannot read (`Cannot access memory` / `E14`). Translate those
+    VAs to guest physical memory (or hold the guest in a context that maps
+    them) so `tools/ze0_ps.py --monitor SOCK` prints all process names.
+  - Precheck: `python3 tools/ze0_ps.py --monitor SOCK --no-modules --threads`
+    on the idle EU2011 guest still reports six `READ ERROR` lines; the same
+    names are visible as UTF-16 in the RAM scan of EXP-2026-11-23-M8.H68.
+  - Scope: CE 5.0 SH-4 section/PTE walk from `KData +0x0a0` (`aSections`) or a
+    documented gdbstub context switch; no fitted deltas; EU2011 kernel B.
+  - Input: EXP-2026-11-23-M8.H68, `tools/ze0_ps.py`, `tools/ze0_gdb.py`,
+    `docs/emulator/debugging.md`.
+  - Done when: the pinned M8.H68 reproduction prints `nk.exe`, `filesys.exe`,
+    `device.exe` and `Navi.exe` with thread counts from the kernel tables, and
+    `python3 tools/ze0_ps.py --selftest` still passes; M8.H68 is set back to
+    `open` by this task's PR (rule 15).
+  - Stop: one session; if the page-table layout is not derivable, record the
+    exact failing VA reads and stop with a negative EXP.
+  - Falsifier: the printed names disagree with the DBGMSG lines of the same
+    run, or a name is supplied from the DBGMSG log instead of guest memory.
+  - Claims: C-9940–C-9949
 
 ---
 
