@@ -588,6 +588,16 @@ def selftest() -> int:
             "positive control: a gap overlapping two table spans gets one deterministic class")
         chk(bool(multi) and "sec4" in multi[0]["class_note"],
             "positive control: the two-span tie is broken by the larger inside_nz")
+        if multi:
+            mg = multi[0]
+            per_span = []
+            for sid, ta, tb in section_table_spans(tile):
+                if ta < mg["end"] and mg["start"] < tb:
+                    per_span.append("sec%d inside_nz=%d" % (
+                        sid, _nonzero(clean, max(mg["start"], ta), min(mg["end"], tb))))
+            print("  info two-span synthetic gap: %#x..%#x %d B  %s  chosen=%s" % (
+                mg["start"], mg["end"], mg["bytes"], " ".join(per_span),
+                mg["class_note"].split()[0]))
         chk(grade_range(b"\x00\xff\xff\x00", 0, 4, (), [], [])[0] == "c",
             "positive control: 0xff slack is class c")
         chk(grade_range(b"\x78\x9c\x00\x09", 0, 4, (4, 1, "0x1046", "even", "slot0"),
