@@ -467,12 +467,13 @@ def answer(send: dict, sdl_req: tuple[int, int] = (0, 0)) -> tuple[bytes | None,
 class DataTask:
     """The data-access task and the map-file task on one virtual card."""
 
-    def __init__(self, image: str, card, build: dict = DA_EU2011, position=None, sdl: bool = False):
+    def __init__(self, image: str, card, build: dict = DA_EU2011, position=None, sdl: bool = False,
+                 native: tuple[str, tuple[str, ...]] | None = None):
         self.b = build
         self.st = State()
         self.st.build = build
         install_models(self.st)
-        out, s = V.boot_report(image, card, build=V.BUILDS[build["build"].lower()])
+        out, s = V.boot_report(image, card, build=V.BUILDS[build["build"].lower()], native=native)
         if s is None or out.get("verdict") != "ACCEPT":
             raise V.Blocked("the card did not mount: %s" % (out.get("blocked") or out.get("verdict")))
         self.s, self.m, self.card = s, s.m, card
