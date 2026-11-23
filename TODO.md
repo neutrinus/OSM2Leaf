@@ -5492,8 +5492,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: both codes take the same path.
   - Claims: C-7600–C-7609
 
-- [ ] **M8.H64 — First generated card at L4: the P0 card (one tile with OSM roads) against the factory card**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M8.H64 — First generated card at L4: the P0 card (one tile with OSM roads) against the factory card**
+  - Status: done · Owner: task/m8.h64-p0-card-l4 · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M8.H13
   - Goal: M8.E4 (full `Navi.exe` on a generated card) is one big acceptance run. Its first slice needs no screen: boot the P0 ladder card and the factory card through `tools/l4check.py` and compare stage, launcher verdict and files read.
@@ -5504,6 +5504,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the P0 card is rejected at a stage the factory card passes (a real finding for M5: record the log line).
   - Claims: C-7610–C-7619
+  - Result: EXP-2026-11-23-M8.H64-p0-card-l4; P0 L4 exit 0 stage F5 = same-session factory F5, launcher ACCEPT, map_files OPENED; 17-file SD trace lists identical, changed B48R058R not read; F4 first L4 generated cell
 
 - [ ] **M8.H65 — `DebugShell.dll` on `SCI6:`: the command list, and typing commands into the running emulator**
   - Status: blocked · Owner: task/m8.h65-debugshell · Critical: no · Pair: solo
