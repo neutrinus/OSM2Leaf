@@ -2483,7 +2483,7 @@ The 23rd-pass text is in git (`af469580`).
   - Result: EXP-2026-11-20-M4.54-section2-read-watch (C-5710–C-5717, `tools/rgd_reply_l3.py`): the reply path was driven for factory `B48R058R` section-2 record `0xb91d078` (`k=221`) — `0x004268c0` copies the block's plain 3508 B into the slot buffer and sets state 2 (a pass-through; it stored a section-1 block too), and `0x00422eac` clears the `0x0900` gate and reads `k+15` block word 236 `0x0919` (node 7 entry 1 `cls`), `k+7` word 228 `0x0717` (entry 0 `cls`), `k+6`=d word 227 `0x0008` (entry 0 `id`), `k+d` word 229 `0x003b` (entry 0 `a`), `out=7`; `k` is part-a node 7's header word 0 (`x=0x4fd`, count 3). Section-1 controls at the same `k` (`0x176a800`, `0x66700`) and a declared `k=0` all `GATE-REJECT`; second tile `B30R058R` `0x5759f4` passes (`k=78`, there `k` is an entry's `a`), `B28R070R` 0/303 has a passing `k`. Census 24,483/65,274 records pass on `B48R058R`; `d` = entry 0 `id` 4513/4513 but `k+d` = entry 0 `a` only 92/4513 (C-5715). `k`'s real source `0x00424464` and the reply's block granularity stay open — M4.40 returns to `open` with these offsets; also `map-tiles.md` word table, precheck `0x004066ac` is 145 functions not 140 (C-5718).
 
 - [ ] **M4.55 — Section-2 reader in the route path finder: drive the kind-8/`0x10` reply and read-watch unit 0**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m4.55-sec2-unit0-walk · Critical: yes · Pair: required
   - Step: P2
   - Depends: M4.40 (blocked on this; requester and reply named)
   - Goal: M4.40 found that section 2 is not read by the router (`RGD_DATA` fetches section 4) but requested by the route path finder `RPF_PreMap_start` `0x00336bf0` (EU2011) with kinds 8 and `0x10`, and that the data-access task replies with pointers to units 0 and 2 of the level-1 record (C-5922, C-5923). Find the RPF code that receives that `0x14b6` reply and walks unit 0, and read the section-2 field table off it (M4.40's goal).
@@ -2495,9 +2495,9 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: if the RPF reply handler cannot be reached without a model of more than two RPF globals, record the call chain and the globals and set blocked on an M9 harness task.
   - Falsifier: the RPF handler reads no word through `+16`/`+24`, or reads bytes outside the record's units.
   - Claims: C-6020–C-6029
-  - Blocker: The RPF reply consumer 0x003367a0 faults at 0x003367c2 on an unmodelled import STDDLL!STD_MeshPnt_isValid (thunk 0x003d1640 -> IAT 0x0055da88) before its first unit-0 read; vcard_l3.py has 81 import models and none is a STDDLL mesh export. Same exports run in poi_position_l3.py, so it is a harness binding gap, not a firmware limit.
-  - Unblock: —
-  - Result: EXP-2026-11-21-M4.55-rpf-consumer-import-block (negative); call chain + kind-8 reply recorded, 0 unit-0 reads
+  - Blocker: With M9.65's STDDLL binding the RPF reply handler 0x00336dc0 stores the kind-8 unit-0 pointer but never dereferences it: unit0 watch 0 reads vs replylist watch 10/20/30 (positive control); 0x003367a0 takes (mode, mp, mp, buffers), so the field table's reading VAs are in code not runnable with today's bindings.
+  - Unblock: M9.74
+  - Result: EXP-2026-11-23-M4.55-rpf-reply-handler-negative (negative with positive control); tools/rpf_reply_l3.py added; C-6026-C-6029
   - Note: M9.65 merged: vcard_l3 binds STDDLL's real exports via Client(... native=('STDDLL.dll', ...)); the 0x003367a0 thunk now runs. It does NOT dereference unit 0 itself (C-6745): it copies the reply entry to 0x0061a020, so the unit-0 walk is a later RPF stage. Re-run from docs/experiments/m4.55-repro.py and follow the 0x0061a020 pointer (EXP-2026-11-22-M9.65-stddll-mesh-import).
 
 - [ ] **M4.56 — Tile section 4 (route guidance) grammar from the router consumer `0x00422eac`**
@@ -6626,6 +6626,20 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the US walk runs but the EU-shaped record reads 0 shapes and a one-word mutation does not change the count (then the US handler is a different code path, not a port).
   - Claims: C-8610–C-8619
   - Pair: required
+
+- [ ] **M9.74 — Bind OBJDLL exports in `vcard_l3` and find the section-2 unit-0 walker (unblocks M4.55)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: tooling
+  - Depends: M9.65 (native second-module binding for `STDDLL`, done), M4.55 (negative EXP that locates the gap)
+  - Goal: EXP-2026-11-23-M4.55 proved the RPF reply handler `0x00336dc0` stores the kind-8 reply's unit-0 pointer (`0x302abbf2`) into the RPF buffer but never dereferences it: with a live reply-list watch (10/20/30 hits) the unit-0 watch records 0 reads in every reached path, and `0x003367a0` takes `(mode, mp, mp, buffers)` rather than the reply list (C-6026–C-6029). The word reads and reading VA that M4.40 needs are therefore in code not runnable with today's bindings — most likely an OBJDLL export reached with a translated mesh pointer, or a route-search stage triggered by a destination message. Make that code runnable in L3 and log the unit-0/unit-2 reads.
+  - Precheck: `python3 tools/rpf_reply_l3.py --selftest` passes; `python3 tools/rpf_reply_l3.py archive/head256.img --json rep.json` prints `unit0 reads=0` for modes 1/2/3 and `replylist reads` > 0; `python3 -c "import sys;sys.path.insert(0,'tools');import vcard_l3 as V;print([k for k in V.MODELS if 'OBJ' in k])"` prints `[]`.
+  - Scope: EU2011 build A only. Extend the M9.65 `native=(module, names)` binding (or add an equivalent loader) to `OBJDLL.dll` (`vbase 0x03480000`, one uncompressed exec section `rva 0x1000`, `0x5563b` B), starting with the `OBJ_PrePnt_*`/`OBJ_PntInfo_*` and `OBJ_NeighborLink_*` exports that `Navi.exe` imports through IAT slots `0x0055d278` onward. Drive a real kind-8 reply through `tools/rpf_reply_l3.py`, then run the bound code with a read-watch on unit 0 and unit 2. No writer, no new format claim beyond the read-watch, US2011 only as a follow-up.
+  - Input: `tools/rpf_reply_l3.py`, `tools/vcard_l3.py` (`_bind_native`, `native_slots`), `tools/poi_position_l3.py` (the loader to reuse), `tools/cerom.py exports OBJDLL.dll`, EXP-2026-11-22-M9.65-stddll-mesh-import, EXP-2026-11-23-M4.55-rpf-reply-handler-negative, `docs/experiments/m4.55-repro.py`.
+  - Hints: attribute every OBJDLL VA through `cerom.py` (never a fitted delta; SH-4 is little-endian). `OBJ_PrePnt_readNeighborLink` (`rva 0x269fc`) and `OBJ_PntInfo_readNeighborLink` (`rva 0x26268`) are thin struct-copy wrappers in the first pass — follow their callees, not the export stubs. "No static caller" here means an indirect call through a `.data` table; use `sh4xref.py --to` on the IAT thunks (`0x003d1868` etc.). If the walk requires a route-set message instead, name that message and the globals it reads and stop on a harness task.
+  - Done when: an EXP lists, for one factory record, every unit-0/unit-2 word read with its reading VA and module, with a positive control (a watch on a region the same run demonstrably reads) and a negative control (a section-1 record behind the same pointers is rejected or read differently); the field table goes into `docs/format/map-tiles.md`; then M4.55 returns to `open` (rule 15) and its `Unblock:` clears.
+  - Stop: if binding OBJDLL needs more than wiring the M9.65 loader (a shared global map the engine cannot provide), record the missing state and block on the engine change it needs; do not guess a walker from a byte pattern.
+  - Falsifier: after binding, the unit-0 watch still records 0 reads while the positive control records > 0 (then the reader is in a third module or an unissued message).
+  - Claims: C-9900–C-9909
 
 ## Retired leads
 
