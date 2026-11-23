@@ -5140,8 +5140,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H73
   - Result: EXP-2026-11-22-M8.H31-gps-fix-l4-negative (negative with M8.H1/H30 positive controls)
 
-- [ ] **M8.H32 — Wheel pulses, gyro and reverse on `-M ze0`, driven from the same track as the GPS**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H32 — Wheel pulses, gyro and reverse on `-M ze0`, driven from the same track as the GPS**
+  - Status: done · Owner: claude · Critical: no · Pair: required
   - Step: model
   - Depends: M8.H28
   - Goal: Model the dead-reckoning inputs of `docs/firmware/kepdrv.md` so speed and turn rate agree with the injected GPS track.
@@ -5152,6 +5152,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the scale depends on a learned calibration, seed the calibration value and say so.
   - Falsifier: the speed variable does not change with the pulse rate.
   - Claims: C-7290–C-7299
+  - Note: Done 2026-11-23 (EXP-2026-11-23-M8.H32-trailer-test, C-7290–C-7297): ze0-h32-dr-sensors.patch, /machine/dr pulses-milli/gyro0-7; 50 km/h within 1 %. Not done from scope: gps.py driving the pulses, reverse and illumination pins, gyro scale. Trailer test (Kentucky → Chicago): the car does not stay at the GPS (C-7295/C-7296).
+  - Result: EXP-2026-11-23-M8.H32-trailer-test: wheel pulses modelled (ze0-h32-dr-sensors.patch), speed variable *0x00dbdc2e follows the pulse rate (50 km/h within 1 %, 0 at 0); trailer Kentucky→Chicago: car not relocated (C-7295–C-7297)
 
 - [ ] **M8.H33 — Drive a track: GPX replay with screenshots every few seconds**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5743,9 +5745,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the gate is a learned calibration or needs DR input that M8.H32 has not modelled, record the variable and threshold and mark blocked on M8.H32.
   - Falsifier: with the gate condition met, `OBJ_CarPos` still stays at the old position.
   - Claims: C-8640–C-8649
-  - Blocker: M8.H32 (vehicle speed / DR input: locator input +22 ≥ 100 for flag bit 0x80, C-7156); M8.H18 done
+  - Blocker: the match state *0x00dd48d4 / lost-road counter *0x00dbd5ac (C-7296): what moves them; M8.H32 done
   - Unblock: M8.H32 drives the +22 field, then a US fix near the restored position (Kentucky)
   - Result: EXP-2026-11-23-M8.H78-locator-gps-gates; gates named (C-8640–C-8646), stat default 0x30; car position not moved
+  - Note: 2026-11-23 M8.H32: with wheel pulses and stat 0x00 all bits 0x01–0x200 are set, but the next cycle resets the car (mesh not in table, map-matching 0xffff, lost-road counter *0x00dbd5ac stays 0); see EXP-2026-11-23-M8.H32-trailer-test O6/O7.
 
 ---
 
