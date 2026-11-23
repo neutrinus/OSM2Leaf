@@ -4779,7 +4779,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Pair: required
 
 - [ ] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h4-display-surface · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1f
   - Goal: `tools/ze0_screenshot.py` copies VRAM with `pmemsave` and composes the planes on the host. A real QEMU console gives `screendump`, VNC and a live window for free, and is the base for mouse-to-touch (M8.H40).
