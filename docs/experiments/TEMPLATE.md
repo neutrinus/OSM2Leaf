@@ -35,7 +35,9 @@ State the **falsifier**: the observation that would prove the hypothesis wrong.
 
 ## Method
 
-A **spec**, not a narrative. Five parts, in this order:
+A **spec**, not a narrative. Five parts, in this order: parts may be written as
+numbered bold labels (`1. **Sample and hash.**`) or `### N. Label` subheadings
+(`### 1. Sample and hash`); both forms are accepted.
 
 1. **Sample and hash.** The exact file, byte range and SHA-256 above.
 2. **Commands.** Runnable as written, in one block. Either a committed tool

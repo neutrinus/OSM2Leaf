@@ -24,6 +24,9 @@ ELISION_RE = re.compile(r"#[ \t]*(?:\.\.\.|…)")
 WAIVER_RE = re.compile(r"`[ \t]*none[ \t]*\(tool-only task\)[ \t]*`", re.I)
 HEADING_RE = re.compile(r"^##[ \t]+(.+?)[ \t]*$", re.M)
 PART_RE = re.compile(r"^[ \t]*[0-9]+\.[ \t]+\*\*([^*]+?)\*\*", re.M)
+SUBHEADING_PART_RE = re.compile(r"^###[ \t]+([0-9]+)\.[ \t]+(.+?)[ \t]*$", re.M)
+METHOD_ALIAS_RE = re.compile(r"^method\b", re.I)
+PART_SUFFIX_RE = re.compile(r"[ \t]+\([^()]*\)[ \t]*$")
 SAMPLE_RE = re.compile(r"^[ \t]*[-*][ \t]+\*\*sample:\*\*", re.I | re.M)
 NEW_BULLET_RE = re.compile(r"^[ \t]*[-*][ \t]+\*\*", re.M)
 ANY_HEADING_RE = re.compile(r"^#{1,6}[ \t]", re.M)
@@ -33,6 +36,26 @@ BOLD_RE = re.compile(r"\*\*([^*]+?)\*\*")
 def norm(text: str) -> str:
     """Normalise a heading or bold part label for name-based matching."""
     return re.sub(r"\s+", " ", text.strip()).lower().rstrip(".")
+
+
+def part_norm(text: str) -> str:
+    """Normalise a Method part label, dropping a trailing parenthetical."""
+    return norm(PART_SUFFIX_RE.sub("", text))
+
+
+def part_markers(method: str) -> list[tuple[int, int, str]]:
+    """Return (start, end, label) for both numbered-bold and ### part spellings.
+
+    Markers are in document order so a Commands part can be sliced up to the
+    first following part regardless of which spelling the record uses.
+    """
+    markers: list[tuple[int, int, str]] = []
+    for m in PART_RE.finditer(method):
+        markers.append((m.start(), m.end(), part_norm(m.group(1))))
+    for m in SUBHEADING_PART_RE.finditer(method):
+        markers.append((m.start(), m.end(), part_norm(m.group(2))))
+    markers.sort()
+    return markers
 
 
 @dataclass(frozen=True)
@@ -54,7 +77,11 @@ def load_requirements(path: Path) -> Requirements:
 
 
 def section_bodies(text: str) -> dict[str, str]:
-    """Map each normalised ``##`` heading to the body text below it."""
+    """Map each normalised ``##`` heading to the body text below it.
+
+    Several ``## Method ...`` headings are concatenated under the ``method``
+    key: a record may put its five parts in a second Method-titled section.
+    """
     sections: dict[str, list[str]] = {}
     current: str | None = None
     buf: list[str] = []
@@ -62,14 +89,15 @@ def section_bodies(text: str) -> dict[str, str]:
         m = HEADING_RE.match(line)
         if m:
             if current is not None:
-                sections[current] = "\n".join(buf)
-            current = norm(m.group(1))
+                sections.setdefault(current, []).append("\n".join(buf))
+            key = norm(m.group(1))
+            current = "method" if METHOD_ALIAS_RE.match(key) else key
             buf = []
         else:
             buf.append(line)
     if current is not None:
-        sections[current] = "\n".join(buf)
-    return sections
+        sections.setdefault(current, []).append("\n".join(buf))
+    return {key: "\n".join(bodies) for key, bodies in sections.items()}
 
 
 def preamble(text: str) -> str:
@@ -97,20 +125,21 @@ def sample_bullet(text: str) -> str | None:
 
 
 def commands_part(method: str, parts: tuple[str, ...]) -> str:
-    """Slice Method part 2 (Commands), up to the next numbered part label."""
+    """Slice Method part 2 (Commands), up to the next part marker."""
     if len(parts) < 2:
         return ""
     target = parts[1]
+    markers = part_markers(method)
     start: int | None = None
-    end = len(method)
-    for m in PART_RE.finditer(method):
-        label = norm(m.group(1))
-        if start is None and label == target:
-            start = m.end()
-        elif start is not None and label != target:
-            end = m.start()
-            break
-    return method[start:end] if start is not None else ""
+    for i, (mstart, mend, label) in enumerate(markers):
+        if label == target:
+            start = mend
+            if i + 1 < len(markers):
+                end = markers[i + 1][0]
+            else:
+                end = len(method)
+            return method[start:end]
+    return ""
 
 
 def check_text(text: str, req: Requirements) -> list[str]:
@@ -123,12 +152,16 @@ def check_text(text: str, req: Requirements) -> list[str]:
     if "method" not in bodies:
         return reasons
     method = bodies["method"]
-    labels = {norm(m.group(1)) for m in BOLD_RE.finditer(method)}
+    labels = {part_norm(m.group(1)) for m in BOLD_RE.finditer(method)}
+    labels.update(label for _, _, label in part_markers(method))
     for part in req.parts:
         if part not in labels:
             reasons.append(f'missing Method part "**{part}**"')
-    if ELISION_RE.search(commands_part(method, req.parts)):
+    commands = commands_part(method, req.parts)
+    if ELISION_RE.search(commands):
         reasons.append("elided command (# ...) in Method part 2 Commands")
+    if not re.search(r"`", commands):
+        reasons.append("Method part 2 Commands has no runnable command")
     bullet = sample_bullet(text)
     if bullet is None:
         reasons.append("missing Sample bullet")
@@ -213,6 +246,29 @@ none.
 """
 
 
+SUBHEADING_GOOD = GOOD.replace(
+    "## Method\n"
+    "1. **Sample and hash.** The SHA-256 in the Sample bullet above.\n"
+    "2. **Commands.** `python3 tools/exp_check.py docs/experiments`\n"
+    "3. **Controls.** Positive: this record. Negative: an elided command.\n"
+    "4. **Scope.** This synthetic record only.\n"
+    "5. **Falsifier.** A FAIL line naming this file.\n",
+    "## Method\n"
+    "The five parts below use the named subheading spelling.\n\n"
+    "## Method — five parts\n"
+    "### 1. Sample and hash\n"
+    "The SHA-256 in the Sample bullet above.\n\n"
+    "### 2. Commands\n"
+    "`python3 tools/exp_check.py docs/experiments`\n\n"
+    "### 3. Controls\n"
+    "Positive: this record. Negative: an elided command.\n\n"
+    "### 4. Scope\n"
+    "This synthetic record only.\n\n"
+    "### 5. Falsifier (state before result, at both levels)\n"
+    "A FAIL line naming this file.\n",
+)
+
+
 def set_sample(text: str, bullet: str) -> str:
     out: list[str] = []
     skipping = False
@@ -262,6 +318,24 @@ def selftest() -> int:
         None, False, "elided command")
     record("Method renamed", GOOD.replace("## Method", "## Approach"),
            None, False, 'missing heading "## method"')
+
+    record("subheading parts pass", SUBHEADING_GOOD, None, True)
+    record("subheading falsifier removed", SUBHEADING_GOOD.replace(
+        "### 5. Falsifier (state before result, at both levels)\n"
+        "A FAIL line naming this file.\n", ""),
+        None, False, 'missing Method part "**falsifier**"')
+    record("subheading commands removed", SUBHEADING_GOOD.replace(
+        "### 2. Commands\n"
+        "`python3 tools/exp_check.py docs/experiments`\n\n", ""),
+        None, False, 'missing Method part "**commands**"')
+    record("no runnable command", GOOD.replace(
+        "2. **Commands.** `python3 tools/exp_check.py docs/experiments`",
+        "2. **Commands.** The commands are not listed here."),
+        None, False, "has no runnable command")
+    record("subheading elided command", SUBHEADING_GOOD.replace(
+        "`python3 tools/exp_check.py docs/experiments`",
+        "`python3 tools/x.py IMG  # ...`"),
+        None, False, "elided command")
 
     template_text = TEMPLATE_PATH.read_text(encoding="utf-8")
     with tempfile.TemporaryDirectory(prefix="exp_check_selftest_") as td:
