@@ -72,6 +72,23 @@ JP-specific `NxJpNavi.exe` record carries `0x00010000`
 modules (`Navi.exe`, `NaviMapCC`, `NaviSearchCC`, `NaviRouteCC`, `OBJDLL`, …)
 do not import the area API; UI/audio/system modules do.
 
+**Recovery / update mode (M2.20, C-6260–C-6267).** The area masks of the launch
+table records were read for every record on both the EU2011 and US2011 heads.
+The build-B table is byte-identical on the two cards (`launch_area.py
+table-hash`). Six records differ between USA `0x00040000` and Euro
+`0x00020000` (three each): the US tuners `XMRadio` (`0x03bb78f0`) / `Rbds`
+(`0x03bb7c00`) and `Navi.exe` #80 (`0x03bc1830`) for USA, the EU `Rds` (`0x03bb75e0`) / `Tmc`
+(`0x03bb7f10`) and `Navi.exe` #81 (`0x03bc1b40`) for Euro. The software-update
+programs — `UpdateMng.exe` #98 (`0x03bc4f50`), `PRGUpdate.exe` #99
+(`0x03bc5260`), `MapUpdate.exe` #106 (`0x03bc67d0`) — are boot-mode `0x0010`
+and **all-areas** (`0xffff0000` at `0x03bc4f5c` / `0x03bc526c` / `0x03bc67dc`),
+so the area filter `fn 0x03bcc564` selects them for Euro and for every other
+area: `update mode starts for area 0x30: yes` at the launch-table level. The
+EU card's build A carries a `Navi.exe` module but no launch table; an area-USA
+unit on the EU card starts build-B record #80 from the EU card's (identical)
+B table. Whether the update programs are reached once selected is M6.17's
+path, a hypothesis here. See EXP-2026-11-23-M2.20-region-recoverable.
+
 The same launcher reads the card's `\SystemSD\VER_INFO\HDD_INFO.TXT` and
 compares it with unit-side target info fetched by
 `KernelIoControl(0x0101302C)`: an 11-byte unit record (`+96` region of the
