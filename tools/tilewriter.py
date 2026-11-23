@@ -5,9 +5,10 @@ Takes an IMF v1 file that ``tools/mesh_split.py`` has already split (one way
 fragment per ``BxxRyyR`` cell), clips each fragment to the cell's parcels,
 builds one section-1 road-shape record per populated parcel with the checked-in
 ``tools/ze0-viewer/tools_ze0`` writer (``fa_encode``), and emits one tile
-container. When an OSM way carries a ``name`` (or ``ref``) tag, the writer sets
-the shape's ``name_off`` and stores the street-name label in the odd partner
-(background) record's names section (M5.7).
+container. When an OSM way carries a ``name`` and/or ``ref`` tag, the writer
+sets the shape's ``name_off`` and stores the composed label in the odd partner
+(background) record's names section (M5.7 names, M4.95 ``1=NAME;2=REF``).
+A nameless ref-bearing way is written as a bare ``2=REF`` entry.
 
 Two container modes
 -------------------
@@ -484,23 +485,109 @@ def read_jsonl(path: str):
         raise WriterError("%s: no IMF records" % path)
 
 
+# M4.90: a road number is the ``2=`` part of a ``1=NAME;2=REF`` name entry in
+# the odd partner's names section; the shield family is carried by the ref
+# syntax, not by a binary field.  The family regexes below are quoted from
+# EXP-2026-11-22-M4.90 (its ``category()``) and are used only by the
+# mapping selftest, not by the writer at runtime.
+_REF_FAMILIES = [
+    ("motorway+E", re.compile(r"^A\d+(?::E\d+)+$")),
+    ("motorway", re.compile(r"^A\d+$")),
+    ("B+E", re.compile(r"^B\d+(?::E\d+)+$")),
+    ("B-road", re.compile(r"^B\d+$")),
+    ("digit:E", re.compile(r"^\d+:E\d+(?::E\d+)*$")),
+    ("E-route", re.compile(r"^E\d+$")),
+    ("S-road", re.compile(r"^S\d+$")),
+    ("L-road", re.compile(r"^L\d+$")),
+    ("numeric", re.compile(r"^\d+$")),
+    ("dash-code", re.compile(r"^[A-Z]{1,3}-\d")),
+    ("SP-province", re.compile(r"^SP\d+$")),
+]
+
+
+def ref_family(ref: str) -> str:
+    """M4.90 shield family of a ``2=REF`` string (selftest helper)."""
+    for name, rx in _REF_FAMILIES:
+        if rx.match(ref):
+            return name
+    return "other-alpha" if re.match(r"^[A-Z]", ref) else "other"
+
+
+def _norm_ref(value) -> str:
+    """Normalise an OSM ``ref`` to the factory's ``2=`` token.
+
+    ``DK94`` is the Polish colloquial form; OSM stores the national road as
+    ``94`` and the factory stores ``2=94`` (M4.90: ``DK94`` 0, ``94`` 19).
+    The prefix strip is therefore defensive and is covered by a synthetic
+    selftest only.
+    """
+    ref = str(value or "").strip().upper()
+    if re.fullmatch(r"DK\d+", ref):
+        ref = ref[2:]
+    return ref
+
+
+def _norm_int_refs(value) -> list[str]:
+    """Normalise OSM ``int_ref`` values to ``E###`` tokens.
+
+    OSM writes ``E 40`` (space) while the factory writes ``E40``; the reader's
+    family regex would miss the spaced form, so strip whitespace *before*
+    composing the ``2=`` text (M4.90 O5/O7, navigator round 1).
+    """
+    out = []
+    for part in re.split(r"[;,]", str(value or "")):
+        token = "".join(part.split()).upper()
+        if re.fullmatch(r"E\d+", token) and token not in out:
+            out.append(token)
+    return out
+
+
+def _with_family_suffix(ref: str, int_refs: list[str]) -> str:
+    """Append E-route tokens only where the factory shows a colon family.
+
+    Unconditional appending is wrong: all 180 ``S8`` ways carry ``int_ref='E
+    67'``, but ``S8:E67`` is ``other-alpha`` in M4.90 (no ``S\\d+:E\\d+``
+    family), while the factory has ``A#:E#``, ``B#:E#`` and ``digit:E``.
+    """
+    if not ref or not int_refs:
+        return ref
+    if ref_family(ref) not in ("motorway", "B-road", "numeric", "digit:E"):
+        return ref
+    already = set(ref.split(":"))
+    return ref + "".join(":" + e for e in int_refs if e not in already)
+
+
+def road_label(tags: dict) -> str:
+    """Full names-section label from OSM tags, or ``""`` when nothing to write.
+
+    ``1=NAME`` and ``2=REF`` are optional independently: a nameless motorway
+    way still gets ``2=A4:E40`` (all 681 A4 ways in the extract are nameless).
+    """
+    name = str(tags.get("name") or "").strip()
+    ref = _with_family_suffix(_norm_ref(tags.get("ref")),
+                              _norm_int_refs(tags.get("int_ref")))
+    parts = []
+    if name:
+        parts.append("1=" + name)
+    if ref:
+        parts.append("2=" + ref)
+    return ";".join(parts)
+
+
 def _name_label(tags: dict, record: dict) -> str:
-    """Street-name label for a way, or ``""``.  Uses OSM ``name`` (tags or
-    record-level, as osm_ingest emits).  Format ``1=NAME`` matches
-    ``rd_build.label``/``fa_encode.names_section``.  ``ref`` is not emitted in
-    M5.7 (it belongs with the routing/name tables, not a minimal road splice)."""
-    name = tags.get("name") or record.get("name") or ""
-    name = str(name).strip()
-    if not name:
-        return ""
-    return "1=" + name
+    """Full road label for a way.  M5.7's record-level name fallback is kept."""
+    merged = dict(tags)
+    if not str(merged.get("name") or "").strip():
+        merged["name"] = record.get("name") or ""
+    return road_label(merged)
 
 
 def load_imf(path: str, cell: str):
     """Return ``(ways, stats)`` for one cell.
 
-    ``ways`` is ``[{"id", "highway", "name", "points": [(lon, lat), ...]}]``.
-    ``name`` is a ``1=...`` label or ``""``.  A way that still carries more than
+    ``ways`` is ``[{"id", "highway", "name", "ref", "int_ref", "points"}]``.
+    ``name`` is the full names-section label (``1=...``, ``2=...`` or both) or
+    ``""``.  A way that still carries more than
     one cell means the input was not mesh-split; that is an input error, not
     something to guess around.
     """
@@ -560,7 +647,8 @@ def load_imf(path: str, cell: str):
         if name:
             stats["ways_named"] += 1
         ways.append({"id": str(record.get("id")), "highway": str(highway),
-                     "name": name, "ref": str(tags.get("ref") or ""), "points": points})
+                     "name": name, "ref": str(tags.get("ref") or ""),
+                     "int_ref": str(tags.get("int_ref") or ""), "points": points})
     if multi:
         raise WriterError(
             "%d way(s) still span several cells (%s); run tools/mesh_split.py "
@@ -584,7 +672,10 @@ def ways_to_runs(ways, level: int, table, cell: str):
         if entry is None:
             misses.setdefault(way["highway"], []).append(way["id"])
             continue
-        name = way.get("name") or ""
+        # ``name`` is the full M4.90 label (``1=NAME``, ``2=REF`` or both), so a
+        # nameless ref-bearing way still reaches the names section.  The 4th
+        # run field carries it through to build_road_record.
+        label = way.get("name") or ""
         for parcel, points in parcel_runs(way["points"], level):
             y0, x0, row, col = parcel
             # A point pressed onto the cell border must not create a directory
@@ -592,7 +683,7 @@ def ways_to_runs(ways, level: int, table, cell: str):
             y0 = min(max(y0, yb), yb + 8 - DIR_MESHES[level])
             x0 = min(max(x0, xb), xb + 8 - DIR_MESHES[level])
             runs.setdefault((y0, x0, row, col), []).append(
-                (points, way["highway"], name)
+                (points, way["highway"], label, label)
             )
     if misses:
         detail = ", ".join(
@@ -613,7 +704,13 @@ def ways_to_runs(ways, level: int, table, cell: str):
 
 
 def _run_fields(run):
-    """``(points, highway, name)`` from a run tuple (2- or 3-field)."""
+    """``(points, highway, label)`` from a run tuple (2/3/4-field).
+
+    A 4-field run (M4.95) carries the ref-bearing label in its 4th slot; 2-
+    and 3-field runs keep their M5.7 meaning for the existing selftests.
+    """
+    if len(run) >= 4:
+        return run[0], run[1], run[3]
     if len(run) == 3:
         return run
     return run[0], run[1], ""
@@ -647,7 +744,7 @@ def build_road_record(level, parcel, runs, table, country, write_names=True,
     labels = []
     points = 0
     for run in runs:
-        points_, highway, name = _run_fields(run)
+        points_, highway, label = _run_fields(run)
         local = []
         for lon, lat in points_:
             xy = quantise(lon, lat, lon0, lat0, width, height)
@@ -679,7 +776,7 @@ def build_road_record(level, parcel, runs, table, country, write_names=True,
                 start = stop
             chains.append(links)
             hws.append(highway)
-            labels.append(name if (write_names and name) else "")
+            labels.append(label if (write_names and label) else "")
             points += len(piece)
     if not chains:
         return None
@@ -2190,6 +2287,46 @@ def selftest():
                                 (" " + str(detail)) if detail and not condition else ""))
 
     print("tilewriter selftest")
+    # M4.95: pure ref->shield-label mapping.  Row 3 is synthetic (DK94=0 in the
+    # extract); row 4 is the real-data positive (1218 OSM `94` ways).
+    mapping_rows = [
+        ({"name": "", "ref": "A4", "int_ref": "E 40"}, "2=A4:E40", "motorway+E"),
+        ({"name": "", "ref": "S8", "int_ref": "E 67"}, "2=S8", "S-road"),
+        ({"name": "", "ref": "DK94"}, "2=94", "numeric"),
+        ({"name": "", "ref": "94"}, "2=94", "numeric"),
+        ({"name": "", "ref": "", "int_ref": "E 40"}, "", "none"),
+        ({"name": "X", "ref": "A4", "int_ref": "E 40"}, "1=X;2=A4:E40", "motorway+E"),
+    ]
+    for i, (tags, want, family) in enumerate(mapping_rows, 1):
+        got = road_label(tags)
+        check("road_label row %d" % i, got == want, [got, want])
+        if got:
+            ref_part = got.split("2=", 1)[1]
+            check("road_label family row %d" % i,
+                  ref_family(ref_part) == family, [ref_part, ref_family(ref_part), family])
+    check("road_label rejects S8:E67 family",
+          road_label({"name": "", "ref": "S8", "int_ref": "E 67"}) != "2=S8:E67"
+          and ref_family("S8:E67") == "other-alpha",
+          [road_label({"name": "", "ref": "S8", "int_ref": "E 67"}),
+           ref_family("S8:E67")])
+    check("_run_fields 2/3/4-field compatibility",
+          _run_fields(([1], "motorway", "1=X"))[2] == "1=X"
+          and _run_fields(([1], "motorway"))[2] == ""
+          and _run_fields(([1], "motorway", "", "2=A4:E40"))[2] == "2=A4:E40")
+    # A bare 2=REF label must survive fa_encode + the committed reader.
+    try:
+        viewer_dir = str(TOOLS_DIR / "ze0-viewer")
+        if viewer_dir not in sys.path:
+            sys.path.insert(0, viewer_dir)
+        import ze0_decode  # type: ignore
+        _ns_bytes, _offs = fa_encode.names_section(["2=A4:E40"], [])
+        _parsed = ze0_decode.parse_names_section(_ns_bytes)
+        bare_ok = any(ref == "A4:E40" for _nm, ref in _parsed.values())
+    except Exception as exc:  # pragma: no cover - diagnostic only
+        bare_ok = False
+        _parsed = repr(exc)
+    check("bare 2=REF round-trips via reader", bare_ok, _parsed)
+
     cell = "B48R058R"
     with tempfile.TemporaryDirectory(prefix="tilewriter-") as tmp:
         root = Path(tmp)
