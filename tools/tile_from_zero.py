@@ -39,6 +39,7 @@ import fa_encode  # noqa: E402
 import tile_relayout  # noqa: E402
 import tilewriter  # noqa: E402
 
+UNITS = 2048
 EMPTY1 = 0x7FFFFFFF  # empty even pair, level 1
 EMPTY_ODD = 0xFFFFFFFF  # empty odd pair, level 1 (0x7fffffff here moves the read 4 GiB, M5.88)
 # No record-size ceiling is known: the firmware inflates into a window of the
@@ -67,16 +68,23 @@ def level1_dirs(m: dict) -> dict:
     return out
 
 
-def place(m: dict, built: dict) -> dict:
-    """Put ``{parcel: (plain, comp)}`` into the level-1 directories of ``m``."""
+def place(m: dict, built: dict, odd: dict | None = None) -> dict:
+    """Put ``{parcel: (plain, comp)}`` road records (even) and background
+    records (``odd``) into the level-1 directories of ``m``.
+
+    A row block holds, column by column, the even record then the odd one
+    (the order ``s1_wide_dir`` reads); an empty even pair is ``0x7fffffff``,
+    an empty odd pair ``0xffffffff`` (M5.88)."""
+    odd = odd or {}
     dirs = level1_dirs(m)
     rows = collections.defaultdict(dict)
     missing = 0
-    for (y0, x0, row, col), (plain, comp) in built.items():
-        if (y0, x0) not in dirs:
-            missing += 1
-            continue
-        rows[(y0, x0, row)][col] = (plain, comp)
+    for part, recs in (("even", built), ("odd", odd)):
+        for (y0, x0, row, col), rec in recs.items():
+            if (y0, x0) not in dirs:
+                missing += 1
+                continue
+            rows[(y0, x0, row)].setdefault(col, {})[part] = rec
     if missing:
         raise CheckFailed("%d parcel(s) have no level-1 directory in the template" % missing)
     stats = collections.Counter()
@@ -88,20 +96,148 @@ def place(m: dict, built: dict) -> dict:
         block = b""
         recs = []
         for c in range(len(r["cols"])):
-            if c in cols:
-                plain, comp = cols[c]
+            if c not in cols:
+                continue
+            pair = {}
+            for part, empty in (("even", (EMPTY1, EMPTY1)), ("odd", (EMPTY_ODD, EMPTY_ODD))):
+                if part not in cols[c]:
+                    pair[part] = empty
+                    continue
+                plain, comp = cols[c][part]
                 if len(comp) % 2 or len(plain) % 2:
                     raise CheckFailed("record not word aligned")
-                r["cols"][c] = dict(even=(len(comp) // 2, len(plain) // 2), odd=(EMPTY_ODD, EMPTY_ODD), subs=[])
+                pair[part] = (len(comp) // 2, len(plain) // 2)
                 block += comp
                 recs.append(comp)
                 stats["records"] += 1
+                stats[part + "_records"] += 1
                 stats["plain_bytes"] += len(plain)
                 stats["comp_bytes"] += len(comp)
+            r["cols"][c] = dict(even=pair["even"], odd=pair["odd"], subs=[])
         unit = dm["units"][row]
         unit.update(live=True, old=("new", y0, x0, row), block=block, recs=recs, tag=0)
         stats["rows"] += 1
     return dict(stats)
+
+
+# --------------------------------------------------------------------------
+# Background (odd) records from osm_areas.py features (M5.89, Z4)
+# --------------------------------------------------------------------------
+
+# (layer, shape type) per kind, from the London tile's level-1 census
+# (EXP-2026-11-23-M5.89): layer 0 0xc12b urban area, layer 3 0xc11a forest /
+# 0xc11b heath / 0xc11d park, layer 7 0xc114 river area / 0xc115 water.
+BG_TYPES = {"urban": (0, 0xC12B), "forest": (3, 0xC11A), "heath": (3, 0xC11B), "park": (3, 0xC11D),
+            "riverarea": (7, 0xC114), "water": (7, 0xC115)}
+BG_TOLERANCE_M = 3.0  # M5.75 level-1 default
+BG_W34 = (0x347A, 0x2AEF)  # level-1 header words 3/4 (clarion_bg.LEVELS[1]["w34"])
+MAX_SUBS, MAX_PER_SUB = 8, 255  # parse_group: <= 8 sub-groups of <= 255 shapes
+
+
+def _ring_area(pts) -> float:
+    return abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(pts, pts[1:]))) / 2
+
+
+def _parcels_over(bbox, level=1):
+    """Every level-1 parcel a lon/lat bbox touches."""
+    import clarion_bg
+    w, s, e, n = bbox
+    p0 = tilewriter.parcel_of(w, s, level)
+    lon0, lat0, pw, ph = clarion_bg.parcel_geo(level, *p0)
+    out = set()
+    lat = lat0 + ph / 2
+    while lat - ph / 2 <= n:
+        lon = lon0 + pw / 2
+        while lon - pw / 2 <= e:
+            out.add(tilewriter.parcel_of(lon, lat, level))
+            lon += pw
+        lat += ph
+    return out
+
+
+def build_background(areas_path: str, country: int, only: set | None = None, urban_fill: float = 0.0):
+    """``{parcel: plain}`` background records and stats from an osm_areas JSONL."""
+    import clarion_bg
+    from bg_writer import clip_polygon
+    from slot_budget import dp_simplify
+    shapes = collections.defaultdict(lambda: collections.defaultdict(list))
+    stats = collections.Counter()
+    with open(areas_path, encoding="utf-8") as fh:
+        for line in fh:
+            f = json.loads(line)
+            kind = f["kind"]
+            if kind not in BG_TYPES or only and kind not in only:
+                stats["skipped_" + kind] += 1
+                continue
+            stats["holes_ignored"] += len(f.get("holes", []))
+            for ring in f["rings"]:
+                ring = [tuple(p) for p in ring]
+                simp, _err = dp_simplify(ring, BG_TOLERANCE_M)
+                if len(simp) < 4:
+                    stats["degenerate"] += 1
+                    continue
+                xs = [p[0] for p in simp]
+                ys = [p[1] for p in simp]
+                for parcel in _parcels_over((min(xs), min(ys), max(xs), max(ys))):
+                    lon0, lat0, pw, ph = clarion_bg.parcel_geo(1, *parcel)
+                    clipped = clip_polygon(simp, (lon0, lat0, lon0 + pw, lat0 + ph))
+                    if len(clipped) < 3:
+                        continue
+                    q = [tilewriter.quantise(lon, lat, lon0, lat0, pw, ph) for lon, lat in clipped]
+                    ded = [q[0]]
+                    for p in q[1:]:
+                        if p != ded[-1]:
+                            ded.append(p)
+                    if ded[0] != ded[-1]:
+                        ded.append(ded[0])
+                    if len(ded) < 4 or _ring_area(ded) < 1:
+                        continue
+                    shapes[parcel][kind].append(ded)
+                    stats["shapes_" + kind] += 1
+    out = {}
+    full = [(0, 0), (UNITS - 1, 0), (UNITS - 1, UNITS - 1), (0, UNITS - 1), (0, 0)]
+    for parcel, by_kind in shapes.items():
+        if urban_fill and by_kind.get("urban"):
+            # Generalised built-up area (HYPOTHESIS, M5.89): the factory's
+            # level-1 0xc12b is one parcel-wide polygon in central London,
+            # while OSM landuse covers blocks.  A parcel whose urban rings
+            # cover >= urban_fill of it (sum of ring areas, capped at 1) gets
+            # one full-parcel ring instead.
+            share = min(1.0, sum(_ring_area(r) for r in by_kind["urban"]) / float((UNITS - 1) ** 2))
+            if share >= urban_fill:
+                stats["urban_filled_parcels"] += 1
+                by_kind["urban"] = [list(full)]
+        layers = collections.defaultdict(list)
+        for kind, rings in by_kind.items():
+            layer, typ = BG_TYPES[kind]
+            for pts in rings:
+                layers[layer].append(dict(type=typ, ref=0xFFFF, pts=pts))
+        model_layers = {}
+        for layer, items in layers.items():
+            items.sort(key=lambda sh: -_ring_area(sh["pts"]))  # big first, small drawn on top
+            cap = MAX_SUBS * MAX_PER_SUB
+            if len(items) > cap:
+                stats["dropped_small"] += len(items) - cap
+                items = items[:cap]
+            subs = [dict(kind=0x80, shapes=items[i:i + MAX_PER_SUB]) for i in range(0, len(items), MAX_PER_SUB)]
+            model_layers[layer] = dict(subs[0], more=subs[1:]) if len(subs) > 1 else subs[0]
+        y0, x0, row, col = parcel
+        per = clarion_bg.LEVELS[1]["rows"] // clarion_bg.LEVELS[1]["dir_meshes"]
+        hdr = [0] * 22
+        hdr[0], hdr[1] = clarion_bg.parcel_code(1, y0 * per + row, x0 * per + col)
+        hdr[2], (hdr[3], hdr[4]) = 0xFA, BG_W34
+        hdr[20] = country
+        plain = clarion_bg.build_record(dict(hdr=hdr, nlayers=26, layers=model_layers, sections={},
+                                             gi=9, strict=True))
+        back = clarion_bg.parse_record(plain)
+        got = collections.Counter(sh["type"] for g in back["layers"].values() if "raw" not in g
+                                  for s in [g] + g.get("more", []) for sh in s["shapes"])
+        want = collections.Counter(sh["type"] for items in layers.values() for sh in items[:MAX_SUBS * MAX_PER_SUB])
+        if got != want:
+            raise CheckFailed("background record of %r does not read back: %s vs %s" % (parcel, got, want))
+        out[parcel] = plain
+        stats["records"] += 1
+    return out, dict(stats)
 
 
 def build_records(split: str, cell: str, class_table: str | None, country: int, write_names: bool,
@@ -144,9 +280,9 @@ def fit_record(parcel, runs, table, country, write_names, limit=0):
     return res, len(order) - keep
 
 
-def from_zero(template: bytes, built: dict, pad: bool = True) -> tuple[bytes, dict]:
+def from_zero(template: bytes, built: dict, pad: bool = True, odd: dict | None = None) -> tuple[bytes, dict]:
     m = tile_relayout.empty_model(tile_relayout.read_model(template))
-    st = place(m, built)
+    st = place(m, built, odd)
     out, wst = tile_relayout.write_model(m)
     if pad:
         out = tilewriter.pad_directory_reads(out)
@@ -235,6 +371,25 @@ def selftest() -> int:
     full, _ = fit_record(parcel, two, table, 826, False)
     small, dropped = fit_record(parcel, two, table, 826, False, limit=len(full[0]) - 1)
     ok(dropped == 1 and len(small[0]) < len(full[0]), "a cap drops one run (the residential one)")
+    # a background record next to the road record (Z4)
+    lon_p, lat_p, pw, ph = __import__("clarion_bg").parcel_geo(1, *parcel)
+    import tempfile, os
+    sq = [[lon_p + pw * a, lat_p + ph * b] for a, b in ((0.1, 0.1), (0.6, 0.1), (0.6, 0.6), (0.1, 0.6), (0.1, 0.1))]
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
+        fh.write(json.dumps(dict(id="w1", kind="park", rings=[sq], holes=[])) + "\n")
+        fh.write(json.dumps(dict(id="w2", kind="water", rings=[[[x - pw * 0.05, y] for x, y in sq]], holes=[])) + "\n")
+    bg, bst = build_background(fh.name, 826)
+    os.unlink(fh.name)
+    ok(list(bg) == [parcel] and bst["shapes_park"] == 1 and bst["shapes_water"] == 1,
+       "park + water square -> one background record in the road parcel")
+    blob2, st2 = from_zero(tmpl, {parcel: (plain, comp)}, pad=False,
+                           odd={parcel: (bg[parcel], tilewriter.compress(bg[parcel]))})
+    ok(st2["even_records"] == 1 and st2["odd_records"] == 1, "even + odd placed")
+    c2 = s1_wide_dir.census(blob2)
+    ok(s1_wide_dir.census_ok(c2) and c2["counts"]["records"] == 2, "census: 2 records")
+    m2 = tile_relayout.read_model(blob2)
+    raws = [r for sec in m2["sections"] for L in sec["levels"] for dm in L["dirs"] for u in dm["units"] for r in u["recs"]]
+    ok([zlib.decompress(r) for r in raws] == [plain, bg[parcel]], "block order: even then odd")
     print("tile_from_zero selftest: %s (%d failure(s))" % ("OK" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -247,6 +402,10 @@ def main(argv=None) -> int:
     ap.add_argument("--class-table")
     ap.add_argument("--country", type=int, default=616)
     ap.add_argument("--no-names", action="store_true")
+    ap.add_argument("--areas", help="osm_areas.py JSONL: write level-1 background records (Z4)")
+    ap.add_argument("--urban-fill", type=float, default=0.0,
+                    help="fill a parcel with one urban ring when its urban rings cover >= this share (0 = off)")
+    ap.add_argument("--areas-kinds", help="comma list of kinds to write (default: all of BG_TYPES)")
     ap.add_argument("--max-plain", type=lambda v: int(v, 0), default=0,
                     help="drop the least important roads of a parcel until its record fits (0 = no limit)")
     ap.add_argument("-o", "--out")
@@ -261,7 +420,13 @@ def main(argv=None) -> int:
     try:
         built, sizes, imf_stats = build_records(args.split, args.cell, args.class_table, args.country,
                                                 not args.no_names, args.max_plain)
-        out, st = from_zero(Path(args.template).read_bytes(), built)
+        odd, bg_stats = {}, {}
+        if args.areas:
+            only = set(args.areas_kinds.split(",")) if args.areas_kinds else None
+            plains, bg_stats = build_background(args.areas, args.country, only, args.urban_fill)
+            odd = {k: (v, tilewriter.compress(v)) for k, v in plains.items()}
+        out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd)
+        st["background"] = bg_stats
     except (CheckFailed, tilewriter.CheckFailed, tilewriter.WriterError) as exc:
         print("tile_from_zero: FAIL %s" % exc)
         return 1

@@ -3783,8 +3783,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8680–C-8689
   - Result: Z3 passed: 602 OSM road records, 0 factory records, L1/L3/L4 accepted, roads drawn (EXP-2026-11-23-M5.88, C-8680–C-8686)
 
-- [ ] **M5.89 — Z4: London background from OSM — water, parks, forest, urban area, rivers in every parcel**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.89 — Z4: London background from OSM — water, parks, forest, urban area, rivers in every parcel**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: Z4
   - Depends: M5.88
   - Goal: M5.74 writes three background classes into one parcel from a small OSM XML file. A map needs every parcel and the land/urban fill, from the PBF extract.
@@ -3794,6 +3794,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: per-class shape counts written = decoded (`--readback`); L3 mount parses; the L4 screenshot shows the Thames, parks and fills; the EXP has a class × (factory count, ours) table for the start-screen parcel.
   - Stop: one session per class group; a class the screen does not draw is a finding (record the type value).
   - Claims: C-8690–C-8699
+  - Result: Z4 passed for areas: 623 OSM background records (water, parks, forest, heath, urban) drawn with the roads, 0 factory records (EXP-2026-11-23-M5.89, C-8690–C-8696)
 
 - [ ] **M5.90 — Z5: street names, road numbers and road classes in the from-zero London tile**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3854,6 +3855,30 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has the distribution (min/q1/median/q3/max) of factory and OSM bytes per parcel, the number of parcels where OSM > factory, > the factory maximum and > the M5.92 limit (when known), and the ten largest parcels with their place.
   - Stop: one session.
   - Claims: C-8740–C-8749
+
+- [ ] **M5.95 — Z4b: built-up area from OSM building density instead of a share threshold**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z4
+  - Depends: M5.89
+  - Goal: the factory's level-1 urban fill (`0xc12b`) is a generalised built-up polygon; M5.89's `--urban-fill 0.1` copies the look with a guessed threshold (C-8695). Derive the built-up area from OSM data with a rule we can defend.
+  - Precheck: `python3 tools/osm_areas.py --selftest`; `python3 tools/tile_from_zero.py --selftest`.
+  - Scope: London bbox, level 1; add `building=*` footprint area per parcel to `osm_areas` (counts and areas, not the footprints) and build the urban ring from building + landuse cover (e.g. buffer-and-merge or per-parcel cell grid); compare the result with the factory `0xc12b` cover per parcel (share only).
+  - Input: `tools/osm_areas.py`, `tools/tile_from_zero.py`, `EXP-2026-11-23-M5.89-london-background-from-zero`.
+  - Done when: the EXP has, per parcel, factory urban share vs ours (agreement count at 10 % tolerance) for the London bbox, and an L4 screenshot of the start screen.
+  - Stop: one session.
+  - Claims: C-8770–C-8779
+
+- [ ] **M5.96 — Z4c: line layers (river centre lines, railways) and the red park outline**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z4
+  - Depends: M5.89
+  - Goal: M5.89 writes area layers only. Identify the level-1 line types (layer 8 `0xc110`, 9 `0xc111`, 10 `0xc101`, 11 `0xc107`–`0xc10a`) by matching factory shapes against OSM `waterway=*` and `railway=*` near London, write them, and find why generated park rings get a red outline (C-8696).
+  - Precheck: `python3 tools/tile_from_zero.py --selftest`.
+  - Scope: London bbox, level 1; one factory-vs-OSM overlap table per line type (counts only); outline test: one park ring alone, with and without overlapping `landuse=grass` rings, and with the factory park's `ref`.
+  - Input: `tools/osm_areas.py`, `tools/tile_from_zero.py`, `tools/ze0-viewer/tools_ze0/clarion_bg.py`.
+  - Done when: every line type in the census has a meaning with its evidence (or UNKNOWN with the test that failed), river and rail lines are drawn at L4, and the outline cause is a VERIFIED claim.
+  - Stop: one session per item.
+  - Claims: C-8780–C-8789
 
 ## M6 — L5 bench/car: hardware and safety
 
