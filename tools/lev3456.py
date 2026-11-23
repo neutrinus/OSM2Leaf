@@ -22,8 +22,9 @@ says otherwise.  See ``docs/format/map-tiles.md`` and
 Commands::
 
     python3 tools/lev3456.py info FILE
-    python3 tools/lev3456.py verify FILE [--level 5] [--require-stock-zlib]
-    python3 tools/lev3456.py rebuild FILE --level 5 -o OUT.DAT [--require-stock-zlib]
+    python3 tools/lev3456.py verify FILE [--level N]... [--require-stock-zlib]
+    python3 tools/lev3456.py rebuild FILE --level N -o OUT.DAT [--require-stock-zlib]
+    python3 tools/lev3456.py rebuild FILE --all-levels -o OUT.DAT [--require-stock-zlib]
     python3 tools/lev3456.py --selftest
 
 ``verify`` and ``rebuild`` compare compressed bytes too, so they need stock
@@ -99,6 +100,19 @@ class Record:
     @property
     def is_z(self):
         return self.plain is not None
+
+
+def slot_pair(r):
+    """(comp_words, plain_words) to write back for a verbatim record.
+
+    A raw record's declared pair is authoritative: its ``plain`` holds the
+    raw bytes, so their length is *not* the declared plain-word count
+    (section 1 level 6, C-2405).
+    """
+    if r.parts is not None:
+        return r.parts
+    return (len(r.comp) // 2 if r.comp else 0,
+            len(r.plain) // 2 if r.plain else r.words)
 
 
 class Dir:
@@ -834,9 +848,8 @@ def rebuild_level(cont, sid, level):
                 if r is None:
                     pairs += [ABSENT, ABSENT]
                     continue
-                if not r.is_z:
-                    assert r.parts is not None
-                    pairs += [r.parts[0], r.parts[1]]
+                if r.parts is not None or not r.is_z:
+                    pairs += list(slot_pair(r))
                     body += r.comp
                     stats["opaque"] += 1
                     continue
@@ -891,6 +904,37 @@ def rebuild_level(cont, sid, level):
     stats["bytes"] = len(out)
     stats["used"] = used_end - start
     return bytes(out), stats
+
+
+def rebuild_file(data, levels=COARSE_LEVELS):
+    """Rebuild every coarse level region of a whole ``LEV3456R.DAT``.
+
+    The header, section tables and all bytes outside the level regions are
+    copied verbatim.  Returns ``(bytes, regions)``; each region is
+    ``(start, end, body, sid, level, stats)``.  Empty levels have no region
+    and are skipped.
+    """
+    cont = Container(data)
+    regions = []
+    for sid in (1, 2):
+        for lvl in levels:
+            L = cont.level(sid, lvl)
+            if L is None or not L.dirs:
+                continue
+            start, end, _used = level_extent(cont, sid, lvl)
+            body, st = rebuild_level(cont, sid, lvl)
+            regions.append((start, end, body, sid, lvl, st))
+    regions.sort(key=lambda reg: (reg[0], reg[1]))
+    for a, b in zip(regions, regions[1:]):
+        if a[1] > b[0]:
+            raise ValueError("overlapping level regions: s%d L%d / s%d L%d"
+                             % (a[3], a[4], b[3], b[4]))
+    out = bytearray(data)
+    for start, end, body, _sid, _lvl, _st in regions:
+        if len(body) != end - start:
+            raise ValueError("region length %d, rebuilt %d" % (end - start, len(body)))
+        out[start:end] = body
+    return bytes(out), regions
 
 
 # ---------------------------------------------------------------------------
@@ -1120,7 +1164,7 @@ def cmd_verify(args):
                         claims_identity=True)
     data = open(args.file, "rb").read()
     cont = Container(data)
-    levels = args.level or [3, 4, 5]
+    levels = args.level or list(COARSE_LEVELS)
     data_bad = identity_bad = 0
     for sid in (1, 2):
         for lvl in levels:
@@ -1168,10 +1212,37 @@ def cmd_verify(args):
 
 
 def cmd_rebuild(args):
-    tool = "lev3456.py rebuild --level %d" % args.level
+    all_levels = args.all_levels
+    if bool(all_levels) == (args.level is not None):
+        raise SystemExit("give exactly one of --level N or --all-levels")
+    tool = ("lev3456.py rebuild --all-levels" if all_levels
+            else "lev3456.py rebuild --level %d" % args.level)
     rt = zlibinfo.guard(tool=tool, require_stock=args.require_stock_zlib,
                         claims_identity=True)
     data = open(args.file, "rb").read()
+    if all_levels:
+        try:
+            out, regions = rebuild_file(data)
+        except ValueError as exc:
+            if not rt.ok and identity_only_error(exc):
+                return zlibinfo.unverifiable(rt, tool, str(exc))
+            print("rebuild failed: %s" % exc)
+            return 1
+        open(args.output, "wb").write(out)
+        same = out == data
+        records = sum(reg[5]["records"] for reg in regions)
+        plain = sum(reg[5]["plain"] for reg in regions)
+        streams = sum(reg[5]["streams"] for reg in regions)
+        print("whole file rebuilt from %d level regions, %d records: %d B,"
+              " %d plain, %d streams; %s"
+              % (len(regions), records, len(out), plain, streams,
+                 "byte-identical" if same else "DIFFERS"))
+        for start, end, _body, sid, lvl, st in regions:
+            print("  s%d L%d %#x..%#x %d B: %d records, %d plain, %d streams,"
+                  " %d opaque"
+                  % (sid, lvl, start, end, end - start, st["records"],
+                     st["plain"], st["streams"], st["opaque"]))
+        return rebuild_verdict(rt, same, plain, records, tool=tool)
     cont = Container(data)
     lvl = args.level
     start, next_off, used_end = level_extent(cont, 1, lvl)
@@ -1210,6 +1281,13 @@ def selftest():
     b = build_group(g)
     pg, pend = parse_group(b, 0, len(b))
     assert pg == g and pend == len(b), "background group round-trip"
+
+    # a raw record's declared pair is authoritative, not len(plain) (L6)
+    raw = Record(0, 0, plain=b"\x00" * 42244, comp=b"\x00" * 42244,
+                 parts=(21122, 0))
+    assert slot_pair(raw) == (21122, 0), "raw record slot pair"
+    zr = Record(0, 5, plain=b"\x00" * 10, comp=b"\x78\x9c\x00\x00")
+    assert slot_pair(zr) == (2, 5), "zlib record slot pair"
 
     # level-5 background block: layer 0 at unit 11
     blk = {"layers": [[g]] + [None] * 10}
@@ -1305,9 +1383,11 @@ def main(argv=None):
         action="store_true",
         help="refuse to run (exit 3, unverifiable) when zlib is not stock 1.3.1",
     )
-    p = sub.add_parser("rebuild", help="write a copy with one level rebuilt")
+    p = sub.add_parser("rebuild", help="write a copy with coarse levels rebuilt")
     p.add_argument("file")
-    p.add_argument("--level", type=int, required=True)
+    p.add_argument("--level", type=int, help="one level to rebuild")
+    p.add_argument("--all-levels", action="store_true",
+                   help="rebuild levels 3-6 of both sections in one pass")
     p.add_argument("-o", "--output", required=True)
     p.add_argument(
         "--require-stock-zlib",
