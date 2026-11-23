@@ -61,6 +61,21 @@ REQ_EU2011 = {
     "req_msg": 0x14B5,
     "reply_msg": 0x14B6,
 }
+# US2011 build A (`archive/us256.img`, M9.72).  The client table is the pool
+# word of the paired client-open function: EU 0x003ed6e8 -> US 0x00416208
+# (`sh4xref.py us256.img Navi.exe --to 0x00cc6be0`); `sh4dis.py ... --va
+# 0x00416208 --count 84` prints `mov #24,r10` at +0x20, the same 24 rows.
+# The request/reply ids are the shared 0x14b5/0x14b6 protocol (M9.61's
+# DA_US2011).  locmap_l3.py runs with register=False, so it needs only the
+# build-aware mount and the reply id; `kinds` stays EU2011-only.
+REQ_US2011 = {
+    "build": "US2011",
+    "clients": 0x00CC6BE0,
+    "client_rows": 24,
+    "req_msg": 0x14B5,
+    "reply_msg": 0x14B6,
+}
+REQ_BUILDS = {"eu2011": REQ_EU2011, "us2011": REQ_US2011}
 CLIENT_TASK = 0x77         # any id the two tasks do not use (datask_l3: 2 and 0x10)
 LIST_BYTES = 0x2004        # the list size 0x004066ac copies (C-5643)
 STATUS = {1: "data", 2: "pending (a read was queued)", 3: "refused", 4: "no data", 9: "refused (message status)"}
@@ -88,10 +103,12 @@ def kind_section(table, group: int, kind: int) -> int | None:
     return None
 
 
-def pack_request(task: int, kind: int, lst: int) -> bytes:
+def pack_request(task: int, kind: int, lst: int, msg_id: int | None = None) -> bytes:
     """Message ``0x14b5`` sub 2 as ``0x004266ec``/``0x00425f40`` build it."""
     msg = bytearray(32)
-    struct.pack_into("<HHIIII", msg, 8, REQ_EU2011["req_msg"], 2, task, kind, lst, 2)
+    struct.pack_into("<HHIIII", msg, 8,
+                     REQ_EU2011["req_msg"] if msg_id is None else msg_id,
+                     2, task, kind, lst, 2)
     return bytes(msg)
 
 
@@ -242,17 +259,21 @@ class Client:
     """A mounted data-access task plus one registered client."""
 
     def __init__(self, image: str, card, position, register: bool = True,
+                 build: str = "eu2011",
                  native: tuple[str, tuple[str, ...]] | None = None):
         import datask_l3 as D
         self.D = D
-        self.t = D.DataTask(image, card, position=position, native=native)
+        self.req = REQ_BUILDS[build]
+        self.build = build
+        self.t = D.DataTask(image, card, build=D.BUILDS[build], position=position,
+                            native=native)
         self.mount_end = self.t.run(0, False)
         self.m = self.t.m
         self.card = card
         self.registered = False
         if register:
-            base = REQ_EU2011["clients"]
-            for i in range(REQ_EU2011["client_rows"]):
+            base = self.req["clients"]
+            for i in range(self.req["client_rows"]):
                 if self.m.u32(base + 64 * i) == 0:
                     self.m.put(base + 64 * i, struct.pack("<II", CLIENT_TASK, 0xFF))
                     self.m.put(base + 64 * i + 12, struct.pack("<I", 0xFFFFFFFF))
@@ -304,7 +325,7 @@ class Client:
         m = self.m
         lst = m.malloc(LIST_BYTES)
         m.put(lst, pack_list([(mesh, divid)]))
-        self.t.deliver(pack_request(CLIENT_TASK, kind, lst))
+        self.t.deliver(pack_request(CLIENT_TASK, kind, lst, self.req["req_msg"]))
         sent, rows = self.carry()
         res = {"mesh": mesh, "divid": divid, "kind": kind, "replies": [], "reads": []}
         records = []
@@ -329,7 +350,7 @@ class Client:
                     records.append(({"code": one["code"], "pos": row["pos"] + off, "sid": sid}, plain))
             res["reads"].append(rec)
         for s in sent:
-            if s["task"] != CLIENT_TASK or s["id"] != REQ_EU2011["reply_msg"]:
+            if s["task"] != CLIENT_TASK or s["id"] != self.req["reply_msg"]:
                 res["replies"].append({"to": s["task"], "id": s["id"], "sub": s["sub"]})
                 continue
             status, kind_w, lp = struct.unpack_from("<III", s["body"], 12)
@@ -452,7 +473,8 @@ def cmd_request(args) -> int:
     lat, _, lon = args.position.partition(",")
     card = V.make_card(None, args.card_image, {})
     try:
-        c = Client(args.image, card, (float(lat), float(lon)), register=not args.no_register)
+        c = Client(args.image, card, (float(lat), float(lon)),
+                   register=not args.no_register, build=args.build)
         print("mount: %s; client row %s" % (c.mount_end, c.registered))
         out = []
         for mesh, divid, kind in reqs:
@@ -486,9 +508,19 @@ def selftest() -> int:
     check("a kind no row names has no section", kind_section(t, 1, 0x80) is None)
     check("the group mask must hit too", kind_section(t, 8, 0x40) is None and kind_section(t, 8, 1) == 3)
 
+    check("both builds have a request dict", set(REQ_BUILDS) == {"eu2011", "us2011"})
+    check("the US client table differs from the EU one",
+          REQ_US2011["clients"] != REQ_EU2011["clients"]
+          and REQ_US2011["clients"] == 0x00CC6BE0)
+    import datask_l3 as D
+    check("the US request dict selects the US data-access build",
+          D.BUILDS[REQ_US2011["build"].lower()]["build"] == "US2011")
+
     msg = pack_request(0x77, 0x40, 0x1234)
     check("request message: id, sub, task, kind, list, 2",
           struct.unpack_from("<HHIIII", msg, 8) == (0x14B5, 2, 0x77, 0x40, 0x1234, 2))
+    check("a caller-supplied message id is used (build plumbing control)",
+          struct.unpack_from("<H", pack_request(0x77, 0x40, 0x1234, 0x14B6), 8)[0] == 0x14B6)
     lst = pack_list([(0xA68CD68C, 3), (0x11112222, 0)])
     check("list: count, mesh at +16, DIVID at +14, stride 32",
           struct.unpack_from("<H", lst, 0)[0] == 2 and struct.unpack_from("<I", lst, 16)[0] == 0xA68CD68C
@@ -557,6 +589,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("request", help="mount, register a client, send 0x14b5 requests")
     p.add_argument("image")
     p.add_argument("--card-image", required=True)
+    p.add_argument("--build", choices=sorted(REQ_BUILDS), default="eu2011")
     p.add_argument("--position", required=True, metavar="LAT,LON")
     p.add_argument("--no-register", action="store_true",
                    help="do not register the client (negative control: status 9)")
