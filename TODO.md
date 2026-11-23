@@ -4063,7 +4063,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 - [ ] **M6.21 — Region change on a unit (PROD `+0x21`): only after the card-only test, only with a way back**
   - Status: blocked · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
   - Depends: M6.18 (flash + PROD backup with SHA-256), M6.19, M2.20 (update mode survives the change), the card-only EU test (EU card with `HDD_INFO` matched to the unit) showing that the area is what stops it
-  - Unblock: all four Depends done **and** the card-only test fails for a reason M2.20 ties to the area; otherwise this task is retired as not needed
+  - Unblock: all four Depends done **and** the card-only test fails for a reason M2.20 ties to the area; otherwise this task is retired as not needed (M2.20 now says update-mode selection is not area-gated in card B, C-6263/C-6268, so the "reason M2.20 ties to the area" is absent: the card-only path is now the expected branch)
   - Goal: change the unit area by restoring an edited `prod_*.bin` with LeafSDTools, as the last resort for European maps on the US unit. Region does not gate the map checks (M2.7, C-787), so this is not expected to be needed.
   - Scope: prefer a spare unit. One byte (`+0x21`), checksum by the tool, original `prod_*.bin` kept on two media. Record every screen. Do-not-attempt on the only unit while M2.20 says `no` or `unknown` (C-1129).
   - Done when: an EXP records before/after PROD (PIN masked), what starts, audio yes/no, and the restore of the original PROD verified by a second dump.
