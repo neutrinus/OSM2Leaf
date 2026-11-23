@@ -50,6 +50,7 @@
   "tools/vcard_l3.py",
  ],
  "summary": {"files": 43, "citations": 1036, "unique_va": 419, "start": 634, "inside": 0, "corrected": 0, "gap": 91, "leaf": 91, "ambiguous": 1, "unmapped": 310},
+ "summary": {"files": 43, "citations": 1026, "unique_va": 419, "start": 625, "inside": 0, "corrected": 0, "gap": 90, "leaf": 90, "ambiguous": 1, "unmapped": 310},
  "rows": [
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
