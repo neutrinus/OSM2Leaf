@@ -53,3 +53,11 @@ already fixed on main by #640). Manual merges remain the owner's call.
 handoff: TL should rebase #639 and fix H132's premise (protection exists, the
 gap is main_watch --prs visibility + the admin bypass), or close H132 as
 covered by H98's record. Branch protection may now be done with no work.
+
+anomaly (after commit): a parallel TL run committed this thread's uncommitted
+TODO.md board edits in 8b8aeb03 ("chore: TL work log and rule-15 re-opens")
+before 9dbcc7b6 landed; 9dbcc7b6 therefore carries only tools/board.py + this
+log. No duplication or loss: on main the H98 note, the M3.16 rewrite and
+`def op_unfield` each appear once, todo_check --strict = 0, board.py lost 0/0.
+The other run recorded the same sweep in its own log. Lesson for #6: the
+primary checkout is not exclusive; board edits should be committed at once.
