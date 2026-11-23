@@ -14,7 +14,7 @@ Directory models:
 
 * section 1 levels 1 and 2: ``s1_wide_dir.parse_dir`` (rows of 512 or 1,024 bytes,
   one row block per row: even, sub0..sub3, odd per column; M5.53).  The
-  generic 512-byte reader misplaces wide-row tags (C-8642).
+  generic 512-byte reader misplaces wide-row tags (C-8752).
 * every other directory: ``clarion_tile.read_dir`` (one block per slot).
 
 Tags that do not address a block (``0xffffffff``, ``0x7fffffff``, bit 31 set,
@@ -125,7 +125,7 @@ S4_NARROW_COL, S4_WIDE_COL, NO_SUB = 8, 24, 0xFFFF
 
 
 def parse_s4_dir(d: bytes, off: int) -> list[dict]:
-    """Section-4 level-1 directory as rows (M5.85 finding, C-8655).
+    """Section-4 level-1 directory as rows (M5.85 finding, C-8765).
 
     Same row rule as section 1 (M5.53) with one record per column: a narrow
     row has 8 bytes per column ``(u32 ln, u32 X)``; a row whose first body

@@ -3728,7 +3728,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Input: `docs/format/map-tiles.md`, `tools/ze0-viewer/tools_ze0/clarion_tile.py`, `tools/s1_wide_dir.py`, `tools/dir_read_len.py`, EXP M5.53/M5.56/M5.74/M5.75/M8.H71/M4.86.
   - Done when: `docs/research/osm-from-scratch.md` has the object matrix, the limits table with a source per row and the Z0–Z7 rungs with a gate each; the EXP has the `B48R068R` census (sections, levels, directories, kinds, wide rows, records per family) from a runnable command; tasks M5.85–M5.94 are on the board and `todo_check.py` passes.
   - Stop: one session.
-  - Claims: C-8640–C-8649
+  - Claims: C-8750–C-8759
   - Result: EXP-2026-11-23-M5.84-from-scratch-plan; docs/research/osm-from-scratch.md; tasks M5.85–M5.94
 
 - [x] **M5.85 — Z1: the factory London tile written through our own layout, identical on the emulated screen**
@@ -3742,7 +3742,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: a tool (new `tools/tile_relayout.py` with `--selftest`) writes the tile so that (a) no table, directory or block is at its factory offset unless the layout puts it there by itself (the EXP counts components moved), (b) every record decodes to the same bytes (`harness.py verify` on the output, record multiset equal), (c) `cardcheck --image` PASS, (d) `datask_l3.py mount` at the London position equals the factory run, (e) the L4 screenshot at `Pow Off 1st Detect` is pixel-identical to the factory screenshot (SHA-256 of both recorded), and the serial-log error set equals the factory run's.
   - Stop: if (e) differs, record the pixel diff and which directory moved, and file the layout fact as a format finding; do not tune offsets to match the factory.
   - Falsifier: the screen or the mount differs although every record is byte-identical — then the firmware depends on a layout property the model does not have (name it).
-  - Claims: C-8650–C-8659
+  - Claims: C-8760–C-8769
   - Result: EXP-2026-11-23-M5.85-tile-relayout; tools/tile_relayout.py; L3 same reads, L4 pixel-identical
 
 - [ ] **M5.86 — Tile provenance: how many records and bytes of a tile are the factory's**

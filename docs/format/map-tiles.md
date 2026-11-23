@@ -125,7 +125,7 @@ directory pointers and slot/row tags. On EU2011 `B48R068R` (London) 5,379 of
 5,450 components move, 0 non-zero input bytes are left outside the model, the
 L3 mount asks the same 28 reads (the five directory reads at their new
 offsets) and the `-M ze0` start screen is pixel-identical to the factory card
-(C-8650–C-8656, `EXP-2026-11-23-M5.85-tile-relayout`). The firmware therefore
+(C-8760–C-8766, `EXP-2026-11-23-M5.85-tile-relayout`). The firmware therefore
 follows the pointers and depends on no factory offset: a writer may place
 every table, directory and block itself.
 
