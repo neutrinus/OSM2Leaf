@@ -156,10 +156,11 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:16]
 
 
-def compare(fw: dict, model: dict, kind: str, mesh: int) -> dict:
+def compare(fw: dict, model: dict, kind: str, mesh: int,
+            s4_file: str = S4_FILE_FRAG) -> dict:
     """One MATCH/MISMATCH verdict with the checked quantities."""
     checks = []
-    expected_file = LEV_FILE if kind == "lev" else S4_FILE_FRAG
+    expected_file = LEV_FILE if kind == "lev" else s4_file
     checks.append(("firmware-read-file", fw.get("found", False)
                    and expected_file.upper() in str(fw.get("file", "")).upper()))
     checks.append(("status-ok", fw.get("status") == 0))
@@ -238,9 +239,10 @@ def _report(args, lev_doc: dict, s4_doc: dict) -> int:
         ("lev", lev_doc, args.lev_mesh, args.lev_level),
         ("s4", s4_doc, args.s4_mesh, None),
     ):
-        fw = firmware_facts(doc, mesh, LEV_FILE if kind == "lev" else S4_FILE_FRAG)
+        s4_file = getattr(args, "s4_file", S4_FILE_FRAG)
+        fw = firmware_facts(doc, mesh, LEV_FILE if kind == "lev" else s4_file)
         model = model_facts(fw, args.factory_root, kind, lev_level=level or 5)
-        res = compare(fw, model, kind, mesh)
+        res = compare(fw, model, kind, mesh, s4_file=s4_file)
         results.append(res)
         print("%-3s mesh %-12s %-8s  file=%s pos=%s len=%s inflated=%s model=%s" % (
             kind.upper(), hex(mesh), res["verdict"],
@@ -313,6 +315,8 @@ def main(argv=None) -> int:
         sp.add_argument("--lev-mesh", type=lambda v: int(v, 0), default=0xA40FD405)
         sp.add_argument("--s4-mesh", type=lambda v: int(v, 0), default=0xA6CDD6BE)
         sp.add_argument("--s4-kind", type=lambda v: int(v, 0), default=0x40)
+        sp.add_argument("--s4-file", default=S4_FILE_FRAG,
+                        help="expected served tile file fragment (default B48R058R.DAT)")
         sp.add_argument("--lev-level", type=int, default=5)
         sp.add_argument("--position", default="51.70,17.45")
         sp.add_argument("--json", required=need_json)
