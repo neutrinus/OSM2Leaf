@@ -4732,6 +4732,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the guest boots identically with and without the flash device and never accesses it.
   - Claims: C-7150–C-7159
   - Note: (M6.19, 2026-11-22) a real layout exists: flash at physical 0 (kernel reads `PROD` at `0xA000A000`), `SMST` stores at `0x400000`, map in `docs/hardware/unit-flash.md`; `tools/unitflash.py` reads a dump. The dump is private: build test images with the user areas erased.
+    (M8.H78, 2026-11-23) on NK1 + US card with the unit flash the VSram driver fails IOCTL_FMD_READ/ERASE and OBJ_BackUp_Load errors (C-8645); without that backup the locator has no road link and no mesh table, so no GPS fix can move the car (EXP-2026-11-23-M8.H78-locator-gps-gates). M8.H78 waits on this.
 
 - [x] **M8.H19 — Where does `Navi.exe` keep the last vehicle position, and who reads it at start**
   - Status: done · Owner: task/m8.h19-position-store · Critical: no · Pair: solo
@@ -5504,7 +5505,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.H73-receiver-fix-frame (partial): the receiver's 36-byte A0 report is decoded (navdrv.md table, hand-built frame, gps.py), reaches OBJ_GpsInfo on NK1 with the injected position (C-8576); OBJ_CarPos and the map do not follow (C-8577); sh4dis SHAD/SHLD fixed (C-8574)
 
 - [ ] **M8.H78 — Positioning: what makes `OBJ_CarPos` take the GPS position?**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m8.h78-locator-gps · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H73 (blocked), M8.C1n
   - Goal: A 36-byte `A0` report from `tools/ze0_peers/gps.py` reaches `OBJ_GpsInfo` with the right position on NK1 + US card (C-8576), but the car position stays where it was (C-8577). Find the condition in the positioning cycle (US Navi `0x0049bdb0` → `0x0049fa44`, state at `0x00dbce00`) that keeps the GPS position out, and meet it from the peers.
@@ -5515,6 +5516,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the gate is a learned calibration or needs DR input that M8.H32 has not modelled, record the variable and threshold and mark blocked on M8.H32.
   - Falsifier: with the gate condition met, `OBJ_CarPos` still stays at the old position.
   - Claims: C-8640–C-8649
+  - Blocker: M8.H18 (FMD1: flash, VSram backup load; C-8645)
+  - Unblock: M8.H18 done, then a fix near the restored car position
+  - Result: EXP-2026-11-23-M8.H78-locator-gps-gates; gates named (C-8640–C-8646), stat default 0x30; car position not moved
 
 ---
 
