@@ -3718,8 +3718,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8600–C-8609
   - Pair: required
 
-- [ ] **M5.84 — From-zero map plan: state review, structural limits, London rungs Z0–Z7**
-  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
+- [x] **M5.84 — From-zero map plan: state review, structural limits, London rungs Z0–Z7**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
   - Step: Z0
   - Depends: M8.H71 (OSM roads on the emulated screen, done)
   - Goal: Marek (2026-11-23): every OSM result so far splices records into a factory tile; we have not shown that we can build the tile structure ourselves, and OSM data will not always fit the factory blocks. Review what is generated, what is missing and which structures really limit us, and lay out rungs with gates to a tile with no factory record, London first (the emulator start screen).
@@ -3729,6 +3729,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `docs/research/osm-from-scratch.md` has the object matrix, the limits table with a source per row and the Z0–Z7 rungs with a gate each; the EXP has the `B48R068R` census (sections, levels, directories, kinds, wide rows, records per family) from a runnable command; tasks M5.85–M5.94 are on the board and `todo_check.py` passes.
   - Stop: one session.
   - Claims: C-8640–C-8649
+  - Result: EXP-2026-11-23-M5.84-from-scratch-plan; docs/research/osm-from-scratch.md; tasks M5.85–M5.94
 
 - [ ] **M5.85 — Z1: the factory London tile written through our own layout, identical on the emulated screen**
   - Status: open · Owner: — · Critical: yes · Pair: solo
