@@ -3091,7 +3091,7 @@ The 23rd-pass text is in git (`af469580`).
   - Pair: required
 
 - [ ] **M4.98 — Section-2 link attributes (one-way, travel time, regulation) from the route search's matched-link reads, then a mutation in L4**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: required
   - Step: P2
   - Depends: M9.75 (done: readers `0x003534d4` and `0x00358382`, framing and key VERIFIED)
   - Goal: M9.75 caught the route search in L4 but stopped before the reads that follow a link match, so the words that make a link one-way, give its cost or restrict a turn are still unnamed. Name them from the firmware, then prove one by changing it on the factory card and watching the route change.
@@ -3102,6 +3102,7 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: if the matched-link reads go through an index built by `0x003534d4` (12-byte entries) and never touch unit 0 again, watch the index instead; if that also fails in one session, block with the VAs found.
   - Falsifier: the flipped word changes nothing in the route while the guest demonstrably read it.
   - Claims: C-9930–C-9939
+  - Result: partial: EXP-2026-11-23-M4.98-sec2-fields-ghidra (Ghidra decompile; direction w2>>14 VERIFIED on all London pairs, turn words, cost w5, length w6, boundary links w4&0x8000, header pairs; tools/sec2_fields.py, tools/ghidra/; C-9930-C-9937). Open: L4 mutation, runtime cost tables (w1 categories).
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
@@ -3415,6 +3416,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the round-trip passes on a tile whose emitted graph has one link with reversed direction.
   - Claims: C-5850–C-5859
   - Note: 2026-11-23 M9.75 (L4): unit-0 framing and the route-search link key are read off firmware (EXP-2026-11-23-M9.75-sec2-readers-l4, C-9914/C-9915); the attribute words are M4.98. A from-zero card with empty section 2 cannot route (C-9910).
+    2026-11-23 M4.98: direction (w2>>14), cost (w5), length (w6), turn words and boundary links are named (EXP-2026-11-23-M4.98-sec2-fields-ghidra); a first writer can set them from OSM oneway/highway and leave conditions out.
 
 - [x] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: done · Owner: task/m5.38-card-ladder · Critical: yes · Pair: solo

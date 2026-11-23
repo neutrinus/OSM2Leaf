@@ -1336,6 +1336,25 @@ empty section 2 makes New Destination fail with `CALC_ERR_NBR` (C-9910); a
 factory section 2 under a section 1 with other link ids routes but draws no
 route line (C-9911, C-9916 hypothesis).
 
+#### Link field meanings (M4.98, decompiled, EU2011 build A)
+
+> **Status:** `VERIFIED` (code + whole-tile check) for the rows marked so; see
+> EXP-2026-11-23-M4.98-sec2-fields-ghidra, C-9930–C-9937, `tools/sec2_fields.py`.
+
+| Field | Meaning | Read at | Status |
+| --- | --- | --- | --- |
+| `w2 >> 14` | direction at this end: 0 free, 1 may leave here, 2 may not leave here, 3 closed; a one-way link is 1 at one end and 2 at the other | `0x00363834` | VERIFIED (4,263,724 London pairs, 0 exceptions) |
+| `(w2 & 0x3fc0) >> 6` turn words | top nibble = target link index at the node (`0xf` = condition record); low byte `0xff` banned, other = condition index | `0x00354018` | VERIFIED (code), counts in EXP |
+| `w2 & 0x3f` | second condition block | `0x00354810` | OBSERVED |
+| `w5` | cost/time: `(w5 & 0xfff) × {1,2,4,40}[w5>>12 & 3]` | `0x003582a4` | VERIFIED (code) |
+| `w6` | length: `(w6 & 0xfff) × {1,2,4,20}[w6>>12 & 3]` | `0x00341094` | VERIFIED (code) |
+| `w4 & 0x8000` | boundary link: `w0 & 0x3fff` is a node in the neighbouring mesh | `0x003680e4` | VERIFIED (688,178 links, all on edge nodes) |
+| `w1` | road attributes for the cost function (`>> 12` speed index; `& 0x1c0`, `& 0xe00`, `& 0x30` penalties) | `0x00341980` | OBSERVED; tables are filled at run time |
+| `w0 & 0x4000` | cost multiplier | `0x00341980` | OBSERVED |
+| unit 0 words 4–25 | 11 (nodes, links) pairs summing to the counts | — | VERIFIED (45,184/45,184) |
+| header halfword 26 | ISO 3166 country code | `0x0040517e` | VERIFIED (826/250/56/528 in London) |
+| `w4 & 0x30`, `w4 & 0x4000`, words 7–8, node `w2 & 0x2000`, unit 1 | — | — | UNKNOWN |
+
 ### The `LOC_map` walk of a served road record (M9.66, EU2011 build A)
 
 `tools/locmap_l3.py` runs the firmware's own chain: a position message
