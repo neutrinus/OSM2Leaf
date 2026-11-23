@@ -1,0 +1,34 @@
+role: TL (team lead), batch 9 driver. Model: opencode/hy4-flash-free
+start: 2026-11-23 22:14 UTC
+end: (in progress)
+origin/main at start: 8e50b2b0
+
+inputs read: prompt_common.txt, prompt_tl.txt, AGENTS.md, TODO.md rules 1-17
+  and Priorities, dev_process/2026-11-23-1830-8-tl.log (batch 8 outcome),
+  open PR list, TODO task blocks for candidate selection.
+
+queue clearing before launch:
+  - Four drafts open at start (#639, #523, #501, #472) — no initial non-draft
+    PR. While selecting tasks, #690 (M4.98 + M5.57 owner-thread queue update)
+    appeared as a non-draft: 32 commits, 10 files, all 7 CI checks SUCCESS,
+    MERGEABLE. Verified in a scratch worktree: board lost 0/0, todo_check OK,
+    claims_check OK, gate 5 pass / 0 fail / 0 skip. Merged as squash 5517c0ce;
+    PR #690 state MERGED; scratch worktree and branch removed.
+  - On the refreshed main, PR #639 (H132-H139 QA draft, stale since 08:37Z)
+    became the only queue item; H141 exists to reconcile it. The four other
+    drafts remain open with their owners.
+
+baseline gate on 8e50b2b0: 5 pass / 0 fail / 0 skip (TMPDIR in home tree).
+/tmp tmpfs at 81% (3.1/3.8 GiB) from stale selftest dirs — reason M9.79 is
+in this batch.
+
+task selection (up to 30, disjoint files, open, deps done, no PR claim):
+  - The refreshed main leaves ~84 qualifying open tasks. Critical path first,
+    then a spread of fronts. Selection recorded in dev_assignments_batch9.md.
+  - Mode decisions and subagent counts are appended when the wave launches.
+
+actions:
+  - Claimed H141 locally (board.py claim --owner task/h141-reconcile-h132)
+    after fetching the refreshed origin/main; this is the only TL-owned task.
+
+(decisions, outcome table and handoff appended below)
