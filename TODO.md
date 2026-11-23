@@ -6628,7 +6628,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
 
 - [ ] **M9.74 — Bind OBJDLL exports in `vcard_l3` and find the section-2 unit-0 walker (unblocks M4.55)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.74-objdll-unit0-walker · Critical: yes · Pair: required
   - Step: tooling
   - Depends: M9.65 (native second-module binding for `STDDLL`, done), M4.55 (negative EXP that locates the gap)
   - Goal: EXP-2026-11-23-M4.55 proved the RPF reply handler `0x00336dc0` stores the kind-8 reply's unit-0 pointer (`0x302abbf2`) into the RPF buffer but never dereferences it: with a live reply-list watch (10/20/30 hits) the unit-0 watch records 0 reads in every reached path, and `0x003367a0` takes `(mode, mp, mp, buffers)` rather than the reply list (C-6026–C-6029). The word reads and reading VA that M4.40 needs are therefore in code not runnable with today's bindings — most likely an OBJDLL export reached with a translated mesh pointer, or a route-search stage triggered by a destination message. Make that code runnable in L3 and log the unit-0/unit-2 reads.
