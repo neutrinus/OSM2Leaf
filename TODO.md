@@ -5993,8 +5993,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-2940–C-2949 (was C-2157–C-2159, overlap with M9.11 fixed by H24)
   - Result: EXP-2026-11-08-M9.11b-firmware-call-target — `firmware_call` entry kind + declared sec1 `inflate_mask[17]` (VA `0x574de0` from code, values from public zlib 1.1.3, provenance disclosed, M1.2f HYPOTHESIS) fills `targets.json` `cmp_ind_reader`; `runner.py run cmp_ind_reader` on factory US POINT010 (`92aa525d…`/`48812f8c…`/`7ac54e3b…`, page `0x840ba0`) PASS exit 0 (`r0=42848`, insns 1057245); `--mutate corrupt-ind`/`swap-4-8` PASS as M9.11 controls (`r0=-1`/638, `r0=65536`/1057219). `chunk_decoder_l3 --selftest` OK, `runner selftest` OK (32), `claims_check` OK. Resolves M9.11 registration blocker; `l3check.py` untouched (M9.12).
 
-- [ ] **M9.12 — `l3check.py --card`: the software gate before any car test**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M9.12 — `l3check.py --card`: the software gate before any car test**
+  - Status: done · Owner: task/m9.12-card-gate · Critical: yes
   - Step: tooling
   - Note (M9.44, 2026-11-19): `python3 tools/vcard_l3.py boot` and `sweep` are a ready `--card` check for the file layer (mount verdict, table digest, every file read back through the firmware, `.cmp` through the firmware zlib): add them as the first two rows of the gate (C-4630, C-4651).
   - Note (H51, 2026-11-11): add a `--build us2011|eu2011` selector after **M1.22**: a US card is gated with US-build code. Until then report the build used in every verdict line.
@@ -6030,7 +6030,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     remaining runnable targets (M9.10 POI, M9.6 map-code) so S0/S1 can produce
     runnable pass verdicts; then re-run and mark done. The `cmp_ind_reader`
     registration is done and no longer an unblock.
-  - Result: EXP-2026-11-08-M9.12-l3check-card.md (C-2160 tool/behavior).
+  - Result: EXP-2026-11-23-M9.12-card-gate-reopen.md; S0 all pass via --baseline (pass=2 exit 0), S1 build-mismatch N/A exit 3 (honest gap), S2 pass + N/A exit 0; FAIL exit 1; selftest 34 checks 1 skipped
   - Claims: C-2160–C-2169
   - Re-opened: rule 15, TL 2026-11-23: M9.31 merged (#633); M9.10 and M9.6 are done, so the S0/S1 no-diff baseline unblock path exists. Blocker line kept as a note; EXP-2026-11-08-M9.12-l3check-card stays negative.
 
