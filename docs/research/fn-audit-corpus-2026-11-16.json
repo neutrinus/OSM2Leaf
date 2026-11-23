@@ -50,8 +50,7 @@
   "tools/tmc_req_l3.py",
   "tools/vcard_l3.py",
  ],
- "summary": {"files": 44, "citations": 1062, "unique_va": 436, "start": 638, "inside": 0, "corrected": 0, "gap": 93, "leaf": 93, "ambiguous": 1, "unmapped": 330},
- "summary": {"files": 43, "citations": 1047, "unique_va": 427, "start": 636, "inside": 0, "corrected": 0, "gap": 91, "leaf": 91, "ambiguous": 1, "unmapped": 319},
+ "summary": {"files": 44, "citations": 1072, "unique_va": 444, "start": 639, "inside": 0, "corrected": 0, "gap": 93, "leaf": 93, "ambiguous": 1, "unmapped": 339},
  "rows": [
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
@@ -97,7 +96,6 @@
   {"file": "TODO.md", "va": "0x004125a8", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0041f04c", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0041f26c", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
-  {"file": "TODO.md", "va": "0x0041f3dc", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0041f3dc", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0041f3dc", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0041f3dc", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
