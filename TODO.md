@@ -4251,7 +4251,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: Navi.exe and Telema.exe start on NK1 + A with the unit flash (US card: Los Angeles; EU card with the M8.C1r overlay: London). Cause: NK1 defers all RAM at memory init when the boot type is 0, and AppLaunch MemClearThread frees it only after the creates (the earlier 'not a timing race' reading in Precheck measured after the release; C-8416). ze0_ipl.py --nk now patches the boot-type test so RAM is freed at init. EXP-2026-11-22-M8.C1q-navi-on-nk1, C-8410–C-8416; debugging guide docs/emulator/debugging.md, tools/ze0_gdb.py.
 
 - [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
-  - Status: in progress · Owner: task/m8.c1n-ui-form-element · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.c1n-ui-form-element · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1l
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). With `ze0_aui.py --object-store` every control registers and ScreenStateCC runs, but the screen state stays in `INI_STARTUP`. `NOTIFY_TRANSITION_FIRST_SCREEN` finds no window for InfoBarCC (46), UnitMainteCC (40) and EvNoticeCC (41), and 29 controls fail to initialise (C-8324, C-8325).
@@ -4263,6 +4263,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the event is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
   - Falsifier: the three CCs create their windows, and the state still does not change.
   - Claims: C-8340–C-8349
+  - Blocker: Neither Done-when branch met: J16 run stays in INI_STARTUP (11 events, no AUI form); exit event and its ScreenStateCC table row/raiser not established in one session
+  - Unblock: M8.C1p
+  - Result: EXP-2026-11-23-M8.C1n-ui-form-element (negative: branch 1 refuted, branch 2 unresolved)
 
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
