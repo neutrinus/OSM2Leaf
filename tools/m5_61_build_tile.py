@@ -364,12 +364,25 @@ def main() -> int:
                            for k in ("in_place", "appended", "superseded_bytes",
                                      "factory_size", "size")}
     report["out_size"] = Path(args.out).stat().st_size
+    # "0 parcels left without a slot": the parcels the writer attempted (one
+    # readable record each) must all have an even pair in the output.  A parcel
+    # OSM never populated keeps the factory's gap and is not in this set.
+    missing = []
+    written = []
+    if level == 2 and twr.get("parcels"):
+        written, missing = T.l2_written_without_slot(
+            T.read_tile_rows(Path(args.out).read_bytes()), str(kept), cell, table,
+            level=2, country=616)
+    report["l2_written_parcels"] = len(written)
+    report["l2_written_without_slot"] = len(missing)
+    report["l2_written_without_slot_list"] = ["%d,%d,%d,%d" % m for m in missing[:50]]
     Path(args.report).write_text(json.dumps(report, indent=2))
     print(json.dumps({k: report.get(k) for k in
                       ("cell", "level", "parcels", "dense_parcels_before",
-                       "dense_parcels_after", "dropped_ways", "out_size")},
+                       "dense_parcels_after", "dropped_ways", "l2_written_parcels",
+                       "l2_written_without_slot", "out_size")},
                      indent=2))
-    return 0
+    return 0 if not missing else 1
 
 
 if __name__ == "__main__":

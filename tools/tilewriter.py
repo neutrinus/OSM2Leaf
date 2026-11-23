@@ -693,6 +693,19 @@ def build_road_record(level, parcel, runs, table, country, write_names=True):
     tag = struct.unpack_from(">H", plain, 4)[0]
     if tag != ROAD_TAG:
         raise CheckFailed("built record tag 0x%04x is not 0x%04x" % (tag, ROAD_TAG))
+    # The directory stores a record's inflated length in a u16 word count and
+    # the checked-in reader stops the pair table at any value > 0x10000
+    # (clarion_tile.read_dir).  A record that crosses that bound is not
+    # readable: its own pair is unreachable and every later pair in the slot
+    # is skipped, which is what surfaced as "no record at ... pair 6" and as
+    # records "changed but not regenerated" on the real B50R050R build
+    # (M5.70).  Refuse it here so the driver's drop rule drops whole ways
+    # (loudly, counted) instead of writing a slot the reader cannot walk.
+    if len(plain) // 2 > 0x10000:
+        raise CheckFailed(
+            "parcel %r record is %d words, above the 0x10000 the directory "
+            "pair table can address" % (parcel, len(plain) // 2)
+        )
     _code, _unit, shapes = fa_encode.parse_record(plain, level)
     if not shapes or not all(shape["ok"] for shape in shapes):
         raise CheckFailed(
@@ -807,6 +820,37 @@ def l2_slot_census(tile):
                     present += 1
     return dict(present_rows=present, absent_rows=absent,
                 total=len(missing), missing=missing)
+
+
+def l2_written_without_slot(tile, imf_path, cell, table, level=2, country=616):
+    """Parcels the builder would write that have no even (road) pair in ``tile``.
+
+    The Done-when's "0 parcels left without a slot" is about the parcels a
+    build writes, not every parcel of the directory: a parcel OSM never
+    populates keeps the factory's gap and is not written.  This walks the IMF
+    the same way ``build`` does (``build_road_record`` per parcel, a record it
+    refuses -- e.g. above 0x10000 words -- is not written), then looks each
+    written parcel's even pair up in ``tile``.  Returns ``(parcels, missing)``.
+    """
+    ways, _stats = load_imf(imf_path, cell)
+    runs = ways_to_runs(ways, level, table, cell)
+    written = []
+    for parcel in sorted(runs):
+        try:
+            result = build_road_record(level, parcel, runs[parcel], table, country,
+                                       write_names=False)
+        except CheckFailed:
+            continue
+        if result is None:
+            continue
+        written.append(parcel)
+    missing = []
+    for y0, x0, row, col in written:
+        try:
+            find_record(tile, level, y0, x0, row, 2 * col + PAIR_ROAD)
+        except CheckFailed:
+            missing.append((y0, x0, row, col))
+    return written, missing
 
 
 def sector_fingerprint(tile, section_id):
@@ -2039,6 +2083,55 @@ def _m570_created_slot(check, root, cell):
     check("M5.70 N2 negative: a level-1 change at a shared key is rejected",
           "level-1 record" in caught, caught)
 
+    # The Done-when gate: every parcel the build would write has an even pair
+    # in the output (positive), and one left out is named (negative).
+    gate_kept = root / "l2.kept.imf.jsonl"
+    gate_kept.write_text(imf_for(), encoding="utf-8")
+    written, missing = l2_written_without_slot(
+        read_tile_rows(blob), str(gate_kept), cell, default_class_table(), level=2)
+    check("M5.70 written gate: all written parcels have an even pair",
+          len(written) == 32 * 32 and not missing, (len(written), missing[:3]))
+    gate_neg = root / "l2neg.kept.imf.jsonl"
+    gate_neg.write_text(imf_for(skip={(2, 0)}), encoding="utf-8")
+    # Check the FULL IMF against the tile that left (2, 0) out: the parcel is
+    # "written" by the input but absent from the tile, so the gate must name it.
+    written_n, missing_n = l2_written_without_slot(
+        read_tile_rows(blob_neg), str(gate_kept), cell, default_class_table(), level=2)
+    check("M5.70 written gate negative: a written parcel without a pair is named",
+          len(written_n) == 32 * 32 and (yb, xb, 2, 0) in missing_n and len(missing_n) == 1,
+          (len(written_n), missing_n[:3]))
+
+    # A record above 0x10000 inflated words is refused (the reader stops the
+    # pair table there), so the driver drops whole ways and the slot stays
+    # consistent instead of unreadable (M5.70 root cause on B50R050R).
+    real_build = fa_encode.build_record
+    def _oversize(*_a, **_k):
+        body = bytearray(2 * (0x10001 + 8))
+        struct.pack_into(">HH", body, 0, 0, 0)
+        struct.pack_into(">H", body, 4, ROAD_TAG)
+        body[2 * (0x10001 + 4):] = b"\x00"
+        return bytes(body), b""
+    fa_encode.build_record = _oversize
+    try:
+        lon0, lat0, w, h = clarion_bg.parcel_geo(2, yb, xb, 5, 3)
+        pts = [(lon0 + 0.2 * w, lat0 + 0.2 * h), (lon0 + 0.8 * w, lat0 + 0.8 * h)]
+        # Kneecap the reader so ``parse_record`` does not run on the 64 KiB
+        # synthetic body; the size check is what this case exercises.
+        real_parse = fa_encode.parse_record
+        fa_encode.parse_record = lambda *_a, **_k: (0, 0, [{"ok": True}])
+        too_big = ""
+        try:
+            build_road_record(2, (yb, xb, 5, 3), [(pts, "residential", "")],
+                              default_class_table(), 616, write_names=False)
+        except CheckFailed as exc:
+            too_big = str(exc)
+        finally:
+            fa_encode.parse_record = real_parse
+    finally:
+        fa_encode.build_record = real_build
+    check("M5.70 a record above 0x10000 words is refused",
+          "0x10000" in too_big and "words" in too_big, too_big)
+
 
 def selftest():
     import contextlib
@@ -2653,6 +2746,9 @@ def build_parser():
     parser.add_argument("--l2-slot-census", metavar="TILE.DAT",
                         help="print level-2 parcels without an even slot (rows present "
                              "vs absent from the slot table); exit 1 when any is missing")
+    parser.add_argument("--l2-written-gate", metavar="TILE.DAT",
+                        help="with an IMF and --cell: check every parcel the build would "
+                             "write has an even pair in TILE.DAT (M5.70 Done-when gate)")
     parser.add_argument("--selftest", action="store_true", help="run the synthetic test")
     return parser
 
@@ -2714,6 +2810,24 @@ def main(argv=None):
             if len(census["missing"]) > 20:
                 print("  … %d more" % (len(census["missing"]) - 20))
         return EXIT_OK if census["total"] == 0 else EXIT_CHECK_FAILED
+    if args.l2_written_gate:
+        if not args.imf:
+            parser.error("--l2-written-gate needs the split IMF as the positional argument")
+        if cell is None or not CELL_RE.match(cell):
+            parser.error("--l2-written-gate needs --cell BxxRyyR (or a tile named BxxRyyR.DAT)")
+        try:
+            table, _source = load_class_table(args.class_table)
+            tile = read_tile_rows(_read_bytes(args.l2_written_gate))
+            written, missing = l2_written_without_slot(
+                tile, args.imf, cell, table, level=2, country=args.country)
+        except (WriterError, OSError) as exc:
+            print("tilewriter: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        print("l2_written_parcels: %d" % len(written))
+        print("l2_written_without_slot: %d" % len(missing))
+        for m in missing[:20]:
+            print("  y=%d x=%d row=%d col=%d" % m)
+        return EXIT_OK if not missing else EXIT_CHECK_FAILED
     if args.readback:
         if not args.imf:
             parser.error("--readback needs the split IMF as the positional argument")
