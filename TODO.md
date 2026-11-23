@@ -6631,7 +6631,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-8650–C-8659
 
 - [ ] **M9.72 — The `LOC_map` shape walk on the US build: port `locmap_l3.py` off the EU VAs so the US card (Marek's unit) reads our record**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m9.72-us-locmap-walk · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.67 (EU host model of `fn 0x0041f3dc`, done), M9.66 (EU shape walk, done), M9.63 (US L3 runnable, done)
   - Goal: M9.63 found the M9.58 `LOC_map` shape walk is **NOT RUNNABLE on US2011**: `tools/locmap_l3.py` has no `--build` (`grep -c -- --build` = 0) and exits 3 on the US image, and its four US VAs for the client-task and `LOC_map` functions are absent. The L4 path that reads our served record therefore only has an EU witness, while Marek's unit is US (M8.H12), so the renderer-walk accepted in L3 is not the build that must accept it in the car.
