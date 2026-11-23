@@ -6418,13 +6418,13 @@ into three printed classes.
 ## M5.91 — Z6 level 2 from zero (C-8710–C-8719)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-| C-8710 | EU2011 `B48R068R` section 1 level 2 (London): background layer 0 `0x502b` urban, layer 1 `0x5012` sea, lines `0x5001`/`0x500a`, no park or water polygons; roads layer 6 classes 4–7 and layer 7 classes 1/2; empty level-2 pairs `0xffffffff` (even and odd). | OBSERVED | M | EXP-2026-11-23-M5.91-level2-from-zero Inputs |
+| C-8710 | EU2011 `B48R068R` section 1 level 2 (London) uses the level-1 layer scheme with type `0x50xx` for `0xc1xx`/`0xc0xx`: layer 0 urban `0x502b`, 1 sea `0x5012`, 3 forest/heath/park `0x501a`/`0x501b`/`0x501d`, 7 river area/water `0x5014`/`0x5015`, lines in layers 8–11, place labels names `0x5068`/`0x4800` + layer-25 points `0x500c`; roads layer 6 classes 4–7 and layer 7 classes 1/2; empty level-2 pairs `0xffffffff`. (Corrected: the first M5.91 census missed parks and water.) | VERIFIED | H | EXP-2026-11-23-M5.100-level2-zoom-out O3; EXP-2026-11-23-M5.91-level2-from-zero Inputs |
 | C-8711 | `datask_l3 mount --request` of a level-2 parcel code on the from-zero card reads exactly our level-2 road record (zlib stream inflates to that code) and replies sub 3, like the factory card for the same code; a level-2 parcel left empty replies sub 9 with no record read. | VERIFIED | H | EXP-2026-11-23-M5.91-level2-from-zero L3 table |
 | C-8712 | A 230,708-byte level-2 road record (85,441 B compressed, 3.7× the factory record of the same parcel) is read and inflated whole at L3. | VERIFIED | H | EXP-2026-11-23-M5.91-level2-from-zero L3 `0xa6afcdf2` |
 | C-8713 | With every highway (tertiary to residential) one London level-2 unit passes 65,535 dwords and the 16-bit unit offset word overflows; tertiary-and-up with 10 m Douglas-Peucker fits (max 230,708 B). | OBSERVED | M | EXP-2026-11-23-M5.91-level2-from-zero Observations |
 | C-8714 | Adding 97 level-2 records leaves the from-zero level-1 London start screen pixel-identical (`c5bae8aa…49550ba`) and its error set equal to the factory's. | VERIFIED | H | EXP-2026-11-23-M5.91-level2-from-zero L4 level 1 |
 | C-8715 | Section 4 does not draw the level-1 place labels: the from-zero tile has an empty section 4 and its place labels draw from the level-1 odd records (layer 25 + `0xc068`), consistent with C-2393. | OBSERVED | M | EXP-2026-11-23-M5.91-level2-from-zero Interpretation; EXP-2026-11-23-M5.90 |
-| C-8716 | Whether the zoomed-out screen draws our level-2 roads and urban area is not known: zoom needs NK1 + `--ui-start` + the unit flash dump, absent from the sandbox (M5.100). | UNKNOWN | — | EXP-2026-11-23-M5.91-level2-from-zero Scope |
+| C-8716 | The zoomed-out screen draws our level-2 records (NK1 + unit flash + `--ui-start`, ZOOM OUT steps 2–3); resolved by M5.100. | VERIFIED | H | EXP-2026-11-23-M5.100-level2-zoom-out O3, O4 |
 | C-8717 | reserved (M5.91). | UNKNOWN | — | — |
 | C-8718 | reserved (M5.91). | UNKNOWN | — | — |
 | C-8719 | reserved (M5.91). | UNKNOWN | — | — |
@@ -6442,3 +6442,17 @@ into three printed classes.
 | C-7297 | A US 2011 unit carried on a trailer to another US city does not relocate from GPS and wheel pulses alone while map-matching still holds the old road. A way out probably goes through the lost-road counter of C-7296, which this run never moved. Gyro input was a constant 0, and that may matter. | HYPOTHESIS | L | EXP-2026-11-23-M8.H32-trailer-test Result |
 | C-7298 | The locator's match state `*0x00dd48d4` (written only at `0x004568dc` in `0x00456098`) compares two speed sums over 30 samples as a percentage. 96–104 % gives −1, 81–119 % gives +1, and anything else sets the lost-road counter `*0x00dbd5ac` to 8. Observed: 50 pulses/s with GPS at 30 km/h gave 100 % (−1); 100 pulses/s gave 91→89 %, the counter reached 8, and `0x00478e18(2)` ran. That reset does not clear the road link: arguments 2 and 4 branch past the link clear at `0x00478e2c`–`0x00478e38`. | VERIFIED (code) / OBSERVED (values) | M | EXP-2026-11-23-M8.H32-trailer-test O8, O9 |
 | C-7299 | Only positioning-message subcodes 110 and 116 (dispatcher `0x00452738`) and `0x00452968` call `0x00478e18` with 0, 1 or 3, which clears the road link. Rewriting a live 0x66 message into 116/1 (or 110/0, three times) cleared the link, but the car kept going back to Kentucky every cycle through `0x0049e164`. Map-matching `0x00456cc8` exits at once with no link, so the mesh table never got the Chicago mesh. | OBSERVED | M | EXP-2026-11-23-M8.H32-trailer-test O10 |
+
+## M5.100 — Z6b level 2 zoomed out (C-8820–C-8829)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8820 | On QEMU `-M ze0` with NK1, Marek's unit flash and `ze0_launch.py --ui-start`, the EU 2011 card (map code and image A name patched) reaches `MAP_MAPOPERATION_NORMAL_MAP`; its consent OK is at screen (403, 382) and ZOOM OUT at screen (765, 280) (panel 765, 200). | VERIFIED | H | EXP-2026-11-23-M5.100-level2-zoom-out O1, Method |
+| C-8821 | ZOOM OUT steps 2–3 from the London start screen draw section 1 level 2 of `B48R068R`; steps 4–6 draw the overview, identical on factory and from-zero cards up to overlays/centre. | OBSERVED | M | EXP-2026-11-23-M5.100-level2-zoom-out O2, O3 |
+| C-8822 | From-zero level-2 road records (tertiary and up, up to 230,708 B) are drawn with A-road shields at ZOOM OUT steps 2–3 with no `MeshDtChk` line. | VERIFIED | H | EXP-2026-11-23-M5.100-level2-zoom-out O3 |
+| C-8823 | From-zero level-2 background (`0x501a`/`0x501b`/`0x501d`/`0x5014`/`0x5015`/`0x502b`) and place labels (`0x5068` names + `0x500c` points) draw the Thames, parks and place names on the zoomed-out screen; without them (card A) the level-2 background is plain. | VERIFIED | H | EXP-2026-11-23-M5.100-level2-zoom-out O3, O4 |
+| C-8824 | Keeping suburbs as level-2 place labels overlaps labels at step 3; the factory shows fewer labels (postal districts); small parks draw as red outlines at level 2. | OBSERVED | M | EXP-2026-11-23-M5.100-level2-zoom-out O4 |
+| C-8825 | The visible area at the same ZOOM OUT tap count differs between runs; the cause and the scale per step are not known. | UNKNOWN | — | EXP-2026-11-23-M5.100-level2-zoom-out O4 |
+| C-8826 | reserved (M5.100). | UNKNOWN | — | — |
+| C-8827 | reserved (M5.100). | UNKNOWN | — | — |
+| C-8828 | reserved (M5.100). | UNKNOWN | — | — |
+| C-8829 | reserved (M5.100). | UNKNOWN | — | — |

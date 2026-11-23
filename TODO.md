@@ -3927,8 +3927,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8800–C-8809
 
-- [ ] **M5.100 — Z6b: zoomed-out L4 screenshot of the from-zero London tile (level 2 from OSM)**
-  - Status: open · Owner: — · Critical: no · Pair: solo · Runner: Marek (needs the unit flash dump)
+- [x] **M5.100 — Z6b: zoomed-out L4 screenshot of the from-zero London tile (level 2 from OSM)**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
   - Step: Z6
   - Depends: M5.91
   - Goal: M5.91 put 97 OSM level-2 records into the from-zero tile and passed L3; whether the zoomed-out screen draws them is UNKNOWN (C-8716). The zoom buttons need NK1 + `--ui-start`, which needs `nand.bin` (never in the repo or the sandbox).
@@ -3938,6 +3938,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has the factory and from-zero zoomed-out screenshots (from-zero one attached, not committed if it shows factory data), serial `MeshDtChk`/error lines of both runs, and by-eye notes: our level-2 roads and urban area drawn or not; if record size matters, a run with a smaller `LEVEL2_TOLERANCE_M`/`LEVEL2_KEEP`.
   - Stop: one session.
   - Claims: C-8820–C-8829
+  - Result: Zoomed out on NK1 with Marek's unit flash (--ui-start, ZOOM OUT steps 2–3 = level 2): our OSM level-2 roads with shields draw, no MeshDtChk; the census fix (level 2 = level-1 scheme with 0x50xx types) adds water, parks and place labels, also drawn. Label density/min area → M5.101. EXP-2026-11-23-M5.100-level2-zoom-out, C-8820–C-8825.
+
+- [ ] **M5.101 — Z6c: level-2 generalisation (place labels, minimum area, line layers) against the factory zoomed-out screen**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z6
+  - Depends: M5.100
+  - Goal: the zoomed-out from-zero London map draws (M5.100) but keeps every suburb label (overlapping) and every small park (red outlines), and has no rail/river lines (C-8824). Match the factory's level-2 choices.
+  - Precheck: `python3 tools/tile_from_zero.py --selftest`; the M5.100 run recipe (needs the unit flash dump; the Claude sandbox has it only when Marek uploads it).
+  - Scope: census of factory level-2 place labels (which OSM `place=*`/postal districts), minimum polygon area per kind, layers 8–11 line types; write them; re-run the M5.100 zoom steps 2–3.
+  - Input: EXP-2026-11-23-M5.100-level2-zoom-out, `tools/tile_from_zero.py`, `tools/osm_areas.py`.
+  - Done when: the EXP has the factory level-2 label/area/line census with counts and the zoomed-out screenshots with no overlapping labels (by-eye notes next to the factory's).
+  - Stop: one session.
+  - Claims: C-8830–C-8839
 
 ## M6 — L5 bench/car: hardware and safety
 
