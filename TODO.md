@@ -3061,8 +3061,8 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-8560–C-8569
   - Pair: required
 
-- [ ] **M4.96 — Grade then explain the last 366 KB of the unexplained factory tiles: section 3/5 records or the section-4 wide-row residual**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.96 — Grade then explain the last 366 KB of the unexplained factory tiles: section 3/5 records or the section-4 wide-row residual**
+  - Status: done · Owner: task/m4.96-tile-unexplained-grades · Critical: no · Pair: required
   - Step: P1
   - Depends: M4.93 (section-4 wide rows, done), M4.86 (unexplained ranking, done)
   - Goal: `tools/map_signals.py` reports the byte share of a factory tile that the format docs explain; the worst sample tile `B48R058R` is at 76.29 % and M4.93's section-4 work left a residual of 1,326 B (2 tables) while the tile's remaining unexplained mass is far larger. Rule 17 counts the `tile_bytes` number, so the next format task must take the largest *named* block, not a guess; split the residual into record classes, grade each against a firmware reader, and name where the percentage goes next.
@@ -3074,6 +3074,7 @@ The 23rd-pass text is in git (`af469580`).
   - Falsifier: the unexplained bytes are evenly spread as padding, so no range ranks above a few hundred bytes and the `tile_bytes` percentage is a span-coverage artifact (then say so with the ranked table and close the lead).
   - Claims: C-8620–C-8629
   - Pair: required
+  - Result: EXP-2026-11-23-M4.96-tile-grade-classes; graded d=1326 B/2 ranges (B48) and d=176 B/3 ranges (B30), a=b=c=other=0, class sum == still unexplained; 25/25 tile_unknown selftest checks
 
 - [ ] **M4.97 — Section-2 grammar from the RPF reply path: drive the `0x14b6` kind-8 handler and read-watch unit 0 without waiting on import binding**
   - Status: open · Owner: — · Critical: yes · Pair: required

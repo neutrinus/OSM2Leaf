@@ -19,7 +19,13 @@ instead of guessing:
 * each range is attributed to a directory (section, level, kind) and an
   even/odd record using the wide-row record parts where available, else the
   slot-index parity; the first bytes are *described* (zlib signature, inflated
-  length, first big-endian ``u16`` words), never dumped.
+  length, first big-endian ``u16`` words), never dumped;
+* M4.96 grades the **post-s1/s4 ``remaining`` set only** (the baseline mass is
+  already attributed to ``s1_wide_dir``/``section4_wide``): every remaining gap
+  gets a class letter and the classes partition its nonzero bytes.  Class ``d``
+  is a section-table *metric span artifact*, not a new record class and not a
+  rule-13 reader-VA claim; ``other`` is explicit so an injected control in a
+  section-4/``0x1046`` context is never silently absorbed into class ``b``.
 
 Usage::
 
@@ -228,6 +234,80 @@ def describe_shape(data: bytes, a: int, b: int) -> str:
 
 
 # --------------------------------------------------------------------------
+# M4.96 grading of the post-s1/s4 remaining set
+# --------------------------------------------------------------------------
+
+CLASSES = ("a", "b", "c", "d", "other")
+CLASS_NOTE = {
+    "a": "unparsed section-3/5 record block",
+    "b": "M4.93 section-4 row-block residual",
+    "c": "padding/slack (0xff fill)",
+    "d": "section-table span artifact (no reader VA)",
+    "other": "unclassified (injected control lands here)",
+}
+
+
+def section_table_spans(tile: dict) -> list[tuple[int, int, int]]:
+    """``(section id, taddr, taddr + 2*table_words)`` from the header table."""
+    return [(s["id"], s["taddr"], s["taddr"] + 2 * s["table_words"])
+            for s in tile["sections"]]
+
+
+def directory_extents(tile: dict) -> list[tuple[int, int, int, int, int]]:
+    """``(section, level, kind, off, off + 2*kind)`` for every directory."""
+    out: list[tuple[int, int, int, int, int]] = []
+    for section in tile["sections"]:
+        for level in section["levels"]:
+            for directory in level["dirs"]:
+                kind = directory["kind"]
+                out.append((section["id"], level["level"], kind,
+                            directory["off"], directory["off"] + 2 * kind))
+    return out
+
+
+def grade_range(data: bytes, a: int, b: int, ctx: tuple,
+                tables: list[tuple[int, int, int]],
+                dirs: list[tuple[int, int, int, int, int]]) -> tuple:
+    """Classify one remaining range; return ``(letter, note, inside, outside,
+    overlaps, chosen_span)`` on **nonzero** bytes.
+
+    Deterministic priority when a gap overlaps more than one span: ``d`` (the
+    overlapping table span with the most inside nonzero bytes, then lowest
+    ``(section, taddr)``), then ``b`` (inside a section-4 L1 ``0x1046+0x100n``
+    directory extent), then ``a`` (inside a section-3/5 directory extent),
+    then ``c`` (all nonzero bytes are ``0xff`` slack), else ``other``.
+
+    The extent test for ``b`` is deliberate: the injected synthetic control has
+    a nearest-preceding mark of section 4 / level 1 / ``0x1046`` but lies past
+    that directory's extent, so a section+kind-only rule would silently absorb
+    it into (b) (the M1.22 skip-set trap).  It must stay in ``other``.
+    """
+    total = _nonzero(data, a, b)
+    overlap = []
+    for sid, ta, tb in tables:
+        if ta < b and a < tb:
+            inside = _nonzero(data, max(a, ta), min(b, tb))
+            overlap.append((inside, sid, ta, tb))
+    overlap.sort(key=lambda o: (-o[0], o[1], o[2]))
+    if overlap and overlap[0][0] > 0:
+        inside, sid, ta, tb = overlap[0]
+        note = "sec%d table taddr=%#x table_words=%d" % (sid, ta, (tb - ta) // 2)
+        return "d", note, inside, total - inside, len(overlap), (sid, ta, tb)
+    for sid, lvl, kind, lo, hi in dirs:
+        if (sid == 4 and lvl == 1 and kind >= 0x1046
+                and (kind - 0x1046) % 0x100 == 0 and lo < b and a < hi):
+            return ("b", "sec4 L1 kind=%#x dir=%#x..%#x" % (kind, lo, hi),
+                    0, total, 0, None)
+    for sid, lvl, kind, lo, hi in dirs:
+        if sid in (3, 5) and lo < b and a < hi:
+            return ("a", "sec%d L%d kind=%#x dir=%#x..%#x" % (sid, lvl, kind, lo, hi),
+                    0, total, 0, None)
+    if total and not (set(data[a:b]) - {0, 0xff}):
+        return "c", "0xff slack", 0, total, 0, None
+    return "other", "no table/dir overlap", 0, total, 0, None
+
+
+# --------------------------------------------------------------------------
 # analysis
 # --------------------------------------------------------------------------
 
@@ -313,6 +393,34 @@ def analyze(data: bytes) -> dict[str, Any]:
         })
     rem.sort(key=lambda r: -r["bytes"])
 
+    # M4.96: grade only the post-s1/s4 remaining set.  The baseline mass is
+    # already attributed to s1_wide_dir/section4_wide and is never re-graded.
+    tables = section_table_spans(tile)
+    dirs = directory_extents(tile)
+    class_bytes = {c: 0 for c in CLASSES}
+    class_ranges = {c: 0 for c in CLASSES}
+    for r in rem:
+        letter, note, inside, outside, overlaps, chosen = grade_range(
+            data, r["start"], r["end"], r["context"], tables, dirs)
+        r["class"] = letter
+        r["class_note"] = note
+        r["inside_nz"] = inside
+        r["outside_nz"] = outside
+        r["table_overlaps"] = overlaps
+        r["table_span"] = chosen
+        class_bytes[letter] += r["bytes"]
+        class_ranges[letter] += 1
+    graded_sum = sum(class_bytes.values())
+    structure = {
+        "sections": [{
+            "id": s["id"], "taddr": s["taddr"], "table_words": s["table_words"],
+            "levels": [{"level": L["level"], "typ": L["typ"], "dirs": len(L["dirs"])}
+                       for L in s["levels"]],
+        } for s in tile["sections"]],
+        "section_table_spans": [
+            {"section": sid, "start": ta, "end": tb} for sid, ta, tb in tables],
+    }
+
     return {
         "tile_bytes": len(data),
         "nonzero_tail": total,
@@ -330,6 +438,12 @@ def analyze(data: bytes) -> dict[str, Any]:
         "remaining_bytes": sum(r["bytes"] for r in rem),
         "ranges": ranges,
         "remaining": rem,
+        "structure": structure,
+        "graded": rem,
+        "class_bytes": class_bytes,
+        "class_ranges": class_ranges,
+        "class_sum": graded_sum,
+        "class_sum_ok": graded_sum == sum(r["bytes"] for r in rem),
     }
 
 
@@ -393,6 +507,28 @@ def render_text(result: dict, groups: list[dict], top: int) -> str:
         lines.append("  %#x..%#x  %8d B  sec%s L%s %s %s  %s" % (
             r["start"], r["end"], r["bytes"], ctx[0], ctx[1], ctx[2],
             ctx[3], r["shape"]))
+    lines.append("")
+    lines.append("STRUCTURE (clarion_tile.read_tile; section table spans)")
+    for s in result["structure"]["sections"]:
+        lv = " ".join("L%s=%d" % (L["level"], L["dirs"]) for L in s["levels"])
+        lines.append("  sec%d taddr=%#x table_words=%d  %s" % (
+            s["id"], s["taddr"], s["table_words"], lv))
+    lines.append("GRADED RANGES (class; nonzero inside/outside the chosen table span)")
+    for r in result["graded"]:
+        span = r["table_span"]
+        sdesc = "sec%d %#x..%#x" % span if span else "-"
+        lines.append("  %#x..%#x %8d B  %-5s %s in=%d out=%d overlaps=%d  %s" % (
+            r["start"], r["end"], r["bytes"], r["class"], sdesc,
+            r["inside_nz"], r["outside_nz"], r["table_overlaps"], r["class_note"]))
+    lines.append("CLASSES (graded = post-s1/s4 remaining; nonzero bytes; a+b+c+d+other == still unexplained)")
+    lines.append("class    bytes  ranges  meaning")
+    for c in CLASSES:
+        lines.append("%-6s %8d %7d  %s" % (
+            c, result["class_bytes"][c], result["class_ranges"][c], CLASS_NOTE[c]))
+    lines.append("sum    %8d %7d  still unexplained %d B in %d ranges (sum_ok=%s)" % (
+        result["class_sum"], sum(result["class_ranges"].values()),
+        result["remaining_bytes"], result["remaining_gaps"],
+        result["class_sum_ok"]))
     return "\n".join(lines)
 
 
@@ -437,6 +573,40 @@ def selftest() -> int:
         chk(base["remaining_bytes"] <= base["gap_bytes"],
             "positive control: the section-4 pass never adds unexplained bytes")
 
+        # M4.96 positive controls: the graded set is the post-s1/s4 remaining
+        # gaps.  On the clean synthetic tile those are section-table spans, so
+        # class d must cover every graded byte and the partition must hold.
+        chk(base["remaining_bytes"] > 0
+            and base["class_bytes"]["d"] == base["remaining_bytes"],
+            "positive control: clean synthetic remaining bytes all class d (section table span)")
+        chk(base["class_sum_ok"] and base["class_sum"] == base["remaining_bytes"],
+            "positive control: class bytes sum to still unexplained (clean)")
+        multi = [r for r in base["graded"] if r["table_overlaps"] > 1]
+        chk(bool(multi) and all(r["class"] == "d"
+                                and r["inside_nz"] + r["outside_nz"] == r["bytes"]
+                                for r in multi),
+            "positive control: a gap overlapping two table spans gets one deterministic class")
+        chk(bool(multi) and "sec4" in multi[0]["class_note"],
+            "positive control: the two-span tie is broken by the larger inside_nz")
+        if multi:
+            mg = multi[0]
+            per_span = []
+            for sid, ta, tb in section_table_spans(tile):
+                if ta < mg["end"] and mg["start"] < tb:
+                    per_span.append("sec%d inside_nz=%d" % (
+                        sid, _nonzero(clean, max(mg["start"], ta), min(mg["end"], tb))))
+            print("  info two-span synthetic gap: %#x..%#x %d B  %s  chosen=%s" % (
+                mg["start"], mg["end"], mg["bytes"], " ".join(per_span),
+                mg["class_note"].split()[0]))
+        chk(grade_range(b"\x00\xff\xff\x00", 0, 4, (), [], [])[0] == "c",
+            "positive control: 0xff slack is class c")
+        chk(grade_range(b"\x78\x9c\x00\x09", 0, 4, (4, 1, "0x1046", "even", "slot0"),
+                        [], [(4, 1, 0x1046, 0, 8)])[0] == "b",
+            "positive control: inside a sec4 0x1046 directory extent is class b")
+        chk(grade_range(b"\x78\x9c\x00\x01", 0, 4, (5, 1, "0x1046", "even", "slot0"),
+                        [], [(5, 1, 0x1046, 0, 8)])[0] == "a",
+            "positive control: inside a section-5 directory extent is class a")
+
         # Negative control: inject one 4096-byte nonzero block in the trailing
         # free region; it must be ranked first, ahead of the small real gaps.
         pad = (len(clean) + 255) // 256 * 256
@@ -453,6 +623,30 @@ def selftest() -> int:
             "negative control: shape names the injected bytes, not the zero pad")
         chk(dirty["ranges"][1]["bytes"] < 64 if len(dirty["ranges"]) > 1 else True,
             "negative control: injected block outweighs all pre-existing gaps")
+
+        # M4.96 negative / M1.22 skip-set trap: the injected block is in the
+        # *graded* set and its nearest mark is section 4 / L1 / 0x1046, yet it
+        # lies past that directory's extent.  A section+kind-only class-(b)
+        # rule would silently absorb it; it must be counted in `other`.
+        trap = dirty["graded"][0]
+        print("  info injected graded range: %#x..%#x %d B class=%s context=%s" % (
+            trap["start"], trap["end"], trap["bytes"], trap["class"], trap["context"]))
+        chk(trap["bytes"] == 4096
+            and trap["context"][0] == 4 and trap["context"][2] == "0x1046",
+            "negative control: injected 4096 B block has the sec4/0x1046 trap context")
+        chk(trap["class"] == "other",
+            "negative control: injected block is class other, not (a)-(d)")
+        chk(dirty["class_bytes"]["other"] == trap["bytes"]
+            and all(dirty["class_bytes"][c] == 0 for c in ("a", "b", "c")),
+            "negative control: no a/b/c class absorbs the injected block")
+        chk(dirty["class_sum_ok"] and dirty["class_sum"] == dirty["remaining_bytes"],
+            "negative control: class partition still sums to still unexplained (dirty)")
+        chk(dirty["class_bytes"]["d"] == base["class_bytes"]["d"],
+            "negative control: injection leaves the real table-span gaps unchanged")
+        forged = grade_range(bytes(inj_bytes), trap["start"], trap["end"],
+                             trap["context"], [(1, 0x0, 0x10)], [])
+        chk(forged[0] == "other" and forged[1] == "no table/dir overlap",
+            "negative control: a forged table taddr removes class d")
 
         # Falsifier guard: the synthetic distribution has one clear dominant
         # block, not an even scatter of many equal small gaps.
