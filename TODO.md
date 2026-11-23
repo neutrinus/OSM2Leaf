@@ -3757,8 +3757,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8660–C-8669
 
-- [ ] **M5.87 — Z2: an empty London tile from the spec — what disappears from the screen**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M5.87 — Z2: an empty London tile from the spec — what disappears from the screen**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
   - Step: Z2
   - Depends: M5.85
   - Goal: before writing OSM content into a from-zero container, learn what the firmware does with a valid container that holds no records, and which screen items (roads, fills, labels, place names) come from this tile at all.
@@ -3768,6 +3768,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `cardcheck --image` PASS; `datask_l3.py mount` parses every directory with no read past the end; the L4 run reaches the map (or the EXP records the stage it stops at and the log line); the EXP lists what is gone from the London screen vs the factory screenshot (roads, fills, street labels, place labels, shields) — that list says which file each item comes from.
   - Stop: one session; a boot failure is a result (log line + stage).
   - Claims: C-8670–C-8679
+  - Result: EXP-2026-11-23-M5.87-empty-london-tile; empty container accepted (L1/L3/L4), screen black: everything at the start screen comes from B48R068R
 
 - [ ] **M5.88 — Z3: London roads from OSM in a from-zero tile (level 1)**
   - Status: open · Owner: — · Critical: yes · Pair: solo

@@ -121,6 +121,12 @@ its gate passes, not when the code exists.
 | **Z6** | + level 2 (zoom out) and section 4 place names | L4 at the zoomed-out screen | M5.91 |
 | **Z7** | routing (sec 2), `LEV3456R`, search files | existing tasks M5.57, M5.16, M5.18, M5.82 | — |
 
+**Progress (2026-11-23):** Z1 passed — the re-laid factory tile draws a
+pixel-identical screen (M5.85, C-8762). Z2 passed — the empty container is
+accepted at L1/L3/L4 and the start screen goes black except the position
+mark, so every item on it (fills, roads, street and place labels, shields)
+comes from `B48R068R` (M5.87, C-8672/C-8673).
+
 Cross-cutting tasks, independent of the rungs:
 
 - **M5.92** — capacity probe: the largest record / shape / point count the

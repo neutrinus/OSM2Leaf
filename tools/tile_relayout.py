@@ -426,6 +426,42 @@ def relayout(d: bytes, pad: bool = False) -> tuple[bytes, dict]:
 # selftest
 # --------------------------------------------------------------------------
 
+def empty_model(m: dict) -> dict:
+    """Drop every record (Z2, M5.87): each directory keeps its header words
+    (box, ``a``, ``b``, ``y``, ``x``, ``typ``) but becomes a narrow directory
+    with 32 empty rows (tag and every pair ``0xffffffff``)."""
+    for sec in m["sections"]:
+        for L in sec["levels"]:
+            for dm in L["dirs"]:
+                if dm["model"] == "wide":
+                    # A narrow level-1 row never sets bit 31 (it would read as
+                    # wide, M5.53): the factory's empty level-1 pair is
+                    # 0x7fffffff; level 2 uses 0xffffffff.
+                    e = 0x7FFFFFFF if L["level"] == 1 else 0xFFFFFFFF
+                    for row in dm["wm"]["rows"]:
+                        row["wide"] = False
+                        row["tag"] = 0xFFFFFFFF
+                        row["records"] = []
+                        row["cols"] = [dict(even=(e, e), odd=(e, e), subs=[]) for _ in row["cols"]]
+                elif dm["model"] == "s4wide":
+                    head = bytearray(dm["head"])
+                    struct.pack_into(">H", head, 0, 0x1046)
+                    dm["head"] = bytes(head)
+                    for r in dm["rows"]:
+                        r.update(tag=0xFFFFFFFF, wide=False, body=b"\x7f\xff\xff\xff" * (2 * 32),
+                                 live=False, block_off=None, recs=[])
+                else:
+                    D = dm["D"]
+                    n = D.get("nslots", clarion_tile.SLOTS)
+                    D["slots"] = {}
+                    D["empty_tags"] = {i: 0xFFFFFFFF for i in range(n)}
+                    D["empty_bodies"] = {i: b"\xff" * D["body"] for i in range(n)}
+                    D.pop("tail", None)
+                for u in dm["units"]:
+                    u.update(tag=0xFFFFFFFF, live=False, old=None, block=b"", recs=[])
+    return m
+
+
 def selftest() -> int:
     fails = 0
 
@@ -502,6 +538,12 @@ def selftest() -> int:
     gap[-5] = 1
     st2 = relayout(bytes(gap))[1]
     ok(st2["uncovered_nonzero"] == 1, "a non-zero byte outside every component is counted")
+    # Z2: the empty container keeps every directory and no record
+    e, est = write_model(empty_model(read_model(shuffled)))
+    em = read_model(e)
+    ok(est["records"] == 0 and sum(len(L["dirs"]) for S in em["sections"] for L in S["levels"]) == 1
+       and not any(u["live"] for S in em["sections"] for L in S["levels"] for dm in L["dirs"] for u in dm["units"]),
+       "empty: one directory kept, no live slot, no record")
     print("tile_relayout selftest: %s (%d failure(s))" % ("OK" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -515,6 +557,10 @@ def main(argv=None) -> int:
     p.add_argument("-o", "--out", required=True)
     p.add_argument("--pad", action="store_true")
     p.add_argument("--json", action="store_true")
+    p = sub.add_parser("empty", help="Z2: the same container with every record dropped")
+    p.add_argument("tile")
+    p.add_argument("-o", "--out", required=True)
+    p.add_argument("--pad", action="store_true")
     p = sub.add_parser("compare")
     p.add_argument("a")
     p.add_argument("b")
@@ -542,6 +588,16 @@ def main(argv=None) -> int:
                      (" (padded %d B)" % st["size_padded"]) if "size_padded" in st else "",
                      st["uncovered"], st["uncovered_nonzero"], st["nonzero_ranges"]))
             print("compare: 0 differences; s1_wide_dir census OK; sha256 %s" % st["sha256"])
+        return 0
+    if args.cmd == "empty":
+        m = empty_model(read_model(Path(args.tile).read_bytes()))
+        out, st = write_model(m)
+        if args.pad:
+            import tilewriter  # noqa: E402
+            out = tilewriter.pad_directory_reads(out)
+        Path(args.out).write_bytes(out)
+        print("empty: tables=%d dirs=%d records=%d size=%d B sha256 %s"
+              % (st["tables"], st["dirs"], st["records"], len(out), hashlib.sha256(out).hexdigest()))
         return 0
     if args.cmd == "compare":
         diffs = compare(Path(args.a).read_bytes(), Path(args.b).read_bytes())
