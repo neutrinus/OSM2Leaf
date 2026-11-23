@@ -2751,7 +2751,7 @@ The 23rd-pass text is in git (`af469580`).
   - Result: EXP-2026-11-22-M4.72-kiwi-route-concepts; Stop branch, r=0.1035 length vs geometry, no field confirmed, 5 claims C-7710-C-7714
 
 - [ ] **M4.73 — KIWI route-guidance data against tile section 4 (guidance) and `INTER`/`FRWAY`: intersection names, signposts, lane data**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.73-kiwi-guidance · Critical: no · Pair: solo
   - Step: P3
   - Depends: —
   - Goal: M4.56 reads the guidance grammar from the router's consumer. KIWI has a route-guidance frame (intersection, direction signs, road names for announcements). Check whether its record list predicts the fields M4.56 looks for and the content of `INTER0nn`/`FRWAY0nn`.
