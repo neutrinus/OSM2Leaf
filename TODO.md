@@ -4048,7 +4048,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Result: EXP-2026-11-22-M6.19-unit-flash-map (C-5210–C-5219): region → content table in `docs/hardware/unit-flash.md`; C-5192 REFUTED as written — the kernel `X110NBNI.147` runs from flash, image A from the card (C-5213); `VerInf` `QSD-301-100` and map-DB 16..16 are in the flash kernel header; area byte `0xA021`; controls: card slice with image B found 1, FAT slice 0; `tools/unitflash.py` selftest 21 checks
 
 - [ ] **M2.20 — Does a region change in PROD keep the unit recoverable? (static, before anyone writes flash)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m2.20-region-recoverable · Critical: no · Pair: solo
   - Depends: — (M6.18 dump helps: real PROD checksum and blocks)
   - Goal: LeafSDTools `PRODUCT INF → RESTORE FROM SD` writes an edited PROD block (it recomputes the checksum word at `+0x2D0`), so the area byte PROD `+0x21` (`0x20` USA → `0x30` Euro, C-5201) can be changed without hardware. Before that is ever tried, answer from the code: (1) does software-update mode (build B: `UpdateMng.exe`/`PRGUpdate.exe`, the way back in) start for every area, i.e. what are the area masks of those launch-table records; (2) which launch-table records differ between USA `0x00040000` and Euro `0x00020000` on the **US** card and on the EU card (M1.34 table); (3) does the EU card's build A contain a `Navi.exe` record an area-USA unit starts.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 modules` lists `AppLaunch.dll`; the launch table of M1.34 (`docs/research/rom-registry.md` "The launch table") is readable for B on EU2011 and US256.
