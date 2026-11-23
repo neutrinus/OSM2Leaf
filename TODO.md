@@ -2923,7 +2923,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Precheck: `python3 tools/ze0-viewer/harness.py info <generated tile>` prints no `2=REF` part for any road name entry; M4.90's EXP table has the 11 families with counts.
   - Scope: the name path of `tools/tilewriter.py` / `tools/section4_places.py` name writer: map an OSM `ref` to the M4.90 shield family and emit `1=NAME;2=REF`; one factory tile shows the reference where the factory has one; negative: a road with no `ref` keeps the name byte-identical. EU2011.
   - Input: EXP-2026-11-22-M4.90, `tools/name_strings.py`, `tools/ze0-viewer/tools_ze0/fa_encode.py`, `tools/tilewriter.py`, `docs/research/osm-pipeline.md` §"Road numbers and shields".
-  - Done when: a generated `B48R058R` carries the `ref` of at least three Polish roads (A4, S8, DK94) and `tools/ze0-viewer/harness.py info` prints the `2=REF` part with the right shield family for each; `l2check --semantic-tiles` PASS; the no-`ref` control is byte-identical to the pre-change tile; EXP + claims.
+  - Done when: a generated `B48R058R` carries `2=A4:E40`, `2=S8` and `2=94` (OSM `A4`, `S8`, `94`), each re-read with the committed `ze0_decode.parse_names_section` and mapped to the M4.90 family by a re-run factory query; `l2check --semantic-tiles` PASS; the no-ref control is byte-identical; EXP + claims.
   - Stop: one session; if `fa_encode` cannot add a names part without rewriting the length word, stop and name the field (a new M5 task), do not hand-patch bytes.
   - Falsifier: the written `2=REF` parses but the shield family the table predicts is not the one a decoded factory road with the same ref shows.
   - Claims: C-8560–C-8569
