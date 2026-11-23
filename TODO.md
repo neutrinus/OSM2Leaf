@@ -3828,8 +3828,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-5200–C-5209
   - Result: EXP-2026-11-22-M6.18-unit-flash-backup (C-5203–C-5206): nand 8,388,608 B, sram 1,048,576 B, vflash 3,014,656 B, prod 722 B with SHA-256; partial files equal the ranges of the full dump; files stay outside Git
 
-- [ ] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
-  - Status: in progress · Owner: task/m6.19-unit-flash-map · Critical: no
+- [x] **M6.19 — Map the unit flash dump and decide whether the OS runs from the card**
+  - Status: done · Owner: task/m6.19-unit-flash-map · Critical: no
   - Depends: M6.18
   - Unblock: M6.18 (the dump exists and its SHA-256 is recorded)
   - Goal: settle C-5192 (normal mode runs A/B from the card) with bytes, and name each flash region.
@@ -3839,6 +3839,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: if the dump has no recognisable structure, record the entropy map and stop.
   - Claims: C-5210–C-5219
   - Note: (2026-11-22) re-opened by M6.18 (rule 15): the dump exists, SHA-256 `dc2b30df…2cbb8b` (EXP-2026-11-22-M6.18-unit-flash-backup).
+  - Result: EXP-2026-11-22-M6.19-unit-flash-map (C-5210–C-5219): region → content table in `docs/hardware/unit-flash.md`; C-5192 REFUTED as written — the kernel `X110NBNI.147` runs from flash, image A from the card (C-5213); `VerInf` `QSD-301-100` and map-DB 16..16 are in the flash kernel header; area byte `0xA021`; controls: card slice with image B found 1, FAT slice 0; `tools/unitflash.py` selftest 21 checks
 
 - [ ] **M2.20 — Does a region change in PROD keep the unit recoverable? (static, before anyone writes flash)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3850,6 +3851,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: an EXP gives the per-area launch diff for both cards and states `update mode starts for area 0x30: yes/no/unknown` with the VA of the mask that decides it.
   - Stop: if the update-mode entry does not go through the area-filtered launch table, name the path and stop.
   - Claims: C-6260–C-6269
+  - Note: (M6.19, 2026-11-22) the launch table that runs in normal mode is in the **unit flash** kernel (`AppLaunch.dll` at `0x03E30000`, table `0x03E32490`, 111 records; C-5216), not in card image B; question 3 becomes 'which records of the flash table differ by area'. The area byte is flash `0xA021` (C-5215).
 
 - [ ] **M6.21 — Region change on a unit (PROD `+0x21`): only after the card-only test, only with a way back**
   - Status: blocked · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
@@ -4715,6 +4717,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the drivers use the RAM mirror only (`VSram` at `0x09a40000`) and never the chip while running, model the mirror load/store and say so.
   - Falsifier: the guest boots identically with and without the flash device and never accesses it.
   - Claims: C-7150–C-7159
+  - Note: (M6.19, 2026-11-22) a real layout exists: flash at physical 0 (kernel reads `PROD` at `0xA000A000`), `SMST` stores at `0x400000`, map in `docs/hardware/unit-flash.md`; `tools/unitflash.py` reads a dump. The dump is private: build test images with the user areas erased.
 
 - [x] **M8.H19 — Where does `Navi.exe` keep the last vehicle position, and who reads it at start**
   - Status: done · Owner: task/m8.h19-position-store · Critical: no · Pair: solo
