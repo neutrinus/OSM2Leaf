@@ -5150,6 +5150,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7290–C-7299
   - Note: Done 2026-11-23 (EXP-2026-11-23-M8.H32-trailer-test, C-7290–C-7297): ze0-h32-dr-sensors.patch, /machine/dr pulses-milli/gyro0-7; 50 km/h within 1 %. Not done from scope: gps.py driving the pulses, reverse and illumination pins, gyro scale. Trailer test (Kentucky → Chicago): the car does not stay at the GPS (C-7295/C-7296).
     Corrected the same day: the trailer failure was the GPS peer's extra reports; with 'drive on' the car follows (O11–O13, C-8830–C-8834).
+    Follow-up (C-8835–C-8839): report heading field is 0 = east counter-clockwise (gps.py fixed); a standing car takes the fix at once without wheels; no flash write while running (save at ACC off not reachable, M8.H75); gyro = channel 0, 16-bit, non-zero, ~0.0005 deg/s per count around a learned bias.
   - Result: EXP-2026-11-23-M8.H32-trailer-test: wheel pulses modelled (ze0-h32-dr-sensors.patch), speed variable *0x00dbdc2e follows the pulse rate (50 km/h within 1 %, 0 at 0); trailer Kentucky→Chicago works once GPS reports are self-consistent (gps.py drive on, C-8830–C-8834)
 
 - [ ] **M8.H33 — Drive a track: GPX replay with screenshots every few seconds**

@@ -17,7 +17,8 @@ US ``Navi.exe`` build unpacks its 33-byte payload in function ``0x0039e880``
 into a 48-byte record whose fields are named by the firmware's own debug
 dump at ``0x003a12e8`` (format strings at ``0x0001e1c8`` and next to it):
 status, latitude and longitude (signed 28-bit, 1/1000 arc-minute), height
-in metres, speed in 0.1 km/h, heading in 0.1 degree, date and time, DOPs,
+in metres, speed in 0.1 km/h, heading in 0.1 degree (0 = east, counter-
+clockwise; the peer's own ``heading`` values are compass degrees), date and time, DOPs,
 error ellipse, satellite count.  ``OBJ_GpsInfo`` (function ``0x00497aa0``)
 multiplies latitude and longitude by 30.72, i.e. it turns 1/60000 degree
 into 1/512 arc-second.  See ``docs/firmware/navdrv.md`` "Receiver frames".
@@ -41,7 +42,7 @@ Control socket lines (one per connection, reply ``OK ...`` or ``ERR ...``):
 
 ``drive on`` moves the fix by speed x report period along the heading for
 every report sent, so position, speed and heading agree (the locator
-compares them, C-8830).  While driving, a control line does not send an
+compares them, C-8831).  While driving, a control line does not send an
 extra report: the firmware treats consecutive reports as one second apart.
 
 Stdlib only.  Method and results:
@@ -229,7 +230,9 @@ def encode_report(lat, lon, alt=0, speed_kmh=0.0, heading=0.0, when=None,
         "stat": stat & 0x7f, "lat": _units(lat), "lon": _units(lon),
         "high": int(round(alt)) & 0x3fff,
         "sp": int(round(speed_kmh * 10)) & 0x3fff,
-        "dir": int(round((heading % 360.0) * 10)) & 0x3fff,
+        # compass degrees -> the receiver's field: 0 = east, counter-
+        # clockwise (C-8835: the locator compares it with atan2(dy, dx))
+        "dir": int(round(((90.0 - heading) % 360.0) * 10)) & 0x3fff,
         "year": when.tm_year % 100, "month": when.tm_mon, "day": when.tm_mday,
         "hour": when.tm_hour, "minute": when.tm_min, "second": when.tm_sec,
         "hdop": hdop, "vdop": vdop, "pdop": pdop,
@@ -563,7 +566,7 @@ def selftest():
         check("report %.4f,%.4f other fields" % (lat, lon),
               (r["high"], r["sp"], r["dir"], r["year"], r["month"], r["day"],
                r["hour"], r["minute"], r["second"], r["stat"], r["sats"]),
-              (-12, 483, 2715, 26, 11, 23, 12, 34, 56, DEFAULT_STAT, 8))
+              (-12, 483, 1785, 26, 11, 23, 12, 34, 56, DEFAULT_STAT, 8))
     # Firmware arithmetic: 28-bit value << 4, then shad -4 (sign extension).
     f = encode_report(37.4058806, -84.4876444, when=t)
     raw = 0
@@ -578,8 +581,8 @@ def selftest():
     check("pinned report vector",
           encode_report(51.5, -0.25, alt=20, speed_kmh=0, heading=0, when=t,
                         stat=0x2f, sats=7).hex(),
-          "a02f013c4c507f7f0a680014000000001a0b170c2238050505000a000a00"
-          "0700000058f0")
+          "a02f013c4c507f7f0a680014000007041a0b170c2238050505000a000a00"
+          "0700000063f0")
     # Negative controls: the 14-byte seed is not a valid RX frame, and a
     # report with a wrong checksum or an 8-bit payload byte is rejected.
     check("14-byte A0 rejected on RX", verify_frame(encode_seed(51.5, 0.0), rx=True), False)
@@ -634,7 +637,7 @@ def selftest():
     fr = state_frames(st, "2026-11-22T12:00:00")
     check("state emits one A0 report", [len(x) for x in fr], [36])
     check("state report carries speed/heading",
-          (decode_report(fr[0])["sp"], decode_report(fr[0])["dir"]), (300, 900))
+          (decode_report(fr[0])["sp"], decode_report(fr[0])["dir"]), (300, 0))
     check("control stat", control_commands("stat 3f", st), "stat 3f")
     check("control bad coordinate", control_commands("gps 3000 0", st).startswith("ERR"), True)
     check("no-fix emits nothing", state_frames(dict(st, fix=False)), [])
