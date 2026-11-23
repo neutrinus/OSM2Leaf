@@ -254,66 +254,57 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-23, 24th pass; `origin/main` `5785a14f`)
+## Priorities (PO grooming 2026-11-23, 25th pass; `origin/main` `e84436f1`)
 
 **The four rule-17 numbers, first** (`python3 tools/map_signals.py --factory-root
-/home/marek/projekty/leafre-work/m5.4/card-factory`, the factory tree on this host):
+/home/marek/projekty/leafre-work/m5.4/card-factory`):
 `readers: located 18 partial 1 unlocated 1` · `l3_rows: l3-running 8` ·
 `tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.29%` ·
 `card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)`.
-**None of the four moved this cycle** (unchanged since 2026-11-21): the window
-did real format and reader work (M4.65 KIWI sources, M4.86–M4.93 tile census,
-M5.64/M5.65 names, M9.63 US run), but not the reader rows or the P1 Poland card
-the counters measure.
-
-**This pass:** archive first (16 done blocks, 6,480 → 6,244 lines), a rule-15
-re-open (**M4.59**, its `Unblock` M4.58 was done), the M5.1 orphan header
-restored and archived, then **6 tasks added**: M4.96 (grade the last unexplained
-tile bytes → the `tile_bytes` number), M4.97 (section-2 grammar past the RPF
-import gap → P2), M5.82 (new-POI placement → P4/POI layer), M5.83 (Polish
-diacritics on the emulated screen → P3), M9.72 (the `LOC_map` shape walk on the
-US build — Marek's unit), H131 (H21's missing semantic-L2 fixture tool). Rule-17
-budget: one H (H131) for five M tasks.
+**None moved — fourth consecutive cycle.** The window merged the card gate
+(M9.12), L4 readers (M9.75), the from-zero card and M9.76; the counter still
+reads a 2026-11-17 report. M9.76 is the task that can make it move.
 
 **Critical path — what blocks a car card, in order:**
 
 - **L1 (structure):** ready; `cardcheck --image` + `imgpatch` gate P0/P1.
   **H104** (committed baseline) is the one open L1 blocker.
-- **L2 (the product):** the **P1 Poland card** needs **M5.61** — blocked on the
-  tile-writer defects **M5.68 → M5.69 → M5.70** (all open, unowned). Then
-  **M5.66** (render gate) and **M5.83** (names drawn) prove the tile at L2.
-  **M7.1** (all Dolnośląskie) follows.
-- **L3 (firmware accepts):** **M9.31** (baseline verdicts) → **M9.12** (the
-  software gate) is the card gate; **M9.65** (STDDLL binding) → **M4.55/M4.40/
-  M4.97** (section 2) → **M5.57/M9.56** is routing; **M9.18/M9.15** are the
-  per-family target rows still open.
-- **L4 (emulator):** the screen and the generated-tile draw are done (M8.C1f,
-  M8.H71). Next: **M8.H64** (P0 card at L4) → **M8.E4** (full `Navi.exe` on a
-  generated card); **M9.72** brings the record walk to the US build.
-- **L5 (car):** hardware unavailable; S0→S3 order unchanged (M6.2, M6.18, M6.5,
-  M6.6, M6.7). Every card passes L3 (M9.60, later M9.12) first.
+- **L2 (the product):** the **P1 Poland card** M5.61 is blocked only on **M5.68**,
+  itself blocked on **M5.99** (the driver's own parse OOM); M5.69/M5.70 merged.
+  Then **M5.66** (render gate) and **M5.83** (Polish diacritics) prove the card.
+- **L3 (firmware accepts):** **M9.12** (card gate) and **M9.31** are done;
+  **M9.76** makes this number read a current report. Routing: **M4.55** (open,
+  unowned) → **M4.40** → **M5.57** → **M9.56**, with **M4.97** as the parallel
+  grammar path. **M9.80** closes rule 13 for our generated section-4 names;
+  **M9.15/M9.18** are the reader/target rows still open.
+- **L4 (emulator):** **M8.H64** (P0 card) → **M8.H79** (first boot of the
+  from-zero card) → **M8.E4** (full `Navi.exe` acceptance); **M8.H78**
+  (positioning) is re-opened per rule 15.
+- **L5 (car):** hardware unavailable; S0→S3 unchanged (M6.2, M6.18, M6.5, M6.6,
+  M6.7). Every card passes L3 first.
 
-**Take first if you are not on M8 (no emulator, no network):** **M5.68** (the
-first P1 writer defect — unblocks the whole P1 chain), **M5.82** (POI writer
-step 2), M4.96 (format census), M9.72 (US L3), M5.83 (names), H131 (L2 fixture).
-**For Marek:** an OSM extract on `files.viaaq.eu` (M5.61/M4.2/M5.3/M5.77/M5.78);
-KIWI material (M4.65/M4.77). **In flight:** see the open draft PRs (`[ID]` titles).
+**Take first if you are not on M8 (no emulator, no network):** **M5.99** (sole
+P1 blocker), **M4.55** (unblocks M4.40/routing), **M8.H64**, **M9.80**, **M4.99**,
+**M9.76**, **M9.79** (selftest regressions). **For Marek:** an OSM extract on
+`files.viaaq.eu` (M5.61/M4.2/M5.3/M5.77/M5.78). **In flight:** open PR titles.
 
 ### Map signal (read first)
 
-Board after this pass: **156 open / 31 blocked / 1 in progress / 203 done**
-(`python3 tools/board.py` blocks parsed 2026-11-23). 27 open blocks are
-`Critical: yes`. A cycle that moves none of the four numbers above says so in
-its first line.
+Board after this pass: **153 open / 33 blocked / 1 in progress / 221 done**
+(408 task blocks; `board.py` parse 2026-11-23). 45 are `Critical: yes`.
+A cycle that moves none of the four numbers above says so in its first line.
 
-**This pass (24th):** archived 16 done blocks (H61, H94, H105, H121, H122,
-H127, H128, M1.19, M1.22b, M1.45, M3.3, M4.16d, M5.11, M5.17, M5.29, M5.60) to
-`docs/research/todo-history-2026-11-23.md`; restored the M5.1 header that a
-2026-11-19 merge left as 13 orphan lines under `## M5` and archived the block
-(the SE-reported scar, fixed with board.py). Rule 15: re-opened **M4.59**;
-the retro's six dead `Unblock` pairs are the ownership of M3.36 and remain
-(report, not re-filed). Added **H131, M4.96, M4.97, M5.82, M5.83, M9.72**.
-The 23rd-pass text is in git (`af469580`).
+**This pass (25th):** archive first — 23 done blocks >24 h with no live
+reference moved to `docs/research/todo-history-2026-11-23.md` (TODO 6,822 →
+6,419 lines, then 6,458 after three additions). Rule 15: 0 survivors (SE cleared
+the five strict errors and re-opened M8.H78), so no re-open was needed here.
+Added **M9.80** (L3 for our section-4 names, first slice of M9.18), **M8.H79**
+(first L4 boot of the from-zero card), **M4.99** (class-d residual of the worst
+tile → `tile_bytes`), claims C-9990–C-10019. The 24th-pass text is in git
+(`9674f2fb`).
+
+One-line ideas not filed: register `loc_map` as a runnable L3 target (M9.72's
+gap); re-run the M5.38 ladder after M9.76 lands.
 
 ---
 
@@ -2940,6 +2931,19 @@ The 23rd-pass text is in git (`af469580`).
   - Falsifier: the flipped word changes nothing in the route while the guest demonstrably read it.
   - Claims: C-9930–C-9939
   - Result: partial: EXP-2026-11-23-M4.98-sec2-fields-ghidra (Ghidra decompile; direction w2>>14 VERIFIED on all London pairs, turn words, cost w5, length w6, boundary links w4&0x8000, header pairs; level-2 unit 1 = level-2 to level-1 node map, VERIFIED; L4: reversed one-ways give no route, re-encoded control unchanged, two-way unchanged; tools/sec2_fields.py, tools/ghidra/; C-9930-C-9939). Open: single-link detour proof in L4, runtime cost tables (w1 categories).
+
+- [ ] **M4.99 — Name the class-d residual of `B48R058R`: padding or a record block, and the covering span if it is real**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M4.96 (grade into classes, done), M4.93 (section-4 wide rows, done), M4.86 (unexplained ranking, done)
+  - Goal: M4.96 graded the "still unexplained" bytes of the worst tile into classes a–d and every range landed in class d ("other"): `d=1326 B/2 ranges` on `B48R058R` and `d=176 B/3 ranges` on `B30R048R`, a=b=c=0. The grade deliberately stopped before a decoder, so the `tile_bytes` number (76.29 % / 95.86 %) still has no named next block. Classify class d by the tile header's section table and directory kinds: slack/padding, or one record block with a reader. This is the smallest slice that can move the number or close the lead honestly.
+  - Precheck: `python3 tools/tile_unknown.py /home/marek/projekty/leafre-work/m5.4/card-factory/MAPAL001/B48R058R.DAT --top 12` prints the ranked ranges; `python3 tools/map_signals.py --factory-root /home/marek/projekty/leafre-work/m5.4/card-factory` prints the three tile percentages.
+  - Scope: EU2011 `B48R058R` and control `B30R048R`; for every class-d range state its section-table entry, level, even/odd record and directory kind, and decide padding vs record by a byte test that can fail (a repeating fill, an all-zero run, or a count word that bounds the range). If a record block is named, add the covering span to `clarion_tile`/`tile_unknown.py` with a `--selftest` case and re-quote `tile_bytes`. Exclusions: no new format writer, no firmware search, no vendor bytes committed.
+  - Input: EXP-2026-11-23-M4.96-tile-grade-classes, `tools/tile_unknown.py`, `tools/map_signals.py`, `tools/ze0-viewer/tools_ze0/clarion_tile.py`, `docs/format/map-tiles.md`.
+  - Done when: an EXP gives a class-d table whose rows sum to the tool's own "still unexplained" figure and assigns each row padding or a named block with the test used; either the `tile_bytes` line moves and the new percentage is quoted, or the EXP proves every class-d byte is padding and the next number to attack is named in a one-line task idea. `tile_unknown --selftest` stays green.
+  - Stop: one session. If a range cannot be classified by a byte test, leave it named with its shape and report it as a follow-up rather than guessing a grammar.
+  - Falsifier: the tool reports 0 B unexplained while `map_signals.py` prints the same percentage (a span was added without covering real bytes).
+  - Claims: C-10010–C-10019
+  - Pair: required
 
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
@@ -5650,6 +5654,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     run, or a name is supplied from the DBGMSG log instead of guest memory.
   - Claims: C-9940–C-9949
 
+- [ ] **M8.H79 — First L4 boot of the from-zero card: file-open log and first divergence from the factory screen**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M5.100 (from-zero level-2 zoom card, done), M9.12 (card gate, done), M8.H8 (factory L4 trace, done), M8.H13 (l4check --card harness, done)
+  - Goal: M8.H64 boots the factory-backed P0 card and M8.E4 is the full acceptance run, but nobody has booted the from-zero card of M5.100 at L4. Rule 17's card number still reads P0 from a 2026-11-17 report (M9.76 owns that repair); this task supplies the missing L4 observation for the card that has no factory bytes at all, so a "the card boots" claim is measured and not assumed.
+  - Precheck: `python3 tools/l4check.py --card EUCARD --json` exits 0 on the factory card (M8.H13's harness); `python3 tools/ze0_card.py --help` exists; the M5.100 card SHA-256 prefix `1b5bafeb…aeb2f2da52` is in EXP-2026-11-23-M5.100-level2-zoom-out.
+  - Scope: one QEMU `-M ze0` boot of the M5.100 from-zero card against the factory EU2011 card, to the map state; capture the `Navi.exe` file-open/dir-open sequence and the first screen (screenshot in `archive/work/`, vendor-derived, never committed). Compare which files are opened, which reads fail and whether the road/name layer appears. Exclusions: do not fix the first divergence here (a new task if one is found), do not run hardware, do not change the card or the writer.
+  - Input: `tools/l4check.py`, `tools/ze0_card.py`, `tools/ze0_ui.py`, `docs/research/card-test-plan.md`, EXP-2026-11-19-M2.4-hddinfo-fw-verdicts (error catalogue), M8.H8's factory block-read trace.
+  - Done when: an EXP lists the from-zero card's opened files and first screen beside the factory's, names the first divergence with an offset/file or states "none before the first position change", and quotes the l4check exit code for both cards; the card SHA-256 and the harness version are in the Method.
+  - Stop: if the emulator cannot reach the map state on either card, report `blocked` with the exact QEMU error and a named Unblock; a boot that fails before file opens is a result, not a waived pass.
+  - Falsifier: both cards produce byte-identical logs and screens for a card whose tiles contain no factory bytes (the run did not use our card).
+  - Claims: C-10000–C-10009
+  - Pair: required
+
 ---
 
 ## M9 — L3 toolkit: run firmware functions against our data
@@ -6392,6 +6409,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if a compiler ignores `TMPDIR` and still writes to `/tmp`, record its exact command, leave that tool's selftest unchanged and set `blocked` naming the compiler wrapper task; never paper over the failure with a skip.
   - Falsifier: a selftest still fails with EDQUOT after the change, or a scratch directory remains after a green run.
   - Claims: C-9980–C-9989
+  - Pair: required
+
+- [ ] **M9.80 — Rule 13 for our generated section-4 names: read an M5.65 tile's place-name list in L3 (first slice of M9.18)**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: M5.65 (OSM names written, done), M9.53 (record block read in L3, done), M9.18 (owns the LEV3456R half; this task takes only the section-4 name list)
+  - Goal: reader-coverage row 19 says a generated tile carries 37 OSM place names but "no L3/L4 run reads our generated names (rule 13)". M9.18 owns the coarse-level reader and the section-4 consumer together and has stayed unowned for two cycles; split off the name-list half so one pair can finish it in one session. Without a firmware verdict on our bytes, the name writer is accepted on L2 only.
+  - Precheck: `python3 tools/board.py show M5.65 | grep -m1 Result:` names the 37/37 OSM names; `python3 tools/mount_dirs_l3.py --help` and `python3 tools/datask_l3.py --help` run; `grep -n 'name list not read' docs/research/reader-coverage.md` finds row 19's gap.
+  - Scope: one generated `B48R050R` section-4 record from M5.65 and its factory control; drive the kind-`0x40` data request (`datask_req_l3.py`) and the stored-copy reader (`0x00422eac`, EU2011) so the name list reaches L3. Compare to `section4.py parse`/`section4_places.py`. Update the L3-result cell of row 19 with the verdict. Exclusions: LEV3456R and the coarse levels stay M9.18; no new writer, no vendor bytes in the repo, US build only as a cheap control if the VA exists.
+  - Input: EXP-2026-11-22-M5.65-osm-section4-places (37 names), EXP-2026-11-20-M9.53-record-block-read, EXP-2026-11-20-M9.18-lev3456r-sec4-l3, C-5921/C-5925/C-5648, tools `datask_l3.py`, `mount_dirs_l3.py`, `section4.py`.
+  - Done when: an EXP names the reader VA (build labelled EU2011), shows the 37 generated names returned by the firmware equal `section4.py parse`, and includes a one-word mutation control that changes the returned list; `python3 tools/l3check.py --build-corpus` still exits 0 with its baseline intact and row 19 carries the PASS/REJECT verdict with the EXP link.
+  - Stop: if the stored-copy reader cannot be driven from the request reply with a stated signature, report `blocked` with the missing VA and a named Unblock; do not infer acceptance from Python output alone.
+  - Falsifier: the firmware returns the factory name list for both the generated tile and the mutant, i.e. the L3 run never reads our bytes.
+  - Claims: C-9990–C-9999
   - Pair: required
 
 ## Retired leads
