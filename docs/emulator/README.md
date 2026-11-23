@@ -176,6 +176,14 @@ Why the options:
 For a longer look (the navigation UI itself settles within 15 minutes) raise
 `--timeout`; the map is already on screen in well under a minute.
 
+**Live screen (M8.H4).** The machine exposes the display unit's planes as a
+QEMU graphic console (`ze0-gfx`). Add `--display vnc=127.0.0.1:0` (or `gtk`,
+`sdl`, or the `--vnc` shorthand) to `run.sh` and open the VNC display, or
+save the same image from the monitor: `screendump shot.ppm ze0-gfx`. The
+console frame and `ze0_screenshot.py screen` differ by 0 pixels
+(EXP-2026-11-23-M8.H4). Without `--display` QEMU stays headless
+(`-display none`), exactly as before.
+
 ## 6. Typical times (measured on 8 cores, 2026-11-22)
 
 | Step | Time | Note |
@@ -217,7 +225,7 @@ names the record.
 | USB host | not yet | M8.H57 |
 | Second SD slot | not yet | M8.H17 |
 | NOR flash / saved position | not yet | M8.H18 |
-| Live screen in a host window | not yet (PNG capture only) | M8.H4 |
+| Live screen in a host window | works — VNC/gtk via `run.sh --display` (M8.H4) | EXP-2026-11-23-M8.H4 |
 | UI layer (buttons, status bar) | not yet — plane 2 is fully colour-keyed | EXP-2026-11-22-M8.C1f O6 |
 | US 2011 / 2014 / 2016 cards | untested on this machine | M8.H12 |
 

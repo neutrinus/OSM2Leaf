@@ -41,7 +41,7 @@ many agents can build connectors at the same time.
 | Position without sensors | saved position in flash | flash file M8.H18 | M8.H19 | `ze0_seed.py` M8.H20 | M8.H20; demo mode M8.H21 |
 | Touch panel | display unit frames on `SCI3:`, command `51` (`docs/firmware/lcddrv.md`) | chardev `sci3` (`ze0-h02`), peer `panel.py --sci3` | M8.H35 (done), M8.H36 | `ze0_peers/panel.py` M8.H38 | M8.H39 (tap reaches kepdrv, locked by UI state), live window M8.H40 |
 | Hard keys, knob | to be found (M8.H37) | as touch, or the micon peer | M8.H37 | `panel.py` / `micon.py` | M8.H39 |
-| Screen out | DU + 2DG (`ze0-gfx`) | `pmemsave` today; console M8.H4 | M8.C1e, M8.C1f | — | `ze0_screenshot.py`, M8.H4 |
+| Screen out | DU + 2DG (`ze0-gfx`) | console (`display=` on, M8.H4) or `pmemsave` | M8.C1e, M8.C1f, M8.H4 | — | `ze0_screenshot.py`, VNC/gtk via `run.sh --display` (M8.H4) |
 | Audio microcontroller | `SCI1:`, `anwdrv.dll` | chardev `sci1` | M8.H43 | `ze0_peers/micon.py` M8.H44 | M8.H45 |
 | Sound out | SSI `0xffe00000`, `wavessi1/2` | `ze0-h46-ssi-audio.patch`: register stub + HPB-DMAC 11/12/13 PCM sink, `-M ze0,ssi-audio=ID` | in M8.H46 | `tools/ze0_wavcheck.py` (`ssi-selftest` positive control) | Model verified; **no guest playback** in M8.H46, unblock M8.H47, prompt M8.H48 |
 | Vehicle CAN | `UAT3:`, `CAN.dll` | chardev `uat3` (M8.H2, M8.H3) | M8.H49 | `ze0_peers/vcan.py` M8.H50 | M8.H51, EV screens M8.H52 |

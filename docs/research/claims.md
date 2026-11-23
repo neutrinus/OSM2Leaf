@@ -6499,6 +6499,20 @@ into three printed classes.
 | C-8588 | The encoder guard is verifiable: without `--libz` the tool exits 3 before reading the pair (`REFUSED: stock zlib 1.3.1 is required`); `--allow-nonreference` uses zlib-ng and is refused because it does not reproduce 16 factory pages (exit 1). | VERIFIED | H | EXP-2026-11-23-M5.82-new-poi-placement; `python3 tools/point_add_poi.py CMP OUT --name X` and `… --name X --allow-nonreference` |
 | C-8589 | HYPOTHESIS: the appended index key makes the new name findable by spelling search, because `joins` proves its key bytes occur in the new record and the key is in the trie's index chain; UNKNOWN whether the unit displays the new POI (no trie leaf, no L4/L5 run). | HYPOTHESIS | M | EXP-2026-11-23-M5.82-new-poi-placement; `docs/format/refer.md` "Writing a new POI" |
 
+## M8.H4 — guest screen as a QEMU display console (C-7010–C-7019)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-7010 | `ze0-gfx` (machine property `gfx-display`, device property `display`, both default on) registers a QEMU graphic console named `ze0-gfx` and composes DU planes 1-4 with the rule of `tools/ze0_screenshot.py compose()`: higher plane number first, a keyed plane (mode bits `0xf000 == 0x1000`) drops pixels with bit 15 clear or the colour key `+0x48 & 0x7fff`, (A)RGB1555 to x8r8g8b8; the frame is recomposed when a 2DG list ends (SCLR = 1) and on a console invalidate/gfx_update. | VERIFIED | H | EXP-2026-11-23-M8.H4-display-surface O1, O2; `tools/qemu-ze0/patches/ze0-h04-display-surface.patch`; `bash tools/qemu-ze0/build.sh --check-version 11.1.3` (30 applied, 0 failed) |
+| C-7011 | HMP `screendump FILE ze0-gfx` and `python3 tools/ze0_screenshot.py screen` of the same instant are pixel-identical: 0 of 384,000 pixels differ and the raw RGB SHA-256 is equal (`d2b7e70f…dde7a86`) on the EU 2011 London map. | VERIFIED | H | EXP-2026-11-23-M8.H4-display-surface O3; `python3 tools/ze0_screencmp.py s0.ppm host.png` (exit 0); `python3 tools/ze0_screencmp.py --selftest` |
+| C-7012 | `tools/qemu-ze0/run.sh --display SPEC` (`none|gtk|sdl|dbus|vnc=HOST:N`) and `--vnc` add `gfx-display=on` and a `-display` backend and drop `-nographic` (the debug SCIF stays on its file); `--display vnc=127.0.0.1:7` serves the frame on TCP 5907 (`RFB 003.008`), and `--display none` (the default) emits the old `-nographic` line. | VERIFIED | H | EXP-2026-11-23-M8.H4-display-surface O4, O6; `bash tools/qemu-ze0/run.sh … --display vnc=127.0.0.1:7 --dry-run`; socket read of the RFB greeting |
+| C-7013 | `-M ze0,gfx-display=off` leaves no QEMU console: `screendump` answers `There is no console to take a screendump from` (negative control for the console). | VERIFIED | H | EXP-2026-11-23-M8.H4-display-surface O5; HMP `screendump x.ppm` on a `gfx-display=off` run |
+| C-7014 | `tools/ze0_screencmp.py` compares a P6 PPM (`screendump` without libpng) with an 8-bit RGB PNG (`ze0_screenshot.py` output) pixel by pixel and exits 0 equal / 1 differ / 2 bad input; its synthetic `--selftest` passes. `screendump` PNG output needs `CONFIG_PNG`, which the pinned QEMU 11.1.3 build leaves off. | VERIFIED | H | EXP-2026-11-23-M8.H4-display-surface O3; `python3 tools/ze0_screencmp.py --selftest`; `grep CONFIG_PNG` of the build's `config-host.h` (`#undef CONFIG_PNG`) |
+| C-7015 | reserved (M8.H4). | UNKNOWN | — | — |
+| C-7016 | reserved (M8.H4). | UNKNOWN | — | — |
+| C-7017 | reserved (M8.H4). | UNKNOWN | — | — |
+| C-7018 | reserved (M8.H4). | UNKNOWN | — | — |
+| C-7019 | reserved (M8.H4). | UNKNOWN | — | — |
+
 
 ## M9.65 — L3 harness: run STDDLL exports for Navi.exe import thunks (unblocks M4.55)
 | ID | Claim | Status | Confidence | Evidence |

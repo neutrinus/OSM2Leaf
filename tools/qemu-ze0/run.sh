@@ -100,6 +100,12 @@ Options:
                       image (qemu-img create -f qcow2 -b CARD -F raw F 8G)
   --icount SPEC       pass -icount SPEC (e.g. shift=0,sleep=off: guest time
                       independent of host load, M8.B2)
+  --display SPEC      -M ze0: show the guest screen through QEMU. SPEC is
+                      none (default: headless, the HMP monitor still saves a
+                      screendump), gtk, sdl, vnc=HOST:DISPLAY (e.g.
+                      vnc=127.0.0.1:0 -> port 5900) or vnc=N. Implies the
+                      machine option gfx-display=on (M8.H4)
+  --vnc [HOST:]N      shorthand for --display vnc=[HOST:]N
   --qemu PATH         qemu-system-sh4 binary (default: from PATH)
   --no-summary        do not filter the log afterwards
   --memmap FILE       use this memmap JSON instead of writing one from the image
@@ -343,6 +349,7 @@ QEMU=qemu-system-sh4
 SUMMARY=1
 MEMMAP=1
 MEMMAP_SRC=
+DISPLAY=none
 DRY_RUN=0
 PREP=
 LOADER_SPEC=
@@ -368,7 +375,7 @@ while [ "$#" -gt 0 ]; do
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
     --serial | --serial-peer | --uart-intevt | --dbgmsg | --icount | --sd | --verinf | \
-    --mapdb | --ipl-patch | --card)
+    --mapdb | --ipl-patch | --card | --display)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
         _val=$2
@@ -420,6 +427,7 @@ while [ "$#" -gt 0 ]; do
         --mapdb) MAPDB=$_val ;;
         --ipl-patch) IPL_PATCH=$_val ;;
         --card) CARD=$_val ;;
+        --display) DISPLAY=$_val ;;
       esac
       ;;
     --gdb)
@@ -432,6 +440,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     --stop)
       STOP=1
+      shift
+      ;;
+    --vnc)
+      if [ "$_hasval" -eq 1 ]; then
+        DISPLAY="vnc=$_val"
+      else
+        DISPLAY="vnc=127.0.0.1:0"
+      fi
       shift
       ;;
     --no-summary)
@@ -459,6 +475,10 @@ done
 case $MACHINE in
   auto | ze0 | none) ;;
   *) usage_error "--machine must be auto, ze0 or none, got '$MACHINE'" ;;
+esac
+case $DISPLAY in
+  none | gtk | sdl | dbus | vnc=*) ;;
+  *) usage_error "--display must be none, gtk, sdl, dbus or vnc=SPEC, got '$DISPLAY'" ;;
 esac
 
 want_addr --kernel "$KERNEL_OFF"
@@ -623,9 +643,21 @@ if [ "$MACHINE" = ze0 ]; then
     # IPL patch: ROM image A joined to the kernel (M8.C1d, ze0-0012).
     [ -n "$IPL_PATCH" ] && _mopts="$_mopts,ipl-patch=$IPL_PATCH"
     _mopts="$_mopts$PEER_MOPTS"
+    # M8.H4: the machine exposes the DU planes as a console (device id
+    # ze0-gfx, the name HMP screendump takes after device=).
+    if [ "$DISPLAY" != none ]; then
+      _mopts="$_mopts,gfx-display=on"
+    fi
     set -- "$@" -M "$_mopts" -kernel "$IMAGE"
   else
-    set -- "$@" -M "ze0$PEER_MOPTS"
+    _mopts="ze0$PEER_MOPTS"
+    if [ "$DISPLAY" != none ]; then
+      _mopts="$_mopts,gfx-display=on"
+    fi
+    set -- "$@" -M "$_mopts"
+  fi
+  if [ "$DISPLAY" != none ]; then
+    set -- "$@" -display "$DISPLAY"
   fi
 else
   set -- "$@" -M none -cpu sh7785 -m "${MEM}M"
@@ -637,13 +669,18 @@ case $SERIAL in
   log) SERIAL_SPEC="file:$WORK/serial.log" ;;
   *) SERIAL_SPEC=$SERIAL ;;
 esac
-set -- "$@" -nographic -serial "$SERIAL_SPEC"
+if [ "$DISPLAY" = none ]; then
+  set -- "$@" -nographic
+else
+  # A live display takes the terminal; the debug SCIF stays on its file.
+  set -- "$@" -serial "$SERIAL_SPEC"
+fi
 set -- "$@" -monitor "unix:$WORK/hmp.sock,server,nowait"
 if [ -n "$ICOUNT" ]; then
   set -- "$@" -icount "$ICOUNT"
 fi
 if [ -n "$SD" ] && [ "$MACHINE" = ze0 ]; then
-  # SD host port 0 (M8.C10, ze0-0008)
+  # SD host port 0 (M8.C10, ze0-0008).
   set -- "$@" -drive "if=sd,index=0,file=$SD"
 fi
 
