@@ -2864,7 +2864,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-22-M4.93-section4-wide-rows; 64/64 dirs, residual 366814 B -> 1326 B (2 tables)
 
 - [ ] **M4.94 — KIWI probe tools on the real EU card: replay every byte test and add `--tree`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m4.94-kiwi-probes-tree · Critical: no · Pair: required
   - Depends: M4.69 (done), M4.70 (done), M4.72 (done)
   - Goal: M4.67/M4.68/M4.69/M4.70/M4.72 (all done) each ran byte tests on a factory tree under `/home/marek/projekty/leafre-work/…`, but the committed probes (`kiwi_probe.py`, `kiwi_bg_probe.py`, `kiwi_road_probe.py`, `kiwi_route_concepts.py`) are exercised only by their `--selftest` synthetic fixtures; nobody can re-run a KIWI +/- verdict from the repo plus the card alone. Make the probes take the card tree and replay the counts the EXPs quote.
   - Precheck: `python3 tools/kiwi_road_probe.py --selftest` passes on synthetic data only; `python3 tools/kiwi_road_probe.py --help` has no `--tree`/`--card` option (`grep -c -- '--tree' tools/kiwi_road_probe.py` = 0).
