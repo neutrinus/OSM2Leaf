@@ -3677,7 +3677,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-22-M5.76-osm-synth-town; osm_synth selftest 24/24, deterministic seed, one-tile pipeline L1/L2
 
 - [ ] **M5.77 — Dolnośląskie in numbers: per-tile feature counts and slot-budget overflow from the real extract**
-  - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
+  - Status: in progress · Owner: task/m5.77-dolnoslaskie-numbers · Critical: no · Runner: non-Claude · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: Plan the first real region with numbers: how many ways, vertices, names and POIs fall into each tile and parcel, and where the budget overflows.
