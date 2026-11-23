@@ -1,0 +1,59 @@
+role: SM (Scrum Master), sixteenth pass
+model: Airouter Strong (aggregate)
+start: 2026-11-23 06:20 UTC
+end: 2026-11-23 06:40 UTC
+origin/main at start: 36a4d251
+
+inputs read: prompt_common.txt, prompt_sm.txt, AGENTS.md, TODO.md rules 1-17 +
+  Priorities; docs/retro/2026-11-21.md; dev_process/2026-11-22-{0631-1,0641-2,
+  0818-1,1010-3,1239-4,1940-5}.log (the only logs since the previous retro);
+  gh pr list --state all; tools/map_signals.py, worktree_audit.py,
+  .github/scripts/main_watch.py; prompt_tl.txt and prompt_qa.txt (review only).
+
+actions, in order:
+  1. git fetch + git pull --ff-only (c77a832d -> 36a4d251), clean but untracked
+     dev_assignments.md (not mine, left alone).
+  2. Window dbc0a05d (2026-11-21 06:49Z) -> 36a4d251 (2026-11-23 06:20Z), 47.5 h.
+  3. Measured the prompt_sm numbers: 161 PRs merged, 25 done / 3 blocked / 1
+     re-opened, 168 new task IDs, TODO 6388 lines, claims 6158 / 59 RETRACTED,
+     7 claims retracted in window, 13 open draft PRs, 0 non-draft, 0 board loss,
+     14 merged remote task/* branches, 33 local branches / 27 worktrees.
+  4. Rule-17 map numbers from map_signals.py are byte-identical to 2026-11-21:
+     18 readers / 8 L3 / 99.98-95.86-76.29 % / P0. Lead = map still, role silence.
+  5. Role silence: SM 47.4 h, SE 47.1 h, QA 46.7 h, PO 22.2 h, TL 10.8 h. Only
+     TL (5 logs) and PO (1) ran; SE/QA/SM wrote nothing. Second retro running
+     naming this. Recorded as lead (a) and action 1.
+  6. Work-lost leak found via worktree_audit: task/m5.72-locmap-ref-word (local,
+     4 commits, no PR) vs the merged #613 branch ...-ref-words. Progress on it
+     can be redone; M9.67 (its Unblock) is now claimed. Recorded (b), action 2.
+  7. Rule 15: 6 blocked tasks name an already-merged Unblock (M3.14, M3.16,
+     M3.29, M4.51, M4.59, M8.H65); todo_check --strict = 18 ERROR. H53 (which
+     owned this) is archived; no role re-owns the strict count. (c), action 3.
+  8. Board growth: 168 added vs 25 closed, 6388 lines, three cycles no map move.
+     (d), action 5 to the PO.
+  9. Verified cycle-19 actions: H121 merged and in gate (#431); M8.C1 branch gone,
+     work on main (#394); CI GREEN (main_watch 0 salient).
+ 10. Reviewed prompts (no edits); recorded two considered-and-rejected candidate
+     edits (prompt_sm work-lost line; prompt_qa H53 pointer) in the retro.
+ 11. Wrote docs/retro/2026-11-23.md with 5 actions (human/TL/SE-or-QA/TL/PO).
+ 12. Committed retro + this log; rebased, board lost 0/0, todo_check and
+     claims_check run, pushed to main. No board.py edits this pass (SM adds no
+     tasks and edits no status); so no TODO.md/claims.md diff.
+
+decisions / rejected:
+  - did not release the fresh 06:13Z claim-only drafts (M1.49 etc.): they are
+    minutes old and carry real driver worktrees, not ghosts.
+  - did not edit any prompt: the gaps are a missing run (SE/QA), not missing rules.
+  - did not touch another agent's in-progress rows; M5.72 leak handed to the TL.
+
+problems:
+  - the sandbox cannot delete remote branches (403); 14 merged task/* remain.
+  - 10 stale task-tl3-* worktrees and 3 scratch detached trees left by earlier
+    runs; action 4 to the TL.
+
+handoff:
+  - next SE/QA: run the roles (action 1) and clear todo_check --strict (action 3);
+    the 2026-11-21 retro's SE action was H121 (done) — QA has not run since it.
+  - TL: resolve M5.72 (action 2), prune worktrees (action 4); the 06:13Z batch of
+    8 new claims plus PR #632 are live drivers.
+  - PO: archive before adding; report map numbers first (action 5).
