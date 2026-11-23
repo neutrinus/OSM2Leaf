@@ -3687,8 +3687,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8510–C-8519
   - Pair: required
 
-- [ ] **M5.82 — New POI placement: a spatial-tree leaf, index record and copy-A word set for a POI that is not in the factory file**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.82 — New POI placement: a spatial-tree leaf, index record and copy-A word set for a POI that is not in the factory file**
+  - Status: done · Owner: task/m5.82-new-poi-placement · Critical: no · Pair: required
   - Step: P4
   - Depends: M5.63 (POI move inside a copy-A cell, done), M4.27 (fine position `rec[6..9]`, done), M4.47 (chain relocation, done)
   - Goal: M5.63 moves an existing POI and is explicit that "new POIs remain open": adding a POI needs a free copy-A cell, a new spatial-tree leaf, a new index key and a new name record, and no tool does all four. Poland's POI layer (M5.18) cannot ship until one real OSM POI with a name and a position is written into a factory pair and read back by the firmware walk, so close the placement gap before the bulk writer is built.
@@ -3700,6 +3700,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the added leaf joins (`joins` counts it) but the firmware walk returns the neighbouring record, or a page re-encode moves bytes outside the slot and `cmpind verify` fails.
   - Claims: C-8580–C-8589
   - Pair: required
+  - Result: EXP-2026-11-23-M5.82-new-poi-placement; selftest 13/13; census unaccounted=0; joins hold; L3 walk PASS + tree ACCEPT; cmpind 1/1
 
 
 

@@ -403,6 +403,29 @@ The longitude origin is the tile origin 52736; the "52742" of the older
 formula absorbed the average of the marker bits. `point_census.py
 encode_position` is the inverse for a writer.
 
+### Writing a new POI (M5.82)
+
+`tools/point_add_poi.py` adds one synthetic POI to a copy of the EU 2011
+`POINT010` pair. It clones a `0x68` name record (a `0x60` template would also
+need a 400-chain `INFORMATION` record), replaces its field-5 name bytes and the
+copy-A/fine words from `coord.encode_point_id`, then makes three local writes:
+
+1. the grown 1000-page chain is relocated through its locator (M4.47) to the
+   next 0x100 boundary — the firmware page loader follows the new base;
+2. one 16-byte spatial leaf (`0008, ptr, 0, kx, ky, fine`, `0x0800` flag, code
+   63) is inserted before the terminator of the host's depth-3/4 leaf node,
+   consuming part of the zero gap to the next node; the parent entry's `csize`
+   grows by 8 words;
+3. one 24-byte index key is appended to the last name-trie index stream, using
+   8 of its 76 B of slack, and the descriptor's `chain_words` is bumped.
+
+The new record's ordinal is the global record index (15,469 on POINT010); it
+is page-local 469 on the relocated last page, which is the `n` passed to
+`point_walk_l3.py`. Verified on the factory pair: census `unaccounted=0`,
+`joins hold` with 15,379 leaves and 35,527 keys, `cmpind verify` PASS,
+`point_walk_l3` PASS on the new record, and `point_tree_l3` ACCEPT on the
+modified tree. No trie leaf or L4/L5 run yet (EXP-2026-11-23-M5.82).
+
 ### Where POINT coordinates are, and are not (M4.37)
 
 > **Corrected by M4.27 (C-2679):** the statement below that no field is
