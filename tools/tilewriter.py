@@ -443,7 +443,7 @@ def _class_mapping(table):
 # --------------------------------------------------------------------------
 
 
-def _open_text(path: str):
+def _open_lines(path: str):
     """Open a UTF-8 text stream for ``path``.  A ``.gz`` suffix is streamed
     through ``gzip.open``; nothing here reads the whole file into memory."""
     try:
@@ -463,7 +463,7 @@ def read_jsonl(path: str):
     ``.gz`` input streams through the decompressor.  An empty file is still an
     error, raised only once the stream is exhausted.
     """
-    handle = _open_text(path)
+    handle = _open_lines(path)
     seen = False
     try:
         for number, line in enumerate(handle, start=1):

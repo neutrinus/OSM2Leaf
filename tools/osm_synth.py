@@ -791,7 +791,7 @@ def selftest() -> int:
     with tempfile.TemporaryDirectory(prefix="osm_synth_") as directory:
         path = Path(directory) / "town.jsonl"
         path.write_text(first, encoding="utf-8")
-        records = tilewriter.read_jsonl(str(path))
+        records = list(tilewriter.read_jsonl(str(path)))
         check("tilewriter.read_jsonl reads it",
               len(records) == 1 + summary["nodes"] + summary["ways"]
               + summary["relations"], str(len(records)))
