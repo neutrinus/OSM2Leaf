@@ -64,6 +64,34 @@ Start from [`TEMPLATE.md`](TEMPLATE.md). At minimum:
 - If the experiment depends on hardware (car/unit/card), say so and mark the
   status honestly.
 
+## Structural lint
+
+`tools/exp_check.py` checks the structural rules of
+[`TEMPLATE.md`](TEMPLATE.md) and **reports only** — it never edits a record.
+It reads the required heading set (`grep -c '^## '
+docs/experiments/TEMPLATE.md` prints **10** at this revision) and the five
+numbered Method part labels (`grep -cE '^[0-9]+\. \*\*'
+docs/experiments/TEMPLATE.md` prints **5**) from the template at run time, so
+a template change changes what is required. Heading and part-label matching
+ignores case and surrounding whitespace.
+
+Usage, from the repository root:
+
+```bash
+python3 tools/exp_check.py docs/experiments            # per-file PASS/FAIL, exit 1 if any FAIL
+python3 tools/exp_check.py docs/experiments --json     # same verdict as JSON
+python3 tools/exp_check.py --selftest                  # synthetic checks
+python3 tools/selftest.py --only exp_check             # auto-discovered via --selftest
+```
+
+A record must have the full heading set, all five bold Method part labels, a
+full 64-hex SHA-256 in the joined `**Sample:**` bullet (or the backticked
+`none (tool-only task)` waiver), and no `# ...` elision in Method part 2
+**Commands**. The lint checks presence by name only: it cannot judge whether
+a command is true or whether a Controls section really has a positive and a
+negative case. There is no `gate.py` row (TL decision, TODO rule 17);
+discovery is through `tools/selftest.py`.
+
 ## Linking
 
 ```
