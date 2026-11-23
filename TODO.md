@@ -6490,8 +6490,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: none (record repair; no claim rows reserved until the work commits them)
   - Pair: required
 
-- [ ] **M9.79 — Keep tool selftests off the `/tmp` tmpfs: the standing gate is red on this host**
-  - Status: in progress · Owner: task/m9.79-tmp-tmpfs-selftests · Critical: yes · Pair: required
+- [x] **M9.79 — Keep tool selftests off the `/tmp` tmpfs: the standing gate is red on this host**
+  - Status: done · Owner: task/m9.79-tmp-tmpfs-selftests · Critical: yes · Pair: required
   - Depends: —
   - Goal: a full `python3 tools/selftest.py` on 2026-11-23 ended with `passed=264 failed=2 skipped=21` because `tools/identity_fields.py` writes a listing to `$TMPDIR` and `tools/sdlock_pico_check.py` compiles in `tempfile.TemporaryDirectory()`, both on the 3.8 GiB `/tmp` tmpfs where this user hits `OSError: [Errno 122] Disk quota exceeded`. AGENTS.md already forbids long-lived `/tmp` scratch; the selftests must follow the same rule, otherwise a host-only file-system condition is reported as a code regression.
   - Precheck: `python3 tools/selftest.py --only identity_fields` prints `OSError: [Errno 122] Disk quota exceeded`; `--only sdlock_pico_check` prints `fatal error: error writing to /tmp/…: Przekroczony limit dyskowy`; `df -h /tmp` shows a tmpfs; `grep -n 'TMPDIR' tools/identity_fields.py` and `grep -n 'TemporaryDirectory' tools/sdlock_pico_check.py` both hit.
@@ -6502,6 +6502,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a selftest still fails with EDQUOT after the change, or a scratch directory remains after a green run.
   - Claims: C-9980–C-9989
   - Pair: required
+  - Result: EXP-2026-11-23-M9.79-tmpfs-selftests (both --only PASS; full 269/0/21; gate 5 pass, 0 fail, 0 skip)
 
 - [ ] **M9.80 — Rule 13 for our generated section-4 names: read an M5.65 tile's place-name list in L3 (first slice of M9.18)**
   - Status: blocked · Owner: task/m9.80-section4-names-l3 · Critical: yes · Pair: required
