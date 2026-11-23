@@ -548,18 +548,6 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-3870–C-3879
   - Result: EXP-2026-11-22-H66-json-parity (C-3870–C-3876): claims_check gains a same-command evidence reason, a four-row --window-strict error (C-3493/3494/3840/3843; default and bare --strict stay 0 so the gate is not turned red for 60 unrelated ellipsis rows), and an ast-based --flag-audit (4 real parsed-but-unread flags, named; warning-only). selftest 59 checks; tool/claims_check selftest PASS; strict+count rc=0. libd: fn_audit/selftest red on the base is pre-existing (M1.40 overlay + M3.37 ghost ref), not H66.
 
-- [x] **H77 — `fn_audit`/`claims_check` do not skip fenced code blocks, so an EXP that quotes a citation becomes a live citation**
-  - Status: done · Owner: task/h77-skip-fenced-code · Critical: no · Pair: required
-  - Depends: M1.26 (done: the l3 scope and its overlay), H76 (done: the l3 image assertion)
-  - Goal: in H71 the driver's first EXP draft put the probe text `Goal: fn 0x<VA> probe` inside a fenced block; `fn_audit.citations_markdown` has no fence state, so the EXP became a live l3 citation and the gate went `CORPUS STALE: 1 new` (full `selftest.py` RED). It was worked around with a `$VA` placeholder — a workaround that every future EXP writer must know. Fenced blocks are the documented way to quote a command; a scanner that treats their contents as prose will keep producing this class (the same failure in the docs scope is silent, because `docs/format/*.md` has few fences). This is a *policy* decision, so it is a pair, not a solo edit.
-  - Precheck: `python3 -c "import re;t=open('docs/experiments/EXP-2026-11-16-H71-evidence-spans.md').read();print(bool(re.search(r'(?s)\`\`\`.*?fn 0x[0-9a-f]{6,8}.*?\`\`\`?',t)))"`; append a fenced `fn 0x<start>` to a copy of a `docs/format/*.md` and run `python3 tools/fn_audit.py archive/head256.img --corpus docs/research/fn-audit-corpus-2026-11-16.json --quiet` — today it prints `CORPUS STALE: 1 new` for a fenced line.
-  - Scope: `tools/fn_audit.py` (`citations_markdown` and the `TODO.md` open-block scanner) gain a fence state: a `\`\`\`` (or `~~~`) block in an EXP/`docs/format` file is skipped, while a `TODO.md` task block keeps its current rule (TODO.md has no fences). Refresh the docs base and the l3 overlay only for the citations the change *removes* (if any), with an EXP that states the before/after counts. Not: changing the `strict` kind rules, the US-build skip, or the pin path.
-  - Input: `tools/fn_audit.py` `citations_markdown`/`citations_open_tasks`; H71's `Correction` (the workaround); M1.26's `--scope l3` overlay; `docs/experiments/TEMPLATE.md` (the fenced commands).
-  - Done when: a fenced `fn 0x…` appended to a copy of `docs/format/firmware.md` (and to an EXP) does **not** change either `--corpus` verdict (exit 0, unchanged counts); an unfenced one does (`CORPUS STALE: 1 new`, exit 1); `python3 tools/fn_audit.py --selftest` covers both, and `python3 tools/selftest.py` stays green; a before/after count of fenced citations (if any) is in the EXP.
-  - Stop: if a fence-aware scanner would change any committed snapshot row, say so in the EXP and ship the scanner with a *new* overlay rather than silently rewriting the frozen one (H69's rule).
-  - Claims: C-4000–C-4009
-  - Result: EXP-2026-11-20-H77-skip-fenced-code; C-4000–C-4003. `fn_audit.fenced_lines` (any-indent ``` / ~~~ fences, an unclosed fence hides nothing) is applied in `citations_markdown` for both disciplines; `TODO.md` open blocks keep their rule (they are not fence-aware, H115); the docs-base scan of `TODO.md` is. Docs base: 0/552 citations were fenced, so it is unchanged. l3 overlay: 159/1176 rows were fenced (START 126, GAP 18, INSIDE 10, UNMAPPED 5), so under the Stop rule a new overlay `fn-audit-l3-corpus-2026-11-20.json` (1017 rows at measurement, 1045 after the last `main` merge) ships as the gate/selftest default; the 2026-11-16 overlay is kept at `main`'s state when H77 merged (1204 rows, SHA-256 `c80330acac8b7839cfa38681ff7c865f80477d095c9750e3e4a7f430803f83d8`); not re-synced after H77 (`--write-snapshot` refuses its name). A fenced probe in `firmware.md`, an EXP or `map-tiles.md` leaves both verdicts at exit 0; unfenced, it gives `CORPUS STALE 1 new`, exit 1. `fn_audit --selftest` has 78 checks. `claims_check` unchanged: it has no citation scanner and its evidence rules read fenced commands; the title's mention is superseded by the Scope. Navigator fixes: EXP §Corrections after navigator review.
-
 - [x] **H78 — `claims_check --strict` must run the count rule, and a docs-only EXP edit must not re-pin a claim's measured revision**
   - Status: done · Owner: task/h78-count-gate · Critical: no · Pair: required
   - Depends: H74 (the count rule and `--strict`), H75 (the row that reproduced it), H76 (the l3 suite this must not disturb)
@@ -572,38 +560,6 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: if no date/commit rule can distinguish H75's append from a real tool change without hand-maintaining a table, ship the `--strict` half and record the revision rule as `NOT SHIPPED: <reason>` with the bisect count, and hand the per-row revision to H75's owner.
   - Result: EXP-2026-11-16-H78-claims-strict-count; C-4010–C-4016. `--strict` now runs the count rule (`_run_counts`), so the real-ledger `--strict` and `--count-check` both exit 0 with `count mismatches: 0`; the measurement revision is the newest commit that changed the EXP *and* a `tools/*.py` file, so H75's docs-only `Correction` append no longer re-pins C-3704 (measured `334f092` -> 26, not `ec58d12` -> 29). A one-digit change still fails (C-3704 26->25 exit 1); a claim whose EXP record exists but has no measurement revision is skipped, not measured on the working tree; `--selftest` 25 checks (all four numbers from the commands above); `selftest.py` 90/0/23 with the head.
   - Claims: C-4010–C-4019
-
-- [x] **H81 — Close the seven task blocks that carry an H51 "superseded" note**
-  - Status: done · Owner: task/h81-close-superseded · Critical: no · Pair: solo
-  - Depends: M1.19 (its `Re-opens on merge` line already promises to close them, but it is open and unowned); H51 (`nk_decomp.py` decodes 245/245 build-A sections, which made them moot)
-  - Goal: seven task blocks still carry `Note (H51, 2026-11-11): **superseded — do not take.**` — M1.2e, M1.2g, M8.E1c, M9.29, M9.30 are **open** and M1.2f, M8.E1 are **blocked** (printed by the ID/status probe in the Precheck). Every PO/SM pass re-reads and re-skips them, and the board's open count counts five of them as takeable work. M1.19 is meant to close them on merge, but it is open and unowned, so nothing will.
-  - Precheck: `python3 - <<'EOF'` probe below prints the seven IDs with their status; `grep -c 'superseded — do not take' TODO.md` counts every occurrence including this block's own two Quote/Goal lines, so it is not a selector; the probe below is (7 task notes at the time of writing): run the probe instead of the raw grep.
-    ```bash
-    python3 - <<'EOF'
-    import re
-    L=open('TODO.md').read().split('\n'); i=0
-    while i<len(L):
-        m=re.match(r'^- \[[ x]\] \*\*([A-Za-z0-9.]+)',L[i])
-        if m:
-            j=i+1; body=[]; st='?'
-            while j<len(L) and not re.match(r'^- \[',L[j]):
-                body.append(L[j])
-                s=re.search(r'Status: (open|in progress|blocked|done)',L[j])
-                if s and st=='?': st=s.group(1)
-                j+=1
-            if any('superseded — do not take' in b for b in body) and m.group(1)!='H81':
-                print(m.group(1), st)
-            i=j
-        else: i+=1
-    EOF
-    ```
-  - Scope: TODO.md only — set the seven blocks to `Status: done` with `Result: superseded by H51/M1.19 (nk_decomp.py decodes 245/245 build-A sections; see M1.19)`, **or** `Status: blocked · Unblock: M1.19` if the PO prefers them visible until M1.19's wiring lands. Keep the history note; do not delete blocks; do not touch M1.19's own block (its "re-opens" sentence already covers the closure).
-  - Input: TODO.md blocks M1.2e/M1.2f/M1.2g/M8.E1/M8.E1c/M9.29/M9.30, M1.19's `Re-opens on merge` line, `tools/nk_decomp.py`, EXP-2026-11-10-M9.35-sec1-load-model.
-  - Hints: M1.19 bundles the real closure (it re-opens M1.4); this task only makes the board honest before M1.19 starts. Prefer `done · superseded` for the five open ones — they are not takeable work and must stop inflating the open count — and leave the two blocked ones as `blocked · Unblock: M1.19` if their own unblock chains still point elsewhere.
-  - Done when: the probe prints no `open` row among the seven; the board totals change by exactly the number moved (open −5, done +5, or blocked +5 and open −5); `python3 tools/todo_check.py` and `--strict` show no new errors.
-  - Stop: if M1.19 merges first and closes them, mark this done as superseded with a one-line Result; do not fight the merge.
-  - Result: EXP-2026-11-16-H81-close-superseded; C-4040–C-4044. Five of the seven H51-superseded blocks were `open`; they are now `done` with `Result: superseded by H51/M1.19` (history note kept, no block deleted), so the probe prints no `open` row among the seven and the board moves `open 108→103`, `done 59→64` (`blocked` unchanged at `28`). The two `blocked` ones (M1.2f, M8.E1) keep their own `Unblock:` chain, not M1.19, which would be a false unblock. `todo_check` OK; `--strict` 69→66 (M1.2e's three firmware fields drop out, nothing new). H81's own stale `grep -c` count is corrected: `10`, not `11`.
-  - Claims: C-4040–C-4049
 
 - [x] **H82 — Stamp the zlib interpreter into recompression evidence (this host's default `python3` is zlib-ng)**
   - Status: done · Owner: task/h82-zlib-stamp · Critical: no · Pair: solo
@@ -729,36 +685,6 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-3510–C-3519
 
 
-- [x] **M1.24 — `sh4literal`: one literal-pool scan that reports referenced vs unreferenced 32-bit words**
-  - Status: done · Owner: task/m1.24-sh4literal · Critical: yes · Pair: required
-  - Depends: — (uses `sh4dis`/`pdata` when the image is given)
-  - Goal: three recent negative results ("never read") rest on ad-hoc sec0 literal surveys pasted into EXPs (M3.13 pass-3; M3.11c/M3.15 earlier) and are not reproducible from the repo. Replace them with one tool so "literal X appears in no pool" is a command, not a story.
-  - Precheck: `python3 tools/sh4scan.py --selftest` passes; `grep -n "def load_literals\|class.*pool\|literal" tools/sh4xref.py` shows the pool resolver to reuse.
-  - Scope: new `tools/sh4literal.py` (`--selftest`): parse a module's executable sections, collect every PC-relative `mov.l @(disp,PC)`/`mova` target (32-bit pool words) and report per word `VA, word, referencing instructions[]`; query modes `find WORD` / `--range LO HI` / `--unreferenced`; `--module M --image-start S` for a real image, `--json` for EXPs. Also report a module's literal pools **inside decoded INIT sections** when `nk_decomp` can decode them, so "sec1 was not searched" is visible. Not: a disassembler (reuse `sh4dis`).
-  - Input: `tools/sh4dis.py` (operand decode), `tools/sh4xref.py` pool logic, `tools/sh4scan.py`, `tools/pdata.py` (function ranges), `tools/nk_decomp.py` (INIT bytes).
-  - Hints: M3.13's `:;:` (`0x3a3b3a`), `01 f4 00 00` (`0x0000f401`/`0x01f40000`), `4e 20 00 00` (`0x0000204e`/`0x4e200000`), `0x0000ff00`, `0x0000c000`, `0x0000a000` are the regression corpus — the tool must reproduce M3.13's "0 references" for the first three and its "1 reference" for `0xc000`. Positive control: a known-referenced literal (e.g. `LCTBL001.DAT` address at `0x0017a1f8` loaded by `fn 0x004125a8`).
-  - Done when: the tool reproduces the M3.13 corpus in an EXP, including whether the constants appear in **decoded sec1/sec2** (a column the pass-3 EXP lacked); `--unreferenced` on `Navi.exe` sec0 gives a count; selftest covers direct/PC-relative/pool-in-data and a false pool word; `--parent-of VA` prints the true enclosing `fn` start from the pool walker's own operand data (so `0x0041c7e8` prints `0x0041c7dc`), and that command is the re-check H63's `Pin:` line names.
-  - Stop: if `nk_decomp` cannot decode a target section, print `NOT SEARCHED (section N)` — never fold it into "absent".
-  - Claims: C-5980–C-5989 (was C-3630–C-3639; fresh block for this run)
-  - Result: EXP-2026-11-20-M1.24-sh4literal; C-5980–C-5988 (C-5989 reserved). `tools/sh4literal.py` (`find`/`bytes`/`--range`/`--unreferenced`/`--parent-of`/`--parent-audit`, `--json`, 21-check `--selftest`) on `archive/head256.img` (`92aa525d…`) `Navi.exe` EU2011 sec0 + decoded sec1/sec2 (5,712,528 B): M3.13 corpus reproduces — `0x0000f401`/`0x01f40000`/`0x0000204e`/`0x4e200000` 0 pool words module-wide, window `0x003f5000`–`0x003f7000` `0x0000ff00` 0 loads and `0x0000c000` 1 (`0x003f56ec`); module-wide `ff00` 42 / `c000` 82 loads (pass-3 counts are window-scoped); `:;:` 5 occurrences (4 sec0 + 1 decoded sec1 `0x005621d5`), none pointed to; decoded sec1/sec2 add no reference. `--unreferenced` 13,015 not PC-relative-loaded words in 12,562 pool blocks (navigator fix: 3,276 `pointed` by a held address, 9,739 unreferenced; `--h118-compare` 135,975 shared pool halfwords with `fn_match.pool_slots`, 836/189 differ). `--parent-of 0x0041c7e8` → `0x0041c7dc`, `0x00542256` → `0x00542250` (H63 Pin re-check), walker vs `.pdata` 7,507/7,596 agree (1.17 % differ). New: `0x4e20` is a 16-bit `mov.w` literal twice in the window (`0x003f51c2`, `0x003f5bcc`), outside C-970's 32-bit search (C-5986).
-
-- [x] **M1.26 — `fn_audit --scope l3`: turn H52's audit into the standing PR gate the M1.25 plan skipped**
-  - Status: done · Owner: task/m1.26-fn-audit-scope-l3 · Critical: yes · Pair: required
-  - Depends: M1.25 (`fn_audit.py`), M1.23 (pdata-backed labels), M1.30 (frozen snapshot, the gate base), M1.29 (corrections must not count as `INSIDE`, else the gate can never reach zero), H69 (refreshed snapshot + the `moved`-only policy this gate must name, PO 2026-11-16), H72 (the `AMBIGUOUS` candidate-set gate, done)
-  - Goal: M1.25 ends with `fn_audit --scope docs` over `TODO.md`, `docs/format/*.md` and `targets.json`. The M9/M3 board cites dozens more VAs inside task blocks (`l3_harness` targets, EXPs, `_l3.py` constants); without this, the next mid-function entry (H51 found three) ships unnoticed. Close H52 with an automated check rather than a one-off table.
-  - Precheck: `python3 tools/fn_audit.py --selftest` passes; `python3 tools/fn_audit.py archive/head256.img --scope docs` reproduces the H52 three (`0x0041c7e8`, `0x00412bee`, `0x00542256`) as `INSIDE` with their true starts; `python3 tools/fn_audit.py --scope l3 archive/head256.img` exits `2` (flag absent, the gap this task fills).
-  - Note (SE 2026-11-15): after M1.29 a correction line (`0x00542256 → fn 0x00542250`) is `CORRECTED`, not `INSIDE`, so 0x00542256 (ctx-only today) leaves the failing set; keep the Precheck honest by naming the VAs that still appear as a live `fn`/`sub_`/target when this runs, not the literal three.
-  - Note (SE 2026-11-16): the gate must run on **M1.30's frozen corpus snapshot**, not the live `TODO.md` — the count moves with prose (an H63 edit alone shifted the pin-popped summary `INSIDE 5→10` at `26f33cd`). Add M1.30 to this task's `Depends` when claiming, and make `--scope l3` accept the snapshot as its base plus the l3 files as an overlay.
-  - Note (SE 2026-11-16, third — post-H72/M1.27 coherence): the overlay design is still sound but two things must be stated when claiming, not left implicit. (1) **Candidates gate:** H72 shipped `verdict_differs` comparing the `AMBIGUOUS` candidate set, but the committed snapshot is `AMBIGUOUS 0`, so the gate is **unexercised on real rows** (H72 EXP Follow-ups). The `--scope l3` overlay is the first source of `AMBIGUOUS` rows; its Done-when must refresh the snapshot with at least one `AMBIGUOUS` row and prove the candidate-set comparison fires on it, else M1.26 ships green over an untested gate. (2) **`moved` policy under an overlay:** the frozen base is already `125 moved` on `main` (H69/H72 prose drift); the l3 overlay adds its own rows whose `line` numbers move whenever a task block is edited, so "moved warns, new/gone/verdict fails" must apply **per source** (docs base vs l3 overlay) — do not let l3 line churn either fail the gate or silently fold into the docs `moved` count. The histogram the gate prints must name both totals; the H74 path/count check is what catches a claim that types one of them. Nothing here re-opens H72 or M1.27; it pins what the overlay must show.
-  - Note (SE 2026-11-16, second): the retro/TL text says the gate runs with `--live-check`, but **no such flag exists** — the live comparison is on by default and only `--no-live-check` turns it off (`tools/fn_audit.py:1164`). Also, today's `compare_live` re-scans only `--scope docs`, so an `--scope l3` gate would report staleness for the docs base and be **blind to drift in the l3 overlay** unless the overlay gets its own live comparison. The committed snapshot is already `moved`-stale on `main` (97 `TODO.md` lines, H69) — the gate must name whether those moves fail it. Plan the overlay's staleness check and read H69's policy before wiring the gate; do not cite `--live-check`.
-  - Scope: extend `tools/fn_audit.py` with `--scope l3` scanning `tools/l3_harness/targets.json`, `docs/format/firmware.md`, `docs/experiments/EXP-*.md` (parsed only, EXP files are read-only) and every `0x…` in open task blocks. Exit 1 on `INSIDE`. Not: editing the citations (H52) or re-deriving readers.
-  - Input: `tools/fn_audit.py` (M1.25 output), H52 table format, `pdata.py` (census), EUs/US builds.
-  - Hints: EXPs cannot be edited (append-only); report their stale VAs in a file `docs/research/fn-audit-2026-11-13.md` instead. `GAP` needs a direct `bsr`/`jsr`/pool caller to count as a leaf; H51's `sh4xref` `fn` heuristic is not evidence (the sh4xref↔pdata mismatch rate is H52's Done-when item — M1.25 did not measure it).
-  - Done when: `--scope l3` covers ≥ 3 corpora (targets, firmware.md, open task blocks), reproduces the H52 three where they remain live citations (after M1.29 a correction line is `CORRECTED`), is wired into `tools/selftest.py` as a skipped fixture plus a synthetic `INSIDE` that must fail, and the audit file lists every remaining `INSIDE`/`DATA/UNKNOWN` with a task ID that fixes it. H52 closes with the applied table (rule 15).
-  - Stop: if a corpus has no reproducible parser, list it as `NOT SCANNED` with the reason rather than guessing.
-  - Claims: C-3660–C-3669
-  - Result: EXP-2026-11-16-M1.26-fn-audit-scope-l3; C-3660–C-3666 (C-3667–C-3669 reserved). `--scope l3` covers targets 1, `firmware.md` 59, EXPs 770 over 69 files with rows (292 EXPs on disk), open blocks 61 over 18 contributing blocks (35 citation lines of 134 open) = **891 citations / 179 unique VAs / 295 files**; on `archive/head256.img` (`92aa525d…`) `START 712, INSIDE 81, CORRECTED 11, GAP 75 (leaf 75), AMBIGUOUS 5, UNMAPPED 7`, exit 1, `--fix-list` 21 lines; `--scope docs` unchanged (313 citations, `INSIDE 0`, exit 0). An open block is scanned with the docs discipline (a live `fn`/`sub_` label, a correction `ctx` with its own arrow pair, or a `CORRECTION_ONLY` pin), not every `0x…`, so a bare data address/path/range/string or US-build VA is skipped and **no open block contributes an `INSIDE`**; the round-1 `1269 citations / INSIDE 137 / 59 unique` was a classifier false-positive storm (proved: appending `0x00d53500` to an open block stays green, a live `fn` label of `0x0041c7e8` exits 1). `US_BUILD_STARTS` (six US-2011 Navi VAs, C-3487/M1.28) are skipped for every kind in both scopes. The 81 `INSIDE` occurrences are 21 unique VAs (17 `fn`, 4 `sub_`), all in append-only EXPs and marked `accepted data/append-only` in `docs/research/fn-audit-2026-11-13.md`; `0x00542256`/`0x003f5fc2` resolve through the new pin path (`CORRECTED`), `0x00413af4` is `correction-only`. Overlay frozen to `docs/research/fn-audit-l3-corpus-2026-11-16.json` (`6adb8d5b…`, 891 rows/295 files, reproducible byte-for-byte). `--corpus BASE --overlay L3` applies H69 **per source**: `CORPUS DRIFT: DOCS BASE: 0 new / 0 gone` (125 moved, warn) + `CORPUS OK: L3 OVERLAY: 0 new / 0 gone / 0 moved`, exit 0; `--overlay` without `--corpus`, a non-l3 overlay and a hash mismatch each exit 2. H72 is exercised on real rows: the overlay's 5 `AMBIGUOUS` rows over 4 VAs all hold an `INSIDE` candidate, and `--selftest` proves a live candidate that gains `INSIDE` is `CORPUS STALE` exit 1 while unchanged candidates stay moved-only exit 0. Wired into `tools/selftest.py` as `fn_audit_l3` (synthetic `INSIDE` fails / `START` passes; block discipline and strict markdown assertions, no image) and `fn_audit_l3_image` (`skip_unless`; asserts no data address and no US start in the overlay). No `--live-check` flag exists (live compare is default, `--no-live-check` disables); `fn_match.py`/`pdata.py` untouched.
-
 
 - [x] **H103 — `cardcheck` cannot check a tree we built: no `--generate-fixture`, so L1 can never be a CI row**
   - Status: done · Owner: task/h103-cardcheck-fixture · Critical: yes · Pair: required
@@ -834,30 +760,6 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: if the board's fences are unbalanced (an unclosed fence hides nothing, per H77), record the lines and ship only the template fix.
   - Claims: C-5720–C-5729
   - Result: `docs/experiments/EXP-2026-11-20-H115-fn-audit-fence.md` (C-5720–C-5723). `fn_audit._open_blocks` now derives `fenced_lines` and ignores a fenced header/boundary (the line-209 template is no longer a block); `citations_open_tasks` skips fenced lines. Real board open blocks `116 → 115` at base `2e683be` (`115 → 114` after the `3d263f9` rebase; contributing/citation lines unchanged by the fix); frozen corpora keep identity (`0 new / 0 gone`, 1076 l3 / 521 docs rows, line-only drift, no re-freeze). Negative control: a `fn 0x004125a8` fenced in the H115 block is cited by the old code at `TODO.md:1428` and not by the fix. `fn_audit --selftest` `OK (99 checks, 0 failed)`; `gate.py` `4 pass, 0 fail, 0 skip`.
-
-- [x] **M1.34 — The `AppLaunch.dll` launch table: how `Navi.exe` is started and what gates it**
-  - Status: done · Owner: task/m1.34-applaunch-table · Critical: no
-  - Result: table base `0x03bb2330` (EU2011 = US2011), 112 records × `0x310` B via getters `0x03bccb84`/`0x03bccb88`, walker `fn 0x03bcc5b0`, filter `fn 0x03bcc564`; EU `Navi.exe` = record #81 `0x03bc1b40` (type 4, area `0x00020000`, waits 80/20/3/4/40/94/82, id `0xa2`). `fn 0x03bcc078` creates `Navi.exe` suspended and resumes it only if the error flag `0x01f733f0` is clear after id 82, which `MountStorage` (`fn 0x03bd224c`) signals after `SDC1:` → `DSK1:` mount → check 1 `fn 0x03bd2ad8` → check 2 `fn 0x03bd2ce4`. Corrected the USA/Euro area masks (C-5350). Tool `tools/applaunch_table.py`; `docs/research/rom-registry.md` updated. EXP: `docs/experiments/EXP-2026-11-20-M1.34-applaunch-table.md`. Claims C-3528, C-3529, C-5350, C-5351.
-  - Depends: M1.21 (done)
-  - Goal: M1.21 found that `Navi.exe` is started by `AppLaunch.dll` (build B, loaded as `Drivers\BuiltIn\AppLch`) from a compiled-in table, not from the registry, and that the same module opens `\SystemSD\VER_INFO\HDD_INFO.TXT` and prints `MapDBVer : %d <= [%d] <= %d`. Name the table's record layout, the function that walks it, and the order of the SD/map-version checks before `Navi.exe` starts, so a generated card's `VER_INFO` can be checked against the gate.
-  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections AppLaunch.dll` shows an uncompressed code section at `realaddr 0x03bb1000` (EU2011); `python3 tools/sh4xref.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --to 0x03bc92f0` (`HDD_INFO.TXT`, EU2011) lists two loading functions (EU2011, see EXP-2026-11-19-M1.21), while `--to 0x03bc0f54` (`\windows\Navi.exe`) prints `No literal pool holds` — the Navi entry is reached through a data table, not a code literal (M1.21 session, 2026-11-19).
-  - Scope: build B `AppLaunch.dll` (EU2011; US2011 build B is byte-identical); the launch table and the `HDD_INFO.TXT`/`MapDBVer` path. Not: the error screens already in `docs/format/validation.md`, not Navi.exe itself.
-  - Input: EXP-2026-11-19-M1.21-filesentry-decode (string VAs `0x03bc0f54`, `0x03bc92f0`, `0x03bc9360`, EU2011), `docs/research/rom-registry.md`, `docs/format/validation.md` (the AppLaunch router), `tools/sh4xref.py`, `tools/sh4dis.py`, `tools/nk_decomp.py pdata --module AppLaunch.dll`.
-  - Done when: an EXP names the table base, record size and the fields for the `Navi.exe` record (EU2011 VAs, function starts checked with `nk_decomp.py pdata`), and the function that opens `HDD_INFO.TXT` with the comparison it makes; `docs/research/rom-registry.md` gains the result.
-  - Stop: if no static reference to the table is found after the string-pool and `.data` search, record the negative with the positive control (a `\Drivers\Launch\SD` reference) and block on an L3 run of the router.
-  - Claims: C-3528–C-3529 (and C-5350–C-5351 from the reserve)
-
-- [x] **M1.35 — What `AppLaunch.dll` asks `SDC1:` before the mount (`0x80032000`/`0x80032004`), and who signals wait id 94**
-  - Status: done · Owner: task/m1.35-sdc1-ioctl-wait94 · Critical: no
-  - Depends: M1.34 (done)
-  - Goal: M1.34 found that `MountStorage` (`fn 0x03bd224c`, EU2011) opens `SDC1:` and sends `DeviceIoControl 0x80032004`/`0x80032000` with retries (`fn 0x03bd2044`) before `DSK1:` is mounted, failing with error `0x80` `NO SD CARD`; `SD UNLOCK NG` (`0x81`) is never dispatched there. Name the handler of these two IOCTLs in `SDHC.dll` (build B) and say whether it is the CMD42 unlock, and find the signaller of ACM wait id 94 that every non-JP `Navi.exe` record waits for.
-  - Precheck: `python3 tools/sh4dis.py archive/head256.img AppLaunch.dll --image-start 0x3e00200 --va 0x03bd2044 --count 80` shows the two IOCTL literals (`0x03bd20f8`, `0x03bd2108`, EU2011); `python3 tools/cerom.py --image-start 0x3e00200 archive/head256.img sections SDHC.dll` lists an uncompressed code section.
-  - Scope: build B `SDHC.dll` `IOControl` dispatch for `0x8003xxxx` and the `ACM9:` driver's `SET_ID` callers outside `AppLaunch.dll`. Not: the lock password value (never written in the repo).
-  - Input: EXP-2026-11-20-M1.34-applaunch-table, `tools/applaunch_table.py`, `tools/sh4xref.py`, `tools/nk_decomp.py pdata`.
-  - Done when: an EXP names the `SDHC.dll` function that handles `0x80032000` and `0x80032004` (pdata START, EU2011) with the SD command it issues, and the module that sends `IOCTL_ACM_SET_ID` with id 94 (or a negative with the `AppLaunch` id-82 sender as positive control).
-  - Stop: if the `SDHC.dll` IOControl dispatch is not found after the literal search and an export walk, record the negative and block on an L3 run of `fn 0x03bd2044`.
-  - Claims: C-5352–C-5359
-  - Result: done — EXP-2026-11-20-M1.35-sdc1-ioctl-wait94. `SDC1:` = `CSDCMain` in `SDHC.dll` (EU2011 = US2011); `fn 0x039b4498` dispatches `0x80032004` to `fn 0x039b4850` (port state: 2 inactive, 4 `DSK1:` active, 8 failed, 1 no card, `|0x80000000` if unpowered) and `0x80032000` to `fn 0x039b4664` (insert/remove request: port power + wake the load thread). Neither issues CMD42; the unlock runs inside the `DSK1:` activation (`fn 0x039b4b18` → `CDSKMain::Init` → `fn 0x039b6ac4`), which then sets ACM id 37. Id 94: no SET_ID sender in images A+B+C of either build (`tools/acm_id_scan.py`: 0 of 71/72 calls; controls 37, 22, 82 found), so `Navi.exe` waits out its 30 s (C-5352–C-5357; C-5358–C-5359 unused).
 
 - [x] **M1.36 — Module census of the CE ROMs on four cards (EU 2011, US 2011, EU 2014, EU 2016)**
   - Status: done · Owner: claude/project-thread-64ftoc · Critical: no · Pair: solo
@@ -1351,21 +1253,6 @@ The 23rd-pass text is in git (`af469580`).
 
 ## M3 — Reader contract
 
-- [x] **M3.2 — `.ind` handling: `chunk_size` and seek vs scan**
-  - Status: done · Owner: — · Critical: yes
-  - Note (M9.44, 2026-11-19): measured on the running layer: the `.ind` is read as a 16-byte header and then the offset table (one read of up to 2,048 bytes), and only the chunks covering the request are read from the `.cmp`, by seek (C-4643). `.ind` +4 is not compared with the `.cmp` size (C-4646).
-  - Unblock: M3.2b's re-run (the chunk engine and its caller), or M1.2f when
-    the `.ind` layer turns out to be in `Navi.exe` sec1.
-  - Blocker: `.ind` chunk reader (chunk_count/chunk_size/chunk_offset consumer) not identified; `fn 0x00418748` is a resolver only. See EXP-2026-11-06-M3.2-ind-handling.
-  - Depends: M3.1
-  - Goal: answer from code whether `chunk_size` sizes a buffer or is
-    compared against `0x10000`, and whether the reader seeks by offset or
-    scans for `78 9c`.
-  - Input: M3.1 functions; `docs/format/cmp-ind.md`; `tools/ind_mutate.py`.
-  - Done when: both answers are in `cmp-ind.md` with VAs.
-  - Claims: C-5330–C-5339 (was C-830–C-839; fresh block for this run)
-  - Result: EXP-2026-11-20-M3.2-ind-handling-l3.md (done, C-5330–C-5334). EU2011 L3 run of the whole compressed layer (`tools/cmp_read_l3.py`: mount `0x41bc98`, open `0x41b780`, seek `0x41b8a4`, read `0x41b954`, host ops): (a) `chunk_size` compared with the mount word at `0x41c92a` (0x8000/0x20000 rejected before any `.cmp` read; mount word 0x20000 rejects the factory file; both 0x20000 -> 79,360 wrong bytes), sizes nothing; (b) seek to `chunk_offset[first]` + one read (POINT010 seek `0x234d7f`), `78 9c` decoy + shifted index still correct, `off_last_m1` -> -1, no scan. Factory ADDRE001/POINT010 byte-identical. Static answers were already in `cmp-ind.md` (M3.2b); L3 paragraph added.
-
 - [x] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
   - Status: done · Owner: — · Critical: yes
   - Note (H51, 2026-11-11): **re-opened: the search target was wrong, not the method.** `0x0041c7e8` is the seventh instruction of `fn 0x0041c7dc` (pdata: prologue 30 B, length `0xe8`); nothing references a mid-prologue address. `python3 tools/sh4xref.py IMG256 Navi.exe --image-start 0x200200 --to 0x0041c7dc` → pool `0x0041caac`, caller **`fn 0x0041c990`** (`jsr` at `0x0041ca5a`), whose caller is **`fn 0x0041c044`** (`jsr` at `0x0041c096`). Next: disassemble `0x0041c990` (length `0x120`) — it is the loop over the chunk table and should answer M3.2 (chunk size source, seek vs scan); walk up from `0x0041c044` to the function that opens the `.cmp`/`.ind` pair (M3.23 `callers`). Then fix `FN_CHUNK` in `tools/chunk_decoder_l3.py` to the true entry (H52) and re-run M9.11. No sec1 decode is needed for any of this.
@@ -1857,19 +1744,6 @@ The 23rd-pass text is in git (`af469580`).
   - Falsifier: a located "reader" that never reaches the client API or the map-file task in the graph.
   - Claims: C-4660–C-4679
 
-- [x] **M5.52 — `mutate_refer_poi.py --resize` must update the record's field-length bytes, or the firmware reads a truncated name**
-  - Status: done · Owner: task/m5.52-resize-field-len · Critical: yes
-  - Step: P4
-  - Depends: M3.11c (done — the accessor and the field-length bytes)
-  - Goal: M3.11c found that the firmware finds a POI name through the per-record field-length bytes, in words, plus the file's field dictionary, not through the `ff ff` framing. `resize_name` only rewrites `len2`. After a different-length rename the accessor still returns the old length: US2011 record 0 renamed `HANA HEALTH CENTER`→`HANA HEALTH CENTERXX` reads back as name `HANA HEALTH CENTER` and address `XX4590@HANA HWY` (EXP-2026-11-19-M3.11c-point-name-accessor-l3, C-5117). Make `--resize` update the field-5 length byte too, and refuse a delta that is not a whole number of words.
-  - Precheck: `python3 tools/point_name_accessor.py run archive/us256.img --cmp <US POINT010.DAT.cmp> --ind <…ind> --build us2011 --rename "HANA HEALTH CENTER=HANA HEALTH CENTERXX" --expect "HANA HEALTH CENTERXX"` → `mismatch=1`, `result: FAIL` (the defect).
-  - Scope: `tools/mutate_refer_poi.py` (`resize_name`, `verify_resize`) and its selftest; the length byte location comes from C-5115 (field area at `rec + 2*(hi+lo+8)` of `u16[rec+10]` for header class 3/2; `(n+1)/2` words of length bytes, n from the dictionary). Not: page budget, `.cmp` re-encode.
-  - Input: `tools/point_name_accessor.py` (the L3 check), C-5110–C-5117.
-  - Done when: the precheck command exits 0 with `ok=1000 of 1000` and the expected name on a +2-byte and a −2-byte rename, and `resize_name` refuses a record whose header class it cannot place.
-  - Stop: if a record class other than 3/2 needs renaming and its length byte cannot be located, refuse it and record the class count.
-  - Result: EXP-2026-11-19-M5.52-resize-field-len.md (done). `--resize` places field 5 like `fn 0x003f56bc`/`fn 0x003f5e10` (EU2011; length of field f = byte `loc+f`), requires the old text inside field 5, patches `len2` and the field-5 length byte, refuses odd deltas and unplaceable records; `--census`: 2000/2000 records class 3, all placeable. Accessor (US2011 `0x0041ec8c`, EU2011 `fn 0x003f632c`): US rec 0 −2/0/+2/+10 B and EU rec 0 −2/+2, rec 1 +2 → whole new name, address unchanged, `ok=1000 of 1000`, PASS; pre-fix +2 `mismatch=1` (precheck), old-name expectation FAIL, odd/address renames refused. The M9.39 US mutant `ea2d0e0f…` has the same stale byte at rec 500 (`mismatch=1`); the fixed CLI writes `34fb3aab…` (`ok=1000`) → new M9.54 (re-pin). selftest 17/17.
-  - Claims: C-5260–C-5265 (C-5266–C-5269 handed to M9.54)
-
 - [ ] **M3.29 — Split the shared REFER candidate list per family at run time, and measure M3.23's recall**
   - Status: blocked · Owner: — · Critical: no
   - Depends: M3.23 (done), M9.38 (read watch), M3.28 (`vcard_l3.py trace`)
@@ -2135,18 +2009,6 @@ The 23rd-pass text is in git (`af469580`).
     the error in metres, states which origin and local scale fit, and
     `coord.py` self-test pins the chosen constants.
   - Claims: C-1900–C-1909, C-2936–C-2939, C-9940–C-9949
-
-- [x] **M4.11 — `LEV3456R.DAT` coarse levels 3–5 semantics**
-  - Status: done · Owner: task/m4.11-lev-coarse · Critical: no
-  - Result: EXP-2026-11-06-M4.11-lev-coarse (`tools/lev3456.py`; level 5
-    62/62 records decoded and recompressed, whole 76,066,304-byte file
-    byte-identical; levels 3/4 region-identical with 1,677/41 preserved)
-  - Depends: —
-  - Goal: what the overview levels contain and how to regenerate them from
-    OSM (needed for zoomed-out display).
-  - Done when: `map-tiles.md` describes levels 3–5 content and a rebuild of
-    one level from decoded records is byte-identical.
-  - Claims: C-990–C-999
 
 - [x] **M4.16 — Place `RDSTM001` rows on the map**
   - Status: done · Owner: task/m4.16-rdstm-place · Critical: yes · Pair: solo
@@ -2511,32 +2373,6 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: if no section-4 record of the two tiles has an entry that clears the `0x0900` gate, record the census and the gate's selection rule and stop.
   - Falsifier: the `k` that `0x00424464` returns on a factory parcel does not land on a section-4 entry start.
   - Claims: C-6030–C-6039
-
-- [x] **M4.47 — Find the POINT chain locator (where a chain base and its table are recorded)**
-  - Status: done · Owner: task/m4.47-point-chain-locator · Critical: yes
-  - Depends: — (M5.26 done: chain tables and `tools/point_pair_regen.py` on `main`)
-  - Goal: M5.26 can re-pack a POINT page chain only inside its own slot (24–248 B of slack per name chain) because nothing known tells the reader where a chain base and its chain table are (C-2955). Find that locator so a regenerated chain can move or grow and mass OSM name sets fit.
-  - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_pair_regen.py scan EU/REFER001` reports 99 tables / 0 unresolved; `python3 tools/point_pair_regen.py locator EU/REFER001` reproduces `NOT FOUND (best 4/33)` with control 33/33 (the search space already excluded).
-  - Scope: decoded `REFER001/POINT0nn.DAT` of EU and US 2011 (44 files): the 0x200–0x2000 directory area (`ffff 0000 0201` record at `0x1000`, 6-byte cells near `0x820`/`0xe80`), the `4e 20 00 00` index chains, the area after the tables; then, if the file does not hold it, the firmware: the caller(s) of `fn 0x003f5194` (EU2011) and the `0x00d53500` buffer table (C-2184/C-2540) that hands it a page. Name the build next to every VA. No writer change beyond `point_pair_regen.py`.
-  - Input: EXP-2026-11-19-M5.26-point-pair-regen (`chains_detail` in `scan --json` gives every base/table/end), `docs/format/refer.md` §POINT page chains, `tools/point_walk_l3.py`, `tools/sh4xref.py`, `tools/nk_decomp.py pdata`.
-  - Hints: the three bases differ between files while the `0x1000` record's words do not scale with them — try differences between chains (base2000 − table1000 etc.), counts of records/pages (1000/page), and sums of `comp_w` of *other* chains. A differential is strongest: move one chain in a synthetic copy and run the L3 POINT walk path.
-  - Done when: an EXP names the field(s) (offset, width, unit, base) that give each chain base and table offset in 44/44 files with a negative control (a shuffled value fails), and `point_pair_regen.py` gains a relocation mode that moves a chain to the end of the `.DAT` and updates that field, with its selftest; or the EXP shows the locator lives in firmware/another file with the reading VA (EU2011) and a control.
-  - Stop: if neither the file search (directory + index chains) nor the firmware caller path of `fn 0x003f5194` yields it after both are searched, record the scopes searched and set blocked on the first M3 reader task that executes the POINT open path in L3.
-  - Claims: C-5390–C-5396 (C-5397–C-5399 given to M4.52)
-  - Result: EXP-2026-11-20-M4.47-point-chain-locator (C-5390–C-5396). Structures are addressed by a BE `u32` block address `(off/0x800)<<8 | (off%0x800)/0x100`; directory cell `0x82a` (6-byte cells at `0x800..0xf06`) → the field-dictionary record holding base references (`addr, length_w`) at `+0x2e` (1000) / `+0x13c` (400) and table references (`addr, length_w, per_page`) at `+0x19a` / `+0x1b6`; cell `0xeba` → the 2000 chain's record `+0x24` / `+0x94`. One layout in 44/44 files, 264 references each unique, 132/132 chains verified through it; shuffled and plain-unit values reach 0 chains. `point_pair_regen.py relocate` moves a chain to the end of the `.DAT` (selftest 37 checks); EU POINT010 takes 1,000 and 6,199 real names M5.26 refused. Firmware reader of the reference not located → M4.52.
-
-- [x] **M4.52 — Run the POINT open path on a relocated name chain (who reads the chain locator)**
-  - Status: done · Owner: task/m4.52-point-locator-reader · Critical: yes
-  - Depends: M4.47 (done)
-  - Goal: M4.47 found the chain locator in the file (directory cell `0x82a` → field-dictionary record → base reference `+0x2e`) and `point_pair_regen.py relocate` moves a chain to the end of the `.DAT`, but no firmware code was seen reading the reference (C-5396 is a hypothesis). Rule 13 needs the reader to read a relocated chain.
-  - Precheck: `python3 tools/point_pair_regen.py --selftest`; `python3 tools/point_name_accessor.py --selftest`; `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x0040ee4c` prints `START` or `INSIDE`.
-  - Scope: EU2011 `Navi.exe` (name the build next to every VA, then US2011): the loader that fills header-table entry `+44` (`0x0040ee4c`'s 100 × 80 table, `0x0140e240` EU2011, M3.11c) with the dictionary block, the code that reads the directory cell at `0x800` and the reference at dictionary `D+4` (`D = C + 2*u16[C+2]`, the header `fn 0x003f56bc` reads), and the code that turns `start_w` into a page read. No writer change.
-  - Input: EXP-2026-11-20-M4.47-point-chain-locator, EXP-2026-11-19-M3.11c-point-name-accessor-l3, `tools/d53500_writer.py`, `tools/point_name_accessor.py`, `tools/sh4xref.py`.
-  - Hints: the base reference is a block address: look for a `shlr8`/`shll8` pair or a byte load of `addr & 0xff` (the data is BE on an LE CPU, so the reader may build it from bytes); the `mov #11`+`shad` sites `0x003f6ae6`/`0x003f6d5c` (EU2011) log `(@(12,r) << 11) + @(16,r)`, a sector/offset pair of a request struct — its writer is a candidate.
-  - Done when: an EXP names the VA (EU2011 and US2011) that reads the base reference, and an L3 run of that path on `relocate` output reads record 1 of the moved name chain at its new base (positive) while a pair with the reference left at the old base does not (negative).
-  - Stop: if the loader is reached only through an IAT import that M9.35 cannot bind, record the call chain and set blocked on that binding task.
-  - Claims: C-5397–C-5399
-  - Result: EXP-2026-11-20-M4.52-point-locator-reader (C-5397–C-5399, C-5396 updated). The base reference is read by the POINT page loader `fn 0x003fe2d4` EU2011 / `0x00426480` US2011 (callers `0x003ffce0` / `0x00427e1c`), which decodes `D+4` with the block-address leaf `0x0040f00c` / `0x00436f58` and requests `base + 2*start_w`; cell `0x82a` is decoded by the header parser `fn 0x003f930c` / `0x00421c3c`. `tools/point_locator_l3.py` (selftest 21) runs parser + loader + walker in PySh4: on `relocate` output 6/6 runs (EU2011 5, US2011 1; pages 0/1/15) request the new base and record 1 matches; with the reference left at the old base 6/6 request the old base and REJECT; factory 5/5. Declared: dictionary record placed in header-table `+64` (`0x003fc518` not run), host inflate.
 
 - [ ] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3330,21 +3166,6 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     passes on the rebuilt pair, and the `INDEX003` name-search entry either
     updates or is proven unnecessary.
   - Claims: C-2420–C-2429
-
-- [x] **M5.19 — `RDSTM001` writer (H11 G7)**
-  - Status: done · Owner: task/m5.19-rdstm-writer · Critical: no
-  - Result: EXP-2026-11-20-M5.19-rdstm-writer — exit (b) fails: the rows are region-tied (a copied file resolves 6,910/200,987 refs against a renumbered `B48R058R` section 2, the re-pointed one 200,190/200,987 = factory). Exit (a) met for the TMC rows: `tools/rdstm_write.py` (selftest 20 checks) rebuilds the EU 2011 `RDSTM001.DAT` byte for byte from records + triples + `(parcel, node, link)` targets (set-1 4 × 4 boxes, entries in location-code order; file order fails), and EU2011 `fn 0x003f61bc`/`0x003f5d98` in PySh4 walk written rows exactly for 24 + 500 factory and 24 synthetic Polish rows (controls 0). Link-group firmware L3 waits for M4.49's reader VA; the 16-bit record swap and the `0x80000` chunk limit are hypotheses. C-2430–C-2436.
-  - Step: P3
-  - Depends: M4.16b (record framing), M3.7
-  - Goal: every `RDSTM001` row is copied verbatim from the factory card today;
-    a Poland card needs rows that describe Polish segments.
-  - Input: `rdstm.md` (twelve TMC fields with getters, C-882–C-889),
-    `rdstm_record.py`, `rdstm_schema.py`, `0x003f61bc` field directory,
-    EXP-2026-11-06-M4.16b.
-  - Done when: a writer produces a file the firmware decoder walks with the
-    expected values for ≥ 20 rows (an L3 target), or the EXP shows that
-    copying is correct because the rows are region-independent.
-  - Claims: C-2430–C-2436 (C-2437–C-2439 spare)
 
 ---
 
@@ -4301,56 +4122,6 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     Patch: `tools/qemu-ze0/patches/ze0-0002-hw-sh4-ze0-debug-serial.patch`.
   - Claims: C-1280–C-1289
 
-- [x] **M8.B1 — INTC model** (`0xff802000…`, `0xff804000…`, from
-  `OEMInterrupt*` and the ISR at `VBR+0x600`). Done when a TMU0 interrupt is
-  delivered and acknowledged.
-  - Status: done · Owner: task/m8.b1-intc-model · Critical: no
-  - Depends: M8.A2
-  - Done when (made concrete 2026-11-20, the original line is kept above):
-    on the EU2011 head (physfirst..physlast loads) `-M ze0 -d int` shows
-    `exception 0x400 [interrupt]`, the firmware's TMU0 ISR runs (`in_asm`),
-    TCR0.UNF reads clear afterwards and the interrupt does not re-enter;
-    plus a synthetic shim control whose delivery count drops to 0 when INT2
-    bit 1 stays masked.
-  - Result: EXP-2026-11-20-M8.B1-intc-model (C-1310–C-1313). Patch
-    `tools/qemu-ze0/patches/ze0-0003-hw-sh4-ze0-intc-tmu.patch` (INTC/INT2
-    model + TMU ch0–2 at `0xffd80000`; `sh_intc` compares level-tracking
-    sources with SR.IMASK). Real kernel: one INTEVT `0x400` in 60 s, ISR
-    `fn 0x8803cb34` clears UNF, no re-entry; shim 70/5 s (ack), 2 (no
-    ack), 0 (masked). The TMU0 level had to match the kernel's IntrPrio
-    (1): the SH7785 field 28:24 gave a 7.5 M-entry storm (C-1312). Tool:
-    `tools/ze0_intc.py`.
-  - Claims: C-1310–C-1319
-
-- [x] **M8.B3 — RTC/time** (`OEMGetRealTime`).
-  - Status: done · Owner: task/m8.b3-rtc-time · Critical: no
-  - Depends: M8.A2
-  - Done when (made concrete 2026-11-20; history: "the date read is
-    deterministic"): `OEMGetRealTime` located (EU2011 VA) with every input
-    named; it reads no hardware register (or that register is modelled);
-    two or more `-M ze0` runs give the identical date; plus a positive
-    control (`OEMSetRealTime` of a valid date reads back) and a negative
-    one (an invalid date is refused).
-  - Result: EXP-2026-11-20-M8.B3-rtc-time (C-1330–C-1333).
-    `OEMGetRealTime` `fn 0x880400a8` is a software clock over RAM words
-    seeded from `nk.exe` data (copy entry 0): power-on date 2009-07-10
-    07:10:00, identical across boots; no MMIO, so no QEMU RTC model. The
-    kernel calls it 63× in boot from `fn 0x880453b0` (Unix-seconds
-    conversion); set/get round-trip and a month-13 refusal as controls.
-    Tool: `tools/ze0_rtc.py`.
-  - Claims: C-1330–C-1339
-
-- [x] **M8.B6 — Kernel debug text on the debug UART (no gdbstub needed)**
-  - Status: done · Owner: task/m8.b6-debuglog-uart · Critical: no · Pair: solo
-  - Depends: M8.A6 (SCIF model at `0xffe46000`, done), M8.B5 (F1 boot, done)
-  - Goal: today the kernel's debug strings never reach the SCIF: `KernelStart` and every `NKDbgPrintfW` go through `fn 0x880404f4` → AstLog (`0x88044478`, EU2011) with the `DebugLog` path gated off (`0x89e613b0`/`0x89e613b4`), so a 60 s boot writes 0 serial bytes (M8.A6, C-1280–C-1283) and M8.B5 had to read the text over the gdbstub (`tools/ze0_dbgmsg.py`). Make the same text appear on `run.sh --serial` so every L4 run has a plain log, and so long boots (M8.C rows, M8.E4) need no breakpoint per string.
-  - Scope: find what sets the `DebugLog` gate and which output routine it enables (static: callers of `0x880404f4`, readers/writers of `0x89e613b0`/`b4`; the OAL `OEMWriteDebugString`/`OEMWriteDebugByte` pair, which in CE normally writes the debug UART). Then pick the least invasive way to turn it on, in this order: (a) a board/boot argument the OAL already reads (registry, boot-args block, a strap the `ze0` machine can present); (b) a `ze0` machine option that presents the gate value at boot; (c) a documented one-word guest patch applied by `run.sh` (never committed vendor bytes, only VA + old/new word). Not in scope: changing what the kernel prints, or the gdbstub tool (keep `ze0_dbgmsg.py` as the cross-check).
-  - Done when: one `-M ze0` boot of EU2011 IMG256 (`run.sh --serial`, `-icount shift=0,sleep=off`) writes the kernel debug text to `WORK/serial.log`, and for the first 200 lines it equals what `tools/ze0_dbgmsg.py run` captures for the same boot (diff = 0, or every difference explained); the boot still reaches F1 (M8.B5 checks 1–3). Negative control: the same boot without the option/patch writes 0 bytes (reproduces C-1281). The EXP names the gate, its writer, and the output routine with EU2011 VAs.
-  - Stop: if the debug text can only reach the UART by patching more than one code word, or the gate is set from hardware the `ze0` machine cannot model, record the path and stop (negative EXP).
-  - Hints: `tools/ze0_serial.py banner`, `tools/ze0_dbgmsg.py`, patches in `tools/qemu-ze0/patches/`, QEMU binaries from M8.B5. Requested by Marek 2026-11-20.
-  - Result: EXP-2026-11-20-M8.B6-debuglog-uart (C-6240–C-6243). No gate routes the text to a UART: `fn 0x880404f4` → AstLog `0x88044478`, gated (`0x89e613b0` by IOCTL handler `fn 0x88049f4c`, `0x89e613b4` by `fn 0x8804aa08`) → `L"DebugLog"` handle `0x8804048c`/`0x88044fe8`, none loads `0xffe46000` (EU2011). Patch `ze0-0007`: machine option `-M ze0,dbgmsg=0x880404f4` copies `r4`'s UTF-16 string to serial port 0, no guest byte changed; `run.sh` turns it on by default (`--dbgmsg off`) and gains `--icount`. Same boot: serial = gdbstub for 279/279 lines; `run.sh` boot 9 288 B, byte-repeatable, 2 time-derived lines differ from the gdbstub boot; option off = 0 bytes; F1 checks 1–3 still pass. Tool: `ze0_serial.py dbgcmp`.
-  - Claims: C-6240–C-6249
-
 - [ ] **M8.C — one task per peripheral** (C1…C22, table in
   [`todo-history-2026-11-05.md`](docs/research/todo-history-2026-11-05.md),
   section M8.C). Each: read the driver init, decide stub / model / HLE,
@@ -4685,47 +4456,6 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-21-M8.D2-decision-after-f3; C-1595–C-1599. Negative gate record: trigger not reached, recommendation above, `blocked` on the F3 log.
   - Claims: C-1595–C-1599
   - Note: 2026-11-21: the gate is due — F3 is reached (M8.C1b, C-6875; `ze0_sdhost.py serial` prints `store_ready 1`, `part_mounted 2`; `l4_status.py` still scores only F0 from a log). Marek the same day asked for the next two steps (launcher `VerInf`/`Error Proc<00000050>` = M8.C1c, serial DMA = row C2) and for the move to QEMU 11.1.3 (M8.A11); the F4 decision itself (micon/CAN) is still his.
-
-- [x] **M8.E1 — Run the kernel's ROM decompressor as a tool**
-  - Status: done · Owner: task/m8.e1-run-rom-decompressor-retry (retry 2026-11-08) · Critical: no
-  - Result: superseded by H51/M1.19 — `tools/nk_decomp.py` runs the kernel's own `DECOMP_SECT` in PySh4 and `cerom.py decompress --check` reports 245/245 build-A sections OK with `r0 == comphdr uncompressed_len` (EXP-2026-11-19-M1.19-kernel-decomp-wiring); no codec port or QEMU run is needed (M1.19 rule-15 closure).
-  - Note (H51, 2026-11-11): **superseded — do not take.** The kernel routine itself runs in PySh4 (`tools/nk_decomp.py`: 245/245 sections of build A decode, lengths equal `comphdr`); no codec port, QEMU or Ghidra oracle is needed. Closes as `done (superseded)` when **M1.19** merges.
-  - Depends: M8.E1b (VAs verified, C-2290–C-2293). Does **not** need F1: call
-    the function under `-M none` + gdbstub with RAM-only state (LE SH-4).
-    M8.A1 now builds a LE `qemu-system-sh4` from the pinned 8.2.7 tarball, so
-    the toolchain half is done. M1.2f is the parallel Python route to the same
-    two vectors — whichever lands first unblocks M1.3/M1.4.
-  - Blocker (updated 2026-11-08 retry): `/usr/bin/qemu-system-sh4` 11.1.3 (LE,
-    Fedora 45) is present and IMG256 `92aa525d…` obtained, but
-    `cedecomp_run.py probe` fails under QEMU 11.1.3 `-M none` (P1 VA
-    `0x8c/0x88xxxxx` access `E14` / steps to `0x8c010000`, `sh7785`/`sh7750r`;
-    nk.exe linked at fixed 0x88xxxxxx VAs). `exp49` for verified
-    `DECOMP_SECT 0x88037464` is still `NOT_IMPLEMENTED` (needs runtime call +
-    kernel-context handling for WRAP, C-2293). Building repo `-M ze0` QEMU
-    (phys `0x08000000` + P1/P2 aliases matching nk.exe) is blocked by missing
-    `glib2-devel` (no root). No runtime decode ran. (C-1604, C-1606, C-1607)
-  - Unblock: provide a `qemu-system-sh4` (LE) with `-M ze0` (or install
-    `glib2-devel`/deps and run `tools/qemu-ze0/build.sh`), make
-    `cedecomp_run.py` run the probe under a compatible SH4 memory map, then
-    implement `exp49` via `DECOMP_SECT 0x88037464` (constructed frame) or
-    stubbed `DECOMP_WRAP 0x88037590` kernel-context helpers (C-2293).
-  - Note: M8.E1's initial "VA refuted" blocker was a BE endianness artifact,
-    corrected by M8.E1b (C-1600/C-1603 superseded). Verified entries (LE):
-    `DECOMP_WRAP 0x88037590` / `DECOMP_SECT 0x88037464` (core framing) /
-    `DECOMP_BLK 0x8803a384`, loader flag test `0x88038666` in `fn 0x880385e4`.
-    Use `qemu-system-sh4` (LE). DECOMP_WRAP needs kernel lock/context stubs
-    (C-2293); calling SECT with an initialised frame may bypass that.
-  - Result: EXP-2026-11-08-M8.E1-rom-decomp-retry-qemu11 (negative, blocked):
-    qemu 11.1.3 LE present (original binary blocker resolved) but probe fails on
-    QEMU 11.1.3 `-M none` P1 mapping/compat for nk.exe 0x88xxxxxx VAs; `exp49`
-    `NOT_IMPLEMENTED`; `-M ze0` build blocked by missing `glib2-devel`.
-    EXP-49/Navi.exe sec1+sec2/245/FILESentry runtime decode **not achieved**.
-    Prior: EXP-2026-11-08-M8.E1-rom-decomp-runtime-blocked; EXP-2026-11-06-M8.E1-rom-decomp-tool (corrected by M8.E1b).
-  - Done when: the two EXP-49 sections decode to the M1.2a lengths, then
-    `Navi.exe` sec1/sec2 (the sections M3.2b and M3.11 need: sec1
-    `psize 0x457c` / `vsize 0xff16ae`, sec2 `psize 0x8884`), then all 245
-    sections and the `FILESentry` payloads (cross-check M1.3/M1.4).
-  - Claims: C-1600–C-1609
 
 
 - [ ] **M8.E3 — Dump loaded process images** (`Navi.exe` + DLLs after init)
@@ -5950,21 +5680,6 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `MISSING_GHIDRA`. Result: EXP-2026-11-06-M9.2-ghidra-import, C-1640.
   - Claims: C-1640–C-1649
 
-- [x] **M9.6 — First real target: the map-code compare**
-  - Status: done · Owner: task/m9.6-mapcode-compare · Critical: yes
-  - Blocker (resolved, kept as note): M9.20 (`562215a`) added module entry kind / `engine_hook`. The earlier "no `entry.kind = module`" plumbing blocker is gone.
-  - Re-opened (PO grooming 2026-11-09, rule 15): M9.20 merged. A new blocker may appear when wiring `KernelIoControl(0x0101302C)` + HDD_INFO FS stubs and the `0x01f74b30` parse cache (M2.4/M9.6 notes); record it with a faulting PC/EXP if so.
-  - Negative EXP (prior): EXP-2026-11-08-M9.6-mapcode-compare.
-  - Depends: — (M9.5, M2.5 done; M2.15 helps)
-  - Precheck: `python3 tools/l3_harness/runner.py --selftest` passes with module entry support; `python3 tools/cerom.py --image-start 0x200200 IMG256` can resolve the AppLaunch/Navi context used by M2.5/M2.15 (or record image start); `hddinfo_variants.py` corpus available.
-  - Goal: run the real `AppLaunch.dll` compare (B `fn 0x03bd2ad8`, M2.5) on our `HDD_INFO.TXT` inputs, which unblocks M2.4. (Re-scoped 2026-11-06: M2.2's SD Import comparator checks user data, not the map.)
-  - Scope: wire a runnable target for `fn 0x03bd2ad8` with `KernelIoControl(0x0101302C)` stub (`+0x60` factory 11 bytes, per M2.15) and HDD_INFO parse cache/global handling as needed; factory accept + one edited reject. No firmware format changes.
-  - Input: `tools/l3_harness/runner.py`, `stubs.py`, corpus `hddinfo_variants.py` (M9.7).
-  - Done when: `runner.py run` returns a firmware verdict for the factory `HDD_INFO.TXT` (accept) and for one edited line-1 variant (reject), with the stub log in the EXP.
-  - Stop: if the comparator needs build-B/AppLaunch mapping, globals, or IOCTL state not reproducible from current harness inputs, set `blocked` with the faulting PC/missing stub and a new EXP (do not guess verdicts).
-  - Claims: C-5140–C-5149 (was C-1680–C-1689; fresh block for this run)
-  - Result: done — EXP-2026-11-19-M9.6-mapcode-compare. Target `applaunch_mapcode_compare` (`firmware_call`/`mapcode_compare_v1`, `tools/mapcode_l3.py`) runs EU2011 build B `fn 0x03bd2ad8` from IMG256: factory `HDD_INFO.TXT` → `r0=1` ACCEPT, `line1_digits_4_002` → `r0=0` REJECT (firmware log `VerInf:QSD-302-100 / HddInf:QSD-002-100`); line-2 edit ACCEPT, byte-10 edit REJECT; unit `+0x60` is a declared input (C-5140–C-5146). Re-opens M2.4 (rule 15).
-
 - [x] **M9.10 — L3: decode the US POI with the firmware's own reader (software S2)**
   - Status: done · Owner: task/m9.10-us-poi-name-l3 · Critical: yes
   - Note (M9.33, 2026-11-20): prerequisite map — `READY`: US VAs (M1.22), name accessor (M3.11c) and byte order (M3.11b, firmware swap = `swap16`, C-5815) are met; what remains is this task's own runner and M9.55's `l3check` row (C-3403, EXP-2026-11-20-M9.33-rerun-prereqs-map).
@@ -6034,31 +5749,6 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `cmp_ind_reader` target in `targets.json`. **(met 2026-11-09 closeout)**
   - Stop: n/a (satisfied). Future sec1-byte proof tracks M1.2f; corpus/card gate tracks M9.12.
   - Claims: C-2150–C-2159
-
-- [x] **M9.11b — L3 runner: a firmware-call target kind for the chunk reader (fills `cmp_ind_reader`)**
-  - Status: done · Owner: task/m9.11b-firmware-call-target-r2 · Critical: yes
-  - Depends: M9.11 (firmware path and sec1 table provenance, EXP-2026-11-08-M9.11-chunk-decoder), M9.5 (done).
-  - Precheck: `python3 tools/chunk_decoder_l3.py` and
-    `python3 tools/l3_harness/runner.py --selftest` pass; `targets.json`
-    still lists `cmp_ind_reader` unfilled/blocked. Confirm sec1
-    `inflate_mask[17]` provenance is recorded in M9.11 EXP before making it
-    a declared input.
-  - Goal: let `runner.py` run a firmware function with memory setup (the 20-byte table,
-    the stubs, the sec1 `inflate_mask` table as a named, sourced input), so that
-    `targets.json` `cmp_ind_reader` runs the chunk reader on a corpus pair through the runner.
-  - Scope: extend `runner.py` entry kinds/memory setup for firmware-call
-    targets; declare the sec1 table as an explicit sourced input; wire
-    `cmp_ind_reader` controls from M9.11. No format claims beyond plumbing.
-  - Input: `tools/chunk_decoder_l3.py` `run_firmware` and its stubs; `tools/l3_harness/runner.py`
-    entry kinds (`module` passes register arguments only); `targets.json`.
-  - Done when: `runner.py run cmp_ind_reader` on the factory pair reports PASS and exit 0; the
-    corrupt-`.ind` and swapped-field cases report as the controls in EXP-2026-11-08-M9.11-chunk-decoder; the sec1 table
-    is a declared input of the entry (not a silent default), and `runner.py selftest` passes.
-  - Stop: if memory-setup semantics cannot be expressed without a silent
-    default table or guessed VA, block with the missing provenance named;
-    do not register `cmp_ind_reader` as passing.
-  - Claims: C-2940–C-2949 (was C-2157–C-2159, overlap with M9.11 fixed by H24)
-  - Result: EXP-2026-11-08-M9.11b-firmware-call-target — `firmware_call` entry kind + declared sec1 `inflate_mask[17]` (VA `0x574de0` from code, values from public zlib 1.1.3, provenance disclosed, M1.2f HYPOTHESIS) fills `targets.json` `cmp_ind_reader`; `runner.py run cmp_ind_reader` on factory US POINT010 (`92aa525d…`/`48812f8c…`/`7ac54e3b…`, page `0x840ba0`) PASS exit 0 (`r0=42848`, insns 1057245); `--mutate corrupt-ind`/`swap-4-8` PASS as M9.11 controls (`r0=-1`/638, `r0=65536`/1057219). `chunk_decoder_l3 --selftest` OK, `runner selftest` OK (32), `claims_check` OK. Resolves M9.11 registration blocker; `l3check.py` untouched (M9.12).
 
 - [x] **M9.12 — `l3check.py --card`: the software gate before any car test**
   - Status: done · Owner: task/m9.12-card-gate · Critical: yes
@@ -6259,37 +5949,6 @@ parts are covered by `tools/l3_harness/selftest.py`.
     the missing VA; do not infer from Python output alone.
   - Claims: C-2440–C-2449
 
-- [x] **M9.20 — L3 plumbing: firmware entry kind, `engine_hook`, `ghidra/l3_run.py`**
-  - Status: done · Owner: claude/m9.20-l3-plumbing · Critical: no
-  - Depends: —
-  - Precheck: `python3 tools/l3_harness/runner.py --selftest` (pre-change
-    baseline) and target M9.5/M9.3/M9.9 follow-up requirements reproducible
-    from their EXPs; EU2011 head available for the synthetic/module mapping
-    check per rule 11.
-  - Goal: the M9.5/M9.9 follow-ups that stop a real reader from running even
-    when M3 has found its VA.
-  - Scope: add `module` firmware entry plumbing in `runner.py`, expose
-    argument registers via `StubDispatcher.engine_hook`, add a documented
-    Ghidra L3 entry script and refresh L3/README docs; cover all three in
-    selftests. No Ghidra execution required.
-  - Input: EXP-2026-11-06-M9.5 (`entry.kind = "module"`), EXP-2026-11-06-M9.3
-    (`StubDispatcher.engine_hook(target)` reading r4–r7), EXP-2026-11-06-M9.9
-    (`tools/l3_harness/ghidra/l3_run.py`, README refresh), `targets.json`,
-    `runner.py`, `tools/README.md`.
-  - Done when: `runner.py run` can call a function at a module VA without a
-    hand-built `-device loader` map, the stub dispatcher exposes argument
-    registers to a target handler, the Ghidra back end has one documented
-    entry script, `tools/l3_harness/README.md` and `tools/README.md` match the
-    code, and the L3 selftest covers all three.
-  - Stop: if module mapping or hook semantics could not be made deterministic
-    without Ghidra/runtime assumptions, record the gap as a blocker/follow-up
-    rather than claiming a runnable reader verdict.
-  - Claims: C-2500–C-2509
-  - Result: EXP-2026-11-08-M9.20-l3-plumbing (synthetic module and hook checks
-    pass; EU 2011 head: Navi.exe sec0 mapped; the walker stops at ILLEGAL_INSN
-    0x4362 under big-endian decode and runs under little-endian until its
-    unmapped page argument; no Ghidra run, out of scope and not installed)
-
 - [x] **M9.24 — Module entries that call coredll file APIs: bind imports, stub the CRT file calls**
   - Note (M9.44, 2026-11-19): covered for the map-file layer: `tools/vcard_l3.py` has 81 import models (file, string, memory, printf, heap, task, object calls) and a card behind `fopen`/`fread`/`fseek`. What is left here is only reuse of those models from `runner.py` targets outside the layer; if no target needs that, close as covered.
   - Status: done · Owner: task/m9.24-coredll-file-apis · Critical: yes
@@ -6322,44 +5981,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
     `cerom.py imports Navi.exe --resolve-with 0x3e00200` names them (H49).
   - Claims: C-2640–C-2649
 
-- [x] **M9.26 — Revisit `POINT` byte-order / source after M9.11b registers `cmp_ind_reader`**
-  - Status: done · Owner: task/m9.26-point-byteorder-revisit · Critical: no
-  - Result: EXP-2026-11-20-M9.26-point-byteorder-revisit (C-2900–C-2905). New `tools/point_byteorder_l3.py run` (EU card, 9/9): decoder outputs are file order; the layer's +20 = 0 swap also hits the compressed page (not inflatable); page loader `fn 0x003fd690` runs leaf `0x003f6968` before the inflate (undo) and after it (native); the walker reads the leaf output (`parse_page` offsets 7/7; file-order page fails). C-5815 retracted for zlib pages (superseded by C-2903); C-2545(a) answered (C-2905). The task text's C-2234/C-2239 are M9.13 tile rows and are unchanged.
-  - Step: P4
-  - Depends: M9.11b, M3.11b
-  - Goal: M3.11b found the POINT page already as native little-endian `u16` in
-    the decoded buffer but left the source unknown (HYPOTHESIS C-2239, blocked
-    on M9.11). M9.11's firmware path now passes byte-identically on
-    factory/S1/S2 POINT010 pairs, but `cmp_ind_reader` is not registered until
-    M9.11b provides a firmware-call target kind. Once registered, use the real
-    decoder + the M3.11 walker to answer where the page becomes native u16 and
-    whether any consumer sees file-order bytes.
-  - Precheck: `cmp_ind_reader` runs on the factory POINT010 pair via the L3
-    harness (M9.11b done when) and reproduces M9.11's byte-identical result.
-  - Scope: POINT001/010 (factory + S2 if available); compare decoder output
-    buffer layout, the walker's packed-u16 read, and the on-disk bytes. No new
-    format write.
-  - Done when: the EXP states, with a control, whether the decoder output is
-    file-order or native, where the M3.11 walker reads from, and updates
-    C-2234/C-2239 (confirm or retract) with the evidence.
-  - Stop: if the registered target cannot expose the decoder's output buffer
-    address, record that limit and stop; do not infer from disassembly alone
-    when a runnable path exists.
-  - Claims: C-2900–C-2909 (was C-2760–C-2769, collision with H26 fixed by H23)
-
 ---
-
-- [x] **M9.28 — Module-entry input buffer/region mapping for real reader verdicts**
-  - Status: done · Owner: — · Critical: yes · Pair: required
-  - Result: EXP-2026-11-19-M9.28-input-region; `entry.input_region` maps file/literal bytes at a chosen VA with exact bounds, overlap refusal and provenance; the EU POINT walker `fn 0x003f5194` runs past its argument-pointer fault on the real EU `POINT010 0x6e06d0` page (returns `0xa8`, cross-checked against `point_walk_l3`), `--selftest` 34 checks (C-3210–C-3219)
-  - Depends: M9.20
-  - Precheck: `python3 tools/l3_harness/selftest.py` and `python3 tools/l3_harness/runner.py selftest` pass; reproduce M9.20's real run showing the POINT walker stops at `UNMAPPED` on its page argument (`0x0`) rather than at decode/endian. Confirm M9.24 does not already provide a generic input-buffer mapping (it focuses on coredll CRT/import binding and stack args).
-  - Scope: `tools/l3_harness/` module-entry path (`runner.py`/ROM map/corpus conventions). Add a way to map a caller-supplied input buffer or file-derived bytes at a chosen guest VA for module targets, with explicit bounds and provenance in results. No firmware format claims; no Ghidra/QEMU.
-  - Goal: let module-entry reader targets (M9.13/M9.14/M9.17 class, and the M9.20 walker follow-up) receive real input instead of failing at argument-pointer loads, so verdicts are limited by mapped data/stubs rather than missing input plumbing.
-  - Input: EXP-2026-11-08-M9.20-l3-plumbing (open question: input region), EXP-2026-11-08-M9.14-reopen, EXP-2026-11-08-M9.17-reopen, `tools/l3_harness/runner.py`, `tools/l3_harness/rommap.py`, `tools/l3_harness/corpus.py`, M9.24 task text.
-  - Done when: a synthetic module-entry target reads from a mapped input buffer and returns a verdict; at least one existing reopened/blocked reader target can be re-run past the argument-pointer `UNMAPPED` fault or reports a new, more specific blocker (faulting PC + missing data/stub named). `--selftest` covers bounds/provenance; `tools/README.md` updated.
-  - Stop: if the target's input source cannot be located or bounded from available evidence, add/require an input-source locating subtask and record the missing source; do not map guessed bytes and call them a reader verdict.
-  - Claims: C-3210–C-3219
 
 
 - [x] **M9.31 — `l3check --card` baseline/no-diff verdicts for S0/S1 (unblocks M9.12)**
@@ -6432,31 +6054,6 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: the control passes; one run each for `POINT` (from above the walker), `LCTBL` and `ADDRE` lists the reading functions; M3.11b, M3.15 and M3.13 get the list in their blocks; the tracer has a selftest with a synthetic two-function program.
   - Stop: if a run ends at an import before any read of the buffer, name the import and add its stub to M9.24's list.
   - Claims: C-3600–C-3609
-
-- [x] **M9.44 — Virtual card: stub the three stdio wrappers once and let the firmware's file layer read a card tree ("software S0")**
-  - Status: done · Owner: claude/project-thread-n1nund · Critical: yes · Pair: required
-  - Result: `docs/experiments/EXP-2026-11-19-M9.44-virtual-card.md` (C-4630–C-4655), tool `tools/vcard_l3.py` (`boot`, `compare`, `read`, `sweep`, `--selftest`). The whole map-file layer runs in PySh4 on a card image or tree: the firmware's own state machine mounts the factory EU card (`2/2`, 0 error-log calls, reads `CMP.LST` 19 B, `MMAIN001.DAT` `0x1000` B, `DRSTR001.DAT` in one read), builds its 40-directory / 285-file table, and serves reads through its request queue, including `.cmp`/`.ind` files inflated by the firmware zlib; all 285 files read back through the firmware equal the host's view (8,874,828 bytes compared). 10 of 13 changed cards change verdict, error log or table. Rule 13: a `cmpind_writer recompress` pair and a `drstr_ze0.build` file with a grown tile are read correctly by the firmware. Deviation from Done-when: a separate tool instead of `runner.py run mmain_reader --card-root` (the unit is the layer with its queue, not one function); imports are modelled instead of stubbing the wrappers; `targets.json` untouched; the "M5.6 rebuilt tree" is replaced by rebuilt files served through `--replace` (no rebuilt tree exists in the sandbox). New facts for other tasks: file ids are `DRSTR` positions (keep the order, C-4649/C-4650); the M3.11b byte swap is request word +20 in `0x00417eac` (C-4641); read-API record in `firmware.md`.
-  - Note (H112, 2026-11-19): wrapper callers corrected (C-4621): `fread` has four callers, not five (`0x0041b2a4` is a debug dump). New fact for the target list: a map client does not call the wrappers. It calls the thin API `0x00409ba0`/`0x00409c28`/`0x00409cc8`/`0x0040b358` → `0x004192c0`, and that path reaches `OSM_TaskSend` but no stdio import (C-4629, hypothesis): the read happens in the map-file task's handlers (M3.26's message → handler table). So build the virtual card in two halves: (1) handler side — run one M3.26 handler with a request record and the stubbed wrappers, get the `(file, offset, length)` log; (2) client side — stop at `OSM_TaskSend`, print the message, and feed it to half 1. Add the tile open `0x0040b850` as the fourth target after `mmain`, `drstr`, `.cmp`; its first read log on a factory tile and on the M5.30 card's tile is the first L3 evidence for row 17.
-  - Depends: M9.36 (trust the engine first), M1.19 helps (`INIT` bytes); M3.26 gives names but is not required
-  - Goal: the nearest thing to putting a card in the unit that needs no unit. Today each L3 target stubs imports one by one (M9.24) and maps its input by hand (M9.28). The firmware reads map files through three wrappers — `fopen` `0x0041b3bc`, `fseek`/`ftell` `0x0041b470`, `fread` `0x0041b4f8` (EU2011, H101). Replace those three with host stubs that serve files from an extracted card tree, and the real `DRSTR`, `MMAIN`, `CMP.LST` and `.cmp` code runs on whole files, factory or generated.
-  - Precheck: `python3 tools/callgraph.py users g.json fread,fseek,fopen` shows the three wrappers; `python3 tools/sh4dis.py IMG256 Navi.exe --image-start 0x200200 --va 0x0041b4f8 --count 40` shows one `fread` import call (arguments `r4…r7` are passed through or re-ordered — record which).
-  - Scope: `tools/l3_harness/`: a `vcard` stub set (`--card-root DIR`): path translation from the firmware's `\SystemSD\…` strings to the tree, a handle table, `fopen`/`fseek`/`ftell`/`fread`/`fclose` semantics, a log of every `(file, offset, length)` read. Targets, in this order: `mmain_reader` (`0x0041a438`), `drstr_parser` (`0x00419684` → `0x00419350`), the `CMP.LST` opener `0x0041ba90`, then the mount state machine `0x00419ca0`. EU2011 code on the EU tree first; US2011 addresses from `fn_match` after.
-  - Input: `tools/l3_harness/runner.py`, `stubs.py`, `rommap.py --bss-zero` (M9.35), `tools/callgraph.py`, the M9.14/M9.17 reopen EXPs (current stops: `wcstombs` stub for `mmain_reader`; an unmapped store for `drstr`, suspect after H51), `python3 tools/verify.py --image IMG` for the tree.
-  - Hints: stubbing the *wrapper* (a function of ours-to-define contract: read its 40 instructions once) is safer than stubbing `coredll!fread` behind it, because the wrapper also does the firmware's error handling (`ferror`/`clearerr`) that we do not want to model. The read log is a result in itself: the list of `(offset, length)` the firmware reads from `DRSTR001.DAT` is the reader's view of the format, and comparing it between the factory file and our rebuilt file is a rule-13 test with no interpretation. Negative controls come free: truncate the file, flip the `0x2f` byte, remove `CMP.LST`.
-  - Done when: `runner.py run mmain_reader --card-root ROOT` and `run drstr_parser --card-root ROOT` return a verdict on the factory EU tree and on the M5.6 rebuilt tree, with identical read logs or a listed difference; three negative controls each change the verdict or the log; `reader-coverage.md` rows 3–5 updated; M9.24 and M9.28 closed as covered or narrowed.
-  - Stop: a stop at an `OSM_TaskSend`/message import means the function waits for another task — record the message and make that the next target; do not fake the reply.
-  - Falsifier: the factory tree gives a reject verdict (then the harness, not the card, is wrong).
-  - Claims: C-4630–C-4655
-
-- [x] **M9.54 — Re-pin the M9.39 `POINT010` mutant pair with the M5.52 `--resize` (its record 500 name length is stale)**
-  - Status: done · Owner: task/m9.54-repin-m9.39-pair · Critical: no · Pair: solo
-  - Depends: M5.52 (done — `--resize` patches the field-5 length byte)
-  - Goal: the M9.39 mutant pairs (US `.cmp` `ea2d0e0f…`, EU `e75c298f…`, C-4174) were built before M5.52, so the renamed record keeps its old field-5 length: on US record 500 the firmware accessor reads the name 2 words short (`point_name_accessor.py run` on the pair: `mismatch=1 ok=999`, C-5264). The committed command now writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` (`ok=1000`), so C-4482 ("the committed command reproduces `ea2d0e0f…`") holds only for the pre-M5.52 tool. Rebuild both pairs with the current CLI, check them with the accessor, and re-pin the SHAs where M9.39/M9.42/M9.43 records and claims cite them (append-only: "Overtaken by a later commit" sections + new claim rows), or state per citation why the stale pair is still the right control (its walker and container results do not read field lengths).
-  - Precheck: `python3 tools/point_name_accessor.py run archive/us256.img --cmp <M9.39 US mutant .cmp> --ind <…ind> --build us2011 --show 0 --expect "HANA HEALTH CENTER"` → `mismatch=1 ok=999 of 1000`, `result: FAIL` (the stale pair).
-  - Scope: the M9.39 US and EU pairs only (US rec 500 `HAWAII ST GOVT FREQNTLY CLLD NMBRS`→`…XXXX`, EU page `0x6e06d0` `DROMAHAIR GARDA STATION`→`…ABCD`); records/claims that pin their SHAs (C-4174, C-4482 and the M9.42/M9.43 EXPs). Not: M9.41's target registration (other owner) beyond pointing it at the new SHAs if it cites them.
-  - Done when: both rebuilt pairs give `ok=1000 of 1000` with the accessor on their build (US2011 and EU2011), the new SHAs are recorded in claim rows, and every citation of `ea2d0e0f…`/`e75c298f…` is either re-pinned or marked as the pre-M5.52 pair with a reason.
-  - Claims: C-5266–C-5269
-  - Result: EXP-2026-11-20-M9.54-repin-m9.39-pair (C-5266–C-5269). The current `--resize` writes US `.cmp` `34fb3aab…` / `.ind` `e525fd19…` and EU `.cmp` `979dff4a…` / `.ind` `7ee2e542…`; the name accessor gives `ok=1000 of 1000` on US2011 (`0x0041ec8c`) and EU2011 (`fn 0x003f632c`) with the whole new rec-500 name. The pre-M5.52 tool (`9316b77`) still writes the old pins, and **both** old pairs fail the accessor at rec 500 (`mismatch=1 ok=999`; EU was not known before). Walker table, wrong-build verdicts and the same-length control are unchanged on the new pairs, so only C-4482/C-4483 were stale; C-4174/C-4482/C-4483 are annotated, and EXP-M9.39/M9.42/M9.43 each have an `Overtaken by a later commit` section. M9.41 untouched (cites no pin in its own files).
 
 
 - [x] **M9.52 — Finish the firmware's mount in `datask_l3.py`: who answers message `0x1507`**
