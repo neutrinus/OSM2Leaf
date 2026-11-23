@@ -1702,6 +1702,20 @@ python3 tools/nk1_extract.py NAND.bin -o firmware/unit-flash/nk1-QY7200ND.bin \
         --sha256 b4b3542bb95d336c55ed11e1a4854be2c5f3dce1b60e074629d2b185f3b9fb00
 ```
 
+## `ze0_screencmp.py` — QEMU screendump vs `ze0_screenshot.py` pixel compare (M8.H4)
+
+M8.H4 gives `ze0-gfx` a QEMU graphic console, so `screendump` and VNC/gtk show
+the DU planes. This tool proves the console frame equals the host composition:
+it reads a P6 PPM (what `screendump` writes without libpng) and an 8-bit RGB
+PNG (what `ze0_screenshot.py` writes) and prints the differing-pixel count.
+
+```bash
+printf 'screendump shot.ppm ze0-gfx\n' | socat - UNIX-CONNECT:WORK/hmp.sock
+python3 tools/ze0_screenshot.py screen --monitor WORK/hmp.sock -o host.png
+python3 tools/ze0_screencmp.py shot.ppm host.png     # 0 equal, 1 differ, 2 bad input
+python3 tools/ze0_screencmp.py --selftest
+```
+
 ## `ze0_ui.py` — scripted L4 scenarios against a live `-M ze0` guest (M8.H7)
 
 Runs a scenario file (one step per line) against the QEMU monitor and the peer

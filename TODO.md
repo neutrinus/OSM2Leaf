@@ -4778,8 +4778,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8540–C-8549
   - Pair: required
 
-- [ ] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
-  - Status: in progress · Owner: task/m8.h4-display-surface · Critical: no · Pair: required
+- [x] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
+  - Status: done · Owner: task/m8.h4-display-surface · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1f
   - Goal: `tools/ze0_screenshot.py` copies VRAM with `pmemsave` and composes the planes on the host. A real QEMU console gives `screendump`, VNC and a live window for free, and is the base for mouse-to-touch (M8.H40).
@@ -4790,6 +4790,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if plane blending needs alpha rules not yet known, show the top opaque plane only and record the rest.
   - Falsifier: the console image differs from the host-composed one on a static screen.
   - Claims: C-7010–C-7019
+  - Result: EXP-2026-11-23-M8.H4-display-surface (C-7010–C-7014). New patch `ze0-h04-display-surface.patch`: `ze0-gfx` (machine option `gfx-display`, default on) exposes DU planes 1-4 as a QEMU graphic console, composed like `ze0_screenshot.py compose()` and recomposed when a 2DG list ends. HMP `screendump FILE ze0-gfx` equals `ze0_screenshot.py screen` of the same instant (0/384,000 pixels differ, raw RGB SHA-256 `d2b7e70f…`); `run.sh --display SPEC`/`--vnc` show it in VNC (RFB on 5907), gtk/sdl; `--display none` is the unchanged headless default; `gfx-display=off` is the no-console control; new `tools/ze0_screencmp.py` (+5 checks). Next: M8.H40 (live mouse→touch), M8.C1t (UI plane alpha).
 
 - [ ] **M8.H5 — Start in seconds: `savevm` after boot and `run.sh --loadvm`**
   - Status: open · Owner: — · Critical: no · Pair: required
