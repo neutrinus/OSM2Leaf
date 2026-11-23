@@ -1,0 +1,90 @@
+Role: SE (senior engineer), cycle 20. Model: opencode/strong.
+Start 2026-11-23 06:31Z. origin/main at start: 1744ecc5.
+
+Inputs: retro docs/retro/2026-11-23.md (1744ecc5); prompt_common.txt, prompt_se.txt;
+AGENTS.md; TODO.md rules 1-17 and Priorities; the window's EXP-* records; SM log
+2026-11-23-0620-1-sm, TL log 2026-11-23-0628-1-tl.
+
+Window measured on origin/main (git log --since=24.hours): 162 first-parent
+commits; 99 new EXP records; 60 new tools under tools/ (every one carries
+--selftest; selftest 242 pass / 0 fail / 21 skip / 263).
+
+Actions, in order
+1. Standing checks: selftest green (242/0), claims_check OK, todo_check OK,
+   todo_check --strict 18 ERROR (the retro's count, unchanged).
+2. Re-ran each window task's own Done-when where cheap: H126, H129, H130, H66,
+   H82, M5.76, M8.H45, M4.91, M4.79-M4.84, M4.88, M4.93, M5.74, M5.80,
+   kiwi_probe/bg/road/route, gps/panel/bt/vcan/uart peers. All pass; no done
+   task fails its own check, so no done->blocked.
+3. Matrix of the window EXPs against TEMPLATE.md (grep headings, then read the
+   failures): five miss a section heading (M1.50 no Method/Scope/Observations/
+   Interpretation/Conclusion; M8.H35 no Scope/Interpretation/Conclusion;
+   H126/H40/H66 no Interpretation; M8.H71 no Conclusion); ~12 miss a sample or
+   SHA-256 (H83, M4.64, M4.67, M4.68, M5.72, M5.80, M8.H30, ...); M2.25/M2.26
+   miss Scope/Falsifier; M3.37 misses Scope. The root cause is prose: neither
+   the gate nor claims_check can see headings.
+4. claims_check: three window claims (C-7327, C-8442, C-8450) carry a static VA
+   with no runnable invocation; checks pass, flagged as hygiene (one repair is
+   inside M1.56).
+5. Retired-lead / trap scan: no big-endian search, no fitted delta, no guessed
+   POINT signature in the window. M4.67/68/69/70/72 name the factory tree
+   /home/marek/projekty/leafre-work as sample (allowed) but their probes cannot
+   replay it (M4.94).
+6. Board defect found while scoring: M4.93's Claims line held C-1030-C-1039
+   (M5.1's own block) while claims.md registers M4.93 as C-8420-C-8429, and
+   M8.H73 had taken C-8420-C-8429, so the board did not compile. Fixed with
+   board.py field: M4.93 back to C-8420; M8.H73 to the next free C-8570-C-8579;
+   M4.95 off C-8500 (M1.55's reserved block) to C-8560-C-8569.
+7. Rule 15 re-check: the retro's six dead Unblocks are still there (retro action
+   3, not re-filed). M8.H46 is blocked on M8.H47, which is open - correct, no
+   change.
+
+Tasks added (7; IDs from board.py next-id/next-claims)
+- M1.56 (C-8480): ship the M1.50 throw-away dump scanner as a tool and rebuild
+  EXP M1.50 in TEMPLATE form - the window's worst TEMPLATE defect. Pair required.
+- M4.94 (C-8490): give the four KIWI probes --tree/--card so the M4.69/70/72
+  byte verdicts replay from the card, not only from a synthetic selftest.
+- M4.95 (C-8560): road ref/shield writer - M4.90 found the grammar and no writer
+  emits it, so a Poland card has unnumbered roads. Pair required.
+- M5.81 (C-8510): replay the six section-1 field censuses (zcode/icode/inter/
+  frway/icadm/zipfr) on the real EU+US card; six 500-line decoders passed their
+  fixtures only.
+- M8.H76 (C-8530): one tools/hashutil.py for the ~10 sha256 copies the window
+  added. Pair solo.
+- M8.H77 (C-8540): one tools/ze0_peers/peerlib.py for the control-command loop
+  and frame helpers the five new peers each re-implement (rule-17 high risk).
+- M9.71 (C-8520): tools/exp_check.py, a TEMPLATE lint so a missing heading is a
+  command's output, not a reviewer's memory. Pair required.
+
+Decisions and rejected alternatives
+- Did not touch the retro's six dead Unblocks or the 18 --strict errors: retro
+  action 3; re-filing them would duplicate (prompt step 3).
+- Did not mark M8.H35/M1.50 blocked: their own Done-when passes; the defect is
+  record form. M1.50 is fixed by M1.56; M8.H35's missing Scope is the same lint
+  class (M9.71) and its evidence is real.
+- Did not add a task for the orphaned M5.1 block (see Problems): it is a board
+  repair for a PO pass, not a work task.
+
+Problems / dead ends
+- BOARD DEFECT (human/PO, not a task): under "## M5" lines 3226-3241 of TODO.md
+  are the M5.1 (osm.pbf -> IMF) block minus its "- [ ] **M5.1 -**" title and
+  Status line; the dangling "not on `main` at a8a1994; it is merged..." is the
+  visible scar. It predates this window (present at 96d06dfc, 2026-11-19);
+  todo_check does not see it (no task header). Do not hand-edit: a PO pass
+  should restore the header or move the 12 lines to a history file. It is why
+  M4.93's Claims read C-1030-C-1039 (fixed above).
+- M4.93's residual "1326 B (2 tables)" is two section tables, not a grammar
+  hole; EXP and claims agree - not a defect.
+- No extracted factory tree at archive/work/root on this host; the full cards
+  are in archive/sd-images/, so card replays are tasks (M1.56, M4.94, M5.81),
+  not silent skips.
+
+Handoff
+- QA: run exp_check once M9.71 lands; until then the five EXP heading gaps are
+  listed above. todo_check --strict stays 18 (retro action 3).
+- PO: the M5.1 orphan block is a board repair; the board is 6479 lines and the
+  retro asked the PO to archive before adding.
+- TL: 7 new open tasks - M4.95/M5.81/M4.94 are P1/P3 map work, M8.H76/77 are
+  tooling, M1.56/M9.71 are record - the rule-17 budget holds.
+- Human: retro action 1 (launch SE and QA) is half done by this log; QA is still
+  silent this cycle.

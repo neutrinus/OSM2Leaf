@@ -1146,6 +1146,19 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Falsifier: the language list comes from the card (then an EU card offers only European languages and nothing is missing).
   - Claims: C-8460–C-8469
 
+- [ ] **M1.56 — The M1.50 unit-dump position scanner: ship it as a tool and rebuild the EXP in TEMPLATE form**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M1.50 (done)
+  - Goal: EXP-2026-11-22-M1.50 (done) rests on a "throw-away coordinate scanner (described in §3, not committed)" and has no Method/Scope/Falsifier/Observation/Interpretation sections, so its C-8240–C-8247 rows cannot be reproduced from the repo (rule 16: an elided command is the same as no result). Commit the scanner as a tool and repair the record.
+  - Precheck: `grep -n 'throw-away' docs/experiments/EXP-2026-11-22-M1.50-us-unit-position-kentucky.md` prints the description line; `ls tools/position_dump_scan.py` fails (the tool does not exist).
+  - Scope: the VFlash/SRAM/NAND scan of §U3 (int32 1/512″ pairs, the 2007 record dates) and the coordinate-encoding scan of §F8, over the dumps M1.50 names; no new unit measurement, no vendor dump in the repo. Re-express the existing numbers, do not change the verdict.
+  - Input: EXP-2026-11-22-M1.50, M6.18 (dump names/sizes/SHA-256), `tools/coord.py`, `tools/ze0_position.py`.
+  - Done when: `python3 tools/position_dump_scan.py --selftest` passes (synthetic dump with a known pair and a known date) and `position_dump_scan.py vflash <dump>` reprints the M1.50 pair count and its date span; the EXP gains Method/Controls/Scope/Falsifier/Observations/Interpretation headings and every C-8240–C-8247 row's evidence cell invokes the committed tool; `python3 tools/claims_check.py` stays OK.
+  - Stop: one session; if a dump is not on disk, write the tool from the §U3 description and mark the real-dump numbers `measured on <host>`, not reproduced.
+  - Falsifier: on a synthetic dump the scanner finds the planted pair at a wrong offset, or the date rule misreads `0x07d7` as 2026.
+  - Claims: C-8480–C-8489
+  - Pair: required
+
 - [x] **M1.47 — `tools/ce_module.py`: one CE module/section reader for the L3 tools (they each carry their own copy of the ROMHDR → section → bytes path)**
   - Status: done · Owner: task/m1.47-ce-module · Critical: no · Pair: solo
   - Depends: — (tooling; rule 17 allows it because every map L3 task in the window pays the duplication tax — M3.34 and M9.10 both touched the same three helpers)
@@ -3182,6 +3195,32 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Claims: C-8420–C-8429
   - Result: EXP-2026-11-22-M4.93-section4-wide-rows; 64/64 dirs, residual 366814 B -> 1326 B (2 tables)
 
+- [ ] **M4.94 — KIWI probe tools on the real EU card: replay every byte test and add `--tree`**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M4.69 (done), M4.70 (done), M4.72 (done)
+  - Goal: M4.67/M4.68/M4.69/M4.70/M4.72 (all done) each ran byte tests on a factory tree under `/home/marek/projekty/leafre-work/…`, but the committed probes (`kiwi_probe.py`, `kiwi_bg_probe.py`, `kiwi_road_probe.py`, `kiwi_route_concepts.py`) are exercised only by their `--selftest` synthetic fixtures; nobody can re-run a KIWI +/- verdict from the repo plus the card alone. Make the probes take the card tree and replay the counts the EXPs quote.
+  - Precheck: `python3 tools/kiwi_road_probe.py --selftest` passes on synthetic data only; `python3 tools/kiwi_road_probe.py --help` has no `--tree`/`--card` option (`grep -c -- '--tree' tools/kiwi_road_probe.py` = 0).
+  - Scope: add `--tree ROOT` (and `--card IMG` that extracts the tree via `tools/verify.py`) to the four probes so each prints the same per-tile table the EXP quotes (M4.69: 0/6000 fits; M4.70 background counts; M4.72 r=0.1035 n=…); one replay command per EXP goes into its `## Reproduction`. No new KIWI hypothesis, no change to a verdict.
+  - Input: EXP-2026-11-22-M4.67/68/69/70/72, `tools/kiwi_probe.py`, `tools/kiwi_bg_probe.py`, `tools/kiwi_road_probe.py`, `tools/kiwi_route_concepts.py`, `tools/verify.py`.
+  - Done when: `python3 tools/kiwi_road_probe.py --tree <EU tree> --tile B48R058R` prints the M4.69 fit count (0) with the tile SHA-256, and each of the four probes writes a `## Reproduction` line an agent can paste; the counts equal the EXP numbers or the EXP line is corrected in the same commit (with the command that shows it); `python3 tools/selftest.py --only kiwi_road_probe` stays green.
+  - Stop: one session; if a probe's EXP number cannot be reproduced, record both numbers and the differing input SHA-256, and open the slice that would separate them.
+  - Falsifier: a probe with `--tree` on the factory tree prints a fit count different from its EXP and no input differs (then the EXP or the probe is wrong — say which).
+  - Claims: C-8490–C-8499
+  - Pair: required
+
+- [ ] **M4.95 — Road `ref`/shield writer: emit `2=REF` from OSM and pass the M4.90 shield table**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M4.90 (done), M5.65 (done)
+  - Goal: M4.90 found where a road number lives and how the shield is chosen (`2=REF` in the odd partner's names section, 11 shield families) and wrote a proposed Polish mapping, but no writer emits it: our generated tiles have names (M5.65) and no `A4`/`S8`/`DK94` reference, so a Poland card shows unnumbered roads. Close the writer gap.
+  - Precheck: `python3 tools/ze0-viewer/harness.py info <generated tile>` prints no `2=REF` part for any road name entry; M4.90's EXP table has the 11 families with counts.
+  - Scope: the name path of `tools/tilewriter.py` / `tools/section4_places.py` name writer: map an OSM `ref` to the M4.90 shield family and emit `1=NAME;2=REF`; one factory tile shows the reference where the factory has one; negative: a road with no `ref` keeps the name byte-identical. EU2011.
+  - Input: EXP-2026-11-22-M4.90, `tools/name_strings.py`, `tools/ze0-viewer/tools_ze0/fa_encode.py`, `tools/tilewriter.py`, `docs/research/osm-pipeline.md` §"Road numbers and shields".
+  - Done when: a generated `B48R058R` carries the `ref` of at least three Polish roads (A4, S8, DK94) and `tools/ze0-viewer/harness.py info` prints the `2=REF` part with the right shield family for each; `l2check --semantic-tiles` PASS; the no-`ref` control is byte-identical to the pre-change tile; EXP + claims.
+  - Stop: one session; if `fa_encode` cannot add a names part without rewriting the length word, stop and name the field (a new M5 task), do not hand-patch bytes.
+  - Falsifier: the written `2=REF` parses but the shield family the table predicts is not the one a decoded factory road with the same ref shows.
+  - Claims: C-8560–C-8569
+  - Pair: required
+
 ## M5 — OSM compiler vertical slice (Dolnośląskie)
 
 Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
@@ -3883,6 +3922,19 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a transliterated name collides with a different existing name in the same index and changes search order (record, do not solve).
   - Claims: C-7990–C-7999
   - Result: EXP-2026-11-22-M5.80-transliteration; 18-letter selftest, tile names 4/0, 5 claims C-7990-C-7994
+
+- [ ] **M5.81 — Section-1 record decoder: replay the M4.79–M4.84 field censuses on the real card**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M4.79 (done), M4.80 (done), M4.81 (done), M4.82 (done), M4.83 (done), M4.84 (done), M4.93 (done)
+  - Goal: six per-field decoders landed in one window (`zcode_decode.py`, `icode_decode.py`, `inter_decode.py`, `frway_decode.py`, `icadm_decode.py`, `zipfr_decode.py`, 460–750 lines each), each with `census ROOT`. `--selftest` proves the grammar on a synthetic vector but not that the tool walks a factory tile; a decoder that passes its fixture and reads no real shard is the EXP-2026-11-06-H5 defect one level up. One replay command per decoder, on the EU and US card, with the counts the EXP quotes.
+  - Precheck: `for t in zcode icode inter frway icadm zipfr; do python3 tools/${t}_decode.py --selftest; done` all pass; `python3 tools/zcode_decode.py census <EU tree>` prints a table (state the byte total in the EXP).
+  - Scope: run each `census` on `REFER001` of the EU 2011 and US 2011 trees from `tools/verify.py`, record records/bytes explained per shard, and add that command as the EXP's `## Reproduction` line; name every shard the decoder leaves unexplained. No grammar change unless a replay contradicts the EXP, in which case the EXP gets an `Overtaken by` note. EU2011 + US2011.
+  - Input: EXP-2026-11-22-M4.79/80/81/82/83/84/93, the six tools, `docs/format/refer.md`, `tools/verify.py`.
+  - Done when: one command (`python3 tools/section1_census_run.py --tree <root> --card eu2011` or a shell loop pasted in the EXP) reproduces every per-file number for the six decoders, and each EXP's `## Reproduction` invokes the committed tool on a named card; a shard whose explained bytes differ from its EXP is listed with both numbers; `python3 tools/claims_check.py` stays OK.
+  - Stop: one session; if a factory shard is absent on this host, mark it `absent on this host` and still ship the command for a runner that has the card.
+  - Falsifier: a decoder's factory total is 0 bytes explained on a shard its EXP reports as fully explained (then the EXP sample or the decoder is wrong — say which).
+  - Claims: C-8510–C-8519
+  - Pair: required
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -4656,6 +4708,32 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the demux needs the FPGA at `0x19800000` too, document its registers and stop.
   - Falsifier: the ISR at `0x8803ec74` never returns `0x1b` for any status bit (then UAT3 is on another line).
   - Claims: C-8470–C-8479
+
+- [ ] **M8.H76 — `tools/hashutil.py`: one `sha256_file`/`sha256_bytes` for the ~30 tools that each carry a copy**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: the window's new tools re-implement the same two helpers under different names: `_sha256` (`l4check.py:172`, `ze0_card.py:143`, `zipfr_decode.py:374`), `sha256_file` (`ze0_ui.py:210`, `mkpoland.py:64`), `sha256` (`poi_categories.py:85`, `section4_places.py:60`), plus `_sha` (`ze0_ui.py:522`) and `_sha256_bytes` (`ze0_card.py:151`). They differ in chunk size and in whether they accept `bytes` or a path, so evidence stamps drift (a stamp taken with a different chunking is still equal, but a caller that hashes the wrong side is not — H82's zlib stamp and M9.69's trace hashes both depend on the exact helper).
+  - Precheck: `grep -lnE 'def (_?sha256|sha256_file|_sha)\b' tools/*.py tools/ze0_peers/*.py | wc -l` equals the list in the EXP (state the count), and `grep -c 'def _sha256' tools/l4check.py` = 1.
+  - Scope: one `tools/hashutil.py` (`sha256_file(path, chunk=1<<20)`, `sha256_bytes(data)`), replace the local copies in the tools above and in the peers, keep every call site's output byte-identical; a selftest hashes a known vector and a temporary file by both paths. No behaviour change (same hex, same chunk default), no new dependency.
+  - Input: `tools/l4check.py`, `tools/ze0_card.py`, `tools/ze0_ui.py`, `tools/zipfr_decode.py`, `tools/mkpoland.py`, `tools/poi_categories.py`, `tools/section4_places.py`, `tools/icadm_decode.py`.
+  - Done when: `grep -rE 'def (_?sha256|sha256_file|_sha)\b' tools/ | grep -v hashutil.py` is empty; `python3 tools/selftest.py` stays green (242 pass / 0 fail today); `python3 tools/hashutil.py --selftest` passes; one EXP line records the hex a named file hashed to before and after the change (equal).
+  - Stop: one session; if a call site passes positional args that do not line up, leave that file and list it, do not change the shared signature.
+  - Falsifier: two call sites disagree on the hex of the same file after the change (then the chunking or the path/bytes split was not identical — name the site).
+  - Claims: C-8530–C-8539
+  - Pair: solo
+
+- [ ] **M8.H77 — `tools/peerlib.py`: shared line-command loop and frame helpers for the `ze0_peers/*` peers**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: M8.H38 (done), M8.H44 (done), M8.H50 (done), M8.H56 (done)
+  - Goal: five peers landed in one window (`uart.py`, `gps.py`, `micon.py`, `panel.py`, `bt.py`, `vcan.py`) and each re-implements the same three things: a `control_commands(line, state)` REPL (`bt.py:115`, `gps.py:260`, `panel.py:170`), a frame splitter/`frame()` (`bt.py:74`, `gps.py:55`, `vcan.py:122`) and a `Peer`/socket class (`vcan.py:138`, `uart.py:31`, `micon.py:79`). They are the L4 inputs rule 17 calls high-risk, so a defect in one is copied to the next; a shared loop keeps the framing rules in one place and lets a new connector be a grammar, not a transport.
+  - Precheck: `grep -n 'def control_commands' tools/ze0_peers/*.py` lists ≥ 3 files; `python3 tools/selftest.py --only gps` and `--only panel` pass (state the counts).
+  - Scope: one `tools/ze0_peers/peerlib.py` (`LinePeer` loop with `control_commands` dispatch, `frame`/`split` helpers where the grammars share them, a socket accept loop) and a migration of `gps.py`, `panel.py`, `vcan.py`, `bt.py` to it; every peer's `--selftest` output and its byte frames stay identical. Do not touch `micon.py`/`uart.py` in this pass unless the shared class fits without a semantic change — list the ones left and why.
+  - Input: `tools/ze0_peers/uart.py`, `gps.py`, `micon.py`, `panel.py`, `bt.py`, `vcan.py`, `tools/selftest.py`.
+  - Done when: the migrated peers' `--selftest` pass with the same counts as today (quoted before/after in the EXP), a frozen frame vector from each EOF-input test is byte-identical, and `python3 tools/selftest.py` stays green (242 pass / 0 fail); EXP + claims.
+  - Stop: one session; if a peer's control loop has a grammar the shared class cannot express without a flag, leave that peer and name it.
+  - Falsifier: a migrated peer answers a control line with a different frame than the frozen vector, or its negative control (bad checksum/out-of-range) stops failing.
+  - Claims: C-8540–C-8549
+  - Pair: required
 
 - [ ] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5621,7 +5699,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: `docs/firmware/navdrv.md` has a fix-frame table (field, record offset, unit, decoder VA) and one hand-built frame whose checksum validates; M8.H31 is re-run and `ze0_position.py read` returns the injected position; EXP + claims.
   - Stop: if the layout needs a chip vendor datasheet that is not in the repo, record the sync bytes and exact FPU operations, mark blocked, and name the datasheet in `Unblock:`.
   - Falsifier: the hand-built frame leaves the position word and both screenshots unchanged (the M8.H31 negative).
-  - Claims: C-8420–C-8429
+  - Claims: C-8570–C-8579
 
 ---
 
@@ -6366,6 +6444,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the returned name equals the stored one only for the ASCII part.
   - Claims: C-8020–C-8029
   - Result: EXP-2026-11-22-M9.70-polish-poi-l3; record 0 a3f3bcaf and record 1 b3f3bcaf returned byte-identical; walker 8/8, accessor 1000/1000, gate 5 pass/0 fail/0 skip
+
+- [ ] **M9.71 — `tools/exp_check.py`: one command that says an EXP follows `TEMPLATE.md`**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: H82 (done), H66 (done)
+  - Goal: the SE pass on 2026-11-23 measured 80 EXP records added in 24 h; three (M1.50, M8.H35, M8.H71→M1.50 class) lack Method/Scope/Interpretation headings, five more (H83, M4.64, M4.67, M4.68, M5.72, M5.80, M8.H30) miss a sample or SHA-256, and nothing in the gate or in `claims_check.py` can see prose. A reader has to open every record, and the defects are found a cycle late. One lint, so a missing heading is a command's output, not a reviewer's memory.
+  - Precheck: `ls tools/exp_check.py` fails; `grep -c '^## ' docs/experiments/EXP-2026-11-22-M1.50-us-unit-position-kentucky.md` prints headings that do not include `## Method`.
+  - Scope: a stdlib tool that reads each `docs/experiments/EXP-*.md`, checks the five Method parts plus the sample-or-`none` and SHA-256 rule of `TEMPLATE.md`, and prints a per-file PASS/FAIL with the missing item; a documented waiver line (`- **Sample:** none (tool-only task)`) is respected. Report only, no edits to the EXPs; add a row to `gate.py` only with the TL (rule 17), so for now it is `tools/selftest.py`-discovered and documented in `docs/experiments/README.md`.
+  - Input: `docs/experiments/TEMPLATE.md`, `docs/experiments/README.md`, `tools/claims_check.py` (the same runnable-command vocabulary), `tools/selftest.py`.
+  - Done when: `python3 tools/exp_check.py docs/experiments` exits 1 and names `M1.50` (no Method) and `M8.H35` (no Scope) among its FAILs on today's tree, exits 0 on a fixture of two compliant records plus one `none (tool-only task)` record, has a `--selftest`, and is in `tools/selftest.py`; EXP + claims.
+  - Stop: one session; if the heading set drifts from `TEMPLATE.md`, read the headings from the template file instead of hard-coding them.
+  - Falsifier: the tool passes a record with the headings but an elided command (`# ...`), or fails a compliant record only because of heading case/spacing.
+  - Claims: C-8520–C-8529
+  - Pair: required
 
 ## Retired leads
 
