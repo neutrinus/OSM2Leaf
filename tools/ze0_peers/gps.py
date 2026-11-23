@@ -37,7 +37,12 @@ Usage:
 
 Control socket lines (one per connection, reply ``OK ...`` or ``ERR ...``):
 ``gps LAT LON``, ``on``, ``no-fix``, ``speed KMH``, ``heading DEG``,
-``alt M``, ``stat HEX``, ``sats N``, ``status``.
+``alt M``, ``stat HEX``, ``sats N``, ``status``, ``drive on|off``.
+
+``drive on`` moves the fix by speed x report period along the heading for
+every report sent, so position, speed and heading agree (the locator
+compares them, C-8830).  While driving, a control line does not send an
+extra report: the firmware treats consecutive reports as one second apart.
 
 Stdlib only.  Method and results:
 docs/experiments/EXP-2026-11-22-M8.H30-gps-peer.md,
@@ -387,6 +392,9 @@ def control_commands(line, state):
         if cmd == "sats" and len(parts) == 2:
             state["sats"] = int(parts[1]) & 0x7f
             return "sats %d" % state["sats"]
+        if cmd == "drive" and len(parts) == 2 and parts[1] in ("on", "off"):
+            state["drive"] = parts[1] == "on"
+            return "drive %s" % parts[1]
         if cmd == "status":
             return "status %s lat=%s lon=%s stat=%02x sent=%d" % (
                 "fix" if state["fix"] else "no-fix", state["lat"], state["lon"],
@@ -396,10 +404,22 @@ def control_commands(line, state):
     return "ERR unknown command: %s" % cmd
 
 
-def state_frames(state, text_time=None):
+def advance(state, seconds):
+    """Move the fix by speed x seconds along the heading (``drive on``)."""
+    metres = (state.get("speed") or 0.0) / 3.6 * seconds
+    hdg = math.radians(state.get("heading") or 0.0)
+    lat = state["lat"]
+    state["lat"] = lat + metres * math.cos(hdg) / 111320.0
+    state["lon"] += metres * math.sin(hdg) / (
+        111320.0 * math.cos(math.radians(lat)))
+
+
+def state_frames(state, text_time=None, period=0.0):
     """Frames for one report period: one 36-byte A0 report, or nothing."""
     if not state["fix"] or state.get("lat") is None:
         return []
+    if state.get("drive") and period:
+        advance(state, period)
     return [encode_report(state["lat"], state["lon"],
                           alt=state.get("alt") or 0,
                           speed_kmh=state.get("speed") or 0.0,
@@ -463,9 +483,10 @@ def run(args):
                                 reply.replace("ERR ", "", 1))).encode())
                         except OSError:
                             pass
-                        next_tx = 0.0
+                        if not state.get("drive"):
+                            next_tx = 0.0
             if time.monotonic() >= next_tx:
-                for f in state_frames(state, args.time):
+                for f in state_frames(state, args.time, 1.0 / args.rate):
                     print("gps: %s" % sink.send(f), flush=True)
                     state["sent"] += 1
                 next_tx = time.monotonic() + (1.0 / args.rate)
@@ -620,6 +641,12 @@ def selftest():
     check("control fix", control_commands("gps 50 20", st), "fix 50.000000 20.000000")
     check("control no-fix", control_commands("no-fix", st), "no-fix")
     check("control unknown", control_commands("wat", st).startswith("ERR"), True)
+    dr = {"fix": True, "lat": 50.0, "lon": 20.0, "speed": 36.0,
+          "heading": 90.0, "drive": False}
+    check("control drive", control_commands("drive on", dr), "drive on")
+    state_frames(dr, "2026-11-22T12:00:00", 1.0)
+    check("drive keeps latitude", round(dr["lat"], 7), 50.0)
+    check("drive moves 10 m east", round(_distance_m((50.0, 20.0), (dr["lat"], dr["lon"])), 1), 10.0)
 
     print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
     return 1 if fails else 0

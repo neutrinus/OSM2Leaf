@@ -5153,7 +5153,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the speed variable does not change with the pulse rate.
   - Claims: C-7290–C-7299
   - Note: Done 2026-11-23 (EXP-2026-11-23-M8.H32-trailer-test, C-7290–C-7297): ze0-h32-dr-sensors.patch, /machine/dr pulses-milli/gyro0-7; 50 km/h within 1 %. Not done from scope: gps.py driving the pulses, reverse and illumination pins, gyro scale. Trailer test (Kentucky → Chicago): the car does not stay at the GPS (C-7295/C-7296).
-  - Result: EXP-2026-11-23-M8.H32-trailer-test: wheel pulses modelled (ze0-h32-dr-sensors.patch), speed variable *0x00dbdc2e follows the pulse rate (50 km/h within 1 %, 0 at 0); trailer Kentucky→Chicago: car not relocated (C-7295–C-7297)
+    Corrected the same day: the trailer failure was the GPS peer's extra reports; with 'drive on' the car follows (O11–O13, C-8830–C-8834).
+  - Result: EXP-2026-11-23-M8.H32-trailer-test: wheel pulses modelled (ze0-h32-dr-sensors.patch), speed variable *0x00dbdc2e follows the pulse rate (50 km/h within 1 %, 0 at 0); trailer Kentucky→Chicago works once GPS reports are self-consistent (gps.py drive on, C-8830–C-8834)
 
 - [ ] **M8.H33 — Drive a track: GPX replay with screenshots every few seconds**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5749,6 +5750,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H32 drives the +22 field, then a US fix near the restored position (Kentucky)
   - Result: EXP-2026-11-23-M8.H78-locator-gps-gates; gates named (C-8640–C-8646), stat default 0x30; car position not moved
   - Note: 2026-11-23 M8.H32: with wheel pulses and stat 0x00 all bits 0x01–0x200 are set, but the next cycle resets the car (mesh not in table, map-matching 0xffff, lost-road counter *0x00dbd5ac stays 0); see EXP-2026-11-23-M8.H32-trailer-test O6/O7.
+    (M8.H32 follow-up, 2026-11-23) answered: OBJ_CarPos takes a far GPS position through the map-matching branch 0x00458994 once five consecutive samples at >10 km/h have reported speed/heading matching the position track (C-8830–C-8833); on ze0 the car moves Kentucky→Chicago with gps.py 'drive on'.
 
 ---
 
