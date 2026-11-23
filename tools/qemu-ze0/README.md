@@ -24,7 +24,7 @@ this table and an EXP entry.
 
 ### One version, one series
 
-The machine is a series of out-of-tree patches (27 on 2026-11-23) on `hw/sh4`, `hw/sd` and
+The machine is a series of out-of-tree patches (28 on 2026-11-23) on `hw/sh4`, `hw/sd` and
 `target/sh4` in [`patches/`](patches/), written against QEMU 11.1.3.
 
 Until 2026-11-21 the series existed twice: for QEMU 8.2.7/8.2.10 (the

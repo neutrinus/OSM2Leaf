@@ -99,6 +99,21 @@ python3 tools/ze0_screenshot.py screen --monitor $W/live/mon.sock -o $W/shot.png
 
 Screenshots show vendor map data: keep them outside the repository.
 
+Wheels and gyro (M8.H32): the speed-pulse and gyro pages are the QEMU object
+`/machine/dr`. Set them over HMP while the guest runs:
+
+```bash
+# 83.33 pulses/s; with the unit's learned scale about 50 km/h
+printf 'qom-set /machine/dr pulses-milli 8333\n' | socat - UNIX-CONNECT:$W/live/mon.sock
+printf 'qom-get /machine/dr irqs\n' | socat - UNIX-CONNECT:$W/live/mon.sock
+```
+
+`pulses-milli` is pulses per 100 ms tick × 1000 (0 = standing still).
+`gyro0`…`gyro7` are the raw ADC words (zero and scale unknown, default 0).
+The locator moves the car to the GPS only with good fixes: keep the GPS
+peer's stat at 0x00 (its default). Record:
+[`EXP-2026-11-23-M8.H32-trailer-test`](../experiments/EXP-2026-11-23-M8.H32-trailer-test.md).
+
 Debugger: add `--gdb 1240` and use `tools/ze0_gdb.py` (see
 [`debugging.md`](debugging.md)). Useful breakpoints for input:
 `0x03d16300` (lcddrv queues a touch), `0x03d284e4` (kepdrv `InputLcdTouch`),

@@ -73,7 +73,10 @@ OBJ_SCALE = 30.72                        # OBJ_GpsInfo: double at 0x00497c9c
 # history ring (US Navi 0x0046fa60) keeps a report only when the whole byte
 # is 0x00, 0x10, 0x20 or 0x30, so flag bits must be clear (M8.H78, C-8640).
 # 0x2f (the M8.H73 value) reaches OBJ_GpsInfo but never the locator.
-DEFAULT_STAT = 0x30
+# M8.H32 (C-7293): the locator's "relocate to GPS" bits 0x01 (fn 0x0049da38)
+# and 0x02 (fn 0x0049dba0) pass only when the newest entries have 0x00 or
+# 0x10; with 0x20/0x30 the car never jumps to the GPS position.
+DEFAULT_STAT = 0x00
 
 
 def frame_length(start):

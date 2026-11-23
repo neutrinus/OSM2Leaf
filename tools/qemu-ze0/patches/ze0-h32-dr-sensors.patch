@@ -1,0 +1,357 @@
+hw/sh4: ze0 speed-pulse and gyro ADC pages with the 100 ms tick (TODO M8.H32).
+
+navdrv.dll maps 0xffc5b000 (speed-pulse capture) and 0xffc5a000 (gyro
+ADC) with VirtualCopy, so the guest uses the area-7 aliases 0x1fc5b000
+and 0x1fc5a000.  Its sample thread (US card ROM B fn 0x039e55b0, NK1
++0x310000) waits on SYSINTR 46, which the NK1 OAL table routes from
+INTEVT 0x760 (ISR 0x8803f004, IntrPrio 11, masks INT2 bit 22).  Without
+that interrupt no dead-reckoning sample reached Navi and the locator's
+vehicle-speed input stayed 0.
+
+The new ze0-dr object (/machine/dr) raises INTEVT 0x760 every tick-ms
+(100) of virtual time once the driver has written the latch enable
+(+0x08), drops it on the status-clear write (+0x18), returns a pulse
+counter latched per tick at +0x0c and the tick count at +0x10, and the
+gyro words at +0x30..+0x4c.  Inputs are QOM properties set at run time
+with HMP qom-set: pulses-milli (pulses per tick x 1000), gyro0..gyro7,
+tick-ms.  ZE0_DR_TRACE=1 in the environment logs the first 200 register
+accesses to stderr.
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+
+--- a/hw/sh4/meson.build
++++ b/hw/sh4/meson.build
+@@ -9,3 +9,4 @@
+ sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0.c', 'ze0_intc.c', 'ze0_sdhi.c', 'ze0_hpbdmac.c', 'ze0_gfx.c', 'ze0_2dg.c'))
+ hw_arch += {'sh4': sh4_ss}
+ sh4_ss.add(files('ze0_stubs.c'))
++sh4_ss.add(when: 'CONFIG_ZE0', if_true: files('ze0_dr.c'))
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -31,6 +31,7 @@
+ #include "hw/sh4/sh.h"
+ #include "hw/sh4/sh4_ccn.h"
+ #include "hw/sh4/ze0_intc.h"
++#include "hw/sh4/ze0_dr.h"
+ #include "hw/timer/tmu012.h"
+ #include "hw/core/sysbus.h"
+ #include "hw/core/qdev-properties-system.h"
+@@ -884,6 +885,8 @@
+                         ze0_intc_irq(intc, ZE0_IRQ_TMU1),
+                         ze0_intc_irq(intc, ZE0_IRQ_TMU2), NULL);
+         }
++        /* M8.H32: speed pulse / gyro ADC pages, inputs at /machine/dr */
++        ze0_dr_create(OBJECT(machine), sysmem, ze0_intc_irq(intc, ZE0_IRQ_DR));
+     }
+ 
+     /*
+--- a/hw/sh4/ze0_intc.c
++++ b/hw/sh4/ze0_intc.c
+@@ -141,6 +141,11 @@
+      */
+     [ZE0_IRQ_UAT3] = { "UAT3", 0x8c0, 0xff, ZE0_PRI_FIXED, 11 },
+     [ZE0_IRQ_UAT4] = { "UAT4", 0x8e0, 0xff, ZE0_PRI_FIXED, 11 },
++    /*
++     * M8.H32: navdrv's sample thread waits on SYSINTR 46.  NK1 OAL row
++     * {0x760, fn 0x8803f004, 11, 0x2e}; the ISR masks INT2 bit 22.
++     */
++    [ZE0_IRQ_DR] = { "DR", 0x760, 22, ZE0_PRI_FIXED, 11 },
+ };
+ 
+ struct Ze0IntcState {
+--- a/include/hw/sh4/ze0_intc.h
++++ b/include/hw/sh4/ze0_intc.h
+@@ -40,6 +40,7 @@
+     ZE0_IRQ_HSCIF,
+     ZE0_IRQ_UAT3,           /* M8.H3: external UARTs */
+     ZE0_IRQ_UAT4,
++    ZE0_IRQ_DR,             /* speed pulse / gyro tick (M8.H32) */
+     ZE0_INTC_NR_SOURCES
+ };
+ 
+--- /dev/null
++++ b/hw/sh4/ze0_dr.c
+@@ -0,0 +1,261 @@
++/*
++ * ZE0 dead-reckoning sensors: speed-pulse capture and gyro ADC (TODO M8.H32).
++ *
++ * navdrv.dll maps two 4 KiB pages with VirtualCopy (C-7250/C-7251):
++ *
++ *   0xffc5b000  speed-pulse capture.  The driver keeps a table of register
++ *               pointers (US card ROM B navdrv fn 0x039e6f74, 0x039e7110..):
++ *                 +0x00 enable (init writes 1)
++ *                 +0x04 filter (init writes 0xd2)
++ *                 +0x08 latch enable (fn 0x039e73e4 writes 0/1)
++ *                 +0x0c Get100LatchData: pulse counter latched every tick
++ *                       (the sample thread takes the u16 difference)
++ *                 +0x10 GetINTcount: tick counter (the builder uses & 0xf)
++ *                 +0x18 status clear (fn 0x039e74bc writes 1 before
++ *                       InterruptDone)
++ *                 +0x1c 500 kHz divider (init writes 84)
++ *                 +0x100..+0x114 OffsetB, ObserveB, WidthClear (kept as RAM)
++ *   0xffc5a000  gyro ADC.  gyroAdc_GetAddData(ch) reads +0x30 + 4*ch
++ *               (ch 0..7) and masks to 28 bits.
++ *
++ * The sample thread (fn 0x039e55b0) waits on SYSINTR 46.  The NK1 OAL row
++ * for it is {INTEVT 0x760, ISR 0x8803f004, IntrPrio 11, SYSINTR 0x2e}; the
++ * ISR masks INT2 bit 22.  The model raises that line every tick-ms of
++ * virtual time and drops it on the status-clear write.
++ *
++ * Inputs are QOM properties of /machine/dr, settable at run time with the
++ * HMP command qom-set:
++ *   pulses-milli  speed pulses per tick, in 1/1000 pulse (default 0)
++ *   gyro0..gyro7  raw ADC words for gyroAdc_GetAddData (default 0)
++ *   tick-ms       tick period (default 100)
++ *
++ * The meaning of the values for the navigation software (pulses per metre,
++ * gyro zero and scale) is not modelled here; the peer side picks them.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++
++#include "qemu/osdep.h"
++#include "qemu/log.h"
++#include "qapi/error.h"
++#include "qapi/visitor.h"
++#include "system/memory.h"
++#include "system/address-spaces.h"
++#include "hw/core/irq.h"
++#include "qemu/timer.h"
++#include "qom/object.h"
++#include "hw/sh4/ze0_dr.h"
++
++#define DR_SP_BASE      0xffc5b000u
++#define DR_GYRO_BASE    0xffc5a000u
++#define DR_PAGE         0x1000u
++#define DR_NGYRO        8
++
++struct Ze0DrState {
++    Object parent_obj;
++
++    MemoryRegion sp_mr;
++    MemoryRegion gyro_mr;
++    MemoryRegion sp_a7;
++    MemoryRegion gyro_a7;
++    bool armed;                 /* the driver has written the speed page */
++    uint32_t sp[DR_PAGE / 4];
++    uint32_t gyro_ram[DR_PAGE / 4];
++    uint32_t gyro[DR_NGYRO];
++    uint32_t pulses_milli;
++    uint32_t tick_ms;
++    uint64_t pulse_acc_milli;   /* pulses since start, 1/1000 */
++    uint32_t ticks;
++    uint32_t latched;
++    uint32_t irq_count;
++    uint32_t clear_count;
++    qemu_irq irq;
++    QEMUTimer *timer;
++};
++
++static void ze0_dr_arm(Ze0DrState *s)
++{
++    uint32_t ms = s->tick_ms ? s->tick_ms : 100;
++
++    timer_mod(s->timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
++              (int64_t)ms * 1000000);
++}
++
++static void ze0_dr_tick(void *opaque)
++{
++    Ze0DrState *s = opaque;
++
++    s->pulse_acc_milli += s->pulses_milli;
++    s->latched = (uint32_t)(s->pulse_acc_milli / 1000);
++    s->ticks++;
++    /* level until the status-clear write; only after the driver set up
++     * the block (before that the line would hold the CPU in the ISR) */
++    if (s->armed) {
++        s->irq_count++;
++        qemu_irq_raise(s->irq);
++    }
++    ze0_dr_arm(s);
++}
++
++static unsigned ze0_dr_trace_left = 200;
++
++static void ze0_dr_trace(Ze0DrState *s, const char *what, hwaddr off,
++                         uint64_t val)
++{
++    if (getenv("ZE0_DR_TRACE") && ze0_dr_trace_left) {
++        ze0_dr_trace_left--;
++        fprintf(stderr, "ze0-dr: tick %u %s +0x%03x = 0x%08" PRIx64 "\n",
++                s->ticks, what, (unsigned)off, val);
++    }
++}
++
++static uint64_t ze0_dr_sp_read(void *opaque, hwaddr off, unsigned size)
++{
++    Ze0DrState *s = opaque;
++
++    ze0_dr_trace(s, "sp R", off, off == 0x10 ? s->ticks : 0);
++
++    switch (off) {
++    case 0x0c:
++        return s->latched & 0xffff;
++    case 0x10:
++        return s->ticks;
++    default:
++        return s->sp[(off & (DR_PAGE - 1)) / 4];
++    }
++}
++
++static void ze0_dr_sp_write(void *opaque, hwaddr off, uint64_t val,
++                            unsigned size)
++{
++    Ze0DrState *s = opaque;
++
++    ze0_dr_trace(s, "sp W", off, val);
++    s->sp[(off & (DR_PAGE - 1)) / 4] = val;
++    if (off == 0x08 && val) {
++        s->armed = true;        /* latch enable, fn 0x039e73e4(1) */
++    }
++    if (off == 0x18) {
++        s->clear_count++;
++        qemu_irq_lower(s->irq);
++    }
++}
++
++static uint64_t ze0_dr_gyro_read(void *opaque, hwaddr off, unsigned size)
++{
++    Ze0DrState *s = opaque;
++
++    ze0_dr_trace(s, "gy R", off, 0);
++    if (off >= 0x30 && off < 0x30 + 4 * DR_NGYRO) {
++        return s->gyro[(off - 0x30) / 4];
++    }
++    return s->gyro_ram[(off & (DR_PAGE - 1)) / 4];
++}
++
++static void ze0_dr_gyro_write(void *opaque, hwaddr off, uint64_t val,
++                              unsigned size)
++{
++    Ze0DrState *s = opaque;
++
++    ze0_dr_trace(s, "gy W", off, val);
++    s->gyro_ram[(off & (DR_PAGE - 1)) / 4] = val;
++}
++
++static const MemoryRegionOps ze0_dr_sp_ops = {
++    .read = ze0_dr_sp_read,
++    .write = ze0_dr_sp_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++    .impl = { .min_access_size = 4, .max_access_size = 4 },
++};
++
++static const MemoryRegionOps ze0_dr_gyro_ops = {
++    .read = ze0_dr_gyro_read,
++    .write = ze0_dr_gyro_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++    .valid = { .min_access_size = 1, .max_access_size = 4 },
++    .impl = { .min_access_size = 4, .max_access_size = 4 },
++};
++
++static void ze0_dr_get_u32(Object *obj, Visitor *v, const char *name,
++                           void *opaque, Error **errp)
++{
++    visit_type_uint32(v, name, (uint32_t *)opaque, errp);
++}
++
++static void ze0_dr_set_u32(Object *obj, Visitor *v, const char *name,
++                           void *opaque, Error **errp)
++{
++    uint32_t val;
++
++    if (visit_type_uint32(v, name, &val, errp)) {
++        *(uint32_t *)opaque = val;
++    }
++}
++
++static void ze0_dr_init(Object *obj)
++{
++    Ze0DrState *s = ZE0_DR(obj);
++    char name[8];
++    int i;
++
++    s->tick_ms = 100;
++    object_property_add(obj, "pulses-milli", "uint32", ze0_dr_get_u32,
++                        ze0_dr_set_u32, NULL, &s->pulses_milli);
++    object_property_add(obj, "tick-ms", "uint32", ze0_dr_get_u32,
++                        ze0_dr_set_u32, NULL, &s->tick_ms);
++    for (i = 0; i < DR_NGYRO; i++) {
++        snprintf(name, sizeof(name), "gyro%d", i);
++        object_property_add(obj, name, "uint32", ze0_dr_get_u32,
++                            ze0_dr_set_u32, NULL, &s->gyro[i]);
++    }
++    object_property_add(obj, "ticks", "uint32", ze0_dr_get_u32, NULL, NULL,
++                        &s->ticks);
++    object_property_add(obj, "irqs", "uint32", ze0_dr_get_u32, NULL, NULL,
++                        &s->irq_count);
++    object_property_add(obj, "clears", "uint32", ze0_dr_get_u32, NULL, NULL,
++                        &s->clear_count);
++    object_property_add(obj, "latched", "uint32", ze0_dr_get_u32, NULL, NULL,
++                        &s->latched);
++}
++
++Ze0DrState *ze0_dr_create(Object *parent, MemoryRegion *sysmem, qemu_irq irq)
++{
++    Ze0DrState *s = ZE0_DR(object_new(TYPE_ZE0_DR));
++
++    object_property_add_child(parent, "dr", OBJECT(s));
++    object_unref(OBJECT(s));
++    s->irq = irq;
++    memory_region_init_io(&s->sp_mr, OBJECT(s), &ze0_dr_sp_ops, s,
++                          "ze0-speed-pulse", DR_PAGE);
++    memory_region_init_io(&s->gyro_mr, OBJECT(s), &ze0_dr_gyro_ops, s,
++                          "ze0-gyro-adc", DR_PAGE);
++    memory_region_add_subregion_overlap(sysmem, DR_SP_BASE, &s->sp_mr, 2);
++    memory_region_add_subregion_overlap(sysmem, DR_GYRO_BASE, &s->gyro_mr, 2);
++    /* VirtualCopy of the P4 address lands on the area-7 alias */
++    memory_region_init_alias(&s->sp_a7, OBJECT(s), "ze0-speed-pulse-a7",
++                             &s->sp_mr, 0, DR_PAGE);
++    memory_region_init_alias(&s->gyro_a7, OBJECT(s), "ze0-gyro-adc-a7",
++                             &s->gyro_mr, 0, DR_PAGE);
++    memory_region_add_subregion_overlap(sysmem, DR_SP_BASE & 0x1fffffffu,
++                                        &s->sp_a7, 2);
++    memory_region_add_subregion_overlap(sysmem, DR_GYRO_BASE & 0x1fffffffu,
++                                        &s->gyro_a7, 2);
++    s->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, ze0_dr_tick, s);
++    ze0_dr_arm(s);
++    return s;
++}
++
++static const TypeInfo ze0_dr_info = {
++    .name = TYPE_ZE0_DR,
++    .parent = TYPE_OBJECT,
++    .instance_size = sizeof(Ze0DrState),
++    .instance_init = ze0_dr_init,
++};
++
++static void ze0_dr_register_types(void)
++{
++    type_register_static(&ze0_dr_info);
++}
++
++type_init(ze0_dr_register_types)
+--- /dev/null
++++ b/include/hw/sh4/ze0_dr.h
+@@ -0,0 +1,18 @@
++/*
++ * ZE0 dead-reckoning sensors (TODO M8.H32); see hw/sh4/ze0_dr.c.
++ *
++ * SPDX-License-Identifier: GPL-2.0-or-later
++ */
++#ifndef HW_SH4_ZE0_DR_H
++#define HW_SH4_ZE0_DR_H
++
++#include "qom/object.h"
++#include "hw/core/irq.h"
++#include "system/memory.h"
++
++#define TYPE_ZE0_DR "ze0-dr"
++OBJECT_DECLARE_SIMPLE_TYPE(Ze0DrState, ZE0_DR)
++
++Ze0DrState *ze0_dr_create(Object *parent, MemoryRegion *sysmem, qemu_irq irq);
++
++#endif
