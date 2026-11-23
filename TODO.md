@@ -1725,8 +1725,8 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-3270–C-3279
   - Result: EXP-2026-11-22-H40-generated-fixture-contract (C-3270–C-3276): H40's generated-fixture contract is already in place on origin/main — H103 --generate-fixture tree is vendor-free, 6 PASS/2 SKIP, byte-identical over two runs; H105 --break tile-level-in-mmain tree is rc=1 FAILing mmain (the id the good tree passed); L2 drstr/cmpind/tile/POI rows PASS; l1l2_fixtures --selftest OK (32 checks) and --require-covered rc=0 so the H26 l1.synthetic.cardcheck row is runnable; honest gaps stay NOT COVERED. Closed as the verification row it became; gate 5 pass/0 fail/0 skip.
 
-- [ ] **H41 — L1/L2 progress matrix for generated card: per file + per feature (roads,names,POIs,geometry) with regression baseline**
-  - Status: open · Owner: — · Critical: yes
+- [x] **H41 — L1/L2 progress matrix for generated card: per file + per feature (roads,names,POIs,geometry) with regression baseline**
+  - Status: done · Owner: task/h41-l1l2-progress-matrix · Critical: yes
   - Depends: H40, H26
   - Goal: progress signal for a generated fixture: L1 pass/fail per file/check and L2 pass/fail per file and per feature (`roads,names,POIs,geometry`), with SKIP/NOT COVERED/NOT RUNNABLE separate and never counted as PASS; CI fails on fixture regression.
   - Scope: extend `tools/l1l2_fixtures.py` or add a companion reporter (name in PR) consuming H40 fixture; emit JSON/Markdown with stable keys `level,file,feature,status(PASS|FAIL|SKIP|NOT_COVERED|NOT_RUNNABLE),command,reason`. Feature mapping explicit/evidence-based (tile road records/section-1 geometry -> roads/geometry, DRSTR/name entries -> names, POI mutation/records -> POIs; unmappable -> NOT COVERED). Committed no-vendor baseline for named fixture; baseline changes intentional with EXP/PR explanation.
@@ -1734,6 +1734,7 @@ The 23rd-pass text is in git (`af469580`).
   - Done when: CI artifact includes per-file/per-feature matrix for generated fixture; `--selftest` covers status separation and baseline-regression detection (synthetic PASS->FAIL fails gate); adding a check is registry/data, not report-logic surgery; workflow README states regression policy.
   - Stop: if feature attribution cannot be made without guessing format semantics, report NOT COVERED with missing claim/tool reference.
   - Claims: C-3280–C-3289
+  - Result: EXP-2026-11-23-H41-l1l2-progress-matrix.md; selftest 25/25; matrix 12 rows (9P/0F/1S, 2 NOT_COVERED); baseline rc=0 / PASS->FAIL rc=1 / missing-key rc=1; C-3280–C-3289
 
 - [ ] **H42 — Wire progress dashboard and L1/L2/L3/L4-emu/L5-bench status into CI artifacts/job summaries (no vendor data)**
   - Status: open · Owner: — · Critical: yes

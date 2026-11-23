@@ -1,0 +1,85 @@
+{
+  "schema": "osm2leaf.l1l2-matrix-baseline/v1",
+  "task": "H41",
+  "key": [
+    "level",
+    "file",
+    "feature"
+  ],
+  "fixture": "H40 generated fixture via tools/l1l2_fixtures.py",
+  "note": "No vendor bytes. H43 consumes this file and key; no second schema and no second --check-baseline.",
+  "rows": [
+    {
+      "level": "L1",
+      "file": "ZE0 generated fixture tree",
+      "feature": "structural",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "DRSTR001.DAT",
+      "feature": "names",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "DRSTR001.DAT (build+parse)",
+      "feature": "names",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "REFER001/*.cmp/.ind (cmpind verify)",
+      "feature": "container",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "REFER001/*.cmp/.ind (writer)",
+      "feature": "container",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "REFER001/*.cmp/.ind (preserve)",
+      "feature": "container",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "REFER001/*.cmp/.ind (recompress)",
+      "feature": "container",
+      "status": "SKIP"
+    },
+    {
+      "level": "L2",
+      "file": "MAPAL001/BxxRyyR.DAT (harness)",
+      "feature": "NOT_COVERED",
+      "status": "NOT_COVERED"
+    },
+    {
+      "level": "L2",
+      "file": "MAPAL001/BxxRyyR.DAT",
+      "feature": "roads",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "MAPAL001/BxxRyyR.DAT (parcels/shapes)",
+      "feature": "geometry",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "REFER001/POINT0nn",
+      "feature": "POIs",
+      "status": "PASS"
+    },
+    {
+      "level": "L2",
+      "file": "REFER001/ADDRE0nn + MAPAL001 section 4",
+      "feature": "names",
+      "status": "NOT_COVERED"
+    }
+  ]
+}

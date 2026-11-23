@@ -1,5 +1,26 @@
 # GitHub Actions workflows
 
+## `l1l2-fixtures.yml` — L1/L2 fixtures and progress matrix (H26/H41)
+
+Runs `tools/l1l2_fixtures.py` on Python 3.11/3.13 (blocking) and 3.14
+(informational, zlib-ng/H9). H41 adds `tools/l1l2_matrix.py`, which maps the
+ten registry checks to rows keyed `level,file,feature` with explicit
+claim/tool evidence (`C-3270–C-3274`, `C-2760`, `C-4340`) and emits
+`l1l2-matrix.json`/`.md` artifacts and a job summary. Feature attribution is
+data keyed by check ID; unmapped checks and ADDRE/section-4 names are reported
+`NOT_COVERED`, never inferred.
+
+**Regression policy (H41/H43).** `tools/fixtures/l1l2-matrix-baseline.json`
+is the committed no-vendor baseline for the generated fixture. The matrix step
+fails on a runnable `FAIL`, on a baseline row that drops status (including
+`PASS→FAIL`, `PASS→SKIP`) and on a baseline key that disappears from the report
+(H69 set equality). A status rise (`FAIL→PASS`) is printed as an improvement,
+not an error; a new key is informational. `SKIP`, `NOT_COVERED` and
+`NOT_RUNNABLE` are never counted as PASS. Baseline refresh requires an EXP/PR
+rationale, never a change made to make a failure pass. H43 consumes this same
+baseline file and `level,file,feature` key — no second schema and no second
+`--check-baseline`. No firmware acceptance claim (rule 13), no vendor data.
+
 ## `main-watch.yml` — gate verdict on `main` (H117)
 
 The `push` run of `ci.yml` is cancelled by the next push, so a red gate could
