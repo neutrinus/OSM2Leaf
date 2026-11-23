@@ -19,16 +19,21 @@ What the model reproduces exactly (see EXP-2026-11-23-M9.67):
 * each further point is ``4 + 2 [x bits 0x1800 not both set] + 2 [y bit
   0x2000] + 2 [y bit 0x1000] + 2 [y bit 0x0800]`` bytes after the previous
   point;
-* the next shape is at ``B + 2 * (w0 & 0x1fff)``.
+* the next shape is at ``B + 2 * (w0 & 0x1fff)``;
+* a point with ``(x & 0x1800) != 0x1800`` carries its own reference word at
+  ``P + 4 + 2*((y >> 13) & 1)``; ``0xffff`` means none, otherwise the word is
+  a point index whose target x sits at ``2*word`` (verified in the trace, see
+  ``refs`` below).
 
-What it does NOT reproduce (the finding of M9.67): the reference/count stage
-that each point with ``(x & 0x1800) != 0x1800`` enters (``fn 0x00420174`` and
-its copies, plus the last-point ``fn 0x00420298``) reads a per-point node
-index built from a coordinate cell table (``*0x00ec3600`` / ``*0x00e8f5c4``)
-whose slot the point coordinates do **not** give by a rule the static decode
-closed; it targets a *different* point of the whole 11 KB buffer, not the one
-its own reference word names.  The model therefore emits the shape/point reads
-and marks every reference block ``UNKNOWN``.
+What it does NOT reproduce: the **pipelined order** in which the firmware
+interleaves the reference block with the next point read (``fn 0x00420174``
+processes the previous point after the next point's x/y are loaded, and
+``fn 0x00420298`` does the last-point pair), and the **count** stage: each
+reference slot that is not ``0xffff`` looks its point up in a cell→index
+table (``*0x00ec3600``, index ``q = (y>>9 & ~1) + (x>>10)``) built outside
+``fn 0x0041f3dc``; a ``-1`` entry skips the count.  M9.67 retracted the earlier
+"reads a point at a different offset" reading: the block's target *is* the
+point its own reference word names (``ty = 2*word + 2``, ``tx = 2*word``).
 
 The tool is standard-library only and reads a shape-buffer dump produced by
 ``locmap_l3.py run ... --shape-out FILE``; it never needs an image.
@@ -93,6 +98,21 @@ def first_point_offset(base: int, w0: int, w3: int) -> int:
     return base + 0x0E + 2 * (w3 & 3) + 2 * (w0 >> 13)
 
 
+def refword_offset(point: int, y: int) -> int:
+    """Byte of a point's own reference word: ``P + 4 + 2*((y>>13)&1)``."""
+    return point + 4 + 2 * ((y >> 13) & 1)
+
+
+def ref_target(word: int) -> int:
+    """Byte the reference *word* names: ``2*word`` (the point's x word)."""
+    return 2 * word
+
+
+def ref_y_offset(word: int) -> int:
+    """Byte of the referenced point's y word: ``2*(word + 1)``."""
+    return 2 * (word + 1)
+
+
 def skeleton(shape: bytes):
     """Return (reads, info).  *reads* is [(pc, offset)] in emitted order."""
     reads = []
@@ -140,6 +160,42 @@ def skeleton(shape: bytes):
     return reads, info
 
 
+def refs(shape: bytes):
+    """Reference slots of every walked point, in the model's shape order.
+
+    Returns ``[(point_byte, refword_byte, word)]`` for each point with
+    ``(x & 0x1800) != 0x1800``.  ``word`` is ``0xffff`` (no reference) or a
+    point index; the point it names is at byte ``2*word``.
+    """
+    out = []
+    counts = [u16(shape, 4 + 4 * i) for i in range(ROW_COUNT)]
+    if any(c >= ABORT_COUNT for c in counts):
+        return out
+    for r in range(ROW_COUNT):
+        count = u16(shape, 4 + 4 * r)
+        if count == 0:
+            continue
+        base = 4 * u16(shape, 2 + 4 * r)
+        for _ in range(count):
+            w0, w1 = u16(shape, base), u16(shape, base + 2)
+            w3 = u16(shape, base + 6)
+            npt = w1 & 0x0FFF
+            x = y = 0
+            p = first_point_offset(base, w0, w3)
+            for j in range(npt):
+                if j:
+                    p += point_advance(x, y)
+                x, y = u16(shape, p), u16(shape, p + 2)
+                if (x & 0x1800) != 0x1800:
+                    ow = refword_offset(p, y)
+                    out.append((p, ow, u16(shape, ow)))
+            length = w0 & 0x1FFF
+            if length == 0:
+                break
+            base += 2 * length
+    return out
+
+
 def compare(shape: bytes, trace):
     """Compare the model skeleton with a firmware trace.
 
@@ -154,6 +210,39 @@ def compare(shape: bytes, trace):
     ref_reads = [(pc, off) for pc, off, sz in fw if pc in REF_PCS]
     n = min(len(model), len(fw_skel))
     first_bad = next((i for i in range(n) if model[i] != fw_skel[i]), None)
+    # reference-word rule: each block reads ry at P+2 and rw at O; O must be
+    # P+4+2*((y>>13)&1), and a non-ffff word must name the point at 2*word
+    rw_ok = rw_bad = tgt_ok = tgt_bad = skip = 0
+    bad_ref = []
+    ty_offsets = {o for p, o, s in fw if p == PC["ty"]}
+    for i, (pc, off, sz) in enumerate(fw):
+        if pc != PC["ry"]:
+            continue
+        P = off - 2
+        yoff = off
+        rwoff = next((o for p, o, s in fw[i + 1:i + 3] if p == PC["rw"]), None)
+        if rwoff is None:
+            continue
+        want = refword_offset(P, u16(shape, yoff))
+        if rwoff == want:
+            rw_ok += 1
+        else:
+            rw_bad += 1
+            bad_ref.append({"P": P, "got": rwoff, "want": want})
+        word = u16(shape, rwoff)
+        if word == 0xFFFF:
+            skip += 1
+            continue
+        xslot = u16(shape, P)
+        expect_ty = (xslot & 0x1800) != 0
+        has_ty = 2 * (word + 1) in ty_offsets
+        if has_ty == expect_ty:
+            tgt_ok += 1
+        else:
+            tgt_bad += 1
+            if len(bad_ref) < 8:
+                bad_ref.append({"P": P, "word": word, "expect_ty": expect_ty,
+                                "has_ty": has_ty})
     return {
         "model_reads": len(model),
         "fw_skeleton_reads": len(fw_skel),
@@ -162,6 +251,8 @@ def compare(shape: bytes, trace):
         "first_mismatch": None if first_bad is None else {
             "index": first_bad, "model": list(model[first_bad]),
             "firmware": list(fw_skel[first_bad])},
+        "refword_ok": rw_ok, "refword_bad": rw_bad, "refword_bad_examples": bad_ref[:5],
+        "refword_skip": skip, "target_ok": tgt_ok, "target_bad": tgt_bad,
         "info": info,
     }
 
@@ -189,13 +280,20 @@ def cmd_verify(args) -> int:
     print("firmware skeleton reads (no reference block): %d" % verdict["fw_skeleton_reads"])
     print("firmware reference-block reads: %d" % verdict["fw_reference_reads"])
     print("points: %d; reference slots: %d" % (verdict["info"]["points"], verdict["info"]["ref_slots"]))
-    if verdict["skeleton_matches"]:
-        print("RESULT: skeleton SAME (every shape/point read in order)")
+    print("reference word at P+4+2*((y>>13)&1): %d ok, %d bad"
+          % (verdict["refword_ok"], verdict["refword_bad"]))
+    print("reference targets (ty at 2*(word+1) gated by slot x&0x1800 != 0): %d ok, %d bad; %d 'none' words"
+          % (verdict["target_ok"], verdict["target_bad"], verdict["refword_skip"]))
+    if verdict["skeleton_matches"] and verdict["refword_bad"] == 0 and verdict["target_bad"] == 0:
+        print("RESULT: SAME (shape/point reads and reference words)")
         return 0
-    m = verdict["first_mismatch"]
-    print("first mismatch at %d: model %#010x/%#06x, firmware %#010x/%#06x"
-          % (m["index"], m["model"][0], m["model"][1], m["firmware"][0], m["firmware"][1]))
-    print("RESULT: skeleton DIFFERENT")
+    if not verdict["skeleton_matches"]:
+        m = verdict["first_mismatch"]
+        print("first mismatch at %d: model %#010x/%#06x, firmware %#010x/%#06x"
+              % (m["index"], m["model"][0], m["model"][1], m["firmware"][0], m["firmware"][1]))
+    if verdict["refword_bad"]:
+        print("first bad reference words: %s" % verdict["refword_bad_examples"])
+    print("RESULT: DIFFERENT")
     return 1
 
 
@@ -252,6 +350,25 @@ def selftest() -> int:
     a, _ = skeleton(bytes(shape))
     b, _ = skeleton(bytes(shape_shift))
     check("negative: a shape w3 change moves the first point (control)", a != b)
+    # reference word / target rules
+    check("refword: P+4 for a low y bit", refword_offset(0x42, 0x1EC) == 0x46)
+    check("refword: +2 when y bit 0x2000 is set", refword_offset(0x42, 0x2C52) == 0x48)
+    check("ref target: word 0x179 names byte 0x2f2 (the point's x word)", ref_target(0x179) == 0x2F2)
+    check("ref y: word 0x179 names y at 0x2f4", ref_y_offset(0x179) == 0x2F4)
+    check("ref target: word 0xffff would name past the buffer", ref_target(0xFFFF) > 0x1000)
+    s4 = bytearray(2048)
+    struct.pack_into("<HH", s4, 2, 13, 1)
+    struct.pack_into("<HHHH", s4, 4 * 13, 1, 1, 0x9000, 0)     # one shape, 1 point
+    struct.pack_into("<HH", s4, 4 * 13 + 0x0E, 0x0000, 0x0000)  # plain point -> ref slot
+    struct.pack_into("<H", s4, 4 * 13 + 0x12, 0x0011)           # its reference word
+    got = refs(bytes(s4))
+    check("refs: one plain point yields one reference slot", len(got) == 1)
+    check("refs: its reference word is read at the predicted byte",
+          got and got[0][1] == 4 * 13 + 0x12)
+    check("refs: a changed reference word changes the slot value (control)",
+          refs(bytes(s4))[0][2] == 0x11
+          and (lambda b: (struct.pack_into("<H", b, 4 * 13 + 0x12, 0x22),
+                          refs(bytes(b))[0][2] == 0x22)[1])(bytearray(s4)))
     print("selftest: %s" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
 
