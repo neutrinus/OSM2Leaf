@@ -31,6 +31,12 @@ from the factory image and reports every relevant L3 target as ``pass`` /
 whose reader is not runnable are reported honestly as ``not-yet-available``
 (e.g. the POI reader / M9.10); the gate never synthesizes a pass.
 
+The header names the *card* build (from its firmware prefix).  A verdict row
+names the *firmware/VA* build that actually ran: the M9.11 chunk decoder uses
+the EU2011 head and fn 0x0041c7dc even when the card under test is US2011, so
+that row is EU2011 and the card build stays in the header (H51, M9.31).  A row
+where no firmware ran has no build attribution at all.
+
 Baseline gate (M9.31): ``--card IMG --factory IMG --baseline`` handles the
 no-diff case (S0/S1 are byte-identical to the factory).  Instead of a bare
 ``NO_DIFFS`` it runs the registered runnable baselines on the factory's own
@@ -114,6 +120,13 @@ EXP_RECORD = "EXP-2026-11-06-M9.8-l3check"
 #: Reservation from TODO M9.12 (C-2160-C-2169); card gate uses C-2160.
 CARD_CLAIM = "C-2160"
 CARD_EXP = "EXP-2026-11-08-M9.12-l3check-card"
+
+#: The firmware/VA build the card-mode chunk-decoder adapter executes.
+#: ``chunk_decoder_l3.py`` defaults to ``--build eu2011`` and ``_find_img256()``
+#: is the EU2011 head; targets.json declares the same build for
+#: ``cmp_ind_reader``.  A verdict row names THIS build, never the card's
+#: (H51/M9.31): the S2 card is US2011 but its PASS row ran EU2011 firmware.
+CARD_FIRMWARE_BUILD = "eu2011"
 
 #: M9.31 baseline/no-diff gate.  Reservation C-3320-C-3329.
 BASELINE_CLAIM = "C-3320"
@@ -662,10 +675,24 @@ def _card_status_norm(status: str) -> str:
     return "not-yet-available"
 
 
+def _card_firmware_build(name: str) -> str | None:
+    """Firmware/VA build a card-mode verdict row executed, or None.
+
+    Only a row that actually ran firmware gets a build: the chunk decoder is
+    EU2011 (see CARD_FIRMWARE_BUILD).  A ``not-yet-available`` row ran nothing
+    and is not attributed to a build.  This is deliberately NOT the card's
+    build from ``_card_head_build()`` (H51/M9.31).
+    """
+    return CARD_FIRMWARE_BUILD if name == "cmp_ind_reader" else None
+
+
 def build_card_report(card: Path, factory: Path, *, by_name: dict,
                       engine: str = "pysh4") -> dict:
     """M9.12 card gate: diff, then per-target pass/fail/not-yet-available."""
     diff = diff_card_files(card, factory)
+    # Header: the build of the card under test.  Verdict rows below name the
+    # firmware/VA build that ran instead -- they are not the same thing.
+    card_build = _card_head_build(card) if card.is_file() else None
     rows: list[dict] = []
     problems = list(diff.get("problems") or [])
 
@@ -768,6 +795,9 @@ def build_card_report(card: Path, factory: Path, *, by_name: dict,
                 "l3_claim": False,
             })
 
+    for row in rows:
+        row.setdefault("build", _card_firmware_build(row["name"]))
+
     counts = {"pass": 0, "fail": 0, "not-yet-available": 0, "total": len(rows)}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -793,6 +823,7 @@ def build_card_report(card: Path, factory: Path, *, by_name: dict,
         "exp": CARD_EXP,
         "card": str(card),
         "factory": str(factory),
+        "card_build": card_build,
         "diff": diff,
         "targets": rows,
         "counts": counts,
@@ -812,6 +843,8 @@ def _print_card_report(report: dict) -> None:
     print(f"exp      {report['exp']}")
     print(f"card     {report['card']}")
     print(f"factory  {report['factory']}")
+    print(f"build    {report.get('card_build') or 'unknown (no card image)'} "
+          "(card; verdict rows name the firmware build that ran)")
     diff = report.get("diff") or {}
     if diff.get("identical_images"):
         print("diff     identical images (no differing files)")
@@ -830,7 +863,8 @@ def _print_card_report(report: dict) -> None:
     else:
         for row in report["targets"]:
             files = ", ".join(row.get("files") or []) or "-"
-            print(f"  [{row['status']}] {row['name']}: {row['label']}")
+            build = row.get("build") or "-"
+            print(f"  [{row['status']}] {row['name']} (firmware {build}): {row['label']}")
             print(f"           files: {files}")
             print(f"           {row.get('detail','')}")
             if row.get("note"):
@@ -2177,6 +2211,12 @@ def test_evidence_table():
     assert TOOL_CLAIM == "C-1700"
     assert TARGET_EVIDENCE["probe-zlib-cmf"]["reader"] == "synthetic"
     assert TARGET_EVIDENCE["mapcode_comparator"]["claims"] == ("C-520", "C-528")
+    # H51/M9.31: a card-verdict row names the firmware build that ran.  The
+    # chunk-decoder adapter's build must stay in step with targets.json, or a
+    # US card row could silently acquire an EU fn attribution (and vice versa).
+    assert by_name["cmp_ind_reader"]["build"] == CARD_FIRMWARE_BUILD
+    assert _card_firmware_build("cmp_ind_reader") == CARD_FIRMWARE_BUILD
+    assert _card_firmware_build("poi_record_decode") is None  # no firmware ran
     for row in TARGET_EVIDENCE.values():
         for claim in row["claims"]:
             assert _CLAIM_RE.match(claim), claim
