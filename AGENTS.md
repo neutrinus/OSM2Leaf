@@ -20,8 +20,9 @@ without a reproducible command is a hypothesis; mark it so.
 
 ## Taking a task (parallel agents)
 
-~15 agents work from `TODO.md` at once. The full rules are in `TODO.md`
-("How to take a task"); the ones that get broken:
+A normal cycle has ~15 agents on `TODO.md`; a TL batch can run up to 30 tasks
+with ~60 subagents (pairs by default, few solo exceptions — prompt_tl.txt).
+The full rules are in `TODO.md` ("How to take a task"); the ones that get broken:
 
 1. Pick an `open` task whose `Depends` are `done` and whose ID appears in no
    open PR title. Check this **right before claiming**, not from an old view:

@@ -1,8 +1,9 @@
 # TODO
 
-The task board for parallel work. About 15 agents take tasks from this file
-at the same time, so every task is self-contained: it says what to do, what
-to start from, when it is done, what it waits for, and who owns it.
+The task board for parallel work. A normal cycle has ~15 agents on this file
+and a TL batch can run up to 30 tasks with ~60 subagents in pairs, so every
+task is self-contained: it says what to do, what to start from, when it is
+done, what it waits for, and who owns it.
 
 - Unknowns: [`docs/research/open-questions.md`](docs/research/open-questions.md).
 - Evidence status of every claim: [`docs/research/claims.md`](docs/research/claims.md).
