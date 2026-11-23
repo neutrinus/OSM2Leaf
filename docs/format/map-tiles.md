@@ -451,7 +451,7 @@ r=0.1035 against drawn link length over 130,212 links, so no link-cost field
 is confirmed; the section-2 attribute table still awaits the firmware reader
 (M4.40/M4.55).
 
-## `LEV3456R.DAT`: coarse levels 3–5
+## `LEV3456R.DAT`: coarse levels 3–6
 
 `LEV3456R.DAT` is the **whole-database** coarse file. Section 1 holds levels 6,
 5, 4 and 3 (no levels 1–2), section 2 holds levels 5 and 4 (the router graph).
@@ -476,7 +476,9 @@ where `x` is stored as `x0 − 1024`. Rows are at `y = 1.5 × lat` and columns a
 `x = lon + 924`, so the coarse grid is `y 32..120`, `x 904..992`. Each row is a
 `u32` block address (`0xffffffff` when the row is empty) and one
 `(compressed words, plain words)` pair per record slot. Level 6 is one raw
-record (not zlib) and is preserved verbatim.
+record (not zlib): its declared pair is `(21122, 0)` and is authoritative —
+`Record.plain` holds the raw bytes, so measuring it would write 21,122 plain
+words instead of 0 (M5.16, C-2405). It is copied verbatim.
 
 **Placing a point (M5.59).** In the unit the head stores, a point is
 `y = 1.5 × lat`, `x = lon − 100` (the signed head `x`). A directory holds it
@@ -720,20 +722,24 @@ zero-padded to a **4-byte** boundary (the directory pair stores
 `(compressed words, plain words)`). zlib-ng (often Python 3.14) does not
 reproduce them; use Python 3.10–3.13.
 
-The rebuild proof is section 1 **level 5**:
+The rebuild proof is the **whole file**:
 
 ```bash
-python3.13 tools/lev3456.py verify MAPAL001/LEV3456R.DAT
-python3.13 tools/lev3456.py rebuild MAPAL001/LEV3456R.DAT --level 5 -o lev5.DAT
-cmp lev5.DAT MAPAL001/LEV3456R.DAT
+python3.13 tools/lev3456.py verify MAPAL001/LEV3456R.DAT \
+  --level 3 --level 4 --level 5 --level 6
+python3.13 tools/lev3456.py rebuild MAPAL001/LEV3456R.DAT --all-levels -o all.DAT
+cmp all.DAT MAPAL001/LEV3456R.DAT
 ```
 
-All 62 records decode, re-encode and recompress byte-identically; the rebuilt
-directory and all row blocks are identical, and the resulting file is
-**byte-identical to the 76,066,304-byte factory file** (`cmp` silent). The whole
-`verify` command also reports section 1 levels 3/4 and section 2 region-identical
-(level 4: 980/1,021 records fully decoded, 41 preserved; level 3: 10,363/10,382
-records, 1,677 preserved).
+All six non-empty level regions (section 1 L3–L6, section 2 L4–L5) reproduce
+the source bytes: 13,970 decoded records, 13,910 re-encoded and recompressed
+byte-identically; 41 (s1 L4), 19 (s1 L3) factory-zlib records and the one raw
+s1 L6 record are copied verbatim. The resulting file is **byte-identical to the
+76,066,304-byte factory file** (`cmp` silent, SHA-256 `08a584fe…` on both).
+`verify` reports every region identical; section 1 level 6 prints `streams 0/1`
+by design because its record is raw, not a zlib stream. The level-5-only proof
+stays available with `--level 5`. Level 3/4 records whose factory streams do
+not recompress identically are preserved, not guessed (M5.16, C-2405/C-2406).
 
 ### Regenerating levels 3–5 from OSM
 
