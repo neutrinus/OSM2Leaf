@@ -6759,7 +6759,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Done when: `python3 tools/map_signals.py --selftest` passes new cases (P0/P1 with true/true → P0/P1; missing step → NOT RUN; rc/ok disagreement flagged); a fresh report for a named generated card records its SHA-256, both gate exit codes and a ladder step; `python3 tools/map_signals.py --report <fresh>` prints that step; the four rule-17 numbers are re-quoted in TODO Priorities with the report path. If the fresh run fails a gate, the number stays P0 and the EXP says why — that still passes this task.
   - Stop: if the host cannot reproduce the card gate (missing factory tree or extract), record the missing input, leave the pin in place and set `blocked` with a named unblock; do not let the counter guess a step.
   - Falsifier: a report whose gate did not pass still prints a promoted step, or the printed step disagrees with `card_ladder.py steps --check`.
-  - Claims: C-9940–C-9949
+  - Claims: C-9970–C-9979
   - Pair: required
 
 - [ ] **M9.77 — `tools/exp_check.py`: accept named Method subheadings, still fail a missing falsifier**
@@ -6786,6 +6786,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if replaying a missing hash needs the factory tree or a hardware dump that is not on this host, mark that single record `inconclusive` with the missing input named and continue with the rest; do not fabricate a hash from a hash prefix.
   - Falsifier: an EXP is marked PASS while still lacking a full sample hash, a runnable command, a control, a counted scope or a falsifier.
   - Claims: none (record repair; no claim rows reserved until the work commits them)
+  - Pair: required
+
+- [ ] **M9.79 — Keep tool selftests off the `/tmp` tmpfs: the standing gate is red on this host**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Depends: —
+  - Goal: a full `python3 tools/selftest.py` on 2026-11-23 ended with `passed=264 failed=2 skipped=21` because `tools/identity_fields.py` writes a listing to `$TMPDIR` and `tools/sdlock_pico_check.py` compiles in `tempfile.TemporaryDirectory()`, both on the 3.8 GiB `/tmp` tmpfs where this user hits `OSError: [Errno 122] Disk quota exceeded`. AGENTS.md already forbids long-lived `/tmp` scratch; the selftests must follow the same rule, otherwise a host-only file-system condition is reported as a code regression.
+  - Precheck: `python3 tools/selftest.py --only identity_fields` prints `OSError: [Errno 122] Disk quota exceeded`; `--only sdlock_pico_check` prints `fatal error: error writing to /tmp/…: Przekroczony limit dyskowy`; `df -h /tmp` shows a tmpfs; `grep -n 'TMPDIR' tools/identity_fields.py` and `grep -n 'TemporaryDirectory' tools/sdlock_pico_check.py` both hit.
+  - Scope: `tools/identity_fields.py:run_selftest`, `tools/sdlock_pico_check.py`, and a repo-wide grep for other selftests that create files under `/tmp` or `tempfile.TemporaryDirectory()` without `dir=`. Point each at `~/projekty/leafre-work/scratch/<tool>/` (create on demand, delete on exit). Keep every assertion, CLI and expected value unchanged; do not disable a failing selftest or turn the error into a skip.
+  - Input: `AGENTS.md` ("Scratch goes in the home tree, not `/tmp`"), `tools/selftest.py`, the two tools above, the full-selftest output saved at `~/projekty/leafre-work/scratch/se-2026-11-23/selftest.txt` for the 19:13Z SE run.
+  - Done when: both `--only` runs PASS while `/tmp` remains quota-limited; a full `python3 tools/selftest.py` prints `failed=0`; no scratch directory is left behind; an EXP records the before/after pass/fail counts, the exact `df`/error lines and the list of tools changed; `tools/gate.py` still reports its usual pass/skip table.
+  - Stop: if a compiler ignores `TMPDIR` and still writes to `/tmp`, record its exact command, leave that tool's selftest unchanged and set `blocked` naming the compiler wrapper task; never paper over the failure with a skip.
+  - Falsifier: a selftest still fails with EDQUOT after the change, or a scratch directory remains after a green run.
+  - Claims: C-9980–C-9989
   - Pair: required
 
 ## Retired leads

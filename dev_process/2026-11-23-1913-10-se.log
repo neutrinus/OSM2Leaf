@@ -1,7 +1,7 @@
 Role: SE (Senior Engineer)
 Model: hy4-flash-free
 Start: 2026-11-23 19:13 UTC
-End: (in progress)
+End: 2026-11-23 19:33 UTC
 origin/main SHA at start: ea4d0f69
 
 Inputs read: AGENTS.md, prompt_common.txt, prompt_se.txt, TODO.md (rules 1-17),
@@ -29,22 +29,46 @@ Actions taken (in order):
 Task IDs added / changed / moved / blocked / re-opened:
 - changed: M5.61, M5.68, M6.21 (Unblock rewritten, Note added)
 - re-opened: M8.H78 (open · Owner —; rule 15)
+- added: M9.76 (card counter, critical, required) — retro action 3's SE half
+- added: M9.77 (exp_check layout/content split, required)
+- added: M9.78 (repair true EXP defects, required; no claim range — SOURCE repair)
+- added: M5.102 (hashutil migration of seven later tools, solo)
+- added: M9.79 (move tool selftests off the /tmp tmpfs, critical, required)
 
 PRs / commits:
-- (pending)
+- eb4d4c2e / 88cc4f85 chore: clear five rule-15 strict board errors
+- f0390128 / d39d1bd6 docs: add four SE follow-up tasks
+- rebased once onto fa0d6e59 (M8.H68) with no conflicts; a second rebase onto
+  c3da9610 (H28, M4.98) is pending after this log is committed
+- moved M9.76 off C-9940–C-9949 after M8.H68a took that block in the same window
 
 Decisions made and alternatives rejected:
 - Re-opened M8.H78 instead of marking it done: the gate is answered in a Note, but
   finishing its own Done when is the owner's job, not a reviewer's silent edit.
 - Left M5.61/M5.68/M6.21 blocked: their live blockers (M5.68/M5.99 / hardware test)
   are still open, so rule 15 does not re-open them.
-- Did not re-file the retro's map-counter or QA-log actions: action 3 is PO+SE and
-  gets one SE task below; actions 1/4/5 belong to TL/human.
+- Did not mark any done task blocked: the cheap Done-when spot checks all passed.
+- Did not re-file retro actions 1/4/5: they belong to TL and the human, not SE.
+- Kept M9.78's claim field at "none" after add-task needed a temporary range.
 
 Problems, dead ends, time cost:
-- exp_check reports 546/653 EXP failures, mostly formatting, which makes the lint
-  unactionable as a gate until it distinguishes content from layout.
-- full selftest red at 9 failures; cause not yet identified.
+- exp_check reports 546/653 EXP failures, mostly the "### 1." layout, which makes
+  the lint unactionable as a gate until it distinguishes content from layout.
+- A claim block collision with the concurrently merged M8.H68a was caught by
+  todo_check after rebase and fixed by moving M9.76 to C-9970–C-9979.
+- full selftest red; the count varied from 9 to 2 as other agents' concurrent
+  runs ended. The two persistent failures are both /tmp EDQUOT (identity_fields
+  listing file, sdlock_pico_check compiler temp), hence M9.79.
+- three other agents were running full selftests at once; /tmp is a 3.8 GiB tmpfs
+  with a user quota, so parallel runs corrupt each other's results.
 
 Handoff for next role:
-- (pending)
+- TL: M9.79 is the selftest regression — both persistent failures are /tmp quota,
+  not code logic; do not waive them.
+- PO: retro action 3 — M9.76 names the missing proof; report all four numbers first.
+- TL: M9.76/M9.77/M9.78/M9.79 are required-pair; M5.102 is solo. Do not reclaim
+  M8.H78 as in progress until its Done when is actually finished.
+- QA: re-run exp_check after M9.77 and the full selftest after M9.79; both are
+  currently red for different reasons and neither is waived by this pass.
+- Human: retro action 5 (same-cycle log landing, remote branch-delete rights)
+  is unchanged; QA's log is still stranded on DRAFT PR #639.
