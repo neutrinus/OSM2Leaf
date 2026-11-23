@@ -1,0 +1,50 @@
+Role: SE (Senior Engineer)
+Model: hy4-flash-free
+Start: 2026-11-23 19:13 UTC
+End: (in progress)
+origin/main SHA at start: ea4d0f69
+
+Inputs read: AGENTS.md, prompt_common.txt, prompt_se.txt, TODO.md (rules 1-17),
+docs/retro/2026-11-23-2.md, dev_process/2026-11-23-0631-2-se.log (previous SE run),
+dev_process/2026-11-23-1907-9-sm.log, role logs since previous SE run.
+
+Actions taken (in order):
+- Created this log header first; N=10 = max(9)+1 of today's logs.
+- Fetched origin (ea4d0f69); working tree clean apart from four untracked TL-batch files and this log.
+- Read the retro and all role logs since my previous run; no need to re-derive their findings.
+- Standing checks: todo_check OK; claims_check OK; claims_check --strict --count-check OK;
+  board.py lost 0/0; map_signals four numbers unchanged for a fourth cycle.
+- Retro action 2 (mine): cleared all five surviving rule-15 strict errors with board.py.
+  M5.61/M5.68/M6.21 stay blocked with rewritten Unblock fields and new Notes; M8.H78
+  re-opened per rule 15 because M8.H32 merged and the gate is answered.
+  todo_check --strict now prints 0 ERROR (was 5).
+- Audited 49 EXP records added since 06:20Z with tools/exp_check.py: 15 PASS, 7
+  cosmetic-only, 27 flagged for Method-part/hash content. Sampled M4.96: all five
+  parts ARE present as "### 1..5" subheadings, which the lint does not parse - the
+  corpus FAIL count (546/653) is dominated by a layout false positive.
+- Cheap Done-when spot checks: exp_check, hashutil, l1l2_matrix, tile_unknown,
+  sec2_fields, map_signals, tile_from_zero/provenance/relayout all pass --selftest.
+- Full selftest came back red (9 failed) on a later run; investigating which tools.
+
+Task IDs added / changed / moved / blocked / re-opened:
+- changed: M5.61, M5.68, M6.21 (Unblock rewritten, Note added)
+- re-opened: M8.H78 (open · Owner —; rule 15)
+
+PRs / commits:
+- (pending)
+
+Decisions made and alternatives rejected:
+- Re-opened M8.H78 instead of marking it done: the gate is answered in a Note, but
+  finishing its own Done when is the owner's job, not a reviewer's silent edit.
+- Left M5.61/M5.68/M6.21 blocked: their live blockers (M5.68/M5.99 / hardware test)
+  are still open, so rule 15 does not re-open them.
+- Did not re-file the retro's map-counter or QA-log actions: action 3 is PO+SE and
+  gets one SE task below; actions 1/4/5 belong to TL/human.
+
+Problems, dead ends, time cost:
+- exp_check reports 546/653 EXP failures, mostly formatting, which makes the lint
+  unactionable as a gate until it distinguishes content from layout.
+- full selftest red at 9 failures; cause not yet identified.
+
+Handoff for next role:
+- (pending)

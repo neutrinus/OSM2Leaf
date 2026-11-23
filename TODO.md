@@ -3489,9 +3489,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if a tile cannot hold its directories (FAT free space or a directory length the firmware does not read, M3.31), record the tile, the number and stop at the largest subset that passes.
   - Falsifier: the gate passes on a card where one directory was written with the ways of the neighbouring directory.
   - Blocker: tilewriter, not the card: (1) read_jsonl holds the whole split -> Max RSS 5.2 GB, signal 9 on B48R050R (1.6M single-cell ways) and B48R058R (M5.68); (2) the 0x2046 even/odd pair splice leaves the pair regenerated-but-unwritten, B50R058R level 1 fails (81,941,22,59): 1 changed but not regenerated (M5.69); (3) B50R050R level 2 has 1,313 parcels with no even slot (M5.70). B48R058R ingest was stopped, not attempted.
-  - Unblock: M5.68, M5.69, M5.70 (the M5.71 drop-parcel check is a falsifier gap, not a build blocker)
+  - Unblock: M5.68 only — the other two tilewriter fixes merged and are recorded in Result; rule 15 re-opens this task when M5.68 merges
   - Result: EXP-2026-11-21-M5.61-poland-card (negative; 1 of 4 tiles: B50R050R level 1 passes all gates, the other three hit tilewriter defects M5.68-M5.70); p1.img tile B50R050R = 7c6ea211…, template repaired
   - Claims: C-6250–C-6259
+  - Note: 2026-11-23 SE rule-15 sweep: M5.69 and M5.70 are done; Unblock now names the one live blocker M5.68 (itself blocked on M5.99).
 
 - [x] **M5.64 — LCTBL: the real country/database table code for Poland, and whether the firmware actually keys LCTBL by country (the M5.60 open item)**
   - Status: done · Owner: task/m5.64-lctbl-poland · Critical: no · Pair: required
@@ -3561,8 +3562,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a "streaming" reader that still returns a list of all records, or a build whose peak is unchanged on the same split.
   - Claims: C-6790–C-6799
   - Blocker: Driver's own nodes/ways parse OOMs at 5512296 kB before tilewriter starts (Stop-clause copy); tilewriter alone fits at 4657860 kB but stops on the M5.69 splice (75,945,11,53)
-  - Unblock: M5.99, M5.69
+  - Unblock: M5.99 — the remaining driver-parse copy; the splice half is merged (see Blocker/Result)
   - Result: EXP-2026-11-23-M5.68-stream-jsonl (negative for end-to-end; reader proven: 5454440 signal 9 -> 4657860 no signal)
+  - Note: 2026-11-23 SE rule-15 sweep: M5.69 merged, so Unblock no longer names a done ID; the live blocker is M5.99.
 
 - [x] **M5.69 — the `0x2046` slot splice writes the even/odd pair together: `B50R058R` level 1 verifies**
   - Status: done · Owner: task/m5.69-even-odd-splice · Critical: no · Pair: required
@@ -4142,12 +4144,13 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 - [ ] **M6.21 — Region change on a unit (PROD `+0x21`): only after the card-only test, only with a way back**
   - Status: blocked · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
   - Depends: M6.18 (flash + PROD backup with SHA-256), M6.19, M2.20 (update mode survives the change), the card-only EU test (EU card with `HDD_INFO` matched to the unit) showing that the area is what stops it
-  - Unblock: all four Depends done **and** the card-only test fails for a reason M2.20 ties to the area; otherwise this task is retired as not needed (M2.20 now says update-mode selection is not area-gated in card B, C-6263/C-6268, so the "reason M2.20 ties to the area" is absent: the card-only path is now the expected branch)
+  - Unblock: the card-only EU test (non-task, hardware) fails for an area-related reason; otherwise retire this task as not needed — update-mode selection is not area gated in the card image. All four Depends are done.
   - Goal: change the unit area by restoring an edited `prod_*.bin` with LeafSDTools, as the last resort for European maps on the US unit. Region does not gate the map checks (M2.7, C-787), so this is not expected to be needed.
   - Scope: prefer a spare unit. One byte (`+0x21`), checksum by the tool, original `prod_*.bin` kept on two media. Record every screen. Do-not-attempt on the only unit while M2.20 says `no` or `unknown` (C-1129).
   - Done when: an EXP records before/after PROD (PIN masked), what starts, audio yes/no, and the restore of the original PROD verified by a second dump.
   - Stop: any hang, black screen or missing audio → restore the original PROD at once and stop.
   - Claims: C-6270–C-6279
+  - Note: 2026-11-23 SE rule-15 sweep: M2.20 is done and found no area gate in card B (C-6263/C-6268); Unblock reworded so the hardware test, not a done ID, is the door.
 
 - [ ] **M6.22 — Rehearse S1 in the emulator: the US card with a recompressed `POINT010`**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5864,7 +5867,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.H73-receiver-fix-frame (partial): the receiver's 36-byte A0 report is decoded (navdrv.md table, hand-built frame, gps.py), reaches OBJ_GpsInfo on NK1 with the injected position (C-8576); OBJ_CarPos and the map do not follow (C-8577); sh4dis SHAD/SHLD fixed (C-8574)
 
 - [ ] **M8.H78 — Positioning: what makes `OBJ_CarPos` take the GPS position?**
-  - Status: blocked · Owner: task/m8.h78-locator-gps · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H73 (blocked), M8.C1n
   - Goal: A 36-byte `A0` report from `tools/ze0_peers/gps.py` reaches `OBJ_GpsInfo` with the right position on NK1 + US card (C-8576), but the car position stays where it was (C-8577). Find the condition in the positioning cycle (US Navi `0x0049bdb0` → `0x0049fa44`, state at `0x00dbce00`) that keeps the GPS position out, and meet it from the peers.
@@ -5876,10 +5879,11 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: with the gate condition met, `OBJ_CarPos` still stays at the old position.
   - Claims: C-8640–C-8649
   - Blocker: the match state *0x00dd48d4 / lost-road counter *0x00dbd5ac (C-7296): what moves them; M8.H32 done
-  - Unblock: M8.H32 drives the +22 field, then a US fix near the restored position (Kentucky)
+  - Unblock: the unblocker merged and the gate is answered (C-8830-C-8833): on ze0 the car moves Kentucky to Chicago with gps.py drive-on — rule-15 re-open to finish the Done when
   - Result: EXP-2026-11-23-M8.H78-locator-gps-gates; gates named (C-8640–C-8646), stat default 0x30; car position not moved
   - Note: 2026-11-23 M8.H32: with wheel pulses and stat 0x00 all bits 0x01–0x200 are set, but the next cycle resets the car (mesh not in table, map-matching 0xffff, lost-road counter *0x00dbd5ac stays 0); see EXP-2026-11-23-M8.H32-trailer-test O6/O7.
     (M8.H32 follow-up, 2026-11-23) answered: OBJ_CarPos takes a far GPS position through the map-matching branch 0x00458994 once five consecutive samples at >10 km/h have reported speed/heading matching the position track (C-8830–C-8833); on ze0 the car moves Kentucky→Chicago with gps.py 'drive on'.
+    2026-11-23 SE: rule-15 re-open — M8.H32 merged; its follow-up answered the gate and the car moves on ze0. Keep the negative Result as history; finish the Done when and close.
 
 - [ ] **M8.H68a — Resolve CE user-slot VAs for `ze0_ps.py` process names**
   - Status: open · Owner: — · Critical: no · Pair: solo
