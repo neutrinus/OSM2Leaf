@@ -559,8 +559,12 @@ def load_imf(path: str, cell: str):
         name = _name_label(tags, record)
         if name:
             stats["ways_named"] += 1
+        oneway = record.get("oneway") or tags.get("oneway") or ""
+        if not oneway and tags.get("junction") in ("roundabout", "circular"):
+            oneway = "yes"
         ways.append({"id": str(record.get("id")), "highway": str(highway),
-                     "name": name, "ref": str(tags.get("ref") or ""), "points": points})
+                     "name": name, "ref": str(tags.get("ref") or ""), "points": points,
+                     "oneway": str(oneway)})
     if multi:
         raise WriterError(
             "%d way(s) still span several cells (%s); run tools/mesh_split.py "
@@ -591,9 +595,10 @@ def ways_to_runs(ways, level: int, table, cell: str):
             # outside this file: clamp into the cell and say so in the report.
             y0 = min(max(y0, yb), yb + 8 - DIR_MESHES[level])
             x0 = min(max(x0, xb), xb + 8 - DIR_MESHES[level])
-            runs.setdefault((y0, x0, row, col), []).append(
-                (points, way["highway"], name)
-            )
+            run = (points, way["highway"], name)
+            if way.get("oneway"):
+                run += (way["oneway"],)
+            runs.setdefault((y0, x0, row, col), []).append(run)
     if misses:
         detail = ", ".join(
             "%s (%d way(s): %s)" % (hw, len(ids), ", ".join(sorted(ids)[:3]))
@@ -613,10 +618,27 @@ def ways_to_runs(ways, level: int, table, cell: str):
 
 
 def _run_fields(run):
-    """``(points, highway, name)`` from a run tuple (2- or 3-field)."""
-    if len(run) == 3:
-        return run
+    """``(points, highway, name)`` from a run tuple (2-, 3- or 4-field)."""
+    if len(run) >= 3:
+        return run[0], run[1], run[2]
     return run[0], run[1], ""
+
+
+ONEWAY_CLASS = {8: 9}
+ONEWAY_SUFFIX = "|oneway"
+
+
+def _run_oneway(run) -> int:
+    """One-way sense of a run: 1 along the points, -1 against them, 0 both ways.
+
+    The fourth run field is the way's OSM ``oneway`` value (M5.57); runs
+    without it are two-way."""
+    v = str(run[3]).lower() if len(run) >= 4 and run[3] else ""
+    if v in ("yes", "true", "1"):
+        return 1
+    if v == "-1":
+        return -1
+    return 0
 
 
 def merge_names_section(bg_plain: bytes, section: bytes) -> bytes:
@@ -632,12 +654,21 @@ def merge_names_section(bg_plain: bytes, section: bytes) -> bytes:
 
 
 def build_road_record(level, parcel, runs, table, country, write_names=True,
-                      allow_oversize=False):
+                      allow_oversize=False, graph=False):
     """One ``0x00fa`` record.
 
     Returns ``(plain, comp, names_section, info)`` or ``None`` when empty.
     ``names_section`` is ``bytes`` for the odd partner's names section (M5.7)
     when any shape has a name and ``write_names`` is true, else ``None``.
+
+    ``graph=True`` (M5.57) makes the drawn links usable as route links: a link
+    also ends at every junction (a point shared by two runs, or a run end),
+    link ids are unique per class in the parcel (the section-2 key is
+    ``(class, id)``, C-5150), each link's points carry the way's one-way
+    sense in y bits 15-14 (1 along the drawn points, 2 against; the factory
+    pairs these with the section-2 direction on every one-way link, M5.57),
+    and ``build_road_record.last_graph`` lists the links as
+    ``dict(cls, lid, pts, oneway)`` for ``sec2_writer``.
     """
     y0, x0, row, col = parcel
     lon0, lat0, width, height = clarion_bg.parcel_geo(level, y0, x0, row, col)
@@ -645,7 +676,9 @@ def build_road_record(level, parcel, runs, table, country, write_names=True,
     chains = []
     hws = []
     labels = []
+    dirs = []
     points = 0
+    locals_ = []
     for run in runs:
         points_, highway, name = _run_fields(run)
         local = []
@@ -654,6 +687,32 @@ def build_road_record(level, parcel, runs, table, country, write_names=True,
             if local and local[-1] == xy:
                 continue
             local.append(xy)
+        locals_.append(local)
+    junction = set()
+    if graph:
+        seen = collections.Counter()
+        for local in locals_:
+            if len(local) < 2:
+                continue
+            junction.update((local[0], local[-1]))
+            seen.update(set(local))
+        junction.update(xy for xy, n in seen.items() if n > 1)
+        with _class_mapping(table):
+            run_lc = [fa_encode.layer_class(_run_fields(r)[1], level) for r in runs]
+        run_typ = [c for _l, c in run_lc]
+        # The factory never makes a class-8 link one-way: a one-way minor
+        # street is class 9 with road type 8 (w4 type nibble, M5.57).  The
+        # run is drawn and keyed under the routing class.
+        run_cls = [ONEWAY_CLASS.get(c, c) if _run_oneway(r) else c
+                   for r, c in zip(runs, run_typ)]
+        table = dict(table)
+        for r, (lay, c), rc in zip(runs, run_lc, run_cls):
+            if rc != c:
+                table[_run_fields(r)[1] + ONEWAY_SUFFIX] = (lay, rc)
+        next_id = collections.Counter()
+        build_road_record.last_graph = []
+    for ri, (run, local) in enumerate(zip(runs, locals_)):
+        points_, highway, name = _run_fields(run)
         if len(local) < 2:
             continue
         # M5.88: one shape holds at most MAX_SHAPE_POINTS points (the shape's
@@ -674,11 +733,23 @@ def build_road_record(level, parcel, runs, table, country, write_names=True,
             start = 0
             while start < len(piece) - 1:
                 stop = min(start + step, len(piece) - 1)
+                if graph:
+                    for j in range(start + 1, stop):
+                        if piece[j] in junction:
+                            stop = j
+                            break
+                    next_id[run_cls[ri]] += 1
+                    link_id = next_id[run_cls[ri]]
+                    build_road_record.last_graph.append(dict(
+                        cls=run_cls[ri], typ=run_typ[ri], lid=link_id, pts=piece[start:stop + 1],
+                        oneway=_run_oneway(run), highway=highway))
                 links.append((link_id, base + start, base + stop, piece[start + 1:stop]))
                 link_id += 1
                 start = stop
             chains.append(links)
-            hws.append(highway)
+            dirs.append([_run_oneway(run)] * len(links) if graph else None)
+            hws.append(highway + ONEWAY_SUFFIX
+                       if graph and run_cls[ri] != run_typ[ri] else highway)
             labels.append(name if (write_names and name) else "")
             points += len(piece)
     if not chains:
@@ -696,7 +767,7 @@ def build_road_record(level, parcel, runs, table, country, write_names=True,
     with _class_mapping(table):
         plain, _upstream_comp = fa_encode.build_record(
             level, y0, x0, row, col, nodes, chains, hws=hws, country=country,
-            name_offs=name_offs,
+            name_offs=name_offs, dirs=dirs if graph else None,
         )
     if has_names:
         names_sec, offs2 = fa_encode.names_section(uniq, fa_encode.build_record.last_items)

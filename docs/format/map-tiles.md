@@ -1384,6 +1384,40 @@ that emits level 2 most likely has to emit this map too (not yet tested: the sea
 level 2 to drivable level-1 links). `tools/sec2_fields.py TILE --level2`
 checks it.
 
+#### Factory rules a section-2 writer must follow (M5.57, C-10050–C-10056)
+
+Counted on `B48R068R` level 1 with `tools/sec2_fields.py TILE --census` and
+`--s1-direction`; `tools/sec2_writer.py` follows each row.
+
+| Rule | Factory count | Status |
+| --- | --- | --- |
+| Section-1 point y bits 15–14 carry the one-way sense of the drawn link: 1 = along the drawn points, 2 = against, 3 = closed, 0 = two-way; the section-2 end at the link's first point has the same value as `w2 >> 14` (the last-point end the other one) | every joined one-way link | VERIFIED (C-10050) |
+| No class-8 link is one-way or closed: a one-way minor street is class 9 with type nibble (`w4 >> 8 & 0xf`) 8; class 12 is the closed class | 5,272,925 class-8 two-way ends, 0 one-way or closed | VERIFIED (C-10051) |
+| `w4 >> 8 & 0xf` (type) equals the class on 92 % of two-way and 61 % of one-way ends; where it differs it is a lower number (4, 5, 7, 8) | per (direction, class, type) table in EXP | OBSERVED (C-10051) |
+| `w4 & 0x10` is set on 99.5 % of two-way ends, 19 % of one-way ends, never on closed ends | 7,263,300 / 7,303,196 two-way | OBSERVED (C-10052) |
+| Turn words appear on two-way ends and on the leaving end (1) of one-way links only, never on the end 2 | 229,570 / 515,777 leaving ends, 0 / 515,777 end-2 | OBSERVED (C-10052) |
+| Almost no one-way dead ends: 13 nodes with one one-way link (3 leaving, 10 entering) against 666,705 two-way and 14,718 closed dead ends | — | OBSERVED (C-10053) |
+| Boundary link: `w0` = node index in the neighbour, `w1` = the inner link's `w1`, `w2 = w3 = 0`, `w4 = 0x8000 \| side << 13 \| low` (side N 0, E 1, S 2, W 3); the neighbour's node sits at the mirrored edge coordinate; an edge node has exactly one inner and one boundary link | 45,805 / 45,805 mirrored | VERIFIED (C-10054) |
+| Node words: `x \| link count << 12`, `y \| lowest class << 12`, word 2 0 or `0x2000`; the 11 header pairs count nodes and links by pair index of the lowest class at the node (class 1 → pair 1, 2–7 → 2, 8 → 3, 9 → 4, 10–15 → 10 in the writer) | — | OBSERVED |
+
+A route graph built straight from OSM has one-way traps: places that can be
+entered but not left. Dropped ways (`--max-plain` trimming of dense parcels)
+and short OSM one-way stubs make them; the London build had 1,165 one-way
+dead ends. In L4 the search then fails at level 1 (`NET SRCH --> SRCH NORT`,
+`LEVEL1 SRCH RETRY`, `CALC_ERR_OTHER`, C-10055). `sec2_writer` therefore makes
+two-way every one-way link that joins two strongly connected parts of the
+tile graph (2,839 of about 88,000 in London); after that the OSM card routes
+and draws the route (C-10056).
+
+#### Search levels in the serial log (C-10057)
+
+The route search prints its stages on the NK1 serial log (`@RPF_srch:`): a
+short London route runs `LEV1Top SRCH`; a 64-mile and a 157-mile route run
+`LEV4Top SRCH`, `LEV2DSIDE SRCH`, `LEV1DSIDE SRCH` (top search at level 4,
+then down at the destination side through levels 2 and 1). Section 2 at
+levels 2 and 4 is therefore read by the search, not only by drawing. A failed
+level-1 search prints `NET SRCH --> SRCH NORT` and `LEVEL1 SRCH RETRY!!`.
+
 
 ### The `LOC_map` walk of a served road record (M9.66, EU2011 build A)
 
