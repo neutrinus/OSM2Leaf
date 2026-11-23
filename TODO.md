@@ -2046,7 +2046,7 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-8160–C-8169
 
 - [ ] **M3.43 — L4 zoom-out on NK1: make the firmware read `FRWAY0nn`/`INTER0nn` and name the code that consumes the records**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m3.43-l4-zoomout-refer-reader · Critical: yes · Pair: required
   - Step: reader
   - Depends: — (M3.16 and M3.29 are blocked on exactly this observation; M5.100 proved the L4 zoom-out recipe works on NK1 with the committed unit flash)
   - Goal: L3 cannot deliver the REFER record request (`0x1507` undelivered, `0x14b5` never issued, EXP-2026-11-20-M3.29), so no content reader of `INTER`/`FRWAY` has ever been observed. A full-system run can generate the request through a real UI action: boot the factory EU 2011 card in QEMU with NK1, start near a motorway, zoom out through the steps where M5.100 saw level-2 map loading, watch SD/file reads for `FRWAY0nn.DAT`/`INTER0nn.DAT`, and attribute the bytes read to firmware code. Answer: does map zoom-out (or a neighbouring UI action such as route preview) make the firmware read those families, and which function consumes the 12-byte table and the blob fields?
@@ -2058,6 +2058,9 @@ The 23rd-pass text is in git (`af469580`).
   - Stop: one session and at most three QEMU boots (~220 s each); if no INTER/FRWAY read occurs, report the negative, do not broaden into signature searches.
   - Falsifier: the trace shows `FRWAY0nn`/`INTER0nn` being read but no code can be attributed to the record bytes; or the reader VAs found do not consume the 12-byte table at `0x1108`.
   - Claims: C-8850–C-8859
+  - Blocker: L4 UI never reaches SRT_COLD_I_AGREE on the EU 2011 card (zero flash 330 s, M6.24 anon flash 330 s); no tap injected and ze0_sdtrace maps 0/98677 SD reads to a card file
+  - Unblock: M8.C1p — port the consent-screen skip to the ZE0 2011 card so --ui-start reaches the map
+  - Result: EXP-2026-11-23-M3.43-l4-zoomout-refer-negative (negative, Stop rule met)
 
 ## M4 — Data formats (no firmware or hardware needed)
 
