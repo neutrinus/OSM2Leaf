@@ -614,7 +614,8 @@ def merge_names_section(bg_plain: bytes, section: bytes) -> bytes:
     return clarion_bg.build_record(record)
 
 
-def build_road_record(level, parcel, runs, table, country, write_names=True):
+def build_road_record(level, parcel, runs, table, country, write_names=True,
+                      allow_oversize=False):
     """One ``0x00fa`` record.
 
     Returns ``(plain, comp, names_section, info)`` or ``None`` when empty.
@@ -701,7 +702,7 @@ def build_road_record(level, parcel, runs, table, country, write_names=True):
     # records "changed but not regenerated" on the real B50R050R build
     # (M5.70).  Refuse it here so the driver's drop rule drops whole ways
     # (loudly, counted) instead of writing a slot the reader cannot walk.
-    if len(plain) // 2 > 0x10000:
+    if len(plain) // 2 > 0x10000 and not allow_oversize:
         raise CheckFailed(
             "parcel %r record is %d words, above the 0x10000 the directory "
             "pair table can address" % (parcel, len(plain) // 2)
@@ -820,6 +821,32 @@ def l2_slot_census(tile):
                     present += 1
     return dict(present_rows=present, absent_rows=absent,
                 total=len(missing), missing=missing)
+
+
+def l2_oversize_records(imf_path, cell, table, level=2, country=616):
+    """Parcels whose built record exceeds 0x10000 inflated words.
+
+    The directory stores a record's inflated length in a u16 word count and
+    ``clarion_tile.read_dir`` stops the pair table above 0x10000, so such a
+    record makes its own pair and every later pair in the slot unreachable
+    (M5.70).  Returns ``[(parcel, words, runs, comp_words), ...]``.
+    """
+    ways, _stats = load_imf(imf_path, cell)
+    runs = ways_to_runs(ways, level, table, cell)
+    out = []
+    for parcel in sorted(runs):
+        try:
+            result = build_road_record(level, parcel, runs[parcel], table, country,
+                                       write_names=False, allow_oversize=True)
+        except CheckFailed:
+            continue
+        if result is None:
+            continue
+        plain, comp, _names, _info = result
+        words = len(plain) // 2
+        if words > 0x10000:
+            out.append((parcel, words, len(runs[parcel]), len(comp) // 2))
+    return out
 
 
 def l2_written_without_slot(tile, imf_path, cell, table, level=2, country=616):
@@ -2749,6 +2776,9 @@ def build_parser():
     parser.add_argument("--l2-written-gate", metavar="TILE.DAT",
                         help="with an IMF and --cell: check every parcel the build would "
                              "write has an even pair in TILE.DAT (M5.70 Done-when gate)")
+    parser.add_argument("--l2-oversize", action="store_true",
+                        help="with an IMF and --cell: list parcels whose record exceeds "
+                             "0x10000 inflated words (the directory pair-table bound)")
     parser.add_argument("--selftest", action="store_true", help="run the synthetic test")
     return parser
 
@@ -2828,6 +2858,22 @@ def main(argv=None):
         for m in missing[:20]:
             print("  y=%d x=%d row=%d col=%d" % m)
         return EXIT_OK if not missing else EXIT_CHECK_FAILED
+    if args.l2_oversize:
+        if not args.imf:
+            parser.error("--l2-oversize needs the split IMF as the positional argument")
+        if cell is None or not CELL_RE.match(cell):
+            parser.error("--l2-oversize needs --cell BxxRyyR")
+        try:
+            table, _source = load_class_table(args.class_table)
+            over = l2_oversize_records(args.imf, cell, table, country=args.country)
+        except (WriterError, OSError) as exc:
+            print("tilewriter: %s" % exc, file=sys.stderr)
+            return EXIT_BAD_INPUT
+        print("l2_oversize_records: %d" % len(over))
+        for parcel, words, runs, comp_words in over:
+            print("  y=%d x=%d row=%d col=%d words=%d runs=%d comp_words=%d"
+                  % (parcel + (words, runs, comp_words)))
+        return EXIT_OK
     if args.readback:
         if not args.imf:
             parser.error("--readback needs the split IMF as the positional argument")
