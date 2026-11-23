@@ -134,6 +134,60 @@ BG_W34 = (0x347A, 0x2AEF)  # level-1 header words 3/4 (clarion_bg.LEVELS[1]["w34
 MAX_SUBS, MAX_PER_SUB = 8, 255  # parse_group: <= 8 sub-groups of <= 255 shapes
 
 
+# Place labels (M5.90): the factory start parcel stores district names
+# (MAYFAIR, SOHO, ...) as names-section entries ``type 0xc068, flags 0x4800,
+# x, y, 0x0c00, len, text`` after the area names and before the road names,
+# and a layer-25 point group (kind byte 3) of ``0xc00c, 0xffff, x, y`` at the
+# same coordinates in the same order.
+PLACE_TYPE, PLACE_FLAGS, PLACE_STYLE, POINT_TYPE = 0xC068, 0x4800, 0x0C00, 0xC00C
+PLACE_KINDS = {"city", "town", "suburb", "quarter", "neighbourhood", "village"}
+
+
+def _entries_end(sec: bytes) -> int:
+    n = struct.unpack_from(">H", sec, 2)[0]
+    i = 24
+    for _ in range(n):
+        flags = struct.unpack_from(">H", sec, i + 2)[0]
+        head = 12 if flags & 0x4000 else 10  # place entries carry one more word
+        ln = struct.unpack_from(">H", sec, i + head - 2)[0]
+        i += head + ln + (ln & 1)
+    return i
+
+
+def names_with_places(sec: bytes | None, places) -> bytes:
+    """A names section (fa_encode layout) with place-label entries appended
+    after the road-name entries; road word offsets do not move."""
+    if sec is None:
+        sec = struct.pack(">HH", 6, 0) + b"\xff\xff\x00\x00" + struct.pack(">HH", 6, 0) + b"\xff\xff\x00\x00" * 3 \
+            + struct.pack(">HH", 8, 0) + b"\xff\xff\x00\x00" * 3
+    n = struct.unpack_from(">H", sec, 2)[0]
+    end = _entries_end(sec)
+    sub_at = 4 * struct.unpack_from(">H", sec, 8)[0]
+    body = bytearray(sec[24:end])
+    for x, y, text in places:
+        t = text.encode("latin-1", "replace")
+        if len(t) % 2:
+            t += b"\0"
+        body += struct.pack(">6H", PLACE_TYPE, PLACE_FLAGS, x, y, PLACE_STYLE, len(t)) + t
+    # a place entry has one more word than a road entry: the walker keys on
+    # the type, so road offsets are kept and places follow them
+    while len(body) % 4:
+        body += b"\0"
+    out = bytearray(sec[:24]) + body + sec[sub_at:]
+    struct.pack_into(">H", out, 2, n + len(places))
+    struct.pack_into(">H", out, 8, (24 + len(body)) // 4)
+    return bytes(out)
+
+
+def place_points_group(places) -> dict:
+    g = struct.pack(">HH", 1, 3) + bytes([3, len(places)])
+    for x, y, _t in places:
+        g += struct.pack(">4H", POINT_TYPE, 0xFFFF, x, y)
+    while len(g) % 4:
+        g += b"\0"
+    return dict(raw=g)
+
+
 def _ring_area(pts) -> float:
     return abs(sum(x0 * y1 - x1 * y0 for (x0, y0), (x1, y1) in zip(pts, pts[1:]))) / 2
 
@@ -155,17 +209,37 @@ def _parcels_over(bbox, level=1):
     return out
 
 
-def build_background(areas_path: str, country: int, only: set | None = None, urban_fill: float = 0.0):
+def build_background(areas_path: str | None, country: int, only: set | None = None, urban_fill: float = 0.0,
+                     names: dict | None = None, with_places: bool = False):
     """``{parcel: plain}`` background records and stats from an osm_areas JSONL."""
     import clarion_bg
     from bg_writer import clip_polygon
     from slot_budget import dp_simplify
     shapes = collections.defaultdict(lambda: collections.defaultdict(list))
     stats = collections.Counter()
-    with open(areas_path, encoding="utf-8") as fh:
+    names = names or {}
+    places = collections.defaultdict(list)
+    translit = None
+    if with_places:
+        from transliterate import apply, load_table
+        present, mapping, _t = load_table()
+        translit = lambda t: apply(t, present, mapping)  # noqa: E731
+    with open(areas_path or "/dev/null", encoding="utf-8") as fh:
         for line in fh:
             f = json.loads(line)
             kind = f["kind"]
+            if kind == "place":
+                if f.get("place") in PLACE_KINDS and with_places:
+                    lon, lat = f["point"]
+                    parcel = tilewriter.parcel_of(lon, lat, 1)
+                    lon0, lat0, pw, ph = clarion_bg.parcel_geo(1, *parcel)
+                    x, y = tilewriter.quantise(lon, lat, lon0, lat0, pw, ph)
+                    name = f["name"].upper()
+                    if translit:
+                        name = translit(name)
+                    places[parcel].append((x, y, name))
+                    stats["places"] += 1
+                continue
             if kind not in BG_TYPES or only and kind not in only:
                 stats["skipped_" + kind] += 1
                 continue
@@ -196,6 +270,8 @@ def build_background(areas_path: str, country: int, only: set | None = None, urb
                     stats["shapes_" + kind] += 1
     out = {}
     full = [(0, 0), (UNITS - 1, 0), (UNITS - 1, UNITS - 1), (0, UNITS - 1), (0, 0)]
+    for parcel in set(names) | set(places):
+        shapes.setdefault(parcel, collections.defaultdict(list))
     for parcel, by_kind in shapes.items():
         if urban_fill and by_kind.get("urban"):
             # Generalised built-up area (HYPOTHESIS, M5.89): the factory's
@@ -227,12 +303,22 @@ def build_background(areas_path: str, country: int, only: set | None = None, urb
         hdr[0], hdr[1] = clarion_bg.parcel_code(1, y0 * per + row, x0 * per + col)
         hdr[2], (hdr[3], hdr[4]) = 0xFA, BG_W34
         hdr[20] = country
-        plain = clarion_bg.build_record(dict(hdr=hdr, nlayers=26, layers=model_layers, sections={},
+        if places.get(parcel):
+            pl = places[parcel][:255]
+            model_layers[25] = place_points_group(pl)
+            names[parcel] = names_with_places(names.get(parcel), pl)
+        sections = {"names": names[parcel]} if parcel in names else {}
+        if sections:
+            stats["names_sections"] += 1
+        plain = clarion_bg.build_record(dict(hdr=hdr, nlayers=26, layers=model_layers, sections=sections,
                                              gi=9, strict=True))
         back = clarion_bg.parse_record(plain)
         got = collections.Counter(sh["type"] for g in back["layers"].values() if "raw" not in g
                                   for s in [g] + g.get("more", []) for sh in s["shapes"])
         want = collections.Counter(sh["type"] for items in layers.values() for sh in items[:MAX_SUBS * MAX_PER_SUB])
+        got.pop(0xFFFF, None)  # the raw layer-25 point group parses as one pseudo shape
+        if sections and back["sections"].get("names") != sections["names"]:
+            raise CheckFailed("names section of %r does not read back" % (parcel,))
         if got != want:
             raise CheckFailed("background record of %r does not read back: %s vs %s" % (parcel, got, want))
         out[parcel] = plain
@@ -240,10 +326,50 @@ def build_background(areas_path: str, country: int, only: set | None = None, urb
     return out, dict(stats)
 
 
+def label_of(name: str, ref: str, translit=None) -> str:
+    """``1=NAME;2=REF`` as the factory writes it (EU2011 London: upper case,
+    first ``ref`` only, flags ``0x2800``; EXP-2026-11-23-M5.90)."""
+    name = name[2:] if name.startswith("1=") else name
+    name = name.strip().upper()
+    ref = (ref or "").split(";")[0].strip().upper()
+    if translit:
+        name = translit(name)
+    parts = []
+    if name:
+        parts.append("1=" + name)
+    if ref:
+        parts.append("2=" + ref)
+    return ";".join(parts)
+
+
+NAME_FLAGS = 0x2800  # every road-name entry of the factory London start parcel (712/712)
+
+
+def set_name_flags(sec: bytes, flags: int = NAME_FLAGS) -> bytes:
+    """Rewrite the flags word of every ``0x00ff`` road-name entry of a names
+    section built by ``fa_encode.names_section`` (it writes ``0x2000``)."""
+    out = bytearray(sec)
+    n = struct.unpack_from(">H", out, 2)[0]
+    i = 24
+    for _ in range(n):
+        typ, _fl, _x, _y, ln = struct.unpack_from(">HHHHH", out, i)
+        if typ != 0x00FF:
+            raise CheckFailed("names entry at %d is not 0x00ff" % i)
+        struct.pack_into(">H", out, i + 2, flags)
+        i += 10 + ln + (ln & 1)
+    return bytes(out)
+
+
 def build_records(split: str, cell: str, class_table: str | None, country: int, write_names: bool,
-                  limit: int = 0):
+                  limit: int = 0, names_out: dict | None = None):
     table, _src = tilewriter.load_class_table(class_table)
     ways, imf_stats = tilewriter.load_imf(split, cell)
+    if write_names:
+        from transliterate import apply, load_table
+        present, mapping, _t = load_table()
+        for way in ways:
+            way["name"] = label_of(way.get("name", ""), way.get("ref", ""),
+                                   lambda t: apply(t, present, mapping))
     runs = tilewriter.ways_to_runs(ways, 1, table, cell)
     built, sizes = {}, []
     trim = collections.Counter()
@@ -254,8 +380,10 @@ def build_records(split: str, cell: str, class_table: str | None, country: int, 
             trim["runs"] += dropped
         if res is None:
             continue
-        plain, comp, _names, _info = res
+        plain, comp, names_sec, _info = res
         built[parcel] = (plain, comp)
+        if names_sec and names_out is not None:
+            names_out[parcel] = set_name_flags(names_sec)
         sizes.append(len(plain))
     imf_stats = dict(imf_stats, trimmed=dict(trim))
     return built, sizes, imf_stats
@@ -390,6 +518,15 @@ def selftest() -> int:
     m2 = tile_relayout.read_model(blob2)
     raws = [r for sec in m2["sections"] for L in sec["levels"] for dm in L["dirs"] for u in dm["units"] for r in u["recs"]]
     ok([zlib.decompress(r) for r in raws] == [plain, bg[parcel]], "block order: even then odd")
+    # place labels after road names: road offsets unchanged, entries walk (M5.90)
+    road_sec, offs = fa_encode.names_section(["1=KING STREET;2=A4"], [[0] * 9])
+    both = names_with_places(road_sec, [(100, 200, "SOHO"), (300, 400, "MAYFAIR")])
+    ok(struct.unpack_from(">H", both, 2)[0] == 3 and _entries_end(both) <= 4 * struct.unpack_from(">H", both, 8)[0]
+       and both[2 * offs["1=KING STREET;2=A4"]:][:2] == b"\x00\xff"
+       and both[4 * struct.unpack_from(">H", both, 8)[0]:] == road_sec[4 * struct.unpack_from(">H", road_sec, 8)[0]:],
+       "places appended: 3 entries, road offset kept, sub-table moved intact")
+    ok(label_of("1=King Street", "A4;A400") == "1=KING STREET;2=A4" and label_of("", "A4") == "2=A4",
+       "label: upper case, first ref")
     print("tile_from_zero selftest: %s (%d failure(s))" % ("OK" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -405,6 +542,7 @@ def main(argv=None) -> int:
     ap.add_argument("--areas", help="osm_areas.py JSONL: write level-1 background records (Z4)")
     ap.add_argument("--urban-fill", type=float, default=0.0,
                     help="fill a parcel with one urban ring when its urban rings cover >= this share (0 = off)")
+    ap.add_argument("--places", action="store_true", help="write place=* labels from --areas (M5.90)")
     ap.add_argument("--areas-kinds", help="comma list of kinds to write (default: all of BG_TYPES)")
     ap.add_argument("--max-plain", type=lambda v: int(v, 0), default=0,
                     help="drop the least important roads of a parcel until its record fits (0 = no limit)")
@@ -418,12 +556,13 @@ def main(argv=None) -> int:
         ap.print_usage(sys.stderr)
         return 2
     try:
+        names = {}
         built, sizes, imf_stats = build_records(args.split, args.cell, args.class_table, args.country,
-                                                not args.no_names, args.max_plain)
+                                                not args.no_names, args.max_plain, names_out=names)
         odd, bg_stats = {}, {}
-        if args.areas:
+        if args.areas or names:
             only = set(args.areas_kinds.split(",")) if args.areas_kinds else None
-            plains, bg_stats = build_background(args.areas, args.country, only, args.urban_fill)
+            plains, bg_stats = build_background(args.areas, args.country, only, args.urban_fill, names, args.places)
             odd = {k: (v, tilewriter.compress(v)) for k, v in plains.items()}
         out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd)
         st["background"] = bg_stats

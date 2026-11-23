@@ -6329,3 +6329,14 @@ into three printed classes.
 | C-8694 | `tile_from_zero.py --areas` writes 623 level-1 background records next to the 602 road records (0/1,225 factory records); L1 PASS, L3 reply `sub 3`, L4 boots with the factory's error lines and draws parks, water, forest and urban fills under the roads. | VERIFIED | H | EXP-2026-11-23-M5.89-london-background-from-zero O3–O4 |
 | C-8695 | The factory's level-1 urban fill is generalised (one `0xc12b` ring over the whole start parcel) while OSM urban rings cover 18 % of it; `--urban-fill 0.1` (full-parcel ring where rings cover >= 10 %) fills 483 of 623 parcels and gives a screen with no black pixel like the factory's. | OBSERVED | M | EXP-2026-11-23-M5.89-london-background-from-zero O3 |
 | C-8696 | Generated park rings are drawn with a red outline that the factory's park is not; cause unknown. | OBSERVED | M | EXP-2026-11-23-M5.89-london-background-from-zero O4; follow-up M5.96 |
+
+## M5.90 — Z5 London names from zero (C-8700–C-8709)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-8700 | In EU2011 London level-1 odd records the names section holds area names (`0x018f`/`0x8194`/`0x0188`, flags `0x2800`, 5 words + text), place and POI labels (`0xc068`, `0x80cf`, … flags `0x4800`, 6 words: type, flags, x, y, style, len + text) and road names (`0x00ff`, `0x2800`, `1=NAME;2=REF`, upper case). | VERIFIED | H | EXP-2026-11-23-M5.90-london-names-from-zero O1 |
+| C-8701 | Layer 25 of the start-parcel odd record is one group with kind byte `3` and 82 points `0xc00c, 0xffff, x, y`; the first points have the coordinates of the first `0xc068` labels (MAYFAIR, SOHO). | VERIFIED | H | EXP-2026-11-23-M5.90-london-names-from-zero O1 |
+| C-8702 | OSM street names written by `tile_from_zero.py` as `1=NAME;2=REF` names entries of our own odd records (via `name_off`) are drawn along their roads at L4. | VERIFIED | H | EXP-2026-11-23-M5.90-london-names-from-zero O4; screenshot `a1b95d9a…9ce8a7` |
+| C-8703 | OSM `place=*` labels written as `0xc068`/`0x4800` entries after the road names plus a layer-25 kind-3 point group at the same coordinates are drawn (SOHO, ST GILES, ST. JAMES'S, LONDON, SEVEN DIALS); road `name_off` values are unchanged by the appended entries. | VERIFIED | H | EXP-2026-11-23-M5.90-london-names-from-zero O4; `python3 tools/tile_from_zero.py --selftest` |
+| C-8704 | A `2=REF` part in the road-name entry does not by itself draw a road-number shield. | VERIFIED | H | EXP-2026-11-23-M5.90-london-names-from-zero O4 |
+| C-8705 | Road-name entry flags `0x2000` vs `0x2800` give a byte-identical L4 screen. | VERIFIED | M | EXP-2026-11-23-M5.90-london-names-from-zero Method 3 |
+| C-8706 | In the start parcel 519 of the factory's 677 street names and all 21 road numbers come back from OSM with the provisional class table; the missing names are pedestrian courts, mews and passages. | VERIFIED | M | EXP-2026-11-23-M5.90-london-names-from-zero O3 |

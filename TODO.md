@@ -3796,8 +3796,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8690–C-8699
   - Result: Z4 passed for areas: 623 OSM background records (water, parks, forest, heath, urban) drawn with the roads, 0 factory records (EXP-2026-11-23-M5.89, C-8690–C-8696)
 
-- [ ] **M5.90 — Z5: street names, road numbers and road classes in the from-zero London tile**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.90 — Z5: street names, road numbers and road classes in the from-zero London tile**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: Z5
   - Depends: M5.88
   - Goal: M8.H71 lost every street label and shield because the pipeline runs `--no-names`, and its provisional classes draw too many wide roads. Write OSM `name`/`ref` (M5.7, M4.90 syntax) and compare classes with the factory's London roads.
@@ -3807,6 +3807,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `--readback` matches names; the L4 screenshot shows street labels and shields at the factory places (list which appear, which not and why: C-8223 width); the EXP has the `highway → (layer, cls)` table measured on London with counts.
   - Stop: one session.
   - Claims: C-8700–C-8709
+  - Result: Street names and place labels from OSM drawn in the from-zero tile (EXP-2026-11-23-M5.90, C-8700–C-8706); shields → M5.97, class table → M5.98
 
 - [ ] **M5.91 — Z6: level 2 and section-4 place names in the from-zero London tile, checked zoomed out**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3879,6 +3880,30 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: every line type in the census has a meaning with its evidence (or UNKNOWN with the test that failed), river and rail lines are drawn at L4, and the outline cause is a VERIFIED claim.
   - Stop: one session per item.
   - Claims: C-8780–C-8789
+
+- [ ] **M5.97 — Z5b: road-number shields (A4, A400) in the from-zero London tile**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z5
+  - Depends: M5.90
+  - Goal: M5.90 writes `1=NAME;2=REF` road names and the labels draw, but no shield does (C-8704). Find what makes the factory draw the A4/A400/A401/A3201 shields on the London start screen and write it.
+  - Precheck: `python3 tools/tile_from_zero.py --selftest`.
+  - Scope: start parcel `a6accdef`; candidates: the odd record's `points` section (w15/w16, 9,424 B; tail items `c000 0004 …`), the road shapes' attribute word (M4.90 CLASS_WORD3), the names sub-table items. Test by moving one candidate at a time from a decode into our record (counts and offsets only in the repo).
+  - Input: `EXP-2026-11-23-M5.90-london-names-from-zero`, `EXP-2026-11-22-M4.90-road-shields`, `tools/ze0-viewer/tools_ze0/fa_encode.py`.
+  - Done when: an L4 screenshot of the from-zero tile shows at least one shield at its road, with the structure that draws it as a VERIFIED claim.
+  - Stop: one session; if no candidate draws a shield, record which were tried.
+  - Claims: C-8790–C-8799
+
+- [ ] **M5.98 — Z5c: OSM highway → road class measured on the factory London roads**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z5
+  - Depends: M5.90
+  - Goal: the provisional class table draws too many wide brown roads and drops pedestrian ways that carry factory street names (C-8706). Match factory road shapes to OSM ways in the London bbox and measure the table.
+  - Precheck: `python3 tools/tilewriter.py --selftest`.
+  - Scope: level 1, London bbox; match by name (upper case) and geometry overlap; per OSM `highway` value the factory `(layer, class)` distribution with counts; include footway/pedestrian/steps if the factory has their names.
+  - Input: `tools/ze0-viewer/harness.py decode`, `tools/frway_decode.py`, `tools/roadclass_v0.py`, the M5.88 IMF.
+  - Done when: the EXP has the `highway → (layer, cls)` table with counts, a new class table file, and an L4 screenshot of the start screen with it next to the factory's (by-eye notes).
+  - Stop: one session.
+  - Claims: C-8800–C-8809
 
 ## M6 — L5 bench/car: hardware and safety
 
