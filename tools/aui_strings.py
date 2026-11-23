@@ -109,8 +109,24 @@ def selftest():
     return 0 if ok else 1
 
 
+def load_skin(args):
+    """Bytes of the skin: ``--card IMG`` extracts it by TFAT cluster chain,
+    otherwise ``file`` is the already-extracted .skn."""
+    if getattr(args, "card", None):
+        import skn_info
+        fat = skn_info.Fat16(args.card, args.tfat_offset)
+        e = [x for x in skn_info.tfat_walk(fat)
+             if x["path"].lower().endswith("substance.skn")][0]
+        data = fat.read(e["clus"])[: e["size"]]
+        fat.close()
+        return data
+    if not args.file:
+        raise SystemExit("one of FILE or --card is required")
+    return open(args.file, "rb").read()
+
+
 def _blocks_or_fail(args):
-    d = open(args.file, "rb").read()
+    d = load_skin(args)
     blocks = anchor_blocks(d, args.anchor)
     if not blocks:
         print("no %r frame found" % args.anchor)
@@ -149,9 +165,12 @@ def cmd_count(args):
         return 1
     print("%-10s language_blocks %3d  first_block 0x%08x" %
           (args.name, len(blocks), blocks[0]))
+    hist = {}
     for st in blocks:
         texts, _offs, _end = pool(d, st)
+        hist[len(texts)] = hist.get(len(texts), 0) + 1
         print("  0x%08x frames %3d  head %r" % (st, len(texts), texts[:4]))
+    print("frames_hist %s" % ", ".join("%d×%d" % (n, hist[n]) for n in sorted(hist)))
     return 0
 
 
@@ -162,7 +181,9 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd")
     for name in ("languages", "block", "count"):
         sp = sub.add_parser(name)
-        sp.add_argument("file")
+        sp.add_argument("file", nargs="?", help="an extracted substance.skn")
+        sp.add_argument("--card", help="a card image; extracts substance.skn by TFAT")
+        sp.add_argument("--tfat-offset", type=lambda s: int(s, 0), default=0x1c8400400)
         sp.add_argument("--anchor", default=DEFAULT_ANCHOR)
         if name == "languages":
             sp.add_argument("--show", type=int, default=8)

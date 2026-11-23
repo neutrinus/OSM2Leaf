@@ -16,13 +16,13 @@ page is about is `substance.skn` from each card's TFAT16 tail (SHA-256
 
 ## The short answer
 
-> **The menus and prompts are not in the firmware: they are one UTF-16LE string
-> pool inside the player skin `\SystemSD2\SkinChange\001\substance.skn` on the
-> card. The pool is a run of `[u32 len][UTF-16LE text]` frames, one block of
-> ~35 frames per language, each block headed by the same language-selector
-> list. The language is a user setting (`OBJ_Setting_readExpLanguage`) turned
-> into a map code by `Navi.exe` `get_lang` (`0x003c0228`) and into a
-> `SPEECH/` folder by
+> **The menus and prompts are not in the firmware's readable sections: they are
+> one UTF-16LE string pool inside the player skin
+> `\SystemSD2\SkinChange\001\substance.skn` on the card. The pool is a run of
+> `[u32 len][UTF-16LE text]` frames, one block of ~35 frames per language, each
+> block headed by the same language-selector list. The language is a user
+> setting (`OBJ_Setting_readExpLanguage`) turned into a map code by `Navi.exe`
+> `get_lang` (`0x003c0228`) and into a `SPEECH/` folder by
 > `Speech.exe`; `commondll.dll` only forwards `CApi_*LangInfo` to a COM object.
 > The UI font is the rasterizer FDL font (`0x03431020`), which has 8 of the 18
 > Polish letters. So Polish is a card-data edit (replace one existing block),
@@ -56,15 +56,16 @@ UTF-16**BE**, a different thing). A frame is:
 | `pad` | 0–3 B | `00 00`, then zeros to a 4-byte boundary |
 
 Strings are laid out in runs; each language is one contiguous block that
-starts with the selector list. Block frame counts (EU2011 35; US2011 41/30;
-EU2014 38/44/54) and the block offsets are printed by
+starts with the selector list. Block frame counts (EU2011 `35×7`; US2011
+`30×1, 41×1`; EU2014 `38×1, 44×13, 54×2`, printed as `frames_hist`) and the
+block offsets are printed by
 `python3 tools/aui_strings.py count … --anchor "English (mile)"`.
 
 | Card | selector labels | text blocks | block frames |
 | --- | ---: | ---: | --- |
 | EU2011 | 8 (`English (mile)`, `English (km)`, `Français`, `Deutsch`, `Español`, `Italiano`, `Nederlands`, `Português`) | 7 | 35 each |
 | US2011 | 3 (`English`, `Français`, `Español`) | 2 | 41, 30 |
-| EU2014 | 17 (the EU2011 eight + `Svenska`, `Suomalainen`, `Dansk`, `Norsk`, `Polski`, `Čeština`, `Ελληνικά`, `Magyar`, `Slovenčina`) | 16 | 38, 44×14, 54×2 |
+| EU2014 | 17 (the EU2011 eight + `Svenska`, `Suomalainen`, `Dansk`, `Norsk`, `Polski`, `Čeština`, `Ελληνικά`, `Magyar`, `Slovenčina`) | 16 | 38, 44×13, 54×2 |
 
 Two options map to one text set when a language has a mile and a km unit
 (English) — that is why the block count is one less than the label count. The
@@ -135,7 +136,9 @@ needs a rebuild, not just an in-place splice.
 | selector languages | EN, FR, DE, ES, IT, NL, PT | EN, FR, ES | + SV, FI, DA, NO, PL, CS, EL, HU, SK |
 | skin size | 8,724,512 B | 7,208,992 B | 12,951,584 B |
 
-EU2014 adds Polish (`Polski`) and nine other languages, which is direct
-evidence that the same container supports one more language without a firmware
-change — the open part for the 2011 build is only the selector entry
-(subscenario "add" above).
+EU2014 adds Polish (`Polski`) and nine other languages in the same container,
+which is **HYPOTHESIS**-level evidence that one more language needs no firmware
+change: the EU2014 build proves a 16-block skin works with *its* firmware, but
+the 2011 selected-language → block selector is still unlocated (C-8094), so for
+the 2011 build the open part is exactly that selector entry (subscenario "add"
+above).
