@@ -3718,6 +3718,139 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8600–C-8609
   - Pair: required
 
+- [ ] **M5.84 — From-zero map plan: state review, structural limits, London rungs Z0–Z7**
+  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
+  - Step: Z0
+  - Depends: M8.H71 (OSM roads on the emulated screen, done)
+  - Goal: Marek (2026-11-23): every OSM result so far splices records into a factory tile; we have not shown that we can build the tile structure ourselves, and OSM data will not always fit the factory blocks. Review what is generated, what is missing and which structures really limit us, and lay out rungs with gates to a tile with no factory record, London first (the emulator start screen).
+  - Precheck: `python3 tools/tilewriter.py --help` lists the fresh-container mode (no `--factory`); `docs/experiments/EXP-2026-11-22-M8.H71-osm-roads-l4.md` exists.
+  - Scope: docs only plus a read-only census of `B48R068R` (counts, no vendor bytes); tasks M5.85–M5.94 added through `tools/board.py`.
+  - Input: `docs/format/map-tiles.md`, `tools/ze0-viewer/tools_ze0/clarion_tile.py`, `tools/s1_wide_dir.py`, `tools/dir_read_len.py`, EXP M5.53/M5.56/M5.74/M5.75/M8.H71/M4.86.
+  - Done when: `docs/research/osm-from-scratch.md` has the object matrix, the limits table with a source per row and the Z0–Z7 rungs with a gate each; the EXP has the `B48R068R` census (sections, levels, directories, kinds, wide rows, records per family) from a runnable command; tasks M5.85–M5.94 are on the board and `todo_check.py` passes.
+  - Stop: one session.
+  - Claims: C-8640–C-8649
+
+- [ ] **M5.85 — Z1: the factory London tile written through our own layout, identical on the emulated screen**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Step: Z1
+  - Depends: M5.84
+  - Goal: a from-zero tile needs a writer that places every table, directory, wide-row block and record itself. Prove that writer on the one input whose correct screen we know: re-lay out the factory `B48R068R` with nothing copied by file position, and show the real `Navi.exe` draws the same London.
+  - Precheck: `python3 tools/s1_wide_dir.py census B48R068R.DAT` exits 0 (the wide-row model parses every section-1 directory of the London tile) and `python3 tools/dir_read_len.py predict B48R068R.DAT` runs.
+  - Scope: EU2011 `MAPAL001/B48R068R.DAT` only. Records are carried as opaque bytes (no re-encode); what changes is where every component sits: compact layout, wide-row blocks re-addressed, section/level/directory pointers rebuilt, unreferenced gaps dropped. No OSM data.
+  - Input: `tools/ze0-viewer/tools_ze0/clarion_tile.py` (`write_tile(..., preserve_gaps=False)`), `tools/s1_wide_dir.py`, `tools/dir_read_len.py`, `tools/imgpatch.py --allow-resize`, `tools/rebuild_manifests.py` or `dir_read_len.py drstr-size`, `tools/datask_l3.py mount`, `tools/qemu-ze0/run.sh`, `tools/ze0_screenshot.py`, M8.H71 recipe.
+  - Done when: a tool (new `tools/tile_relayout.py` with `--selftest`) writes the tile so that (a) no table, directory or block is at its factory offset unless the layout puts it there by itself (the EXP counts components moved), (b) every record decodes to the same bytes (`harness.py verify` on the output, record multiset equal), (c) `cardcheck --image` PASS, (d) `datask_l3.py mount` at the London position equals the factory run, (e) the L4 screenshot at `Pow Off 1st Detect` is pixel-identical to the factory screenshot (SHA-256 of both recorded), and the serial-log error set equals the factory run's.
+  - Stop: if (e) differs, record the pixel diff and which directory moved, and file the layout fact as a format finding; do not tune offsets to match the factory.
+  - Falsifier: the screen or the mount differs although every record is byte-identical — then the firmware depends on a layout property the model does not have (name it).
+  - Claims: C-8650–C-8659
+
+- [ ] **M5.86 — Tile provenance: how many records and bytes of a tile are the factory's**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z1
+  - Depends: —
+  - Goal: "built from zero" must be a number, not a claim. A tool that compares a generated tile with the factory tile and prints how many records (by section, level, family) are byte-identical to a factory record, and how many container bytes are copied.
+  - Precheck: `python3 -c "import sys; sys.path.insert(0,'tools/ze0-viewer/tools_ze0'); import clarion_tile"` works.
+  - Scope: new `tools/tile_provenance.py` with `--selftest`; prints counts and hashes only (no vendor bytes). Records are matched by the SHA-256 of their inflated payload, independent of position.
+  - Input: `clarion_tile.read_tile`, `tools/s1_wide_dir.py` (wide rows and sub-records).
+  - Done when: `tile_provenance.py FACTORY GENERATED` prints `factory_records=N/M` per section and level and `container_constant_bytes=K`; positive control (factory vs itself) = all factory; negative control (M8.H71 tile) = the changed parcels counted as ours; `--require-zero` exits 1 when any record is factory; EXP + claims.
+  - Stop: one session.
+  - Claims: C-8660–C-8669
+
+- [ ] **M5.87 — Z2: an empty London tile from the spec — what disappears from the screen**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Step: Z2
+  - Depends: M5.85
+  - Goal: before writing OSM content into a from-zero container, learn what the firmware does with a valid container that holds no records, and which screen items (roads, fills, labels, place names) come from this tile at all.
+  - Precheck: M5.85 done (the layout writer exists); `python3 tools/tilewriter.py --help` (fresh container mode).
+  - Scope: `B48R068R` with the header, level/box/section tables and every directory written by our tool from the factory constants (kind bytes, boxes), all slots empty; DRSTR001 size true. Nothing else on the card changes.
+  - Input: M5.85 tool, `tools/dir_read_len.py predict`, `tools/imgpatch.py`, the L4 recipe.
+  - Done when: `cardcheck --image` PASS; `datask_l3.py mount` parses every directory with no read past the end; the L4 run reaches the map (or the EXP records the stage it stops at and the log line); the EXP lists what is gone from the London screen vs the factory screenshot (roads, fills, street labels, place labels, shields) — that list says which file each item comes from.
+  - Stop: one session; a boot failure is a result (log line + stage).
+  - Claims: C-8670–C-8679
+
+- [ ] **M5.88 — Z3: London roads from OSM in a from-zero tile (level 1)**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Step: Z3
+  - Depends: M5.87, M5.86
+  - Goal: the first tile with no factory record that the real `Navi.exe` draws: OSM roads for the whole London bbox at level 1, written into the Z2 container.
+  - Precheck: `python3 tools/one_tile_pipeline.py --help`; BBBike `London.osm.pbf` downloadable (record URL, date, SHA-256).
+  - Scope: level-1 even records for every parcel of the London bbox (`-0.51,51.28,0.33,51.70`), default tolerances (M5.75), provisional class table; odd records empty; no names; parcels outside the bbox empty.
+  - Input: `tools/osm_ingest.py`, `tools/mesh_split.py`, `tools/tilewriter.py`, M5.85/M5.87 container, `tools/tile_provenance.py`.
+  - Done when: `tile_provenance.py --require-zero` exits 0; `harness.py verify` and `tilewriter --readback` pass; `cardcheck --image` PASS; L3 mount parses; the L4 London screenshot shows the OSM roads (pixel-diff count and by-eye notes vs M8.H71's spliced screen) and no new error lines in the serial log.
+  - Stop: if a parcel overflows a limit, write it reduced and list it; the overflow fix is M5.93.
+  - Claims: C-8680–C-8689
+
+- [ ] **M5.89 — Z4: London background from OSM — water, parks, forest, urban area, rivers in every parcel**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z4
+  - Depends: M5.88
+  - Goal: M5.74 writes three background classes into one parcel from a small OSM XML file. A map needs every parcel and the land/urban fill, from the PBF extract.
+  - Precheck: `python3 tools/tilewriter.py --background --help` path exists (M5.74); the background types `0x..10/12/14/15/1a/1d/2b` are in `docs/format/map-tiles.md`.
+  - Scope: London bbox, level 1 odd records: `natural=water`/`water=*` → `0x15`, `waterway=river|canal` → `0x14`, `leisure=park|garden` → `0x1d`, `landuse=forest`/`natural=wood` → `0x1a`, `landuse=residential|commercial|industrial|retail` → `0x2b`; type values per level as the factory uses them (census of `B48R068R` first); PBF input (no XML size limit).
+  - Input: `tools/tilewriter.py` background path, `tools/osm_ingest.py`, M5.88 tile.
+  - Done when: per-class shape counts written = decoded (`--readback`); L3 mount parses; the L4 screenshot shows the Thames, parks and fills; the EXP has a class × (factory count, ours) table for the start-screen parcel.
+  - Stop: one session per class group; a class the screen does not draw is a finding (record the type value).
+  - Claims: C-8690–C-8699
+
+- [ ] **M5.90 — Z5: street names, road numbers and road classes in the from-zero London tile**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z5
+  - Depends: M5.88
+  - Goal: M8.H71 lost every street label and shield because the pipeline runs `--no-names`, and its provisional classes draw too many wide roads. Write OSM `name`/`ref` (M5.7, M4.90 syntax) and compare classes with the factory's London roads.
+  - Precheck: `python3 tools/tilewriter.py --selftest` includes the M5.7 name checks.
+  - Scope: London bbox, level 1; names with `--transliterate`; refs as `2=A4`, `2=A400`; a class table derived from matching OSM `highway` to the factory class of the same street in the start-screen parcel (input for M5.3, not a final table).
+  - Input: `tools/tilewriter.py`, `tools/frway_decode.py`/`tools/ze0-viewer/harness.py decode` for the factory classes, M5.88 tile.
+  - Done when: `--readback` matches names; the L4 screenshot shows street labels and shields at the factory places (list which appear, which not and why: C-8223 width); the EXP has the `highway → (layer, cls)` table measured on London with counts.
+  - Stop: one session.
+  - Claims: C-8700–C-8709
+
+- [ ] **M5.91 — Z6: level 2 and section-4 place names in the from-zero London tile, checked zoomed out**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: Z6
+  - Depends: M5.88
+  - Goal: zooming out leaves level 1; a map needs the level-2 records and the place index of the tile, both from OSM.
+  - Precheck: zoom-out reachable on the emulator (touch peer, `ze0_launch.py --ui-start`; the `m8c1n-mapa-po-ZOOM-IN.png` run shows zoom works) or the EXP says it is not yet and stops at L3.
+  - Scope: `tilewriter --level 2` for the London bbox; `section4_places.py` from OSM `place=*` into a from-zero section 4.
+  - Input: `tools/tilewriter.py`, `tools/section4_places.py`, `tools/section4.py`, the touch peer.
+  - Done when: L3 mount parses level-2 and section-4 directories; the L4 zoomed-out screenshot shows our level-2 roads (and place names, if section 4 is what draws them — else record what does).
+  - Stop: one session; the level-2 even-slot defect (M5.70) is not this task's.
+  - Claims: C-8710–C-8719
+
+- [ ] **M5.92 — Capacity probe: the largest record, shape and point count the firmware draws**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Step: limits
+  - Depends: —
+  - Goal: the real "does it fit" limit is not the factory block size (blocks can be appended, M8.H71) but the record the firmware can read. Find it before dense parcels are written.
+  - Precheck: `python3 tools/datask_l3.py --help` and the `LOC_map` walk runner of M9.66 exist; factory maxima from M4.86/M5.75 (18,580 B inflated, 7,472 B compressed road block) are the baseline.
+  - Scope: the London start-screen parcel; synthetic road records (no OSM) at 1×, 2×, 4×, 8×, 16× the factory maximum inflated size, and single shapes with 1k/8k/32k points; L3 walk for each, L4 screenshot for the largest that passes and the smallest that fails.
+  - Input: `tools/tilewriter.py`/`fa_encode`, `tools/datask_l3.py`, M9.66 walk, the L4 recipe.
+  - Done when: a table `size → L3 result → L4 drawn?` with the first failing size, and the VA/buffer that enforces it (or UNKNOWN with the evidence); `docs/research/osm-from-scratch.md` limit 6 updated.
+  - Stop: two sessions; an L3-only result is acceptable if L4 is unavailable.
+  - Claims: C-8720–C-8729
+
+- [ ] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: limits
+  - Depends: M5.85
+  - Goal: the factory keeps dense parcels as four sub-records in a wide directory row (M5.53); our writer drops them. Write them, so a dense OSM parcel keeps its detail without exceeding the record limit.
+  - Precheck: `python3 tools/s1_wide_dir.py census B48R068R.DAT` exits 0 and lists wide rows in the London tile.
+  - Scope: section 1 level 1; the writer emits a wide row (`0x2n46`, n ≤ 31) with sub-records when a parcel exceeds a byte budget; sub-record parcel codes as M5.53 describes.
+  - Input: `tools/s1_wide_dir.py`, `tools/tilewriter.py`, `tools/slot_budget.py`.
+  - Done when: `s1_wide_dir.py census` accepts the written tile; an L4 screenshot of a parcel written as four sub-records shows roads in all four quarters (or the EXP proves which quarter is not read); selftest covers the split.
+  - Stop: one session for the writer; L4 depends on a parcel on screen (the start-screen parcel may be forced to sub-records for the test).
+  - Claims: C-8730–C-8739
+
+- [ ] **M5.94 — London in numbers: per-parcel OSM size against the factory records and the limits**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: limits
+  - Depends: —
+  - Goal: before writing London from zero, know where OSM is bigger than the factory: per level-1 parcel, our encoded road and background bytes at the default tolerances against the factory record of the same parcel.
+  - Precheck: `python3 tools/slot_budget.py --selftest` passes; BBBike `London.osm.pbf` downloadable.
+  - Scope: `B48R068R`, London bbox, level 1 (level 2 if cheap); counts and sizes only.
+  - Input: `tools/slot_budget.py geom`/`geom-stats`, `tools/osm_ingest.py`, `tools/mesh_split.py`, `tools/tilewriter.py --dry-run --json`, `tools/s1_wide_dir.py`.
+  - Done when: the EXP has the distribution (min/q1/median/q3/max) of factory and OSM bytes per parcel, the number of parcels where OSM > factory, > the factory maximum and > the M5.92 limit (when known), and the ten largest parcels with their place.
+  - Stop: one session.
+  - Claims: C-8740–C-8749
+
 ## M6 — L5 bench/car: hardware and safety
 
 No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full-system emulator, M8) is the software integration path to prepare before L5.
