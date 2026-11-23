@@ -5963,7 +5963,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
 
 
 - [ ] **M9.31 — `l3check --card` baseline/no-diff verdicts for S0/S1 (unblocks M9.12)**
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m9.31-card-baseline-verdicts · Critical: no
   - Step: tooling
   - Pair: solo
   - Depends: M9.41 (the US S1 evidence row this baseline needs), M9.11/M9.11b (cmp_ind_reader path), M9.6 context. **Was `M9.12 (blocked)`** — that made a deadlock: M9.31 unblocks M9.12 and M9.12's `Unblock:` is M9.31, so as written neither could ever be taken (SE 2026-11-17).
