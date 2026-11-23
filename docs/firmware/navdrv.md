@@ -80,7 +80,7 @@ name is **UNKNOWN** (not UBX `b5 62`, not SiRF `a0 a2`).
 | Checksum | `frame[len-2] = (Σ frame[1..len-3]) & 0x7f` | 7-bit sum | `leaf at 0x39e4248`, compare at `0x039e429a` | VERIFIED |
 | End marker | `frame[len-1] & 0xf0 == 0xf0` | byte | `fn 0x39e44e8` at `0x039e454a`, `fn 0x39e4630` | VERIFIED |
 | Date/time | frame bytes `+16…+21` → `SYSTEMTIME`; 2-digit year `+1900` (`0x076c`) or `+2000` (`0x07d0`) | year/month/day/… | `fn 0x39e4988` → `SetSystemTime` at `0x039e4a14` | VERIFIED (call), field order HYPOTHESIS |
-| Lat / lon / altitude / speed / heading / satellites / fix quality | **not decoded here**; whole frames go into a 24-slot × 100-byte ring (driver object `+0x980`) and out as 36-byte records | raw | `fn 0x39e4324`, `fn 0x39e4f60` | UNKNOWN in this module; M8.H29 follows the consumer |
+| Lat / lon / altitude / speed / heading / satellites / fix quality | **not decoded here**; whole frames go into a 24-slot × 100-byte ring and are read by `Navi.exe` with IOCTL `0x8010200c` (128-byte buffer). The 36-byte records of `fn 0x39e4f60` are dead-reckoning samples, not GPS (see below) | raw | `fn 0x39e4324` | decoded in `Navi.exe`: "Receiver frames" below (M8.H73) |
 
 The checksum leaf rejects a payload byte with bit 7 set (`and #0x80` at
 `0x039e4272`, `bt` back to the false return), then sums bytes 1 through
@@ -102,6 +102,90 @@ guest wrote to SCIF7 in EXP-2026-11-22-M8.H1 O7, so the parser and the live
 traffic agree. The meaning of command bytes `0x20`/`0x23` is a HYPOTHESIS
 (periodic status/version queries — the checksum differs only by the command
 difference 3).
+
+## Receiver frames and the position report (M8.H73)
+
+The two length tables are **not** the same. Frames the receiver sends are
+sized by the RX table at `0x39e17e4` (`braf` at `0x039e42ba`); frames the
+unit sends by the TX table at `0x39e1808`. `0xa0` is 36 bytes on RX and 14
+on TX, which is why a 14-byte `A0` sent by a host peer is dropped by the RX
+assembler (the cause of the M8.H31 negative).
+
+| Start | RX length | TX length | Seen as |
+| --- | --- | --- | --- |
+| `a0` | 36 | 14 | RX: position report (below). TX: TestMode `A0 00` seed (C-8244) |
+| `a3` | 81 = variable (walker searches the `0xf0` end) | not allowed | — |
+| `a4` | 100 | not allowed | — |
+| `a5` | 8 | 8 | — |
+| `b0` | 6 | 6 | TX: `b0 20 …`, `b0 23 …` queries (M8.H1) |
+| `b1`, `b3`, `c0`, `c1` | 4 | 4 | — |
+| `b2` | 44 | 44 | — |
+| `b4` | 10 | 4 | — |
+
+### Path into `Navi.exe` (US card build; VAs are US unless marked)
+
+1. `navdrv` RX assembler (`fn 0x39e4a54`) → `fn 0x39e4324` stores the frame.
+   On NK1 the same code runs at `+0x310000` (`navdrv.dll` vbase
+   `0x03cf0000`; the two copies differ only in relocations and the security
+   cookie).
+2. `Navi.exe` function `0x003a391c` polls `NAV1:`: IOCTL `0x80102014` reads a
+   36-byte dead-reckoning record; when its byte `+33` is 1, IOCTL
+   `0x8010200c` reads the queued receiver frame into a 24 × 128-byte ring at
+   `0x006495c8`.
+3. Function `0x003a30d8` checks the start byte and sends OSM message
+   `0x03f4`, sub = start byte, data = frame + 1, length = frame length − 3.
+4. The message table at `0x0001d7a0` (`{msg id, sub-table}`) maps `0x03f4`
+   to the sub-table at `0x0001d2b8`; sub `0xa0` → handler `0x003a0b40`
+   (`a3` `0x003a0d0c`, `a5` `0x0039eebc`, `b0` `0x003a0f70`, `b3`
+   `0x0039efac`, `b4` `0x0039f190`, `c0` `0x0039f288`, `c1` `0x0039f368`).
+5. `0x003a0b40` unpacks the payload with function `0x0039e880` into a
+   48-byte record, copies it to `0x011080c0`, and sends message `0x04c1`
+   sub `0x012e` to the positioning task.
+6. That task builds `OBJ_GpsInfo` in function `0x00497aa0` (call to
+   `OBJ_GpsInfo_write` at `0x00497c64`): latitude and longitude × 30.72
+   (the double at `0x00497c9c`), i.e. 1/60000° → 1/512″.
+
+The record decoded by `Navi.exe` `0x003a345c` (EU `0x003752e8`, the
+function M8.H29 named as the fix decoder) is the 36-byte dead-reckoning
+sample built by `navdrv` `fn 0x39e5290` in the raw/gyro thread
+`fn 0x39e55b0`; it is not a GPS fix.
+
+### The 36-byte `A0` position report
+
+`payload = frame[1..33]`; `frame[34]` = 7-bit sum of the payload, `frame[35]`
+= `0xf0`. Multi-byte fields are big-endian groups of 7 bits. Names and units
+come from the firmware's own debug dump (function `0x003a12e8`, format
+strings at `0x0001e1c8` and next to it).
+
+| Field | Payload bytes | Record offset (48-byte record) | Unit | Decoder |
+| --- | --- | --- | --- | --- |
+| stat | 0 | `+0` | bits 0–3 flags, bits 4–6 mode (`OBJ_GpsInfo` maps `0x00…0x70` to 1…7, `0x40` rejected) | `0x0039e898` |
+| lat | 1–4 | `+4` | signed 28-bit, 1/1000 arc-minute | `0x0039e89c…e8be` (`shll2`×2, `shad -4`) |
+| lon | 5–8 | `+8` | signed 28-bit, 1/1000 arc-minute | `0x0039e8c6…e8e8` |
+| high | 9–10 | `+12` | signed 14-bit, metres | `0x0039e8f0…e916` |
+| sp | 11–12 | `+14` | 0.1 km/h | `0x0039e91c…e938` |
+| dir | 13–14 | `+16` | 0.1° | `0x0039e940…e95a` |
+| year, month, day, hour, minute, second | 15–20 | `+18…+28` | two-digit year (< 90 → 20yy); used for `SetSystemTime` when stat bit 1 is set (`0x0039eb1a`) | `0x0039e960…e9a8` |
+| HDOP, VDOP, PDOP | 21–23 | `+30/+32/+34` | 0.2 | `0x0039e9aa…e9bc` |
+| long err, short err | 24–25, 26–27 | `+36/+38` | metres | `0x0039e9c2…ea08` |
+| slant | 28 | `+40` | 180/128° | `0x0039ea0e` |
+| sat num | 29 | `+42` | count | `0x0039ea22` |
+| WSVacc | 30 | `+44` | — | `0x0039ea2e` |
+| delay | 32 | `+46` | 0.1 s | `0x0039ea34` (payload byte 31 is not read) |
+
+Hand-built frame (51.5° N, 0.25° W, 20 m, standing, 2026-11-23 12:34:56,
+stat `0x2f`, 7 satellites), produced and checked by
+`tools/ze0_peers/gps.py --selftest`:
+
+```
+a0 2f 01 3c 4c 50 7f 7f 0a 68 00 14 00 00 00 00 1a 0b 17 0c 22 38
+05 05 05 00 0a 00 0a 00 07 00 00 00 58 f0
+```
+
+On the running unit (NK1 + US card, EXP-2026-11-23-M8.H73) such frames reach
+`OBJ_GpsInfo` with the injected latitude and longitude, but the car position
+(`OBJ_CarPos`, written by function `0x00497db4` from the positioning state at
+`0x00dbce00`) does not follow them; that is TODO M8.H78.
 
 ## RX path
 
@@ -134,7 +218,10 @@ falsifier is refuted.
 `navdrv.dll` sec0 (file `0x4260200..0x4266c00`) SHA-256 is
 `e920886fe16ebf02397cef143d534ad0a5e63359a5fea3779e20f36826b6b806` in both
 EU2011 and US2011 heads; sec2 (pdata) is also identical. No build-specific
-VA is needed.
+VA is needed. NK1 (unit flash, `firmware/unit-flash/nk1-QY7200ND.bin`) has
+the same code at vbase `0x03cf0000` (all 668 differing words are
+relocations or the security cookie, M8.H73), so add `0x310000` to a ROM B
+VA to get the NK1 VA.
 
 ## What could be changed
 

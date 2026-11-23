@@ -143,6 +143,14 @@ def main(argv=None):
     ap.add_argument("--gdb", type=int, help="gdbstub TCP port")
     ap.add_argument("--stop", action="store_true", help="freeze until gdb continues")
     ap.add_argument("--timeout", type=float, default=0, help="seconds, 0 = until ^C")
+    ap.add_argument("--ipl-extra", action="append", default=[],
+                    help="file of extra 'PHYS HEXBYTES' lines appended to the IPL "
+                         "patch (emulator-only guest patches; NK1 reloads ROM image A "
+                         "from the card, so lines for image A do not survive)")
+    ap.add_argument("--ui-start", action="store_true",
+                    help="let the UI leave INI_STARTUP and accept touch without the "
+                         "audio micom: runs ze0_uistart.py on the gdb stub until the "
+                         "first touch (needs --gdb; M8.C1n)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
     if args.selftest:
@@ -152,6 +160,12 @@ def main(argv=None):
     args.workdir = os.path.abspath(args.workdir or tempfile.mkdtemp(prefix="ze0-"))
     os.makedirs(args.workdir, exist_ok=True)
     lines, peers = plan(args)
+    if args.ui_start:
+        if not args.gdb:
+            ap.error("--ui-start needs --gdb PORT")
+        peers.append(("uistart", [sys.executable, os.path.join(HERE, "ze0_uistart.py"),
+                                  "run", args.card, "--port", str(args.gdb),
+                                  "--touch-unlock", "--nk", args.nk]))
     ipl = os.path.join(args.workdir, "ipl.txt")
     ipl_cmd = [sys.executable, os.path.join(HERE, "ze0_ipl.py"), "patch",
                args.card, "-o", ipl, "--nk", args.nk]
@@ -168,6 +182,9 @@ def main(argv=None):
         raise SystemExit("ze0_launch: no QEMU at %r (build: tools/qemu-ze0/build.sh)"
                          % args.qemu)
     subprocess.run(ipl_cmd, check=True, stdout=subprocess.DEVNULL)
+    for extra in args.ipl_extra:
+        with open(extra) as src, open(ipl, "a") as dst:
+            dst.write(src.read())
     procs = []
     try:
         q = subprocess.Popen(qargv, stdout=open(os.path.join(args.workdir, "qemu.out"), "w"),

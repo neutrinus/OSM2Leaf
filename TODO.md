@@ -4387,8 +4387,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8410–C-8419
   - Result: Navi.exe and Telema.exe start on NK1 + A with the unit flash (US card: Los Angeles; EU card with the M8.C1r overlay: London). Cause: NK1 defers all RAM at memory init when the boot type is 0, and AppLaunch MemClearThread frees it only after the creates (the earlier 'not a timing race' reading in Precheck measured after the release; C-8416). ze0_ipl.py --nk now patches the boot-type test so RAM is freed at init. EXP-2026-11-22-M8.C1q-navi-on-nk1, C-8410–C-8416; debugging guide docs/emulator/debugging.md, tools/ze0_gdb.py.
 
-- [ ] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1n — UI layer on `-M ze0`: why InfoBar/UnitMainte/EvNotice create no window and what leaves `INI_STARTUP`**
+  - Status: done · Owner: task/m8.c1n-ui-startup · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1l
   - Goal: Marek wants the UI layer in the emulator screenshot (2026-11-22). With `ze0_aui.py --object-store` every control registers and ScreenStateCC runs, but the screen state stays in `INI_STARTUP`. `NOTIFY_TRANSITION_FIRST_SCREEN` finds no window for InfoBarCC (46), UnitMainteCC (40) and EvNoticeCC (41), and 29 controls fail to initialise (C-8324, C-8325).
@@ -4400,6 +4400,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if the event is a vehicle signal over the micom/CAN, hand over to M8.H43–M8.H45 with the frame it needs.
   - Falsifier: the three CCs create their windows, and the state still does not change.
   - Claims: C-8340–C-8349
+  - Result: EXP-2026-11-23-M8.C1n-ini-startup-join (C-8340–C-8349). INI_STARTUP leaves only on SS_JON_TRANSITION_LAST_SCREEN, a join of ANTITHEFT_CC_NTF_COMP_OK and NOTICE_AUDIO_SOURCE; the second never comes because the audio side waits for the audio micom (M8.H45). Touch is locked by kepdrv m_byKeyGuardAllKey = 0xf1 until CApi_AntitheftUnlock, also on the audio path. New `ze0_uistart.py` / `ze0_launch.py --ui-start` bridges both through the gdb stub: the UI reaches the US consent screen, a tap on OK goes to the map screen, ZOOM IN works; buttons are in DU plane 1 (`ze0_screenshot.py plane`). Next: M8.C1t (screenshot of plane 1), M8.H45 (micom) removes the bridge.
+
+- [ ] **M8.C1t — Screenshot of the AUI layer: DU plane 1 window register and alpha rule**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Depends: M8.C1n
+  - Goal: after `ze0_launch.py --ui-start` the AUI draws the consent screen and the map buttons into DU plane 1, but `ze0_screenshot.py screen` shows only the map (C-8348). Marek wants the UI layer in the emulator screenshot (2026-11-22).
+  - Precheck: run `ze0_launch.py --ui-start`, tap OK at panel (277, 98); `ze0_screenshot.py plane -n 1` shows "Map Menu" / "ZOOM" in rows 0–479 while `screen` shows none of it; the DU plane 1 window register (+0x34) reads 480.
+  - Scope: (1) find the guest code that writes DU plane 1 +0x30/+0x34 and +0x48 (lcd/ddraw driver of NK1, breakpoint or `sh4xref --to 0x1ff80134`); decide whether +0x34 is a source row (page flip) or a screen position; (2) decide the transparency rule of mode `0x1002` from the code that fills plane 1/2 (key `0x83ff`/`0x3ff`, text pixels without bit 15); (3) fix `compose()` and its selftest; (4) one screenshot with map and buttons, kept outside the repository.
+  - Input: EXP-2026-11-23-M8.C1n-ini-startup-join, EXP-2026-11-22-M8.C1f (DU register layout), `tools/ze0_screenshot.py`.
+  - Done when: `ze0_screenshot.py screen` after the `--ui-start` flow shows the map buttons over the map, and the EXP gives the register evidence for the rule.
+  - Stop: one session. No vendor screenshots in the repository.
+  - Falsifier: plane 1 rows 0–479 are a back buffer that the hardware never shows (then the shown page must hold the buttons after a flip).
+  - Claims: C-8650–C-8659
 
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5609,7 +5623,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.C1o-2dg-line-variants (C-8390–C-8395). ze0-0016 draws 2DG op 0xb1 (6-word header + inline vertices, count in word 4 low half) and 0xb3 (pointer form [op,N,OFF], vertices at op+OFF, colour from reg 0xf0) as polylines with exact lengths; both layouts read from build-A XGLDLL.dll fn 0x031204ac/0x031205a4 and build-B auirtdll.dll fn 0x03d0b408/0x03d0b502 and checked against a gfx-trace dump. L4 map boot: 2676 drawn / 0 skipped (was 2669 drawn / 7 skipped, C-6936); 342/384000 screenshot pixels differ (0.09%), no map pixels lost. UI layer and 0xb2/0xb4-0xb7 remain open.
 
 - [ ] **M8.H73 — Receiver fix frame: what frame from `SCI7:` actually moves `OBJ_CarPos`?**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m8.h73-gps-frame · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H27, M8.H29, M8.H30
   - Goal: Derive the layout of the frame `navdrv.dll` forwards from `SCI7:` as a position fix — the record whose u16s at `+28`/`+34` are decoded by `Navi.exe` function `0x003752e8` — so a host peer can make the map centre move.
@@ -5620,6 +5634,22 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the layout needs a chip vendor datasheet that is not in the repo, record the sync bytes and exact FPU operations, mark blocked, and name the datasheet in `Unblock:`.
   - Falsifier: the hand-built frame leaves the position word and both screenshots unchanged (the M8.H31 negative).
   - Claims: C-8570–C-8579
+  - Blocker: the positioning cycle does not take the GPS position into OBJ_CarPos (C-8577)
+  - Unblock: M8.H78
+  - Result: EXP-2026-11-23-M8.H73-receiver-fix-frame (partial): the receiver's 36-byte A0 report is decoded (navdrv.md table, hand-built frame, gps.py), reaches OBJ_GpsInfo on NK1 with the injected position (C-8576); OBJ_CarPos and the map do not follow (C-8577); sh4dis SHAD/SHLD fixed (C-8574)
+
+- [ ] **M8.H78 — Positioning: what makes `OBJ_CarPos` take the GPS position?**
+  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Step: reader
+  - Depends: M8.H73 (blocked), M8.C1n
+  - Goal: A 36-byte `A0` report from `tools/ze0_peers/gps.py` reaches `OBJ_GpsInfo` with the right position on NK1 + US card (C-8576), but the car position stays where it was (C-8577). Find the condition in the positioning cycle (US Navi `0x0049bdb0` → `0x0049fa44`, state at `0x00dbce00`) that keeps the GPS position out, and meet it from the peers.
+  - Precheck: `python3 tools/ze0_peers/gps.py --selftest` passes; `python3 tools/sh4dis.py CARD Navi.exe --image-start 0x200200 --va 0x49fa44 --count 200` lists the function.
+  - Scope: dynamic on `-M ze0` with `ze0_launch.py --peer gps --gdb P --ui-start` (record of EXP-2026-11-23-M8.H73); breakpoints in `0x0049fa44` and its callees while reports arrive; read register values after loads (C-8579). If the gate needs wheel pulses or gyro, hand over to M8.H32 with the exact variable and threshold.
+  - Input: `docs/firmware/navdrv.md` "Receiver frames", `docs/experiments/EXP-2026-11-23-M8.H73-receiver-fix-frame.md`, C-8570–C-8579.
+  - Done when: the variable and the comparison that block the GPS position are named with VAs; one run where `OBJ_CarPos_write` (`0x00401370`, called from `0x00497e5c`) carries the injected position and a `screen` screenshot differs from the one before; EXP + claims.
+  - Stop: if the gate is a learned calibration or needs DR input that M8.H32 has not modelled, record the variable and threshold and mark blocked on M8.H32.
+  - Falsifier: with the gate condition met, `OBJ_CarPos` still stays at the old position.
+  - Claims: C-8640–C-8649
 
 ---
 

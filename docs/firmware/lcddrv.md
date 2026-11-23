@@ -100,6 +100,11 @@ it ORs the key-control bytes at kepdrv object `+0xc4`/`+0xc5` and masks
 `0x0f`; a nonzero value drops the press (the firmware's log line for this
 branch is `m_byKeyControl & KEP_KEY_TOUCH_ENABLE(ON)`). The release then
 stops in `CheckKeyStatus` (`0x03d27a7c`) because no press was recorded.
-The key-control bytes are written by the application side; while the UI
-stays in `INI_STARTUP` touch is locked. Which process writes them, and
-when, is the next step (M8.H39). Evidence: breakpoint hits in the EXP.
+The byte that locks touch is `+0xc5`, `m_byKeyGuardAllKey`. kepdrv's
+constructor sets it to `0xf1`. Only `SetGuardAllKey` (IOCTL `0x801f2028`)
+changes it, and on NK1 that IOCTL is sent only by `CApi_AntitheftUnlock`
+(`commondll.dll`). That call is on the audio path, so on `-M ze0` it never
+comes. `ze0_launch.py --ui-start` clears the byte at the first touch.
+Touches then reach the AUI, with y flipped
+(EXP-2026-11-23-M8.C1n-ini-startup-join, C-8346, C-8347). Evidence for the
+lock itself: breakpoint hits in the EXP.
