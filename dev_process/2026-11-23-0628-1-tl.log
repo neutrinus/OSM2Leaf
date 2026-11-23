@@ -94,3 +94,11 @@ Merge results (all CI jobs green on the final rebased heads):
 
 End: 2026-11-23 08:35 UTC; origin/main fbf332b5f... at end.
 Untracked dev_assignments.md from the earlier 06:12 batch left untouched.
+
+Anomaly (recorded after the commit): the primary checkout's TODO.md contained
+uncommitted board edits from another run (H98 blocked note, M3.13/16/4.23/4.24
+record fields, M3.14 re-opened). They were staged together with this log's
+two rule-15 fields and are now on main in 8b8aeb03. todo_check and
+claims_check --strict --count-check pass on the result; nothing was reverted
+or force-pushed. Future TL runs must `git status` and review the TODO diff
+before staging it in the primary checkout.
