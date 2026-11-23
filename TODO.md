@@ -981,7 +981,7 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-6730–C-6739
 
 - [ ] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.49-ui-strings · Critical: no · Pair: solo
   - Step: research
   - Depends: —
   - Goal: Side track Marek will ask about once the map is Polish: menus and voice are not. Find the UI string resources (module, format, encoding, per-language tables), how a language is selected, and whether the language list is fixed in code.
