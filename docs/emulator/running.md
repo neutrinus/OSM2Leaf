@@ -16,7 +16,10 @@ command starts all of it: `tools/ze0_launch.py`.
 | Card image | `LEAF_2011-2012_US.img` or the EU card | **never** |
 
 The flash dump decides the region (the US unit's flash gives the US map
-area, M8.C1m). Serial logs contain the SD card password: keep the work
+area, M8.C1m). An 8 MiB dump is emulated as the unit's NOR chip (M8.H18), so
+the saved settings and the locator backup load too: the car starts where
+the unit last was. Guest writes are discarded unless you pass `--flash-rw`;
+use it only on a copy of the dump. Serial logs contain the SD card password: keep the work
 directory out of the repository and never commit its files.
 
 ## 2. Start

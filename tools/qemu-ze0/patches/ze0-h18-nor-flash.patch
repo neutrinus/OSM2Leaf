@@ -1,0 +1,188 @@
+hw/sh4: ze0 unit flash as a CFI-02 NOR chip so FMD1: works (TODO M8.H18).
+
+NK1's flash.dll (FMD1:) enters AMD autoselect (0x5555/0xaa, 0x2aaa/0x55,
+0x5555/0x90), reads the device code at word 1 (fn 0x03d6ade8) and maps it
+through its table at 0x03d625b0 (SST38VF6401 0x536b, SST39VF3201 0x235b,
+S29JL032H 0x227e, S29AL032D 0x22f9, MX29LV320DB 0x22a8, M29W320EB 0x2257).
+FMD_IOControl (vtable call to 0x03d6a600) refuses every IOCTL_FMD_* while
+the index is 6 (fn 0x03d6b900), which is what a plain ROM gave: the
+VSram and FlashManager drivers logged IOCTL_FMD_READ/ERASE errors and
+Navi's OBJ_BackUp_Load failed, so the car position fell back to the
+default.  An 8 MiB flash= is now a pflash_cfi02: x16, 8 x 8 KiB boot
+blocks then 127 x 64 KiB (docs/hardware/unit-flash.md), id 0xbf/0x536b,
+unlock 0x555/0x2aa.  Guest writes go to a temporary overlay unless
+flash-rw=on.  Other sizes keep the read-only ROM of M8.C1m.  The dump is
+the owner's and stays outside the repository.
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+
+--- a/hw/sh4/Kconfig
++++ b/hw/sh4/Kconfig
+@@ -23,6 +23,7 @@
+     select SH4_CCN
+     select SH_INTC
+     select SH_SCI
++    select PFLASH_CFI02
+     select OR_IRQ
+     select SH_TIMER
+     select UNIMP
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -47,6 +47,10 @@
+ #include "system/reset.h"
+ #include "qemu/bswap.h"
+ #include "qom/object.h"
++#include "hw/block/flash.h"
++#include "system/block-backend.h"
++#include "block/block-common.h"
++#include "qobject/qdict.h"
+ 
+ #define ZE0_RAM_BASE   0x08000000u
+ #define ZE0_RAM_SIZE   (128 * MiB)
+@@ -194,10 +198,12 @@
+     char *mapdb;
+     char *ipl_patch;
+     char *flash;
++    bool flash_rw;
+     char *nk;
+ };
+ 
+ #define ZE0_FLASH_MAX          (64 * MiB)
++#define ZE0_NOR_SIZE           (8 * MiB)
+ #define ZE0_DEFAULT_KERNEL_OFF 0x3e00200u
+ #define ZE0_DEFAULT_APP_OFF    0x200200u
+ #define ZE0_CE_MAX_LEN         (256 * MiB)
+@@ -779,36 +785,82 @@
+     create_unimplemented_device("ze0-area6", ZE0_AREA6_BASE, ZE0_AREA6_SIZE);
+ 
+     /*
+-     * Unit NOR flash at phys 0 (TODO M8.C1m).  The kernel's OAL reads the
+-     * PROD block at 0xa000a000 (fn 0x88048604, KernelIoControl 0x01013208
+-     * product info, IsEvModel) and the backup tables from this chip.  On the
+-     * card there is no copy; flash=FILE maps a dump of the unit's flash
+-     * (LeafSDTools "NAND", 8 MiB) read-only.  The dump stays outside the
+-     * repository.
++     * Unit NOR flash at phys 0 (TODO M8.C1m, M8.H18).  The kernel's OAL reads
++     * the PROD block at 0xa000a000 (fn 0x88048604, KernelIoControl 0x01013208
++     * product info, IsEvModel) and the backup tables from this chip; NK1's
++     * flash.dll (FMD1:) reads its device code after the AMD autoselect
++     * sequence and refuses every IOCTL_FMD_* unless the code is in its
++     * table (fn 0x03d6b900: index < 6).  An 8 MiB flash=FILE is therefore a
++     * CFI-02 NOR chip: SST38VF6401 (0xbf/0x536b, the only 8 MiB part in
++     * flash.dll's table at 0x03d625b0), 8 x 8 KiB boot blocks then 127 x
++     * 64 KiB, x16, unlock 0x555/0x2aa.  Guest writes go to a temporary
++     * overlay unless flash-rw=on, so the dump itself is never changed.
++     * Other sizes keep the read-only ROM of M8.C1m.  The dump stays outside
++     * the repository.
+      */
+     if (ZE0_MACHINE(machine)->flash) {
+-        const char *fpath = ZE0_MACHINE(machine)->flash;
+-        MemoryRegion *fl = g_new(MemoryRegion, 1);
+-        gchar *fdata = NULL;
+-        gsize flen = 0;
+-        GError *ferr = NULL;
++        Ze0MachineState *zs = ZE0_MACHINE(machine);
++        const char *fpath = zs->flash;
++        int64_t flen = 0;
++        GStatBuf st;
+ 
+-        if (!g_file_get_contents(fpath, &fdata, &flen, &ferr)) {
+-            error_report("ze0: flash: %s", ferr->message);
++        if (g_stat(fpath, &st) != 0) {
++            error_report("ze0: flash: cannot stat %s", fpath);
+             exit(1);
+         }
++        flen = st.st_size;
+         if (flen == 0 || flen > ZE0_FLASH_MAX || (flen & (flen - 1))) {
+-            error_report("ze0: flash: %s is %zu bytes; want a power of two "
+-                         "up to %u MiB", fpath, (size_t)flen,
++            error_report("ze0: flash: %s is %" PRId64 " bytes; want a power "
++                         "of two up to %u MiB", fpath, flen,
+                          (unsigned)(ZE0_FLASH_MAX / MiB));
+             exit(1);
+         }
+-        memory_region_init_rom(fl, NULL, "ze0.flash", flen, &error_fatal);
+-        memcpy(memory_region_get_ram_ptr(fl), fdata, flen);
+-        g_free(fdata);
+-        memory_region_add_subregion(sysmem, 0, fl);
+-        info_report("ze0: flash %s (%zu bytes) at phys 0, read-only",
+-                    fpath, (size_t)flen);
++        if (flen == ZE0_NOR_SIZE) {
++            QDict *opts = qdict_new();
++            BlockBackend *blk;
++            DeviceState *fdev;
++            int flags = BDRV_O_RDWR | (zs->flash_rw ? 0 : BDRV_O_SNAPSHOT);
++
++            qdict_put_str(opts, "driver", "raw");
++            blk = blk_new_open(fpath, NULL, opts, flags, &error_fatal);
++            fdev = qdev_new(TYPE_PFLASH_CFI02);
++            qdev_prop_set_drive(fdev, "drive", blk);
++            qdev_prop_set_uint32(fdev, "num-blocks0", 8);
++            qdev_prop_set_uint32(fdev, "sector-length0", 8 * KiB);
++            qdev_prop_set_uint32(fdev, "num-blocks1", 127);
++            qdev_prop_set_uint32(fdev, "sector-length1", 64 * KiB);
++            qdev_prop_set_uint8(fdev, "width", 2);
++            qdev_prop_set_uint8(fdev, "mappings", 0);
++            qdev_prop_set_uint8(fdev, "big-endian", 0);
++            qdev_prop_set_uint16(fdev, "id0", 0x00bf);
++            qdev_prop_set_uint16(fdev, "id1", 0x536b);
++            qdev_prop_set_uint16(fdev, "id2", 0);
++            qdev_prop_set_uint16(fdev, "id3", 0);
++            qdev_prop_set_uint16(fdev, "unlock-addr0", 0x555);
++            qdev_prop_set_uint16(fdev, "unlock-addr1", 0x2aa);
++            qdev_prop_set_string(fdev, "name", "ze0.flash");
++            sysbus_realize_and_unref(SYS_BUS_DEVICE(fdev), &error_fatal);
++            sysbus_mmio_map(SYS_BUS_DEVICE(fdev), 0, 0);
++            info_report("ze0: flash %s (%" PRId64 " bytes) at phys 0, NOR "
++                        "SST38VF6401, writes %s", fpath, flen,
++                        zs->flash_rw ? "kept in the file" : "discarded");
++        } else {
++            MemoryRegion *fl = g_new(MemoryRegion, 1);
++            gchar *fdata = NULL;
++            gsize glen = 0;
++            GError *ferr = NULL;
++
++            if (!g_file_get_contents(fpath, &fdata, &glen, &ferr)) {
++                error_report("ze0: flash: %s", ferr->message);
++                exit(1);
++            }
++            memory_region_init_rom(fl, NULL, "ze0.flash", glen, &error_fatal);
++            memcpy(memory_region_get_ram_ptr(fl), fdata, glen);
++            g_free(fdata);
++            memory_region_add_subregion(sysmem, 0, fl);
++            info_report("ze0: flash %s (%zu bytes) at phys 0, read-only",
++                        fpath, (size_t)glen);
++        }
+     }
+ 
+     /* SH-4 CCN/MMU/exception registers and cache/TLB arrays. */
+@@ -1326,6 +1378,16 @@
+     s->flash = *value ? g_strdup(value) : NULL;
+ }
+ 
++static bool ze0_get_flash_rw(Object *obj, Error **errp)
++{
++    return ZE0_MACHINE(obj)->flash_rw;
++}
++
++static void ze0_set_flash_rw(Object *obj, bool value, Error **errp)
++{
++    ZE0_MACHINE(obj)->flash_rw = value;
++}
++
+ static char *ze0_get_nk(Object *obj, Error **errp)
+ {
+     return g_strdup(ZE0_MACHINE(obj)->nk ?: "");
+@@ -1460,6 +1522,11 @@
+     object_property_set_description(obj, "flash",
+         "dump of the unit's NOR flash mapped read-only at phys 0 (PROD "
+         "block at +0xa000; default none, as without a unit; M8.C1m)");
++    object_property_add_bool(obj, "flash-rw", ze0_get_flash_rw,
++                             ze0_set_flash_rw);
++    object_property_set_description(obj, "flash-rw",
++        "keep guest writes to an 8 MiB flash= NOR in the file (default off: "
++        "writes go to a temporary overlay; M8.H18)");
+     object_property_add_str(obj, "nk", ze0_get_nk, ze0_set_nk);
+     object_property_set_description(obj, "nk",
+         "kernel CE image file loaded instead of the SD image's kernel-off "
