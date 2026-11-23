@@ -1279,6 +1279,25 @@ and `validate_mutation.py --drstr-dir REFER001` avoids the
 `REFER001`/`REFER002` name collision. The 2011 golden profile remains the
 reference; per-year golden profiles are optional.
 
+## `make_l2_semantic_fixtures.py` — vendor-free semantic L2 fixture (H131)
+
+Ships H21's D3 "Krotoszyn fixture replacement" case as a real gate instead of
+prose. Writes a small vendor-free card tree (`cardcheck --generate-fixture`
+skeleton plus a factory-shaped `B48R058R.DAT` with one synthetic residential
+way spliced into its level-1 directory), measures a fixture-local golden from
+the good tile, and runs `l2check --semantic-tiles` twice: PASS on the tree and
+FAIL (`tile_semantic`) after a one-byte mutant of the way's zlib stream. The
+golden is a small self-contained document (only `tiles["B48R058R.DAT"]`), not
+`tools/golden/eu2011.json`; `--update-golden` is deliberately not used because
+it ignores `--semantic-tiles`. No vendor bytes, no `l2check` change.
+
+```bash
+python3 tools/make_l2_semantic_fixtures.py --out DIR
+python3 tools/l2check.py --root DIR --semantic-tiles B48R058R.DAT \
+    --profile DIR/golden.json --cmp-limit 20   # RESULT: PASS, rc 0
+python3 tools/make_l2_semantic_fixtures.py --selftest   # good PASS + mutant FAIL
+```
+
 ## `verify.py` — cross-year wrapper
 
 Detects the card generation and runs L1 and L2 with the right flags in one
