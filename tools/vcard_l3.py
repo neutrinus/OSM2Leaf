@@ -301,6 +301,13 @@ def format_c(fmt: str, next_arg, read_cstr, read_wstr, wide: bool = False) -> st
 
 
 # --------------------------------------------------------------------------
+def native_specs(native) -> list:
+    """Normalise M9.65's single ``(module, names)`` and M9.74's tuple of specs."""
+    if native is None:
+        return []
+    return [native] if isinstance(native[0], str) else list(native)
+
+
 def native_slots(imports, module: str, exports: dict) -> dict:
     """{export name: IAT slot VA} for the named imports of *module*.
 
@@ -329,6 +336,8 @@ class Machine:
     for those names at the export's real VA.  The thunk's ``jmp @Rn`` then
     lands in the module's own code and its ``rts`` returns to the caller, so
     the function runs as shipped -- no host stub stands in for its result.
+    M9.74 also accepts a tuple of such specs, e.g.
+    ``native=(("STDDLL.dll", names), ("OBJDLL.dll", names))``.
     """
 
     def __init__(self, image: bytes, card: Card, module: str = "Navi.exe",
@@ -338,6 +347,7 @@ class Machine:
         import cerom
         import nk_decomp
         self.card = card
+        self.image_start = image_start
         self.trace_imports = trace_imports
         self.import_log: list[dict] = []      # every import call, in order
         self.messages: list[dict] = []        # OSM_TaskSend and friends
@@ -400,8 +410,8 @@ class Machine:
             tramp = TRAMP_VA + 4 * i
             eng.write_mem(slot, struct.pack("<I", tramp))
             eng.on_exec(tramp, self._make_import(name))
-        if native is not None:
-            self._bind_native(rom, image, native[0], native[1])
+        for spec in native_specs(native):
+            self._bind_native(rom, image, spec[0], spec[1])
 
     def _bind_native(self, rom, image: bytes, module: str, export_names) -> None:
         """Load *module*'s executable sections and re-point matching IAT slots.
@@ -419,8 +429,6 @@ class Machine:
         if missing:
             raise Blocked("%s exports no %s" % (module, ", ".join(missing)))
         for s in rom.o32(mod):
-            if s["flags"] & cerom.IMAGE_SCN_COMPRESSED or not s["flags"] & cerom.MEM_EXECUTE:
-                continue
             lo, size = s["realaddr"], (s["vsize"] + 0xFFF) & ~0xFFF
             if size <= 0:
                 continue
@@ -429,10 +437,24 @@ class Machine:
                 raise Blocked("%s section %#x..%#x overlaps %r"
                               % (module, lo, lo + size, hit.name))
             off = rom.va2file(s["dataptr"])
-            blob = bytearray(image[off:off + s["psize"]])
-            if len(blob) < size:
-                blob += bytes(size - len(blob))
-            self.eng.map("native/%s@%#x" % (module, lo), lo, bytes(blob), "rx")
+            compressed = bool(s["flags"] & cerom.IMAGE_SCN_COMPRESSED)
+            if compressed:
+                # M9.74: OBJDLL's mount path touches its compressed .data.
+                # Decompress the stored bytes and map them rw; BSS beyond the
+                # stored length stays zero, as the CE loader would leave it.
+                import nk_decomp
+                r0, plain = nk_decomp.decompress(image, off, s["psize"], s["vsize"])
+                if r0 == M32:
+                    raise Blocked("section %s@%#x does not decompress" % (module, lo))
+                blob = bytearray(size)
+                blob[:min(len(plain), size)] = plain[:size]
+                perms = "rw"
+            else:
+                blob = bytearray(image[off:off + s["psize"]])
+                if len(blob) < size:
+                    blob += bytes(size - len(blob))
+                perms = "rx" if s["flags"] & cerom.MEM_EXECUTE else "rw"
+            self.eng.map("native/%s@%#x" % (module, lo), lo, bytes(blob), perms)
             self.native_ranges.append((module, lo, size))
         slots = native_slots(rom.imports(rom.module("Navi.exe")), module, exports)
         absent = sorted(set(export_names) - set(slots))
@@ -442,6 +464,17 @@ class Machine:
             if name in export_names:
                 self.native[name] = exports[name]
                 self.eng.write_mem(slot, struct.pack("<I", exports[name]))
+
+    def bind_native(self, image: bytes, module: str, export_names) -> None:
+        """Bind one more second module into an already-mounted machine (M9.74).
+
+        Loading OBJDLL before the card mount makes the mount execute OBJDLL
+        code and fault; mounting with STDDLL first and binding OBJDLL after
+        keeps the mount path unchanged while the graph exports become native.
+        """
+        import cerom
+        self._bind_native(cerom.CERom(image, self.image_start), image,
+                          module, export_names)
 
     # -- guest memory helpers ----------------------------------------------
     def reg(self, name: str) -> int:
@@ -1862,6 +1895,11 @@ def selftest() -> int:
                   "STD_MeshPnt_initPrm": 0x0055DA84})
     check("native binding ignores another DLL, ordinals and unexported names",
           native_slots(fake_imports, "STDDLL.dll", exps).keys() == exps.keys())
+    check("M9.74 native spec: none/single/tuple normalise to a list",
+          native_specs(None) == [] and
+          native_specs(("STDDLL.dll", exps)) == [("STDDLL.dll", exps)] and
+          native_specs((("STDDLL.dll", exps), ("OBJDLL.dll", ("OBJ_X",)))) ==
+          [("STDDLL.dll", exps), ("OBJDLL.dll", ("OBJ_X",))])
 
     def mem(words):
         return lambda va: words.get(va)
