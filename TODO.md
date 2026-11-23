@@ -2034,7 +2034,7 @@ The 23rd-pass text is in git (`af469580`).
   - Claims: C-8160–C-8169
 
 - [ ] **M3.43 — L4 zoom-out on NK1: make the firmware read `FRWAY0nn`/`INTER0nn` and name the code that consumes the records**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/m3.43-l4-zoomout-refer-reader · Critical: yes · Pair: required
   - Step: reader
   - Depends: — (M3.16 and M3.29 are blocked on exactly this observation; M5.100 proved the L4 zoom-out recipe works on NK1 with the committed unit flash)
   - Goal: L3 cannot deliver the REFER record request (`0x1507` undelivered, `0x14b5` never issued, EXP-2026-11-20-M3.29), so no content reader of `INTER`/`FRWAY` has ever been observed. A full-system run can generate the request through a real UI action: boot the factory EU 2011 card in QEMU with NK1, start near a motorway, zoom out through the steps where M5.100 saw level-2 map loading, watch SD/file reads for `FRWAY0nn.DAT`/`INTER0nn.DAT`, and attribute the bytes read to firmware code. Answer: does map zoom-out (or a neighbouring UI action such as route preview) make the firmware read those families, and which function consumes the 12-byte table and the blob fields?
