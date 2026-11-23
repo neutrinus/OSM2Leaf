@@ -3731,8 +3731,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8640–C-8649
   - Result: EXP-2026-11-23-M5.84-from-scratch-plan; docs/research/osm-from-scratch.md; tasks M5.85–M5.94
 
-- [ ] **M5.85 — Z1: the factory London tile written through our own layout, identical on the emulated screen**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M5.85 — Z1: the factory London tile written through our own layout, identical on the emulated screen**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
   - Step: Z1
   - Depends: M5.84
   - Goal: a from-zero tile needs a writer that places every table, directory, wide-row block and record itself. Prove that writer on the one input whose correct screen we know: re-lay out the factory `B48R068R` with nothing copied by file position, and show the real `Navi.exe` draws the same London.
@@ -3743,6 +3743,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if (e) differs, record the pixel diff and which directory moved, and file the layout fact as a format finding; do not tune offsets to match the factory.
   - Falsifier: the screen or the mount differs although every record is byte-identical — then the firmware depends on a layout property the model does not have (name it).
   - Claims: C-8650–C-8659
+  - Result: EXP-2026-11-23-M5.85-tile-relayout; tools/tile_relayout.py; L3 same reads, L4 pixel-identical
 
 - [ ] **M5.86 — Tile provenance: how many records and bytes of a tile are the factory's**
   - Status: open · Owner: — · Critical: no · Pair: solo

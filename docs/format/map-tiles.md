@@ -116,6 +116,19 @@ imagery. The first bytes of a decoded stream are typically:
 95 1f c8 02 00 fa ff ff ff ff 00 00 00 00 ff ff 00 00 00 0b 00 28 ...
 ```
 
+**Layout is ours to choose (M5.85).** `tools/tile_relayout.py relayout`
+reads every component of a tile (section tables, directories with the
+section-1 and section-4 wide-row models, record blocks), discards the file
+offsets and writes them again in its own order (header; per section: table,
+directories, blocks; 256-byte aligned), rewriting the section-table entries,
+directory pointers and slot/row tags. On EU2011 `B48R068R` (London) 5,379 of
+5,450 components move, 0 non-zero input bytes are left outside the model, the
+L3 mount asks the same 28 reads (the five directory reads at their new
+offsets) and the `-M ze0` start screen is pixel-identical to the factory card
+(C-8650–C-8656, `EXP-2026-11-23-M5.85-tile-relayout`). The firmware therefore
+follows the pointers and depends on no factory offset: a writer may place
+every table, directory and block itself.
+
 ## Descriptor tables (`0x1ac` and `0x2ac`)
 
 Both are the same container:
