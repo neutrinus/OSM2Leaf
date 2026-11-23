@@ -2787,7 +2787,7 @@ re-audited this pass). The 22nd-pass text of this section is in git
   - Result: EXP-2026-11-22-M4.64-kiwi-lineage; glossary started, 149 modules/134MB scanned, 7 claims C-7630-C-7636
 
 - [ ] **M4.65 — KIWI public sources: which specification versions exist, what each chapter covers, and what can be cited**
-  - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
+  - Status: in progress · Owner: task/m4.65-kiwi-sources · Critical: no · Runner: non-Claude · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The mapping tasks need the specification text, not only the field names a reader program quotes. Find the public KIWI documents (KIWI-W consortium format guides, the Japanese and ISO standards derived from it, academic descriptions, other open readers or converters) and record for each: version, date, where it is, licence, and its chapter list.
