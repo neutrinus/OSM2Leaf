@@ -129,4 +129,15 @@ python3 tools/l1l2_matrix.py --input /tmp/opencode/h57-current.json --check-base
 
 ## Corrections after navigator review
 
-(none yet — filled after review)
+Round 1 (navigator `H57-review.txt`): (D1) the tool docstring claimed a
+duplicated baseline key fails while `main()` only treats REGRESSION as a
+failure — corrected the docstring to state DUPLICATE is printed, rc unaffected,
+matching §6 and C-3735. (D3) C-3736 and Observation 6 quoted a host-dependent
+`0.20s` timing, which the navigator's run measured as `0.13s` — the timing was
+dropped; only `passed=1 failed=0 skipped=0 total=1` and `selftest: OK` remain.
+Round 2: (B1) the TODO board was still `in progress` — closed with
+`board.py done H57` naming this EXP. (B2) the EXP declined to quote a full
+`selftest.py` run while Done when requires `selftest.py passes` — Observation 7
+and C-3736 now quote the green run (`ok True`, `pass 282 / fail 0 / skip 21 /
+total 303`) with a home-tree `TMPDIR`, and explicitly classify the earlier red
+`/tmp` runs as host churn. No verdict, gate or baseline status was relaxed.
