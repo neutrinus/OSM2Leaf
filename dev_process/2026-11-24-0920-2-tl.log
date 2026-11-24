@@ -93,3 +93,25 @@ this cycle) and non-Claude-runner tasks. H142/M4.71/M4.74 dropped for output-fil
 collisions with other selected tasks (test-system.md / map-tiles.md / refer.md).
 
 (outcome table appended as results arrive)
+
+queue clearing / external PRs (done):
+  - #729 M6.25 (external), #730 M2.28 (external), #731 H143 (external),
+    #762 M1.57 L5 car test (external) rebased/verified and landed on main.
+    #731 H143 claims renumbered C-10150-C-10154 after M2.28 collision;
+    #729 M6.25 done status restored after rebase dropped it; #762 only its
+    new L5 car-test section applied (duplicate M2.28 claim + already-fixed
+    refer002 removed). Duplicate #761 (M8.H68a) closed, #749 wins.
+  - #763 M1.58 external has no CI checks yet; left for a later pass.
+
+merge stream (batch 2, in progress):
+  - #738 M5.73 done (SOLO): merged; its 9 claims restored renumbered
+    C-10160-C-10168 after collision with M2.28; stray stale
+    dev_assignments*.md removed from main.
+  - #748 H84 done (PAIR): rebased with board.py resolve, merged to main.
+
+batch progress: 2/30 merged; 28 in flight. Navigators have caught several
+defects: M8.G4 --machine aze0 unreachable as scoped + claim collision;
+M2.23 third card state unreachable in SD model; M8.H15 DBGPARAM stride
+16 vs 32; M9.62 row mapping; M3.40 indirect-pointer signature; M8.H42
+5/15 screens unreachable -> blocked result. Defect notes route to drivers
+via comm files.
