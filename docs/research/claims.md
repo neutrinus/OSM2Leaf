@@ -7195,3 +7195,12 @@ into three printed classes.
 | C-8727 | The writer's own 0x10000-word ceiling (tilewriter.py:882) refuses records above 131,072 B (16x); this is our writer's bound, not the firmware's, and those sizes are SKIPped in the probe rather than reported as firmware failures. | VERIFIED (tool, source) | H | EXP-2026-11-24-M5.92-capacity-probe; tilewriter.py:882; capacity_l3.py probe |
 | C-8728 | L4 drawing of the largest passing and smallest failing records is NOT RUN: l4check.py returns RESULT: NOT RUNNABLE (boot preparation failed: no FAT32 partition; exit 3, never a pass) and l4_status.py reports NOT RUN. The L3-only result is accepted under M5.92's stop clause. | VERIFIED (tool) | H | EXP-2026-11-24-M5.92-capacity-probe; l4check.py --card v1.DAT; l4_status.py --json - |
 | C-8729 | tools/capacity_l3.py has a --selftest (11 checks: shape pool 0x109A0, point gate 0x3e8, 255-point split, baseline 18580, multipliers, point probes, dir offsets, record build/code/slot) auto-discovered by tools/selftest.py (--only capacity_l3 PASS); limit 6 in docs/research/osm-from-scratch.md is updated from UNKNOWN to the L3-measured 68,000-B window. | VERIFIED (tool) | H | EXP-2026-11-24-M5.92-capacity-probe; selftest.py --only capacity_l3 PASS; grep limit 6 |
+
+## M2.27 — Unit type label photo (C-10120–C-10129)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-10120 | The 12-digit `車載機 ID` (unit ID) on the unit's type label is `1001` + the 8-digit serial, i.e. PROD `+0x140` (`10 01` + serial in packed BCD). | OBSERVED | M | EXP-2026-11-24-M2.27-unit-type-label; label photo vs M2.25 PROD layout |
+| C-10121 | PROD `+0xB0` (5 ASCII) is the suffix of the Nissan part number `25915-xxxxx` (`N #` on the label); its last letter tracks the model letter (`QY-7200N-B`↔`3NA0B`, `QY7200ND`↔`3NA0D`). | OBSERVED | M | EXP-2026-11-24-M2.27-unit-type-label; two units |
+| C-10122 | A second 2011 unit (internet photo, not the owner's): model `QY-7200N-B`, manufactured March 2011, serial `0004058`, unit ID `100100004058`. | OBSERVED | H | EXP-2026-11-24-M2.27-unit-type-label |
+| C-10123 | The 2011 unit's Bluetooth module is model `BTU-3588` (QD ID `B014872`); the unit's FCC ID is `SJ2QY7200`, IC `419C-7200`. | OBSERVED | M | EXP-2026-11-24-M2.27-unit-type-label; label text only |
+| C-10124 | The label carries no PIN, so it does not test whether the SD PIN depends on the serial (C-8304, C-8334 unchanged). | VERIFIED | H | EXP-2026-11-24-M2.27-unit-type-label |
