@@ -18,8 +18,9 @@ Usage::
     python3 tools/l1l2_matrix.py --input matrix.json --check-baseline tools/fixtures/l1l2-matrix-baseline.json
     python3 tools/l1l2_matrix.py --input matrix.json --write-baseline PATH
 
-Exit code: 1 on a runnable FAIL, a baseline regression or a missing baseline
-key; 0 otherwise. No vendor bytes, no firmware acceptance claim (rule 13).
+Exit code: 1 on a runnable FAIL, a baseline REGRESSION (including a lost
+PASS key) or a duplicated baseline key; 0 otherwise. DROPPED/NEW/IMPROVEMENT
+are printed but do not fail. No vendor bytes, no firmware acceptance claim.
 """
 
 from __future__ import annotations
@@ -34,9 +35,13 @@ BASELINE_SCHEMA = "osm2leaf.l1l2-matrix-baseline/v1"
 KEY = ("level", "file", "feature")
 STATUSES = ("PASS", "FAIL", "SKIP", "NOT_COVERED", "NOT_RUNNABLE",
             "BLOCKED", "NOT_RUN")
-# Degradation ordering for the bidirectional baseline check: a drop is a
-# regression; a rise (e.g. FAIL -> PASS, SKIP -> PASS) is an improvement.
-RANK = {"PASS": 4, "FAIL": 3, "SKIP": 2, "NOT_COVERED": 2,
+# Monotone quality tiers for the bidirectional baseline check (H57). A lower
+# tier is always worse: PASS (3) > honest non-PASS (2) > FAIL (1). The old
+# ordering put FAIL above SKIP, so SKIP -> FAIL printed as an IMPROVEMENT and a
+# gate stayed green; FAIL is never better than SKIP. All honest non-PASS tokens
+# (SKIP, NOT_COVERED, NOT_RUNNABLE, BLOCKED, NOT_RUN) share one tier, so a move
+# between them is intentionally reported as neither regression nor improvement.
+TIER = {"PASS": 3, "FAIL": 1, "SKIP": 2, "NOT_COVERED": 2,
         "NOT_RUNNABLE": 2, "BLOCKED": 2, "NOT_RUN": 2}
 RUNNABLE = {"PASS", "FAIL", "SKIP"}
 
@@ -181,25 +186,45 @@ def baseline_rows(path: str) -> list[dict]:
 
 
 def check_baseline(rows: list[dict], base: list[dict]) -> list[tuple[str, str]]:
-    """Return (kind, message) for every missing/regression/improvement."""
-    current = {tuple(r.get(k, "") for k in KEY): r["status"] for r in rows}
+    """Return (kind, message) for every missing/regression/improvement.
+
+    H57's monotone rule: a drop to a lower quality tier is a REGRESSION
+    (PASS -> anything-not-PASS, and SKIP/NOT_COVERED/... -> FAIL), a rise is an
+    IMPROVEMENT (FAIL -> SKIP/PASS, SKIP -> PASS). A key that disappears from
+    the report is a DROPPED regression only when the baseline expected PASS; a
+    lost FAIL/SKIP row is reported but does not fail the gate. A key present
+    only in the report is NEW (informational). Duplicate report rows are
+    reported so a silent loss of uniqueness cannot pass unnoticed.
+    """
+    reported: dict[tuple[str, ...], int] = {}
+    current: dict[tuple[str, ...], str] = {}
+    for r in rows:
+        key = tuple(r.get(k, "") for k in KEY)
+        reported[key] = reported.get(key, 0) + 1
+        current[key] = r["status"]
     result: list[tuple[str, str]] = []
+    base_keys: set[tuple[str, ...]] = set()
     for expected in base:
         key = tuple(expected.get(k, "") for k in KEY)
+        base_keys.add(key)
         label = "|".join(key)
+        if reported.get(key, 0) > 1:
+            result.append(("DUPLICATE", f"{label}: {reported[key]} rows in report"))
         if key not in current:
-            result.append(("REGRESSION", f"MISSING {label} "
-                                          f"(was {expected['status']})"))
+            kind = "REGRESSION" if expected["status"] == "PASS" else "DROPPED"
+            result.append((kind, f"MISSING {label} (was {expected['status']})"))
             continue
         got = current[key]
-        if RANK.get(got, 0) < RANK.get(expected["status"], 0):
+        want = TIER.get(expected["status"], 2)
+        now = TIER.get(got, 2)
+        if now < want:
             result.append(("REGRESSION",
                            f"{label}: {expected['status']} -> {got}"))
-        elif RANK.get(got, 0) > RANK.get(expected["status"], 0):
+        elif now > want:
             result.append(("IMPROVEMENT",
                            f"{label}: {expected['status']} -> {got}"))
     for key in current:
-        if key not in {tuple(e.get(k, "") for k in KEY) for e in base}:
+        if key not in base_keys:
             result.append(("NEW", "|".join(key) + ": " + current[key]))
     return result
 
@@ -311,12 +336,14 @@ def _selftest() -> int:
            for r in mapped2), "mapping keys are check IDs")
     ok("NOT_COVERED" in [r["status"] for r in mapped2], "feature gap row kept")
 
-    # (2) Bidirectional baseline: PASS->FAIL and MISSING both fail;
-    # FAIL->PASS is an improvement, not an error.
+    # (2) Monotone baseline (H57): PASS -> anything-not-PASS and SKIP -> FAIL
+    # both regress; FAIL -> SKIP/PASS and SKIP -> PASS are improvements; a lost
+    # PASS key fails, a lost non-PASS key is DROPPED (report only), duplicates
+    # and new keys are informational.
     base = [dict(level="L2", file="F", feature="roads", status="PASS"),
-            dict(level="L2", file="F", feature="names", status="FAIL")]
-    good = [dict(level="L2", file="F", feature="roads", status="PASS"),
-            dict(level="L2", file="F", feature="names", status="FAIL")]
+            dict(level="L2", file="F", feature="names", status="FAIL"),
+            dict(level="L2", file="F", feature="POIs", status="SKIP")]
+    good = [dict(r) for r in base]
     statuses = lambda res: [k for k, _ in res]
     ok(statuses(check_baseline(good, base)) == [], "identical baseline clean")
     degraded = [dict(r) for r in good]
@@ -327,19 +354,40 @@ def _selftest() -> int:
     skipped[0]["status"] = "SKIP"
     ok("REGRESSION" in statuses(check_baseline(skipped, base)),
        "PASS->SKIP regresses")
-    missing = [dict(good[0])]
+    not_covered = [dict(r) for r in good]
+    not_covered[0]["status"] = "NOT_COVERED"
+    ok("REGRESSION" in statuses(check_baseline(not_covered, base)),
+       "PASS->NOT_COVERED regresses")
+    missing_pass = [r for r in good if r["feature"] != "roads"]
     ok(any(k == "REGRESSION" and "MISSING" in m
-           for k, m in check_baseline(missing, base)),
-       "deleted baseline key regresses")
+           for k, m in check_baseline(missing_pass, base)),
+       "deleted PASS key regresses")
+    missing_skip = [r for r in good if r["feature"] != "POIs"]
+    ok(any(k == "DROPPED" and "MISSING" in m
+           for k, m in check_baseline(missing_skip, base)),
+       "deleted non-PASS key is DROPPED (report only)")
     improved = [dict(r) for r in good]
     improved[1]["status"] = "PASS"
     ok("IMPROVEMENT" in statuses(check_baseline(improved, base)) and
        "REGRESSION" not in statuses(check_baseline(improved, base)),
        "FAIL->PASS is improvement only")
+    improved[1]["status"] = "SKIP"
+    ok("IMPROVEMENT" in statuses(check_baseline(improved, base)) and
+       "REGRESSION" not in statuses(check_baseline(improved, base)),
+       "FAIL->SKIP is improvement only")
+    skip_to_pass = [dict(r) for r in good]
+    skip_to_pass[2]["status"] = "PASS"
+    ok("IMPROVEMENT" in statuses(check_baseline(skip_to_pass, base)),
+       "SKIP->PASS is improvement")
+    skip_to_fail = [dict(r) for r in good]
+    skip_to_fail[2]["status"] = "FAIL"
+    ok("REGRESSION" in statuses(check_baseline(skip_to_fail, base)),
+       "SKIP->FAIL regresses (H57 falsifier)")
     ok("NEW" in statuses(check_baseline(good + [
-        dict(level="L2", file="F", feature="POIs", status="PASS")], base)),
+        dict(level="L2", file="F", feature="geometry", status="PASS")], base)),
         "new key is informational")
-
+    ok("DUPLICATE" in statuses(check_baseline(good + [dict(good[0])], base)),
+       "duplicate baseline key is reported")
     for error in errors:
         print("SELFTEST FAIL:", error)
     print(f"l1l2_matrix self-test: {count - len(errors)}/{count} checks OK")
