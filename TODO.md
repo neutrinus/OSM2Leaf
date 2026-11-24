@@ -886,7 +886,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-6480–C-6489
 
 - [ ] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.48-antitheft-map · Critical: no · Pair: solo
   - Depends: — (M6.19 helps: the PROD record of a real unit)
   - Goal: side track, but it matters for bench work: a unit moved to another car, or powered on a bench without the car's CAN, can show the SECURE screen. Say who decides (the audio microcontroller, the SH-4, or the car's BCM), what is compared (PROD `+0xA0` 4-byte IMMO code, flag `+0x193`; LeafSDTools "DISABLE IMMO" zeroes the flag), over which link, and what stays blocked while locked.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 exports AntitheftCC.dll` prints exports; the string `ANT_RCV_SECURITY_LOCK` is found in `anwdrv.dll`.
