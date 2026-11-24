@@ -140,10 +140,11 @@ The census then reads one more record (POINT016 1→2, tree 880→881).  The
 only per-record index observed is the **24-byte-per-record stream at
 `0x1108`**: POINT016 has one 24-B row, and on all 15 shards the stream length
 divided by 24 equals the record count.  There is **no separate count field**,
-so this writer does not change the index (the task falsifier — a stale count
-field — therefore does not fire).  A complete EV index writer must add a row;
-the row's word meanings (e.g. `000f0002000100060002ffff02110077ffff3f00`) are
-UNKNOWN (new M4 task).  L1 (`cardcheck`) and L2 (`l2check`) pass on the edited
+so this writer does not change the index (the task's literal falsifier — a
+stale numeric count — does not fire).  The new record therefore has **no
+index row**: this is a real gap, not a pass of index writing.  The row's last
+word is the 0-based record ordinal; words 0–5 are a per-record name key that
+is not found verbatim in the record body and remains UNKNOWN (new M4 task).  L1 (`cardcheck`) and L2 (`l2check`) pass on the edited
 tree; the position is inherited from the host record (no OSM coordinate is
 written), and the row-24 firmware opener is still unlocated (M3.29), so no
 L3/L4/L5 acceptance is claimed.
