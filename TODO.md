@@ -5121,7 +5121,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H24-emulator-quickstart; 7 claims C-7210–C-7216; every page command exit 0, 382721-pixel PNG at ~20 s
 
 - [ ] **M8.H25 — Boot-time budget: from start to the idle UI, where the wall-clock minutes go**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h25-boot-budget · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: Measure the phases (kernel, drivers, card mount, launcher waits, UI) in guest time and host time, with and without `-icount`, and list the three cheapest cuts.
