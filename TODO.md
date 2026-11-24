@@ -5652,7 +5652,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.H62-tmc-entry-point; C-7590–C-7599; injection fn 0x003bcc7c (pdata START, r4=ctx); L3 2/2 + 0x14f4 mutation control
 
 - [ ] **M8.H63 — Inject one traffic event and watch `RDSTM001`/`LCTBL001` being read**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h63-traffic-event · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H62
   - Goal: Call the injection point of `docs/firmware/tmc-path.md` with one real location code of the EU card and record the file reads and the result — the firmware-side test a generated Polish `RDSTM001`/`LCTBL001` will have to pass.
