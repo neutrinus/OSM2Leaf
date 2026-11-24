@@ -5367,7 +5367,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.H40-live-window; L4 QMP tap frame 5102fd004631 == H39, ZOOM ILL EVENT 1, 33/33 patches
 
 - [ ] **M8.H41 — Scenario: set a destination and calculate a route at L4**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h41-route-scenario · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: The first routing test in the full system: enter a destination by the map or by a stored point, start route calculation, capture the result. It tells which files the router opens (section 2, `LEV3456R`) on a factory card and later on ours.
