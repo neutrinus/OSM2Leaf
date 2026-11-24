@@ -230,7 +230,13 @@ An OSM background writer exists (M5.74, C-7930–C-7937,
 clips water/river/forest polygons to one level-1 parcel and splices one odd
 record using the grammar above; a written tile passes L1/L2 and an L3
 `datask_l3.py mount` diff `SAME` against the factory. It writes no styling,
-names or routing, and only one parcel at a time.
+names or routing, and only one parcel at a time. **No firmware reader of the
+odd background record is known:** M3.41 (EXP-2026-11-24-M3.41, C-8160–C-8165)
+seeded a real odd record into an L3 read-watch and found no polygon reader on
+the mount/draw path — kind 4 serves the even road record, only the road
+row-count prologue `fn 0x00422384` touches the odd record, and `fn 0x0041f3dc`
+faults at `0x0041f44e`. The task is blocked on M8.H10 (L4 read-watch); rule 13
+is not satisfied for any background writer.
 
 Byte-identical rebuilds with the patched harness:
 

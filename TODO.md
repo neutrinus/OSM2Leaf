@@ -2040,7 +2040,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8150–C-8159
 
 - [ ] **M3.41 — Which code draws background polygons: the renderer's reader of the odd-partner record**
-  - Status: in progress · Owner: task/m3.41-background-polygons · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m3.41-background-polygons · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The road path of the renderer is known (`LOC_map` walk, M9.58/M9.67). The background path (water, forest) is not, and a background writer (M5.74) needs its acceptance rules.
@@ -2051,6 +2051,9 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: if nothing reads the record on the mount/draw path available at L3, record the path tried and set blocked on M8.H10 (the L4 read-watch).
   - Falsifier: the odd-partner record is read by the same function as the road record with a type switch (then there is no separate reader — say so).
   - Claims: C-8160–C-8169
+  - Blocker: No firmware reader of the odd-partner background record is reachable on the L3 mount/draw path: kind 4 serves only the even road record; a read-watch on a real odd record sees only the road row-count prologue fn 0x00422384 and fn 0x0041f3dc faults at 0x0041f44e
+  - Unblock: M8.H10
+  - Result: EXP-2026-11-24-M3.41-background-reader-l3 (negative); C-8160-C-8165
 
 - [ ] **M3.43 — L4 zoom-out on NK1: make the firmware read `FRWAY0nn`/`INTER0nn` and name the code that consumes the records**
   - Status: open · Owner: — · Critical: yes · Pair: required
