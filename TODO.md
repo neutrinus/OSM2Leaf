@@ -5698,7 +5698,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8110–C-8119
 
 - [ ] **M8.H67 — Watchdog and reset on `-M ze0` (row C22): who kicks what, and what a reset request looks like**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h67-watchdog-reset · Critical: no · Pair: solo
   - Step: model
   - Depends: —
   - Goal: Nothing models a watchdog; a guest that resets itself today shows up as an unexplained hang or restart. Find the watchdog (SoC WDT or the microcontroller's), the kick path, and the software reset path (used after updates and on fatal errors).
