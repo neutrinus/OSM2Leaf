@@ -1,0 +1,214 @@
+hw/sh4: ze0-gfx QMP input forwarding to the panel peer (TODO M8.H40).
+
+The M8.H4 console has no QemuInputHandler, so QMP input-send-event fails
+with "Input handler not found". Register a handler bound to ze0-gfx that
+forwards abs/btn/key events as text commands on a chardev; the panel peer
+replays them over the same SCI3 display-unit link M8.H39 used.
+
+Machine option gfx-input=ID names the chardev; gfx-display=off leaves the
+console (and handler) absent, the negative control.
+
+SPDX-License-Identifier: GPL-2.0-or-later
+
+--- a/include/hw/sh4/ze0_gfx.h
++++ b/include/hw/sh4/ze0_gfx.h
+@@ -5,6 +5,8 @@
+ #include "hw/core/sysbus.h"
+ #include "qemu/timer.h"
+ #include "ui/console.h"
++#include "ui/input.h"
++#include "chardev/char-fe.h"
+ 
+ #define ZE0_DU_W 800
+ #define ZE0_DU_H 480
+@@ -23,6 +25,11 @@
+     bool trace;
+     bool exec;          /* run display lists (M8.C1f) */
+     bool display;       /* expose the DU planes as a QEMU console (M8.H4) */
++    char *input_chr;    /* chardev id for forwarded QMP input (M8.H40) */
++    CharFrontend input_fe;
++    QemuInputHandlerState *input_handler;
++    int input_x, input_y;  /* last absolute position, scaled to DU pixels */
++    uint32_t input_buttons;/* bitmask of pressed mouse buttons */
+     QemuConsole *con;
+     DisplaySurface *surface;
+     uint32_t *fb;       /* ZE0_DU_W * ZE0_DU_H x8r8g8b8 */
+--- a/hw/sh4/ze0_gfx.c
++++ b/hw/sh4/ze0_gfx.c
+@@ -25,6 +25,7 @@
+ #include "qemu/osdep.h"
+ #include "qemu/log.h"
+ #include "qapi/error.h"
++#include "qemu/error-report.h"
+ #include "hw/core/sysbus.h"
+ #include "hw/core/irq.h"
+ #include "hw/core/qdev-properties.h"
+@@ -35,6 +36,9 @@
+ #include "system/address-spaces.h"
+ #include "system/memory.h"
+ #include "ui/pixel_ops.h"
++#include "ui/input.h"
++#include "chardev/char-fe.h"
++#include "qapi/qapi-types-ui.h"
+ 
+ /* DU registers (offsets seen in the gdisubdrv.dll init and the OAL ISR). */
+ #define DU_DSYSR    0x00
+@@ -252,6 +256,79 @@
+     .gfx_update = ze0_gfx_display_update,
+ };
+ 
++/*
++ * QMP input forwarding (TODO M8.H40).  The console exposed by M8.H4 has no
++ * input handler of its own, so `input-send-event` finds nothing to dispatch
++ * to.  Register a handler bound to ze0-gfx and forward absolute pointer
++ * moves, left-button transitions and key events to a host chardev as textual
++ * commands the panel peer can replay over the SCI3 display-unit link:
++ *
++ *   abs x VALUE\n  abs y VALUE\n  btn left down|up\n  key QCODE down|up\n
++ *
++ * Values are 0..0x7fff (QEMU INPUT_EVENT_ABS_MIN/MAX); we scale to the
++ * 800x480 DU using max_out 799/479 (SCREEN_W-1/SCREEN_H-1), which round-trips
++ * panel (765,70) to (0x7a8d,0x12b4) and back (M8.H39).
++ */
++static void ze0_gfx_input_write(Ze0GfxState *s, const char *fmt, ...)
++    G_GNUC_PRINTF(2, 3);
++
++static void ze0_gfx_input_write(Ze0GfxState *s, const char *fmt, ...)
++{
++    char buf[128];
++    va_list ap;
++    int n;
++
++    if (!s->input_chr) {
++        return;
++    }
++    va_start(ap, fmt);
++    n = vsnprintf(buf, sizeof(buf), fmt, ap);
++    va_end(ap);
++    if (n > 0) {
++        qemu_chr_fe_write(&s->input_fe, (const uint8_t *)buf, n);
++    }
++}
++
++static void ze0_gfx_input_event(DeviceState *dev, QemuConsole *src,
++                                QemuInputEvent *evt)
++{
++    Ze0GfxState *s = ZE0_GFX(dev);
++
++    switch (evt->type) {
++    case INPUT_EVENT_KIND_ABS:
++        if (evt->abs.axis == INPUT_AXIS_X) {
++            s->input_x = qemu_input_scale_axis(evt->abs.value,
++                         INPUT_EVENT_ABS_MIN, INPUT_EVENT_ABS_MAX, 0, 799);
++            ze0_gfx_input_write(s, "abs x %d\n", s->input_x);
++        } else if (evt->abs.axis == INPUT_AXIS_Y) {
++            s->input_y = qemu_input_scale_axis(evt->abs.value,
++                         INPUT_EVENT_ABS_MIN, INPUT_EVENT_ABS_MAX, 0, 479);
++            ze0_gfx_input_write(s, "abs y %d\n", s->input_y);
++        }
++        break;
++    case INPUT_EVENT_KIND_BTN:
++        if (evt->btn.button == INPUT_BUTTON_LEFT) {
++            ze0_gfx_input_write(s, "btn left %s\n", evt->btn.down ? "down" : "up");
++        }
++        break;
++    case INPUT_EVENT_KIND_KEY:
++        /* evt->key.key is a Linux keycode; QKeyCode_str indexes QKeyCode. */
++        ze0_gfx_input_write(s, "key %s %s\n",
++                            QKeyCode_str(qemu_input_linux_to_qcode(evt->key.key)),
++                            evt->key.down ? "down" : "up");
++        break;
++    default:
++        break;
++    }
++}
++
++static const QemuInputHandler ze0_gfx_input_handler = {
++    .name  = "ze0-gfx QMP input",
++    .mask  = INPUT_EVENT_MASK_ABS | INPUT_EVENT_MASK_BTN |
++             INPUT_EVENT_MASK_KEY,
++    .event = ze0_gfx_input_event,
++};
++
+ static uint64_t ze0_gfx_rd(Ze0GfxState *s, int blk, hwaddr off, unsigned size)
+ {
+     uint8_t *m = s->regs[blk] + off;
+@@ -371,6 +448,20 @@
+                                              &ze0_gfx_display_ops, s);
+         qemu_console_resize(s->con, ZE0_DU_W, ZE0_DU_H);
+         s->surface = qemu_console_surface(s->con);
++        if (s->input_chr) {
++            Chardev *chr = qemu_chr_find(s->input_chr);
++
++            if (!chr) {
++                error_report("ze0-gfx: input: no chardev with id '%s'",
++                             s->input_chr);
++                exit(1);
++            }
++            qemu_chr_fe_init(&s->input_fe, chr, &error_fatal);
++            s->input_handler = qemu_input_handler_register(DEVICE(s),
++                                    &ze0_gfx_input_handler);
++            qemu_input_handler_bind(s->input_handler, "ze0-gfx", 0,
++                                    &error_fatal);
++        }
+     }
+ }
+ 
+@@ -391,6 +482,7 @@
+     DEFINE_PROP_BOOL("trace", Ze0GfxState, trace, false),
+     DEFINE_PROP_BOOL("exec", Ze0GfxState, exec, true),
+     DEFINE_PROP_BOOL("display", Ze0GfxState, display, false),
++    DEFINE_PROP_STRING("input-chr", Ze0GfxState, input_chr),
+ };
+ 
+ static void ze0_gfx_class_init(ObjectClass *oc, const void *data)
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -208,6 +208,7 @@
+     bool gfx;
+     bool gfx_trace;
+     bool gfx_display;
++    char *gfx_input;    /* chardev id for forwards QMP input (M8.H40) */
+     bool sd_pwd_tofu;
+     bool sd_start_locked;
+     char *sd_fixed_pwd;
+@@ -1148,6 +1149,10 @@
+ 
+         qdev_prop_set_bit(g, "trace", ZE0_MACHINE(machine)->gfx_trace);
+         qdev_prop_set_bit(g, "display", ZE0_MACHINE(machine)->gfx_display);
++        if (ZE0_MACHINE(machine)->gfx_input && *ZE0_MACHINE(machine)->gfx_input) {
++            qdev_prop_set_string(g, "input-chr",
++                                 ZE0_MACHINE(machine)->gfx_input);
++        }
+         if (ZE0_MACHINE(machine)->gfx_display) {
+             qdev_set_id(g, g_strdup("ze0-gfx"), &error_fatal);
+         }
+@@ -1292,6 +1297,17 @@
+     ZE0_MACHINE(obj)->gfx_display = value;
+ }
+ 
++static char *ze0_get_gfx_input(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->gfx_input);
++}
++
++static void ze0_set_gfx_input(Object *obj, const char *value, Error **errp)
++{
++    g_free(ZE0_MACHINE(obj)->gfx_input);
++    ZE0_MACHINE(obj)->gfx_input = g_strdup(value);
++}
++
+ static bool ze0_get_gfx_trace(Object *obj, Error **errp)
+ {
+     return ZE0_MACHINE(obj)->gfx_trace;
+@@ -1547,6 +1563,10 @@
+     object_property_set_description(obj, "gfx-display",
+         "expose the DU planes as a QEMU console (default on; -display none "
+         "and HMP screendump device=ze0-gfx work either way, M8.H4)");
++    object_property_add_str(obj, "gfx-input", ze0_get_gfx_input,
++                            ze0_set_gfx_input);
++    object_property_set_description(obj, "gfx-input",
++        "chardev id that receives forwarded QMP input (M8.H40)");
+     object_property_add_bool(obj, "gfx-trace", ze0_get_gfx_trace,
+                              ze0_set_gfx_trace);
+     object_property_set_description(obj, "gfx-trace",
