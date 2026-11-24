@@ -5775,7 +5775,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H71-osm-roads-l4; OSM London parcel drawn by Navi.exe at L4 (no names: --no-names); L1 PASS; pipeline negative-lon bbox fix
 
 - [ ] **M8.H72 — Trigger the route simulation under ze0 to get a moving position**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h72-route-simulation · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H21 (done)
   - Goal: M8.H21 found a demo/simulation mode in both 2011 builds: the `Navi.exe` menu item `2: Simulation on/off` (`fn 0x003daf5c`), the demo flag `u16 0x00bcd208`, `RGD_DEMO_*` position feeders (`fn 0x005182e0` …), `CRouteSimulation` in `NaviRouteCC.dll` (`fn 0x02f69198`) and the `NAVI_ROUTE_SIMULATION_START/PAUSE/STOP` events (`fn 0x004b9fa4`). If any trigger works under `-M ze0`, the emulator gets a moving position with no GPS/CAN sensor model — a moving test oracle for generated OSM cards.
