@@ -5090,8 +5090,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7180–C-7189
   - Result: EXP-2026-11-22-M8.H21-demo-drive; verdict present; 149 EU / 151 US modules, switch + VAs; follow-up M8.H72
 
-- [ ] **M8.H22 — Census of unmodelled hardware accesses in one boot: what to model next, by numbers**
-  - Status: in progress · Owner: task/m8.h22-unmapped-census · Critical: no · Pair: solo
+- [x] **M8.H22 — Census of unmodelled hardware accesses in one boot: what to model next, by numbers**
+  - Status: done · Owner: task/m8.h22-unmapped-census · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: Each missing device shows up as reads and writes to unmapped addresses. Rank them, so the next model is chosen by count and by who asks, not by guess.
@@ -5102,6 +5102,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the log is empty at idle (then every polled block is already stubbed and the table is the list of stubs).
   - Claims: C-7190–C-7199
+  - Result: EXP-2026-11-24-M8.H22-unmapped-census; 26/26 selftest, 1027 accesses/25 blocks, top 0xff801000 DMAC 305
 
 - [x] **M8.H23 — Guest profiler: where the CPU time goes (module and function histogram by PC sampling)**
   - Status: done · Owner: task/m8.h23-pc-sampler · Critical: no · Pair: solo
