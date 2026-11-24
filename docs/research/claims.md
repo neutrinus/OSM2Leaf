@@ -7660,3 +7660,17 @@ into three printed classes.
 | C-10267 | Source search found no shipped checked/debug ZE0 build or symbols: the two `files.viaaq.eu` indexes list only map-data archives and full SD-card images, local search found no checked/debug ZE0 module/PDB/Nissan CE SDK (only unrelated `pico_sdk_import.cmake` and retail-byte Ghidra decompilations), and web searches returned only map-update pages, TCU firmware work and retail images. | VERIFIED (source search) | M | EXP-2026-11-24-M8.H80-checked-build Method 2/O4; `grep -ni 'checked\|debug\|SDK' docs/research/sources.md`, `find /home/marek/projekty ...`, HTTP fetches of `files.viaaq.eu` indexes |
 | C-10268 | CE documentation states `dpCurSettings` is typically compiled in only for debug builds (`DEBUGMSG` flavor is debug-only); the 0-candidate census of the retail modules is consistent with a retail build, but no checked build could be obtained to confirm it. | VERIFIED (documentation) | M | EXP-2026-11-24-M8.H80-checked-build Interpretation; learn.microsoft.com CE debug-zones blog, fetched 2026-11-24 |
 | C-10269 | M8.H80 is blocked on the named blocker: no checked/debug Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) is publicly obtainable, so no module name + 16 zone names + mask VA can be reported and run.sh --debug-zones FILE cannot be added; M8.H15 stays blocked with Unblock: M8.H80. The named unblocking path is a task that obtains such a build from Nissan's dealer service channel and re-runs ce_dbgzones.py on it (rule 15 re-opens M8.H80 when that task merges). | VERIFIED (task Stop path) | H | EXP-2026-11-24-M8.H80-checked-build Conclusion; TODO blocks M8.H80/M8.H15 |
+
+## M9.81 — Allocate IDs against open PRs at claim time
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-10270 | RESERVED for M9.81 (allocate IDs against open PRs at claim time). | RESERVED | — | — |
+| C-10271 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10272 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10273 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10274 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10275 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10276 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10277 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10278 | RESERVED for M9.81. | RESERVED | — | — |
+| C-10279 | RESERVED for M9.81. | RESERVED | — | — |

@@ -6719,6 +6719,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Unblock: M4.56
   - Result: EXP-2026-11-23-M9.80-section4-names-l3.md (negative)
 
+- [ ] **M9.81 — Allocate IDs against open PRs at claim time, not at merge time**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: —
+  - Step: tooling
+  - Goal: stop the repeated claim-block renumbering that costs every parallel batch a rebase, a `board.py field`/`add-claims` renumber, a check re-run and an EXP correction. At least 11 claim-range collisions happened in the 2026-11-24 window (SM retro `docs/retro/2026-11-24.md`, Judge (a)); only 9 reached `main` as repair commits — the rest were resolved on branches. `tools/board.py next_id()` currently counts TODO, history and claims on `main` only; its own docstring says "Open PRs can hold IDs not yet on main: check them too", but the function never does.
+  - Precheck: `python3 tools/board.py next-id M9` prints `M9.81` on a clean `origin/main`; `python3 tools/board.py next-claims` prints a free block; `gh pr list --state open --json number,title,headRefName` works; `python3 tools/board.py --selftest` passes before any edit.
+  - Scope: `tools/board.py` only. Do not change task IDs to random hex: the stream/step meaning is used by `next-id <stream>`, `Depends`, `Step:` tags and `card_ladder.py steps --check`. Do not edit TODO.md task blocks except the new M9.81 block and its claim rows via `board.py`.
+  - Input: `tools/board.py` (`next_id`, `next_claims`, `op_status`, `claim`, `run_selftest`), `tools/claims_check.py` (duplicate-ID check), `docs/retro/2026-11-24.md` Judge (a), AGENTS.md `tools/board.py` command list.
+  - Done when: (1) `next-id STREAM` and `next-claims` report IDs/blocks reserved by **open PR titles and their branch TODO/claims trees** that are not yet on `origin/main`, using `gh pr list --state open` (and a documented offline fallback when `gh` is unavailable); (2) `board.py claim ID --owner BR` refuses a task whose ID is already in an open PR title not owned by BR, with an actionable error, before writing any board change — verified by a negative test that the task line is untouched; (3) `--selftest` covers both an ID and a claim block held only in an open PR (mocked or a tiny fixture), plus the happy path; (4) `python3 tools/board.py lost --base origin/main`, `todo_check.py`, `claims_check.py` all pass on a branch that uses the new allocator.
+  - Stop: if GitHub cannot be reached reliably, implement the check against a local list of reserved IDs passed by flag (e.g. `--reserved-from-prs FILE`) and mark full `gh` integration as a follow-up; do not silently return to a `main`-only view.
+  - Falsifier: `next-id`/`claim` still allocate an ID known only to be held by an open PR, or a rejected `claim` mutates the TODO line.
+  - Claims: C-10270–C-10279
+
 ## Retired leads
 
 Do not take these up again; each was superseded by the CE ROM TOC
