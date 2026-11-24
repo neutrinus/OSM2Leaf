@@ -2675,7 +2675,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7740–C-7749
 
 - [ ] **M4.76 — `kiwiread`'s OSM exporter as a class table seed: KIWI road and background types → OSM tags, inverted for our compiler**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.76-cycle10 · Critical: no · Pair: solo
   - Step: P1
   - Depends: M4.69
   - Goal: `kiwiread` ships `osm.c`, which writes KIWI data as OSM. Its type → tag choices, inverted, are a first OSM → Clarion class table (M5.3) — valid only for the codes M4.69 confirmed on our card.
