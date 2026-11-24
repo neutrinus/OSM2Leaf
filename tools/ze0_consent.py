@@ -68,7 +68,7 @@ NKOK_SUM4 = 0x34
 NKOK_HEADER = 0x200
 
 # Derived from the card's own name tables and code (NOT from Companion bytes).
-# SK_OTH_SCREEN_UNLOCK id = 2185 (US, 0x0889) / 2193 (EU, 0x0891); the handler
+# SK_OTH_SCREEN_UNLOCK id = 0x0889 (US) / 0x088f (EU, corrected 2026-11-24); the handler
 # compares event id in r5 with a literal loaded by `mov.w @(disp,pc),r3`
 # (0x93xx) then `cmp/eq r3,r5` (0x3530).  `find` verifies the whole site and
 # refuses ambiguous scans.
@@ -86,10 +86,30 @@ Build = namedtuple("Build", "label part name agree unlock index")
 # table index and the SK_SCT_AGREE_CLICK id are printed for evidence; the site
 # is found by its code shape and the expected old id.
 BUILDS = OrderedDict((
-    ("eu", Build("EU 2011", "470-2824-34", "X210ECNI.158", 0x08a6, 0x0891, 610)),
+    # EU ids corrected 2026-11-24 (EXP-2026-11-24-M8.C1p-eu-consent-l4): the
+    # EU consent handler (state id 0x263, fn 0x02c21b0c) compares
+    # SK_SCT_AGREE_CLICK 0x08a4 and receives SK_OTH_SCREEN_UNLOCK as 0x088f
+    # (gdb on -M ze0).  The earlier 0x08a6 -> 0x0891 patched another handler.
+    ("eu", Build("EU 2011", "470-2824-34", "X210ECNI.158", 0x08a4, 0x088f, 610)),
     ("us", Build("US 2011", "470-2818-33", "X210NBNI.147", 0x089e, 0x0889, 609)),
 ))
 
+# Real cards only (image A length -> build label): the literal offsets
+# relative to the copy base, from the M8.C1p `find` runs.  `verify` checks
+# these exact places, because SK_OTH_SCREEN_UNLOCK is also a literal in other
+# handlers and a shape scan for the new id alone passes on a wrong card.
+BUILD_LENGTHS = {0x01752c88: "EU 2011", 0x017978e0: "US 2011"}
+SITE_OFFSETS = {
+    "EU 2011": (0x1236d5a, 0x123748c),
+    "US 2011": (0x1279a9a, 0x127a1b4),
+}
+# Wrong patches of tool versions before 2026-11-24, EU cards only, as
+# (offset, original, wrong): US ids on a renamed EU card, and the wrong EU
+# ids 0x08a6 -> 0x0891.  `patch` puts them back, `verify` reports them.
+MISPATCH = {
+    "EU 2011": ((0x1205912, 0x089e, 0x0889), (0x123f2c0, 0x089e, 0x0889),
+                (0x11ebf3e, 0x08a6, 0x0891)),
+}
 
 
 def u32(d, o):
@@ -239,7 +259,17 @@ def _patch_copy(data, base: int, old: int, new: int):
     """
     length = u32(data, base + NKOK_LEN)
     body = bytearray(data[base:base + NKOK_HEADER + length])
+    label = BUILD_LENGTHS.get(length)
+    for rel, orig, wrong in MISPATCH.get(label, ()):
+        if u16(body, rel) == wrong:
+            struct.pack_into("<H", body, rel, orig)
+            print("repaired copy 0x%x: literal at 0x%x 0x%04x -> 0x%04x (earlier wrong patch)"
+                  % (base, base + rel, wrong, orig))
     sites = find_sites(body, 0, old, new)
+    want = SITE_OFFSETS.get(label)
+    if want and tuple(x["lit"] for x in sites) != want:
+        raise SystemExit("ze0_consent: sites %s differ from the expected %s; refusing"
+                         % ([hex(x["lit"]) for x in sites], [hex(x) for x in want]))
     for site in sites:
         struct.pack_into("<H", body, site["lit"], new)
     total, _ = sum4(body, 0)
@@ -289,7 +319,15 @@ def cmd_verify(a) -> int:
             lit_ok = all(u16(data, x["lit"]) == new for x in sites)
         except SystemExit:
             lit_ok = False
-        ok = stored == computed and lit_ok
+        label = BUILD_LENGTHS.get(length)
+        if label in SITE_OFFSETS:
+            lit_ok = all(u16(data, base + rel) == new for rel in SITE_OFFSETS[label])
+        bad = [base + rel for rel, orig, wrong in MISPATCH.get(label, ())
+               if u16(data, base + rel) == wrong]
+        if bad:
+            print("copy 0x%x: WRONG earlier patch at %s; run `patch` again to repair"
+                  % (base, ",".join("0x%x" % b for b in bad)))
+        ok = stored == computed and lit_ok and not bad
         problems += not ok
         print("copy 0x%x: name=%s SUM4 stored=0x%08x computed=0x%08x agree_id_replaced=%s -> %s"
               % (base, n, stored, computed, lit_ok, "OK" if ok else "FAIL"))
