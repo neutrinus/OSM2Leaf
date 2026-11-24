@@ -4104,7 +4104,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Result: EXP-2026-11-23-M6.24-anonymous-unit-flash; firmware/unit-flash/*-anon.bin + NK1 boot to the map on -M ze0 with 1 load error (erased flash: 11); scan against the real dump: 0 hits for serial, PIN, password, positions
 
 - [ ] **M6.25 — Object 0A of the object store: what it is and when it is first saved**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m6.25-cycle10 · Critical: no · Pair: solo
   - Step: firmware
   - Depends: M6.24
   - Goal: the anonymous unit flash (M6.24) boots with one `OBJ_BackUp_Load Error`, object 0A; the real dump has none. Find the object and the event that saves it, so that the image can be made with zero load errors.
