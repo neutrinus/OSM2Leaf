@@ -270,34 +270,40 @@ def fmt_time(val):
     return "n/a" if val is None else ("%.3f" % val if isinstance(val, float) else str(val))
 
 
+def _row_times(census, r):
+    """Return (first, last) in the reported unit, never mixing clock sources."""
+    if census.time_source == "guest":
+        return (fmt_time(r["first_guest"]), fmt_time(r["last_guest"]))
+    if census.time_source == "host-elapsed":
+        return (fmt_time(r["first_time"]), fmt_time(r["last_time"]))
+    return ("n/a", "n/a")
+
+
 def report(census, top, label, as_json):
     rows = census.ranked(top)
+    unit = {"guest": "guest ms", "host-elapsed": "host s", "n/a": "none"}[census.time_source]
     if as_json:
         print(json.dumps({
             "label": label, "lines": census.lines, "events": census.events,
             "blocks": len(census.blocks), "with_pc": census.with_pc,
-            "time_source": census.time_source,
+            "time_source": census.time_source, "time_unit": unit,
             "rows": [{
                 "block": "0x%08x" % block, "name": block_name(block),
                 "count": r["count"], "reads": r["reads"], "writes": r["writes"],
-                "first_time": fmt_time(r["first_guest"] if r["first_guest"] is not None
-                                       else r["first_time"]),
-                "last_time": fmt_time(r["last_guest"] if r["last_guest"] is not None
-                                      else r["last_time"]),
+                "first_time": _row_times(census, r)[0],
+                "last_time": _row_times(census, r)[1],
                 "modules": dict(r["modules"]),
                 "pcs": sorted(r["pcs"]),
             } for block, r in rows],
         }, indent=2))
         return
-    print("== %s: %d lines, %d accesses, %d blocks, %d with PC, time=%s ==" %
+    print("== %s: %d lines, %d accesses, %d blocks, %d with PC, time=%s (%s) ==" %
           (label, census.lines, census.events, len(census.blocks),
-           census.with_pc, census.time_source))
+           census.with_pc, census.time_source, unit))
     print("%4s %-10s %-42s %7s %6s %6s %-11s %-11s %s" %
           ("#", "block", "name", "count", "read", "write", "first", "last", "module (PC)"))
     for i, (block, r) in enumerate(rows, 1):
-        guest = r["first_guest"] is not None
-        first = fmt_time(r["first_guest"] if guest else r["first_time"])
-        last = fmt_time(r["last_guest"] if guest else r["last_time"])
+        first, last = _row_times(census, r)
         mod = r["modules"].most_common(1)[0][0] if r["modules"] else "none"
         npc = len(r["pcs"])
         print("%4d 0x%08x %-42s %7d %6d %6d %-11s %-11s %s (%d PC%s)" %
@@ -369,6 +375,14 @@ def selftest():
     text = buf.getvalue()
     check("rank table top", "0xffc5a000" in text, True)
     check("rank count printed", "GPS/odometer" in text, True)
+    check("guest unit printed", "time=guest (guest ms)" in text, True)
+    check("guest first time printed", "1000" in text, True)
+    buf2 = io.StringIO()
+    with contextlib.redirect_stdout(buf2):
+        report(c2, 3, "selftest", True)
+    doc = json.loads(buf2.getvalue())
+    check("json time source", doc["time_source"], "n/a")
+    check("json time n/a", doc["rows"][0]["first_time"], "n/a")
 
     # Negative mutation: remove one access -> count drops 2 -> 1.
     c3 = Census(FakeResolver(), times={3: 1000})
