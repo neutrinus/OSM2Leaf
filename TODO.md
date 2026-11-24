@@ -3842,8 +3842,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8740–C-8749
 
-- [ ] **M5.95 — Z4b: built-up area from OSM building density instead of a share threshold**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.95 — Z4b: built-up area from OSM building density instead of a share threshold**
+  - Status: done · Owner: task/m5.95-cycle10 · Critical: no · Pair: solo
   - Step: Z4
   - Depends: M5.89
   - Goal: the factory's level-1 urban fill (`0xc12b`) is a generalised built-up polygon; M5.89's `--urban-fill 0.1` copies the look with a guessed threshold (C-8695). Derive the built-up area from OSM data with a rule we can defend.
@@ -3853,6 +3853,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has, per parcel, factory urban share vs ours (agreement count at 10 % tolerance) for the London bbox, and an L4 screenshot of the start screen.
   - Stop: one session.
   - Claims: C-8770–C-8779
+  - Result: EXP-2026-11-24-M5.95-builtup-from-building-density; 54,261/63,987 agree at 10%, L3 sub 3, L4 shot 5bd459b6…; C-8770–C-8777
 
 - [ ] **M5.96 — Z4c: line layers (river centre lines, railways) and the red park outline**
   - Status: open · Owner: — · Critical: no · Pair: solo
