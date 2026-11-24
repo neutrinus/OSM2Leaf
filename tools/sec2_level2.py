@@ -135,6 +135,11 @@ class Net:
 # primary on level 4 would give 7,168 nodes in one London level-4 mesh (factory maximum
 # 3,442) and a record above the 0x10000-word limit
 HIGHWAY_RANK = {"motorway": 5, "trunk": 5, "motorway_link": 4, "trunk_link": 4}
+# Tertiary roads are class 8 in our table, but the factory level 2 carries the
+# minor through roads (class 7): without them the destination-side level-1
+# search (200 settled nodes) can end before it meets a level-2 node and the
+# route fails with "MST CAND SELECT ERROR" (M5.103).
+MINOR_L2 = {"tertiary", "tertiary_link"}
 
 
 def rank(L) -> int:
@@ -143,12 +148,19 @@ def rank(L) -> int:
     if r is not None:
         return r
     cls = L["cls"]
+    hw = L.get("highway")
+    if cls == 8 and hw in MINOR_L2:
+        return 2
     if cls not in L2_CLASSES:
         return 1
-    hw = L.get("highway")
     if hw is not None:
         return HIGHWAY_RANK.get(hw, 2)
     return 5 if cls in L5_CLASSES else 4 if cls in L4_CLASSES else 2
+
+
+def on_level2(L) -> bool:
+    """Link word 1 bit 0x2 rule for level 1 (``sec2_writer.link_w1``)."""
+    return rank(L) >= 2
 
 
 def link_cost(L):
@@ -229,11 +241,46 @@ class Upper:
         self.net, self.meshes, self.lower_node = net, meshes, lower_node
 
 
-def build_upper(lower: Net, spec: Spec, st: collections.Counter) -> Upper:
+PREV_LEVEL = {2: 1, 4: 2, 5: 4}
+
+
+def prune_dead_ends(net: Net, level: int, st: collections.Counter) -> None:
+    """Drop the dead-end spurs from ``level``: the factory upper levels have no
+    node of degree 1 (London level 2: 0 of 34,037) while trimmed OSM main roads
+    end anywhere.  A spur link keeps its level-below rank on both ends, so the
+    link word 1 bit 0x2 of the level below follows (``on_level2`` / ``records``)."""
+    def deg(v):
+        n = len(net.entries(v, level))
+        if v in net.hop and net.entries(net.hop[v][0], level):
+            n += 1
+        return n
+    todo = [v for v in range(len(net.node)) if deg(v) == 1]
+    while todo:
+        v = todo.pop()
+        es = net.entries(v, level)
+        if deg(v) != 1 or len(es) != 1:
+            continue
+        far, L, _last, _d = es[0]
+        # level 1: both ends hold the same dict; upper levels: one dict per end,
+        # same uid (level-1 uids repeat over the links of one OSM way)
+        uid = L.get("uid")
+        if not (isinstance(uid, tuple) and uid and isinstance(uid[0], int)):
+            uid = None
+        for x in (v, far):
+            for e in net.ent[x]:
+                if e[1] is L or (uid is not None and e[1].get("uid") == uid):
+                    e[1]["rank"] = PREV_LEVEL[level]
+        st["level-%d dead-end links dropped" % level] += 1
+        todo.append(far)
+
+
+def build_upper(lower: Net, spec: Spec, st: collections.Counter, prune: bool = True) -> Upper:
+    if prune:
+        prune_dead_ends(lower, spec.level, st)
     flagged = mark(lower, spec)
     links = {}
-    # chains that loop without an upper node: give each one a node
-    for _round in range(3):
+    # chains that loop without an upper node, or back to their start: give each one a node
+    for _round in range(10):
         todo = []
         for v in sorted(flagged):
             for j, e in enumerate(lower.entries(v, spec.level)):
@@ -241,15 +288,31 @@ def build_upper(lower: Net, spec: Spec, st: collections.Counter) -> Upper:
                 if r is None:
                     if e[0] not in lower.hop:
                         todo.append(e[0])
+                elif r[0] == v and e[0] not in flagged and e[0] not in lower.hop:
+                    todo.append(e[0])   # a loop back to v: the factory has no upper self-loops
                 else:
                     links[(v, j)] = r
-        if not todo:
+        # parallel upper links between the same two nodes (the factory has none):
+        # an upper node on every chain but the first
+        par = collections.defaultdict(list)
+        for (v, j), r in sorted(links.items()):
+            if r[0] != v:
+                par[(v, r[0])].append(r[5])
+        for (v, end), firsts in par.items():
+            firsts.sort(key=lambda f: f != end)     # keep a direct link, split the others
+            for f in firsts[1:]:
+                if f not in flagged and f not in lower.hop and f != end:
+                    todo.append(f)
+        if not todo or _round == 9:
+            st["level-%d unsplit chains" % spec.level] += len(todo)
             break
         flagged.update(todo)
         links.clear()
 
     def outer_hop(v):
-        return v in lower.hop and spec.key(lower.node[lower.hop[v][0]][0])[0] != spec.key(lower.node[v][0])[0]
+        if v not in lower.hop or lower.hop[v][0] not in flagged:
+            return False        # no partner on this level (e.g. its side was a pruned spur)
+        return spec.key(lower.node[lower.hop[v][0]][0])[0] != spec.key(lower.node[v][0])[0]
 
     mesh_nodes = collections.defaultdict(list)
     for v in flagged:
@@ -365,7 +428,7 @@ def records(up: Upper, upper_flags=frozenset(), up_level=None, country=826):
     return out
 
 
-def build_levels(prepared: dict, bounds: dict, country: int, top: int = 5):
+def build_levels(prepared: dict, bounds: dict, country: int, top: int = 5, prune: bool = True):
     """Levels 2 (and 4, 5 up to ``top``) of a level-1 graph.
 
     Returns ``(level-1 (code, xy) nodes that are level-2 nodes, {level: {key: records}},
@@ -376,7 +439,7 @@ def build_levels(prepared: dict, bounds: dict, country: int, top: int = 5):
     for spec in SPECS:
         if spec.level > top:
             break
-        up = build_upper(lower, spec, st)
+        up = build_upper(lower, spec, st, prune)
         ups.append(up)
         lower = up.net
     out = {}
@@ -444,9 +507,9 @@ def place_lev(m: dict, built: dict) -> dict:
     return dict(st)
 
 
-def build_level2(prepared: dict, bounds: dict, country: int):
+def build_level2(prepared: dict, bounds: dict, country: int, prune: bool = True):
     """Level 2 only: ``(flagged level-1 (code, xy), {key: records}, stats)``."""
-    flagged, out, st = build_levels(prepared, bounds, country, top=2)
+    flagged, out, st = build_levels(prepared, bounds, country, top=2, prune=prune)
     return flagged, out.get(2, {}), st
 
 
@@ -511,7 +574,7 @@ def selftest() -> int:
         L["length"] = W.metres(L["pts"], (1.0, 1.0))
     order, ent = W.parcel_graph(links)
     prepared = {"P": (code, order, ent)}
-    flagged, out, st = build_level2(prepared, {"P": {}}, 826)
+    flagged, out, st = build_level2(prepared, {"P": {}}, 826, prune=False)
     # B is not a level-2 node (one class-8 side link only); A, C, the two ends are
     assert {xy for _c, xy in flagged} == {(100, 100), (900, 100), (900, 700), (1300, 100)}, flagged
     key = (0xA40F, 0xCC02)
@@ -539,7 +602,7 @@ def selftest() -> int:
     for L in mw:
         L["length"] = W.metres(L["pts"], (1.0, 1.0))
     order, ent = W.parcel_graph(mw)
-    fl, lv, st = build_levels({"P": (code, order, ent)}, {"P": {}}, 826)
+    fl, lv, st = build_levels({"P": (code, order, ent)}, {"P": {}}, 826, prune=False)
     assert sorted(lv) == [2, 4, 5], sorted(lv)
     k4 = SPEC4.key(key)[0]
     assert k4 == (0xA40F, 0xCC04) and k4 in lv[4], lv[4].keys()
@@ -557,7 +620,26 @@ def selftest() -> int:
     xy4, lk4 = unit_graph(w4[27:])
     assert len(xy4) == 2 and len(lk4[0]) == 1, (xy4, lk4)
     assert W.decode(lk4[0][0][6], W.SCALE_W6) == 1600, lk4
-    print("sec2_level2 selftest OK: level-2 nodes, chain sums, unit 1 triples, levels 4 and 5")
+    # a square of primary roads with a spur (dropped) and a double link (split)
+    sq = [dict(cls=5, lid=1, pts=[(100, 100), (900, 100)], oneway=0),
+          dict(cls=5, lid=2, pts=[(900, 100), (900, 900)], oneway=0),
+          dict(cls=5, lid=3, pts=[(900, 900), (100, 900)], oneway=0),
+          dict(cls=5, lid=4, pts=[(100, 900), (100, 100)], oneway=0),
+          dict(cls=5, lid=5, pts=[(100, 100), (500, 500), (900, 900)], oneway=0),
+          dict(cls=5, lid=6, pts=[(900, 900), (1500, 1500)], oneway=0)]
+    for L in sq:
+        L["length"] = W.metres(L["pts"], (1.0, 1.0))
+    order, ent = W.parcel_graph(sq)
+    fl, out, st = build_level2({"P": (code, order, ent)}, {"P": {}}, 826)
+    assert st.get("level-2 dead-end links dropped") == 1, st
+    assert all(rank(L) == (1 if L["lid"] == 6 else 2) for L in sq), [rank(L) for L in sq]
+    assert (1500, 1500) not in {xy for _c, xy in fl}, fl
+    w2 = list(struct.unpack(">%dH" % (len(out[key][0]) // 2), out[key][0]))
+    xy2, lk2 = unit_graph(w2[27:])
+    pairs = collections.Counter((i, l[0] & 0x3FFF) for i, ls in enumerate(lk2) for l in ls)
+    assert pairs and max(pairs.values()) == 1, pairs
+    print("sec2_level2 selftest OK: level-2 nodes, chain sums, unit 1 triples, levels 4 and 5, "
+          "dead ends, parallel links")
     return 0
 
 

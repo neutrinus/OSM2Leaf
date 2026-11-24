@@ -122,15 +122,17 @@ def parcel_graph(links):
     return order, ent
 
 
-def link_w1(cls: int, l2classes=None) -> int:
+def link_w1(cls: int, l2classes=None, L=None) -> int:
     """Link word 1.  Bit ``0x2`` marks a link that lies on the next level up
     (factory level 1: set on classes 1-7, 10, 11, clear on 8, 9 and 12;
     boundary entries never; C-10063).  ``l2classes=None`` keeps the old
-    per-class table (cards without level 2)."""
+    per-class table (cards without level 2); a callable gets the link dict
+    ``L`` and says whether it is on level 2."""
     w = W1.get(cls, 0)
     if l2classes is None:
         return w
-    return (w & ~0xE) | (0x2 if cls in l2classes else 0)
+    up = l2classes(L) if callable(l2classes) else cls in l2classes
+    return (w & ~0xE) | (0x2 if up else 0)
 
 
 def record_words(code, order, ent, country, boundary=None, upper=(), l2classes=None):
@@ -159,9 +161,9 @@ def record_words(code, order, ent, country, boundary=None, upper=(), l2classes=N
             # 0x10: set on 99.5 % of two-way and 18.5 % of one-way factory links, never on closed ones
             w4 = cls | L.get("typ", cls) << 8 | (0x10 if d == 0 else 0)
             if inner_w4 is None:
-                inner_w4, inner_w1 = w4, link_w1(cls, l2classes)
+                inner_w4, inner_w1 = w4, link_w1(cls, l2classes, L)
             ln = L["length"]
-            body += [index[far], link_w1(cls, l2classes), d << 14, L["lid"] | (0x2000 if last else 0), w4,
+            body += [index[far], link_w1(cls, l2classes, L), d << 14, L["lid"] | (0x2000 if last else 0), w4,
                      encode(ln * COST_PER_M.get(cls, 0.72), SCALE_W5), encode(ln, SCALE_W6)]
         if xy in boundary:
             side, far = boundary[xy]
@@ -367,7 +369,7 @@ def build(graphs: dict, country: int, free_traps: bool = True, level2: int = 5):
     for parcel, (code, order, ent) in prepared.items():
         boundary = {xy: v[:2] for xy, v in bounds[parcel].items()}
         w = record_words(code, order, ent, country, boundary, upper.get(tuple(code), ()),
-                         sec2_level2.L2_CLASSES if level2 else None)
+                         sec2_level2.on_level2 if level2 else None)
         if len(w) > 0x10000:
             raise GraphError("parcel %r route record is %d words; the directory pair table "
                              "addresses at most 0x10000 (lower --max-plain)" % (parcel, len(w)))
