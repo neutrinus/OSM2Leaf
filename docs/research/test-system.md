@@ -43,31 +43,45 @@ oracle when hardware is available.
 ## 2. Existing tools and workflows (command / fixture)
 
 Only interfaces observed in repo files/help/workflows are listed; this section
-does not invent hidden behavior.
+does not invent hidden behavior. Each command is quoted from the workflow or
+tool that prints it. **Shipped** means the command is on `origin/main` today,
+not planned; the board status of the task that owns it is named where it
+matters. `git show origin/main:TODO.md` (the board command quoted in `AGENTS.md`)
+supplies every status quoted below.
 
-| Component | Level / role | Command / interface (observed) | Fixture / data scope | Evidence / notes |
+| Component | Level / role | Command / interface (quoted from its source) | Fixture / data scope | Evidence / notes |
 | --- | --- | --- | --- | --- |
-| `tools/selftest.py` | Test infra | `python3 tools/selftest.py [--json] [--only ...]` | Synthetic/tool-local; discovers tools with `--selftest` | Hard gate in `.github/workflows/ci.yml` on Py 3.11/3.13. **SKIP is not PASS** (workflow README/policy). |
-| `tools/claims_check.py` | Board/ledger hygiene | `python3 tools/claims_check.py` | Repo text (`docs/research/claims.md` and references) | Hard gate in `ci.yml`. |
-| `tools/todo_check.py` | Board hygiene | `python3 tools/todo_check.py TODO.md` | Repo text | Hard gate in `ci.yml`; errors fail, warnings reported (workflow). |
-| `tools/cardcheck.py` | L1 | `python3 tools/cardcheck.py (--image IMAGE \| --root ROOT) [--json ...] [--partial] ...` (help) | Card image or extracted root; local/vendor when supplied | Used by local verification ladder and referenced by L1/L2 fixtures. No vendor data in CI. |
-| `tools/l2check.py` | L2 | `python3 tools/l2check.py --root ROOT [--profile PROFILE] [--json ...] [--no-golden] [--cmp-limit N] [--no-tiles] ...` (help) | Extracted card root; golden profiles in `tools/golden/*` where applicable; local/vendor or suitable fixture | Semantic/golden ladder; `--update-golden` only after intentional decoder change (AGENTS). |
-| `tools/cmpind.py` | L1/L2 primitive | `python3 tools/cmpind.py verify REFER001` etc. (AGENTS) | `.cmp/.ind` pairs; local/vendor or synthetic fixtures | Primitive/structural `.cmp/.ind` checks. |
-| `tools/l1l2_fixtures.py` | L1/L2 fixture matrix (H26) | `python3 tools/l1l2_fixtures.py [--json PATH] [--md PATH] [--selftest]` (help) | **Synthetic/generated only, no vendor data.** NOT COVERED cases reported, never PASS. | Blocking on Py 3.11/3.13 in `.github/workflows/l1l2-fixtures.yml`; Py 3.14 informational (H9/zlib-ng context). Rule 13: offline only. |
-| `tools/l3check.py` | L3 / card gate (M9.8/M9.12) | `python3 tools/l3check.py [--build-corpus] [--card CARD --factory FACTORY] [--json [PATH]] [--selftest] ...` (help; `--json PATH` writes the report atomically, `-` = stdout). Exit codes observed: 0 runnable pass, 1 fail/invalid, 2 usage, 3 nothing runnable / no runnable verdict in relevant modes. | Synthetic corpus (`--build-corpus`); card/factory images are **local/vendor** inputs (not CI PR). | `--card` is M9.12 software gate direction; S0/S1 no-diff baseline verdict gap tracked by M9.12/M9.31 (TODO/claims context). Synthetic PASS is not firmware proof. |
-| `tools/progress_report.py` | Dashboard (H27) | `python3 tools/progress_report.py [--json] [--md] [--l1l2-json] [--l3-json] [--l5-status] [--l4-status alias] [--l4-emulator-status] [--run-tools] [--selftest]` (help) | Reads repo files and supplied JSON/status inputs; no vendor data read by tool itself. | Schema `osm2leaf.progress_report/v1` (C-2770). Separates offline / L3 firmware proof / car(L5)-required/manual emulator(L4) states; synthetic L3 PASS not firmware proof (C-2771); L4/L5 not auto-passed (C-2772, help). |
-| `tools/realcheck.py` | Local/vendor regression | `python3 tools/realcheck.py IMG256 [--selftest] ...` (help) | **Vendor IMG256** (or supplied image). Exit 2 = no image (AGENTS). | Pinned CE/real-byte checks; not a PR CI gate. |
-| `tools/fetch_image.py` | Local/vendor acquisition | `python3 tools/fetch_image.py --image KEY [--part SIZE] -o PATH [--verify PATH] [--selftest]` (help) | Downloads pinned vendor images from `files.viaaq.eu` (AGENTS rule 11 context). | Enables "no image on this machine is not a blocker" for local work; **not** used to put vendor data in repo/PR CI. |
-| `.github/workflows/ci.yml` | PR/push quality gate | Runs on `pull_request` and `push` to `main` (workflow) | No vendor data/images/QEMU/L4/L5. | Hard: `selftest --json`, `claims_check.py`, `todo_check.py` on Py 3.11+3.13. Informational: Py 3.14 (H9 zlib-ng context). |
-| `.github/workflows/l1l2-fixtures.yml` | PR/push L1/L2 fixtures | Runs on `pull_request` and `push` to `main` (workflow) | No vendor data/golden EU2011 on real ROOT/full vendor REFER001/real LEV3456R. | Hard: `l1l2_fixtures.py` runnable checks on Py 3.11+3.13. Informational: Py 3.14. Artifacts: `l1l2.json`, `l1l2.md`. |
-| `.github/workflows/README.md` | Policy doc | N/A | N/A | Documents hard/informational split, SKIP≠PASS, why no vendor data. |
+| `tools/gate.py` | Standing gate (H85) — **shipped** | `python tools/gate.py --json gate.json` (`.github/workflows/ci.yml`, step "Standing gate"); `python3 tools/gate.py --selftest` (`tools/gate.py` usage); `python3 tools/board.py check HEAD` (`tools/gate.py` docstring, H121 row) | Repo text and committed snapshots; `archive/head256.img` is a vendor input that SKIPs the `fn_audit` row in CI. | The five rows are `selftest`, `claims_check`, `todo_check`, `board_check`, `fn_audit` (`tools/gate.py --json` prints them). Measured on this tree: `gate: 5 pass, 0 fail, 0 skip`. **SKIP is never PASS** (`.github/workflows/ci.yml` policy). |
+| `tools/selftest.py` | Test infra — row **inside `gate.py`** | `python tools/selftest.py` (`.github/workflows/README.md`, gate table); `python3 tools/selftest.py --json` (`tools/selftest.py` usage) | Synthetic/tool-local; discovers tools with `--selftest` | Not a separate CI step any more: the `quality` job runs it via `gate.py` on Py 3.11/3.13; Py 3.14 informational (H9/zlib-ng). |
+| `tools/claims_check.py` | Board/ledger hygiene — row inside `gate.py` | `python tools/claims_check.py --strict --count-check` (`.github/workflows/README.md`, gate table) | Repo text (`docs/research/claims.md` and references) | Run by `gate.py`; `--count-check` re-runs cited selftests (H78). |
+| `tools/todo_check.py` | Board hygiene — row inside `gate.py` | `python tools/todo_check.py` (`.github/workflows/README.md`, gate table); `python3 tools/todo_check.py TODO.md` (`AGENTS.md`) | Repo text | Run by `gate.py`; errors fail, warnings reported. `--board-clean` runs `--strict` (red until H53). |
+| `tools/fn_audit.py` | Firmware snapshot drift — row inside `gate.py` | `python tools/fn_audit.py archive/head256.img --corpus … --overlay …` (`.github/workflows/README.md`, gate table) | Committed corpus/overlay; real head is vendor-only | SKIPs in PR CI when `archive/head256.img` is absent; the separate H84 real-image workflow owns the real head. |
+| `tools/cardcheck.py` | L1 | `python3 tools/cardcheck.py --root /path/to/root` (`tools/README.md`); `python3 tools/cardcheck.py --selftest` (`docs/experiments/EXP-2026-11-20-H103-cardcheck-fixture.md`); `--generate-fixture DIR`, `--generate-fixture-image IMG`, `--break KIND` (help) | Card image or extracted root; local/vendor when supplied; deterministic no-vendor fixture | Used by the local verification ladder and L1/L2 fixtures. **H104 is open**: no committed L1 `cardcheck` baseline yet. |
+| `tools/l2check.py` | L2 | `python3 tools/l2check.py --root /path/to/root` (`tools/README.md`); `python3 tools/l2check.py --root /path/to/root --cmp-limit 20 --no-tiles` (`tools/README.md`); `python3 tools/l2check.py --selftest` (`tools/l2check.py` docstring) | Extracted card root; golden profiles in `tools/golden/*` where applicable | Semantic/golden ladder; `--update-golden PATH` (help) only after an intentional decoder change (AGENTS). |
+| `tools/cmpind.py` | L1/L2 primitive | `python3 tools/cmpind.py verify REFER001` (`AGENTS.md`) | `.cmp/.ind` pairs; local/vendor or synthetic fixtures | Primitive/structural `.cmp/.ind` checks. |
+| `tools/l1l2_fixtures.py` | L1/L2 fixture matrix (H26) | `python tools/l1l2_fixtures.py --json l1l2.json --md l1l2.md --no-stdout-md` (`.github/workflows/l1l2-fixtures.yml`); `python3 tools/l1l2_fixtures.py --require-covered` / `--selftest` (`tools/l1l2_fixtures.py` docstring) | **Synthetic/generated only, no vendor data.** NOT_COVERED cases reported, never PASS. | Blocking on Py 3.11/3.13; Py 3.14 informational (H9/zlib-ng). Rule 13: offline only. |
+| `tools/l1l2_matrix.py` | L1/L2 per-file/per-feature matrix + baseline (H41/H57) — **shipped** | `python3 tools/l1l2_matrix.py --input matrix.json --check-baseline tools/fixtures/l1l2-matrix-baseline.json` (`tools/l1l2_matrix.py` usage; the workflow wraps it as `python tools/l1l2_matrix.py --input l1l2-matrix.json`, `--check-baseline tools/fixtures/l1l2-matrix-baseline.json` and `--no-stdout-md` (flags quoted from `.github/workflows/l1l2-fixtures.yml`)); `python3 tools/l1l2_matrix.py --selftest` / `--write-baseline PATH` (usage) | Rows keyed `level,file,feature` over the H40 generated fixture; committed baseline `tools/fixtures/l1l2-matrix-baseline.json` (12 rows, H57 EXP) | The second workflow step emits `l1l2-matrix.json`/`.md` and fails on a baseline regression. Key/`--check-baseline` are reused by H43 — no second schema. |
+| `tools/l3check.py` | L3 / card gate (M9.8/M9.12) | `python3 tools/l3check.py --build-corpus --json l3.json` (`.github/workflows/ci.yml`, step "L3 check (synthetic corpus)"); `--card CARD`, `--factory FACTORY`, `--selftest` (`tools/l3check.py --help` flags) | Synthetic corpus (`--build-corpus`); card/factory images are **local/vendor** inputs (not CI PR). | Help prints exit codes 0 runnable pass, 1 fail/invalid, 2 usage, 3 nothing runnable / no runnable verdict. Measured: `pass 3 / fail 0 / skip 0 / blocked 10 / runnable 3 / total 13`, `result PASS`, `exit 0`, `corpus.entries 111`, `target_count 13` (this tree, `python3 tools/l3check.py --build-corpus --json l3.json`). Synthetic PASS is not firmware proof (rule 13); **H107 is open** on splitting the `blocked` bucket. |
+| `tools/progress_snapshot.py` | One-command per-level snapshot (H56), used by H42 — **shipped** | `python3 tools/progress_snapshot.py --out artifacts/snapshot --json progress.json --md progress.md` (`.github/workflows/README.md`); `python3 tools/progress_snapshot.py --selftest` (`tools/progress_snapshot.py` usage) | Offline chain: `l1l2_fixtures.py` + `l1l2_matrix.py` + `l3check --build-corpus --json PATH` + `progress_report.py` (schema `osm2leaf.progress_report/v3` per README) | Exit propagated unchanged; `NO RUNNABLE TARGETS (RED)` is never a green SKIP. L4/L5 are `NOT RUN` unless explicit status JSON is supplied. |
+| `tools/progress_report.py` | Dashboard (H27/H47) | `python3 tools/progress_report.py --selftest` / `--l1l2-matrix-json L1L2_MATRIX_JSON` / `--l3-corpus-json L3_CORPUS_JSON` / `--l4-emulator-status L4_EMULATOR_STATUS` / `--l5-status L5_STATUS` (help) | Reads repo files and supplied JSON/status inputs; no vendor data read by tool itself. | Schema `osm2leaf.progress_report/v3` (`SCHEMA` in `tools/progress_report.py`; README). H41/H43 inputs auto-detected; generated-corpus PASS is never promoted to firmware proof; L4/L5 never auto-passed. Historical C-2770 prose uses older "L4 car" wording — current flags and §1 mapping are canonical. |
+| `tools/realcheck.py` | Local/vendor regression (H84 workflow) | `python3 tools/realcheck.py IMG256 --require-image` (`.github/workflows/firmware-regression.yml`); `python3 tools/realcheck.py IMG256` (workflow summary) | **Vendor IMG256** (or supplied image); exit 2 = no image without `--require-image`. | Manual/weekly only, not a PR CI gate; H84 is `done`. |
+| `tools/fetch_image.py` | Local/vendor acquisition (H84 workflow) | `python3 tools/fetch_image.py --list` / `--image IMG256` / `--verify PATH` (`.github/workflows/firmware-regression.yml`) | Downloads pinned vendor images from `files.viaaq.eu` (AGENTS rule 11); head only in CI. | Enables "no image on this machine is not a blocker" for local work; never puts vendor data in repo/PR CI. |
+| `tools/l4check.py` | L4 emulator one-command wrapper (M8.H13) | `python3 tools/l4check.py --card EUCARD --json` (`docs/experiments/EXP-2026-11-22-M8.H13-l4check.md`); `python3 tools/l4check.py --selftest` (`tools/l4check.py` docstring) | Needs a card, firmware head and `-M ze0` QEMU; `--selftest` is canned logs | Exit 3 (`NOT RUNNABLE`) is not a pass; not a standing `gate.py` check (rule 17 budget). L4 acceptance still needs a real run (rule 13). |
+| `.github/scripts/main_watch.py` | Main-gate watchdog + PR-head sweep (H117/H126) — **shipped** | `python .github/scripts/main_watch.py --selftest` (`.github/workflows/main-watch.yml`); `python .github/scripts/main_watch.py --selftest` (`.github/workflows/main-watch.yml`), then the verdict steps with `--branch main`, `--workflow "CI quality gate"` / `"L1/L2 synthetic fixtures"`, `--limit 40` and `--prs` (flags quoted from the same workflow steps) | `gh run list` data (repo/token), plus committed replay fixtures | Each workflow classified on its own run list (M9.64); salient red opens a `[H117] fix:` issue, stale PR head a `[H126] fix:` issue, `cancelled` counted as de-dup. Both tasks are `done`. **H108 is open**: a mechanical `ci_audit.py` tip/step audit. |
+| `tools/qemu-ze0/build.sh` | ze0 patch-series lint (M8.H14) — **shipped** | `bash tools/qemu-ze0/build.sh --selftest` / `--lint-patches` / `--check-version 11.1.3` (`.github/workflows/ci.yml`, `ze0-patches` job) | Pinned tarball cache (SHA-256 read from `build.sh`); no full QEMU build | Blocking job: a patch that no longer applies exits 4 and stays RED. CI gating only, not rule-13 acceptance. |
+| `.github/workflows/ci.yml` | PR/push quality + L3 + patch series gate | Runs on `pull_request` and `push` to `main` (workflow) | No vendor data/images/QEMU build/L4/L5. | Blocking: `tools/gate.py` (Py 3.11/3.13), `python3 tools/l3check.py --build-corpus --json l3.json` (H28, Python 3.11), `build.sh` patch checks. Informational: Py 3.14. Artifact `l3-synthetic-corpus` (`l3.json`, `l3.txt`). |
+| `.github/workflows/l1l2-fixtures.yml` | PR/push L1/L2 fixtures + baseline | Runs on `pull_request` and `push` to `main` (workflow) | No vendor data/golden EU2011 on real ROOT/full vendor REFER001/real LEV3456R. | Blocking: `l1l2_fixtures.py` runnable checks and the H41 matrix baseline step on Py 3.11/3.13. Informational: Py 3.14. Artifacts: `l1l2.json`, `l1l2.md`, `l1l2-matrix.json`, `l1l2-matrix.md`. |
+| `.github/workflows/progress.yml` | PR/push progress dashboard (H42) — workflow **shipped**; task still `in progress` | `python3 tools/progress_snapshot.py --out artifacts/snapshot --json progress.json --md progress.md` (workflow step) | No vendor data in the PR path; local-only checks listed, never run. | Publishes `progress.json`/`.md`, `artifacts/snapshot/matrix.json`, explicit `NOT RUN` for L4/L5 and a local-only section; artifact `progress-h42`. |
+| `.github/workflows/main-watch.yml` | Post-merge watchdog + PR sweep (H117/H126) | `workflow_run` + hourly `schedule` + `workflow_dispatch` (workflow) | `gh` run data only | Per-workflow verdicts, artifact `main-watch`. |
+| `.github/workflows/firmware-regression.yml` | Manual/weekly IMG256 regression (H84) | `workflow_dispatch` + `schedule` (`cron: "23 4 * * 1"`) only — never `pull_request`/`push` (workflow) | Verified 256 MiB head from cache or rule-11 fetch | Runs `realcheck.py IMG256 --require-image`; explicit `SKIP (no image on this runner)`; artifact `img256-firmware-head-regression`. |
+| `.github/workflows/README.md` | Policy doc | N/A | N/A | Documents hard/informational split, SKIP≠PASS, no vendor data, and the H41/H43/H84/H117 policies. |
 
-**Interfaces/terminology note (no blocking contradiction found):** `progress_report.py`
-help exposes both emulator and bench/manual status inputs (`--l4-emulator-status`
-for M8, `--l5-status` for car/bench with `--l4-status` backward alias). This is
-consistent with the 2026-11-09 mapping migration; historical C-2770 prose still
-uses older "L4 car" wording in places — treat `progress_report` current flags
-and this document's mapping as canonical for new work.
+**Open follow-ups named by the board (quoted from `origin/main:TODO.md`):**
+H42 `in progress` (workflow shipped, task not closed), H43 `open` (generated-fixture
+L3 corpus), H44 `open` (L5 readiness manifests), H57 `done` (baseline shipped),
+H84 `done` (IMG256 workflow shipped), H104 `open` (L1 `cardcheck` baseline),
+H107 `open` (split the L3 `blocked` bucket), H108 `open` (mechanical CI-tip audit).
+The shipped artifacts/jobs above are not evidence that those open tasks are done.
 
 ## 3. Gap-closure dependency/order (H28,H29,H38,H40–H45,H47,M9.31)
 
@@ -110,10 +124,39 @@ classes (union across tool/reporting contexts; producers may emit a subset):
 | `NOT_RUNNABLE` | No runnable target/implementation applies for this case/mode. | **No — never PASS.** |
 | `BLOCKED` | Known dependency/blocker prevents a verdict (e.g. M1.2f, missing reader mapping, unavailable corpus). | **No — never PASS.** |
 | `NOT_RUN` / `NOT RUN` | Manual/emulator/bench stage not executed (especially L4 emulator / L5 bench). | **No — never PASS.** |
+| `NO_RUNNABLE` | `l3check` exit 3: no runner target produced a verdict (workflow labels it `NO RUNNABLE TARGETS`). Distinct from `SKIP` and from a `BLOCKED` target inside a runnable run. | **No — never PASS, never a green SKIP.** |
 
-**Rule:** **`SKIP`, `NOT_COVERED`, `NOT_RUNNABLE`, `BLOCKED`, and `NOT_RUN` are
-never `PASS`.** They must remain visible in summaries/artifacts so "green" does
-not imply coverage or firmware/car acceptance.
+**Rule:** **`SKIP`, `NOT_COVERED`, `NOT_RUNNABLE`, `BLOCKED`, `NOT_RUN` and
+`NO_RUNNABLE` are never `PASS`.** They must remain visible in summaries/artifacts
+so "green" does not imply coverage or firmware/car acceptance.
+
+**Where each token is produced (shipped sources):**
+- `PASS`/`FAIL`/`SKIP (reason)` — `python3 tools/gate.py` (`tools/gate.py`
+  docstring: "**PASS** -- the gate ran and exited 0", "**FAIL** -- the gate ran
+  and exited non-zero for a reason other than a missing vendor input",
+  "**SKIP (reason)** -- the gate could not run because a vendor input is
+  absent"). A SKIP-only image gate still exits 0 with a named SKIP, never a
+  silent pass.
+- `PASS`/`FAIL`/`SKIP`/`NOT COVERED` — `python tools/l1l2_fixtures.py
+  --json l1l2.json --md l1l2.md --no-stdout-md` (`.github/workflows/l1l2-fixtures.yml`
+  prints `runnable {runnable_pass} PASS / {runnable_fail} FAIL /
+  {runnable_skip} SKIP, not_covered=…`); `NOT COVERED` never fails a runnable
+  check.
+- `PASS`/`FAIL`/`SKIP`/`NOT_COVERED`/`NOT_RUNNABLE`/`BLOCKED`/`NOT_RUN` —
+  `python3 tools/l1l2_matrix.py --input matrix.json --check-baseline
+  tools/fixtures/l1l2-matrix-baseline.json` (`tools/l1l2_matrix.py` docstring);
+  the five status tokens are explicit and never counted as PASS.
+- `PASS`/`FAIL`/`BLOCKED`/`NO_RUNNABLE` — `python3 tools/l3check.py
+  --build-corpus --json l3.json` (`.github/workflows/ci.yml` policy: exit 3
+  stays RED; `BLOCKED` is counted, not a FAIL/PASS). `SKIP` here means an absent
+  backend, not a missing vendor image (H28 policy step).
+- `NOT RUN` — `python3 tools/l4_status.py` (`tools/l4_status.py --selftest`
+  asserts the vocabulary is exactly `PASS|FAIL|BLOCKED|NOT RUN`); and
+  `python3 tools/progress_snapshot.py --out artifacts/snapshot --json
+  progress.json --md progress.md`, whose L4/L5 rows are readiness flags only.
+- `salient`/`shadowed`/`cancelled`/`unrelated green` — `python3 .github/scripts/main_watch.py --branch main` (`.github/workflows/README.md`), with `--workflow "CI quality gate"` and `--limit 40` from `.github/workflows/main-watch.yml`. A `shadowed` or
+  `unrelated green` covers nothing outside its own workflow; `cancelled` is a
+  concurrency de-dup, not a green.
 
 ## 5. Execution matrix
 
@@ -126,50 +169,102 @@ not imply coverage or firmware/car acceptance.
 
 ## 6. Regression gate policy
 
-**Hard (blocking) gates today (PR/push to `main`, no vendor):**
-- `ci.yml`: `tools/selftest.py --json`, `tools/claims_check.py`,
-  `tools/todo_check.py TODO.md` on Python 3.11 and 3.13. `FAIL` blocks.
-- `l1l2-fixtures.yml`: `tools/l1l2_fixtures.py` runnable checks on Python 3.11
-  and 3.13. `FAIL` of runnable checks blocks; `NOT_COVERED` is reported, not a
-  pass/failure of covered runnable checks.
+**Hard (blocking) gates on `origin/main` (PR/push to `main`, no vendor):**
+- `.github/workflows/ci.yml`, `quality` job (Python 3.11 and 3.13): the single
+  blocking step is `python tools/gate.py --json gate.json`. The workflow summary
+  names it verbatim: "Hard gate (blocking): `tools/gate.py` (`selftest.py` +
+  `claims_check.py --strict --count-check` + `todo_check.py` + `board.py check
+  HEAD` + `fn_audit.py --corpus/--overlay`, one PASS/FAIL/SKIP policy) on Python
+  3.11 and 3.13." A `FAIL` blocks; a SKIP (missing `archive/head256.img`) is
+  listed and is never counted as PASS.
+- `.github/workflows/ci.yml`, `l3` job (Python 3.11): the blocking step is
+  `python3 tools/l3check.py --build-corpus --json l3.json` ("L3 policy (H28)"):
+  "Blocking: `python3 tools/l3check.py --build-corpus --json l3.json` on the
+  synthetic corpus; the tool exit is propagated (3 stays RED)." Artifact
+  `l3-synthetic-corpus` (`l3.json`, `l3.txt`).
+- `.github/workflows/ci.yml`, `ze0-patches` job: `bash tools/qemu-ze0/build.sh
+  --selftest`, `bash tools/qemu-ze0/build.sh --lint-patches --patch-dir
+  tools/qemu-ze0/patches` and `bash tools/qemu-ze0/build.sh --check-version
+  11.1.3 \
+     --srcdir "$HOME/.cache/qemu-ze0" \
+     --patch-dir tools/qemu-ze0/patches` (workflow steps); exit 4 (a patch no
+  longer applies) stays RED.
+- `.github/workflows/l1l2-fixtures.yml`: `python tools/l1l2_fixtures.py --json
+  l1l2.json --md l1l2.md --no-stdout-md` then the H41 matrix steps
+  `python tools/l1l2_matrix.py --input l1l2.json` followed by `--json l1l2-matrix.json`, `--md l1l2-matrix.md`, `--no-stdout-md` (`.github/workflows/l1l2-fixtures.yml`) and
+  `python tools/l1l2_matrix.py --input l1l2-matrix.json` followed by `--check-baseline tools/fixtures/l1l2-matrix-baseline.json` and `--no-stdout-md` (`.github/workflows/l1l2-fixtures.yml`) on Python 3.11/3.13.
+  `FAIL` of runnable checks and baseline regressions block; `NOT COVERED` is
+  reported, never a pass/failure of covered runnable checks.
+- `.github/workflows/progress.yml` (H42): `python3 tools/progress_snapshot.py
+  --out artifacts/snapshot --json progress.json --md progress.md` on Python
+  3.11, exit propagated unchanged (rc=3 `NO_RUNNABLE` stays RED). Artifact
+  `progress-h42`. The workflow is shipped; the task remains `in progress`.
+
+**Post-merge and manual (not a PR gate, but shipped):**
+- `.github/workflows/main-watch.yml`: `python .github/scripts/main_watch.py
+  --selftest`, then `--branch main --workflow "CI quality gate" --limit 40`,
+  the `L1/L2 synthetic fixtures` variant, and `--prs` (H126). Workflow dispatch
+  and an hourly sweep; a salient red opens a `[H117] fix:` issue.
+- `.github/workflows/firmware-regression.yml` (H84, `done`):
+  `workflow_dispatch`/weekly `schedule` only; with a verified head runs
+  `python3 tools/realcheck.py IMG256 --require-image`, with no head prints
+  `SKIP (no image on this runner)`.
 
 **Informational (non-blocking):**
-- Python 3.14 matrix entries in both workflows (`continue-on-error`) due to
-  zlib-ng/H9 behavior; they do **not** make byte-identical vendor recompression
-  claims.
+- Python 3.14 matrix entries in `ci.yml` and `l1l2-fixtures.yml`
+  (`continue-on-error`), because zlib-ng/H9 builds may diverge from stock zlib
+  1.3.1 byte-identical behavior. They make no byte-identical vendor recompression
+  claim.
 
-**Honest classification rules:**
-- Tools without `--selftest` or with missing dependencies are classified by
-  `selftest.py` policy as **SKIP** (not PASS); workflow summaries must preserve
-  that distinction.
-- `NOT_COVERED` / `NOT_RUNNABLE` / `BLOCKED` / `NOT_RUN` must not be promoted to
-  green success.
+**Honest classification rules (tool/workflow quotes):**
+- `python3 tools/gate.py --selftest` proves the five-row policy with stubs:
+  "exit 2 + missing-input message -> SKIP (not PASS)" and "a dropped claim row
+  turns the board row FAIL". A gate's own exit code is not enough: `fn_audit`
+  exits 2 for a missing head, which the runner classifies as SKIP only with a
+  missing-input marker.
+- `NOT_COVERED` / `NOT_RUNNABLE` / `BLOCKED` / `NOT_RUN` / `NO_RUNNABLE` must
+  not be promoted to green success (`tools/l1l2_matrix.py`, `tools/l3check.py`
+  and `tools/progress_snapshot.py` help/docstrings).
 - Synthetic L3 `PASS` may be reported as harness/pipeline evidence but must
   **not** be counted as firmware proof (rule 13 / C-2771 / H28 scope).
 - L4 emulator and L5 bench results require explicit evidence/status inputs;
-  dashboards must not auto-pass them.
+  dashboards must not auto-pass them (`progress_report --l4-emulator-status`,
+  `--l5-status`, with `--l4-status` as the backward alias).
 
-**Committed no-vendor baseline (H57).** `tools/fixtures/l1l2-matrix-baseline.json`
+**Committed no-vendor baseline (H57, `done`).** `tools/fixtures/l1l2-matrix-baseline.json`
 is the committed expected result for the H40/H41 generated fixture, keyed by
 `level,file,feature` (H57 Scope; H104 owns the separate L1 `cardcheck`
-baseline). `python3 tools/l1l2_matrix.py --input REPORT.json --check-baseline
-tools/fixtures/l1l2-matrix-baseline.json` fails (exit 1) when a baseline PASS
-becomes FAIL/SKIP/NOT_COVERED or when a PASS key disappears from the report;
-`SKIP -> FAIL` also fails. A status rise (`FAIL -> PASS`, `SKIP -> PASS`) is
-printed as an improvement, not an error; a new key is `NEW`, a vanished
-non-PASS key is `DROPPED`, and a duplicated key is `DUPLICATE` — all printed
-without failing the gate. SKIP/NOT_COVERED/NOT_RUNNABLE are never PASS.
+baseline, still `open`). The workflow's baseline gate is
+`python tools/l1l2_matrix.py --input l1l2-matrix.json`, `--check-baseline tools/fixtures/l1l2-matrix-baseline.json` and `--no-stdout-md` (`.github/workflows/l1l2-fixtures.yml`), using the tool's documented
+`python3 tools/l1l2_matrix.py --input matrix.json --check-baseline
+tools/fixtures/l1l2-matrix-baseline.json` form. It fails (exit 1) when a baseline
+PASS becomes FAIL/SKIP/NOT_COVERED or when a PASS key disappears from the
+report; `SKIP -> FAIL` also fails (H57). A status rise (`FAIL -> PASS`,
+`SKIP -> PASS`) is printed as an improvement, not an error; a new key is `NEW`,
+a vanished non-PASS key is `DROPPED`, and a duplicated key is `DUPLICATE` — all
+printed without failing the gate. SKIP/NOT_COVERED/NOT_RUNNABLE are never PASS.
 Refresh the baseline only with an EXP/PR rationale (as for `l2check
---update-golden`), never to make a failing run pass; `tools/l1l2_matrix.py
---input REPORT.json --write-baseline PATH` writes it and the diff of that file
-is the review record.
+--update-golden`), never to make a failing run pass;
+`python3 tools/l1l2_matrix.py --input matrix.json --write-baseline PATH` writes
+it and the diff of that file is the review record.
 
-**Planned regression/gate expansions (do not treat as implemented):**
-- H28/H42/H43: richer CI artifacts/summaries and generated-fixture/L3 reporting
-  (no vendor in PR path).
-- H44/H29: machine-checkable **L5 readiness** manifests/checklists and manual
-  result registration.
-- M8: L4 emulator gates when the emulator path is runnable and policy-compliant.
+**Shipped vs open (board status quoted from `origin/main:TODO.md`):**
+- Shipped: H28's blocking `l3check --build-corpus --json l3.json` job, H41/H57's
+  per-file/per-feature matrix with the committed baseline, H84's
+  workflow_dispatch/schedule IMG256 regression, H117/H126's watchdog and
+  PR-head sweep, and the H42 `progress.yml` workflow.
+- Still open: **H42** (task `in progress` — workflow shipped, not closed),
+  **H43** (generated-fixture L3 corpus, `open`), **H44** (L5 readiness manifests,
+  `open`), **H104** (L1 `cardcheck` baseline, `open`), **H107** (split the L3
+  `blocked` bucket, `open`) and **H108** (mechanical CI-tip audit, `open`).
+  H57 and H84 are `done`. A shipped job is not evidence that its owning task is
+  closed.
+
+**Planned expansions that are NOT shipped as of this refresh (do not treat as
+implemented):** H43's generated-fixture L3 reporting in `progress.yml`, H44's
+machine-checkable L5 readiness manifests/checklists, and M8's L4 emulator gates
+beyond the `ze0-patches` lint/series job (rule 13; L4 acceptance requires a
+real emulator run).
 
 ## L4 full-system emulator readiness (QEMU `ze0`, M8) — H110
 
@@ -184,6 +279,14 @@ The machine is **QEMU `-M ze0`** built by `tools/qemu-ze0/build.sh` (default
 pin 11.1.3 since M8.A11, C-6890; 8.2.10 before, C-4330); the boot orchestrator is `tools/qemu-ze0/run.sh`. The
 panel is printed by `python3 tools/l4_status.py` (C-4410); every stage's
 number below names the claim that carries it — none is retyped from TODO prose.
+The full boot is wrapped by `python3 tools/l4check.py --card EUCARD --json`
+(`docs/experiments/EXP-2026-11-22-M8.H13-l4check.md`; `tools/l4check.py` docstring
+prints the form `python3 tools/l4check.py --card CARD.img [--head IMG256] [--qemu BIN]`),
+which scores the DBGMSG log against these F0–F4 names plus F5 idle; exit 3 is
+`NOT RUNNABLE`, never a pass. `feedback-loop.md` records that this is **not** a
+standing `gate.py` check (rule 17 budget). The `tools/qemu-ze0/build.sh
+--selftest` / `--lint-patches` / `--check-version 11.1.3` steps in
+`.github/workflows/ci.yml` gate only the patch series, not an L4 run.
 
 | Stage | Meaning | Gate it must meet | Evidence (claim) | Blocked by | Status without a run log |
 | --- | --- | --- | --- | --- | --- |
