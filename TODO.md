@@ -5627,7 +5627,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7570–C-7579
 
 - [ ] **M8.H61 — Reversing camera path: a test picture on the video input when reverse is on**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h61-camera-path · Critical: no · Pair: solo
   - Step: model
   - Priority: low (after touch, GPS and the vehicle peer)
   - Depends: M8.H49, M8.C1f
