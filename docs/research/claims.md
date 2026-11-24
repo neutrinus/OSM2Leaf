@@ -7664,10 +7664,30 @@ into three printed classes.
 ## M9.81 — Allocate IDs against open PRs at claim time
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
+
+## M3.16 — INTER/FRWAY readers (r3, C-10270–C-10273)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+<<<<<<< ours
 | C-10270 | RESERVED for M9.81 (allocate IDs against open PRs at claim time). | RESERVED | — | — |
+=======
+| C-10270 | The shared REFER001 name-builder `fn 0x003fbed8` (pdata START, length `0x214`, end `0x003fc0ec`, C-4666) loads a 7-entry family table at `0x001792c4` whose entries are `POINT0`, `.DAT`, `ADDRE0`, `FRWAY0`, `INTER0`, `LCTBL0`, `ZCODE0`; its one-call-away read issuers are exactly `fn 0x003fc0ec` (INTER) and `fn 0x003fc518` (FRWAY). `name_loaders.py openers` prints 13 resolver callers; the `0x003fbed8` row lists 14 call sites (`0x003fc40c`..`0x004004e0`). All three VAs classify as CODE/sec0 via `va_class.py`. | VERIFIED | H | EXP-2026-11-24-M3.16-opener-follow; `python3 tools/name_loaders.py openers archive/head256.img --graph /home/marek/projekty/leafre-work/scratch/m3.29/g.json`; `python3 tools/va_class.py archive/head256.img --module Navi.exe --resolve-with 0x3e00200 0x003fbed8 0x003fc0ec 0x003fc518`; `python3 tools/nk_decomp.py pdata archive/head256.img --module Navi.exe 0x003fbed8 0x003fc0ec 0x003fc518` |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10271 | RESERVED for M9.81. | RESERVED | — | — |
+=======
+| C-10271 | L3 read-watch on the factory `INTER001` page (39936 B, decoded from the EU 2011 `.cmp`/`.ind`, `inter_table.py check` exit 0) of the two opener followers `0x003fc0ec` and `0x003fc518`, with ctx+0x68 = `0x14cc` and ctx+0x7c = family 4 seeded, records only five guest `u32` reads of the **512-byte file/context header** (`+0x7c` at pcs `0x003fc142`/`0x003fc65c`, `+0x68` at pcs `0x003fc146`/`0x003fc534`/`0x003fc65e`); none reaches the `0x1108`/`0x1110` 12-byte table. `0x003fc0ec` returns `0xffffffff` and `0x003fc518` returns `0x1`. Mutating the first record BE `u16@+6` length from `0x001c` to `0xff1c` leaves the watched read set unchanged, so these functions are not record consumers. The LCTBL reader positive control (`read_watch_l3.py probe 0x0040de98` on LCTBL001) still reports 6 guest reads / `result: PASS`. | VERIFIED (negative, scoped) | M | EXP-2026-11-24-M3.16-opener-follow; `python3 tools/inter_l3_probe.py watch IMG --card-root ROOT --buf INTER001.DAT` (and the mutated copy) |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10272 | RESERVED for M9.81. | RESERVED | — | — |
+=======
+| C-10272 | HYPOTHESIS: the INTER/FRWAY content reader is not reachable by directly calling the two one-call-away read issuers with a synthetic context. Both functions dereference header context fields (`+0x68` name id, `+0x7c` family word) and then call generic helpers (`0x003f9290`, `0x0040defc` / `0x0040ee4c`, `0x00407724`, `0x004086b4`) whose descriptor/name-string arguments are BSS/init data unavailable to a bare call, so the run stops before a content loop. A real record read needs the live task context built by the firmware opener chain (e.g. caller `0x003ff29c` -> `0x003fc0ec`). Not proven. | HYPOTHESIS | L | EXP-2026-11-24-M3.16-opener-follow §Interpretation |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10273 | RESERVED for M9.81. | RESERVED | — | — |
+=======
+| C-10273 | Two signature families over Navi.exe sec0 (5,553,664 B, LE halfwords, 0 compressed exec sections C-2128), derived from the L3-observed context reads and family dispatch in the follower disassembly (NOT from refer.md byte grammar): f5 (both `add #124,Rn; mov.l @Rn` and `add #104,Rk; mov.l @Rk` ctx reads in one function) = 3 candidates — 0x3fbf04/0x3fbf20 inside the opener 0x003fbed8 itself, and 0x3fec82 inside fn 0x003fec60 (a u16-key walker with `mov.w @r8` + `cmp/eq 0xffff,r3` at +0 and `mov.w @(6,r8)`, reached from REFER message handlers 0x004003f4/0x004005f8, not an INTER/FRWAY opener); f6 (`cmp/eq #4` + `cmp/eq #3` + +0x68 ctx read in one function) = 0. Neither is a confirmed INTER/FRWAY record consumer; consumed fields remain UNKNOWN (C-2219). | VERIFIED (negative, scoped) | M | EXP-2026-11-24-M3.16-opener-follow; `python3 tools/inter_l3_probe.py scan archive/head256.img`; `sh4dis --va 0x003fec82`; `nk_decomp.py pdata ... 0x003fec82` |
+>>>>>>> theirs
 | C-10274 | RESERVED for M9.81. | RESERVED | — | — |
 | C-10275 | RESERVED for M9.81. | RESERVED | — | — |
 | C-10276 | RESERVED for M9.81. | RESERVED | — | — |

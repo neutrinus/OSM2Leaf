@@ -1660,11 +1660,11 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
-  - Unblock: **M3.43** — L4 QEMU zoom-out observes the INTER/FRWAY content reader in a full-system run; re-opens this task.
-  - Status: in progress · Owner: task/m3.16-inter-frway · Critical: no
+  - Unblock: M3.43
+  - Status: blocked · Owner: task/m3.16-inter-frway · Critical: no
   - Note (M3.28, 2026-11-19): openers run on the card: `0x003fbed8` with search type 4 (`INTER`) and 3 (`FRWAY`); the reads come from `0x003fc0ec` and `0x003fc518` (C-4666). The two signature searches that found nothing can be replaced by following those two functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
-  - Blocker: no content reader VA consuming the real INTER/FRWAY 12-byte table (BE `0xffff` key at +0, `length`/`offset` +6/+10) or blob fields was found in decodable build-A Navi.exe sec0 (5,553,664 B, 0 compressed exec sections, C-2128) after four halfword signature families (only `0x00392122`, a byte walker) and an L3 watch of the 11 M3.23 candidates (context reads only); consumed-field mapping unknown (C-2215–C-2219). Shared REFER001 access path is confirmed (C-2210).
+  - Blocker: No content reader VA consuming the INTER/FRWAY 12-byte BE table found: L3 read-watch of opener followers 0x003fc0ec/0x003fc518 on factory INTER001 reads only 512-B context header (+0x68/+0x7c), and mutating the first record BE u16@+6 leaves the read set unchanged; two derived signature families f5 (ctx-read pair, 3 candidates: 0x3fbf04/0x3fbf20 in opener, 0x3fec82 in REFER handler fn 0x3fec60) and f6 (type-3/type-4 dispatch, 0 candidates) give no confirmed record consumer; consumed fields UNKNOWN
   - Depends: — (M4.16c for the `ref` lead)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
     has **0 compressed executable sections** (C-2128), so "not found" means the
@@ -1678,7 +1678,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: (H53 backfill of the Scope sentence as a field) when M3.29's per-family split hands over the INTER/FRWAY candidates, watch them in one L3 run on the factory INTER001 page; if none reads `0x1108`/`0x1110`, stay `blocked` with the watched list in an EXP — no fifth byte-signature family (H51).
   - Done when: the reader VAs and consumed fields are in `refer.md`.
   - Claims: C-2210–C-2219
-  - Result: `EXP-2026-11-20-M3.16-inter-frway.md` (blocked; done-when not met). **Layout corrected:** the 12-byte record at `0x1108`/`0x1110` is big-endian (`u16 key` +0 `0xffff`=term, `u16 0` +2, `u8 id` +4, `u8 flag` +5, `u16 length` +6, `u16 b8` +8, `u16 offset` +10), all 10 factory shards conform (`tools/inter_table.py check`, exit 0); the old LE/11-byte/+8 form is refuted 0/177 (`tools/inter_table.py refute`), C-2215/C-2216. **Reader still not found:** four halfword signature families over Navi.exe sec0 (5,553,664 B, 0 compressed exec, C-2128) give only one f3 candidate `0x00392122`, a byte `@(1,Rm)`/`0xff` walker, not the u16-key table (`tools/inter_reader_scan.py scan`, C-2217); L3 watch of the 11 M3.23 candidates on the factory INTER001 page reads only context/`+0x0`, none touches `0x1108`/`0x1110` (LCTBL `0x0040de98` positive control PASS, C-2218). Consumed fields UNKNOWN (C-2219). Earlier `refer.md` + C-2211/C-2213 updated.
+  - Result: EXP-2026-11-24-M3.16-opener-follow (negative; two derived families f5/f6)
   - Result (r2): `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (negative/blocked). Shared REFER001 access path confirmed (C-2210; `INTER0`/`FRWAY0` in volume-id table `0x00179338` ~VA `0x0017934c`/`0x00179354`, descriptor `0x14e8` `fn 0x004125a8` → `REFER001`+`INDEX003.DAT`, name-builder `fn 0x003fbed8`); two writer-inverse families found 0 candidates (C-2211). `refer.md` INTER/FRWAY sections and `claims.md` C-2210–C-2214 updated.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
