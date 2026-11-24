@@ -347,6 +347,18 @@ kept), so the next run extracts cleanly.
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
+## Plugins (M8.H9)
+
+QEMU 11.1.3 is built with TCG plugins enabled (`meson-log.txt` reports
+`TCG plugins : YES`); `build.sh --plugins` adds the explicit
+`--enable-plugins` configure flag for a from-scratch build. No QEMU source
+patch is needed to load one: `tools/qemu-ze0/plugins/ze0_cov.c` is an
+out-of-tree plugin that records executed basic-block VAs and counts. Build
+it with `make -C tools/qemu-ze0/plugins` (it reads the pinned API headers
+from the QEMU cache and writes only a local `libze0_cov.so`, which is
+git-ignored). Use `qemu-system-sh4 -plugin file=... -d plugin` to see its
+output; `tools/ze0_cov.py` parses it into module/function coverage.
+
 ## Handy invocations after a successful build
 
 ```bash
