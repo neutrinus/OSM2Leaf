@@ -1192,6 +1192,19 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: solo
   - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
 
+- [ ] **H146 — CI selftest red: inter_l3_probe inverts its exit code and two Unblock IDs are ghosts**
+  - Status: in progress · Owner: task/h146-selftest-gate-fixes · Critical: yes · Pair: required
+  - Depends: —
+  - Goal: the standing `CI quality gate` on `origin/main` `f98a617f` has `selftest FAIL` with two named failures. (1) `tools/inter_l3_probe.py --selftest` prints `selftest: PASS` but exits 1: its last line is `return 0 if fails else 1`, the inverse of every other tool (`return 1 if fails else 0`). (2) `tools/todo_check.py --selftest` checks the real `TODO.md` for `dep_classes['ghost'] == 0`; in a clean clone it reports 2 ghosts — `M8.H5: Unblock references ghost task ID 'M8.H5a'` and `M8.H16: Unblock references ghost task ID 'M8.H81'` — because those unblock task blocks live only on open PR branches and were never added to the board on `main`. Locally in the primary checkout the selftest passes because later local work happens to contain them, so the defect only shows in CI.
+  - Precheck: in a clean clone of `origin/main`, `python3 tools/inter_l3_probe.py --selftest` prints `selftest: PASS` and exits 1; `python3 tools/selftest.py --only todo_check` exits 1 with `AssertionError: {'archived': 48, 'ghost': 2, 'blocked': 38}`; `gh run view 45442631393 --log-failed` names `tool:inter_l3_probe FAIL` and `tool:todo_check FAIL` under `selftest`.
+  - Scope: `tools/inter_l3_probe.py` (one-line exit-code fix) and `TODO.md` (add the two unblock task blocks M8.H5a and M8.H81 that the blocked tasks already name, using `board.py add-task`; copy their content from the open PR branches, do not invent new IDs). No other tool, no claim/EXP text, no gate semantics. The two blocks must carry their real IDs, `Status: open`, `Owner: —`, `Depends` and `Done when`, so rule 15 can re-open the parent tasks when they merge.
+  - Input: `tools/inter_l3_probe.py:selftest`, `tools/todo_check.py:_classify_refs`/`run_selftest`, `TODO.md` lines 4848/5006 (`Unblock`), the task blocks on branches `task/m8.h5-savevm` (M8.H5a) and `task/m8.h16-testmode-kernel` (M8.H81).
+  - Done when: `python3 tools/inter_l3_probe.py --selftest` prints `selftest: PASS` and exits 0; a single seeded failing check exits 1 (negative control); in a clean clone `python3 tools/todo_check.py --selftest` and `python3 tools/selftest.py --only todo_check` both exit 0 with `ghost 0`; `python3 tools/claims_check.py --strict --count-check` and `python3 tools/todo_check.py` still pass; `python3 tools/board.py lost --base origin/main` is clean; an EXP records the before/after exit codes and the two added task IDs.
+  - Stop: if adding the two task blocks would collide with a PR that merges first, resolve by ID with `board.py resolve` and keep both sides' additions; never delete another agent's task.
+  - Falsifier: `inter_l3_probe --selftest` still exits 1 on PASS, a failing check exits 0, or a clean clone still reports any ghost reference.
+  - Claims: C-10300–C-10309
+  - Pair: required
+
 
 ## M2 — Map code, activation, updater
 
