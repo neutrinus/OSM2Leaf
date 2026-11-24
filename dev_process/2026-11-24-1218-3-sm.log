@@ -35,7 +35,8 @@ Actions (in order, one line each with reason):
 Task IDs / PRs / commits:
 - no board tasks changed (SM does not edit TODO status)
 - PRs reviewed: #709, #751, #769, plus merge/PR lists
-- commits: docs: SM retro; chore: SM work log 2026-11-24 12:18
+- commits: docs: SM retro; docs: count pre-merge collisions; prompt/retro log-audit
+  update; chore: SM work log 2026-11-24 12:18
 
 Decisions made and alternatives rejected:
 - did not release H42/M8.H14 claims on the board: TL owns reclaim; listed in retro
