@@ -5191,8 +5191,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7350–C-7359
   - Result: EXP-2026-11-22-M8.H38-panel-peer; 32/32 selftest checks; tool:ze0_peers.panel PASS
 
-- [ ] **M8.H39 — A tap changes the screen: touch injection on `-M ze0`, end to end**
-  - Status: in progress · Owner: task/m8.h39-cycle10 · Critical: yes · Pair: required
+- [x] **M8.H39 — A tap changes the screen: touch injection on `-M ze0`, end to end**
+  - Status: done · Owner: task/m8.h39-cycle10 · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H38, M8.C1f
   - Goal: First interactive L4 test: tap a visible button and see the UI react.
@@ -5205,7 +5205,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7360–C-7369
   - Blocker: tap now arrives over SCI3 (M8.H35) and reaches kepdrv InputLcdTouch, but IsKeyControlNotify drops it: key-control bytes (+0xc4/+0xc5 & 0x0f) lock touch while the UI stays in INI_STARTUP (C-8440–C-8444)
   - Unblock: M8.C1n (done: the UI leaves INI_STARTUP and takes touch). The remaining gate is the key-control bytes (+0xc4/+0xc5 and 0x0f) that hold m_byKeyGuardAllKey; the tap test re-opens when that unlock is met.
-  - Result: EXP-2026-11-22-M8.H39-tap-l4 (negative); EXP-2026-11-22-M8.H35-sci3-display-link O5 (tap reaches kepdrv, locked)
+  - Result: EXP-2026-11-24-M8.H39-tap-l4; named-region after-tap hash c64ff230… equal in 2 boots, != idle 985e3ddd…, empty tap unchanged; bp hits 4/2; US fallback
   - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
 - [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
