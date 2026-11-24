@@ -2740,7 +2740,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-23-M4.73-kiwi-guidance-junction (C-7720–C-7724); signpost stored verbatim in B48R058R section 4 (parcel a6bed6ee, name word 53), not composed from INTER/FRWAY; KIWI 8.4 predicts field kinds, not the ZE0 container; no lane field in the two Poland shards
 
 - [ ] **M4.74 — KIWI index data against `REFER001`: address, POI and category indexes (`POINT`, `ADDRE`, `ZCODE`, `ICODE`, `COORD`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.74-kiwi-index · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: The search database is the P4 step and the least decoded family (four readers unlocated or blocked). KIWI defines index data for address and facility search. Compare its structure list with the `REFER001` families: tries, leaf pages, coordinate tables, category lists.
