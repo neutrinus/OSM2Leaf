@@ -122,10 +122,25 @@ def parcel_graph(links):
     return order, ent
 
 
-def record_words(code, order, ent, country, boundary=None):
+def link_w1(cls: int, l2classes=None, L=None) -> int:
+    """Link word 1.  Bit ``0x2`` marks a link that lies on the next level up
+    (factory level 1: set on classes 1-7, 10, 11, clear on 8, 9 and 12;
+    boundary entries never; C-10063).  ``l2classes=None`` keeps the old
+    per-class table (cards without level 2); a callable gets the link dict
+    ``L`` and says whether it is on level 2."""
+    w = W1.get(cls, 0)
+    if l2classes is None:
+        return w
+    up = l2classes(L) if callable(l2classes) else cls in l2classes
+    return (w & ~0xE) | (0x2 if up else 0)
+
+
+def record_words(code, order, ent, country, boundary=None, upper=(), l2classes=None):
     """Section-2 level-1 record words (big-endian halfwords).
 
-    ``boundary``: ``{xy: (side, neighbour node index)}``."""
+    ``boundary``: ``{xy: (side, neighbour node index)}``; ``upper``: node xy that
+    are level-2 nodes (node word 2 = ``0x2000``, C-10061); ``l2classes``: link
+    classes carried by level 2 (sets link word 1 bit ``0x2``, see ``link_w1``)."""
     boundary = boundary or {}
     index = {xy: i for i, xy in enumerate(order)}
     pairs = [[0, 0] for _ in range(11)]
@@ -137,7 +152,7 @@ def record_words(code, order, ent, country, boundary=None):
         n = len(es) + (1 if xy in boundary else 0)
         if n > 15:
             raise GraphError("node %r has %d links (max 15)" % (xy, n))
-        body += [xy[0] | n << 12, xy[1] | cmin << 12, 0]
+        body += [xy[0] | n << 12, xy[1] | cmin << 12, 0x2000 if xy in upper else 0]
         inner_w4 = None
         for far, L, last, d in es:
             cls = L["cls"]
@@ -146,13 +161,14 @@ def record_words(code, order, ent, country, boundary=None):
             # 0x10: set on 99.5 % of two-way and 18.5 % of one-way factory links, never on closed ones
             w4 = cls | L.get("typ", cls) << 8 | (0x10 if d == 0 else 0)
             if inner_w4 is None:
-                inner_w4, inner_w1 = w4, W1.get(cls, 0)
+                inner_w4, inner_w1 = w4, link_w1(cls, l2classes, L)
             ln = L["length"]
-            body += [index[far], W1.get(cls, 0), d << 14, L["lid"] | (0x2000 if last else 0), w4,
+            body += [index[far], link_w1(cls, l2classes, L), d << 14, L["lid"] | (0x2000 if last else 0), w4,
                      encode(ln * COST_PER_M.get(cls, 0.72), SCALE_W5), encode(ln, SCALE_W6)]
         if xy in boundary:
             side, far = boundary[xy]
-            body += [far, inner_w1, 0, 0, 0x8000 | SIDES[side][0] << 13 | (inner_w4 & 0x1FFF), 0, 0]
+            bw1 = inner_w1 if l2classes is None else inner_w1 & ~0xE
+            body += [far, bw1, 0, 0, 0x8000 | SIDES[side][0] << 13 | (inner_w4 & 0x1FFF), 0, 0]
         g = group(cmin)
         pairs[g][0] += 1
         pairs[g][1] += n
@@ -249,12 +265,107 @@ def free_oneway_traps(prepared: dict, bounds: dict) -> int:
     return freed
 
 
-def build(graphs: dict, country: int, free_traps: bool = True):
-    """``{parcel: (code, links, unit_m)}`` -> ``{parcel: (plain, comp)}`` and stats."""
-    by_code = {}
+def split_parallel(links: list) -> int:
+    """Split every link that joins the same two nodes as an earlier link.
+
+    The factory has no two links between the same pair of nodes on level 1
+    or level 2 (B48R068R: 0 of 8,527,448 level-1 link ends).  Navi.exe finds a
+    link by its far node (e.g. the candidate walk in ``0x00369dd0``), so with a
+    parallel pair (an OSM one-way pair, a loop road) the route builder can take
+    the wrong one of the two; on a London route this made a cycle in the
+    level-1 path and ``MST CAND SELECT ERROR`` (EXP M5.103).  The extra link
+    gets a node at an interior shape point (or its midpoint), and its second
+    half a new link id of the same class.  Returns the number of links split."""
+    used = collections.defaultdict(set)
+    nodes = set()
+    shared = collections.Counter()
+    for L in links:
+        used[L["cls"]].add(L["lid"])
+        nodes.add(tuple(L["pts"][0]))
+        nodes.add(tuple(L["pts"][-1]))
+        shared.update(set(tuple(p) for p in L["pts"][1:-1]))
+    nodes.update(p for p, n in shared.items() if n > 1)
+    seen = set()
+    out, split = [], 0
+    for L in links:
+        pts = [tuple(p) for p in L["pts"]]
+        a, b = pts[0], pts[-1]
+        pair = frozenset((a, b))
+        if a == b or pair not in seen:
+            seen.add(pair)
+            out.append(L)
+            continue
+        def ok(q):
+            return 0 < q[0] < EDGE and 0 < q[1] < EDGE and q not in nodes
+        inner = [i for i in range(1, len(pts) - 1) if ok(pts[i])]
+        if inner:
+            i = min(inner, key=lambda i: abs(i - (len(pts) - 1) / 2))
+            first, second = pts[:i + 1], pts[i:]
+        else:
+            mid = ((a[0] + b[0]) // 2, (a[1] + b[1]) // 2)
+            for d in ((0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1)):
+                m = (mid[0] + d[0], mid[1] + d[1])
+                if ok(m) and m not in (a, b):
+                    break
+            else:
+                out.append(L)
+                continue
+            first, second = [a, m], [m, b]
+        lid2 = max(used[L["cls"]]) + 1
+        if lid2 > 0x1FFF:
+            lid2 = L["lid"]
+        used[L["cls"]].add(lid2)
+        nodes.add(first[-1])
+        out.append(dict(L, pts=first))
+        out.append(dict(L, pts=second, lid=lid2))
+        seen.add(frozenset((first[0], first[-1])))
+        seen.add(frozenset((second[0], second[-1])))
+        split += 1
+    links[:] = out
+    return split
+
+
+def nudge_edge_nodes(graphs: dict, prepared: dict, bounds: dict) -> int:
+    """Move link ends that lie on a mesh edge (x or y 0 or 0x7ff) but are not
+    boundary nodes one unit inside.  The firmware treats every node with fewer
+    than three links on an edge coordinate as a boundary node (premap
+    ``0x003534d4`` sets ``0x100000``) and its chain walks (``0x00362640``,
+    ``0x0036cf60``) then take the second link entry as the boundary link; the
+    factory has no other node on an edge (688,178 / 688,178, C-10064)."""
+    def inside(v):
+        return 1 if v == 0 else 0x7FE if v == 0x7FF else v
+    moved = 0
+    for parcel, (code, order, ent) in prepared.items():
+        bad = {xy for xy in order if (xy[0] in (0, 0x7FF) or xy[1] in (0, 0x7FF))
+               and xy not in bounds[parcel]}
+        if not bad:
+            continue
+        for L in graphs[parcel][1]:
+            pts = L["pts"]
+            a, b = tuple(pts[0]), tuple(pts[-1])
+            if a in bad or b in bad:
+                pts = list(pts)
+                if a in bad:
+                    pts[0] = (inside(a[0]), inside(a[1]))
+                if b in bad:
+                    pts[-1] = (inside(b[0]), inside(b[1]))
+                L["pts"] = pts
+        moved += len(bad)
+    return moved
+
+
+def build(graphs: dict, country: int, free_traps: bool = True, level2: int = 5):
+    """``{parcel: (code, links, unit_m)}`` -> ``{parcel: (plain, comp)}`` and stats.
+
+    With ``level2`` (the top level built: 2, 4 or 5; 0 = none) the result also
+    holds the upper records under keys ``("L2", key)``, ``("L4", key)`` and
+    ``("L5", key)`` (``sec2_level2``; levels 4 and 5 belong in ``LEV3456R``,
+    see ``sec2_level2.place_lev``), and level-1 nodes that are level-2 nodes get
+    node word 2 = ``0x2000``."""
     prepared = {}
     st = collections.Counter()
     for parcel, (code, links, unit_m) in graphs.items():
+        st["level-1 parallel links split"] += split_parallel(links)
         for L in links:
             L["length"] = metres(L["pts"], unit_m)
         order, ent = parcel_graph(links)
@@ -263,33 +374,69 @@ def build(graphs: dict, country: int, free_traps: bool = True):
         if len(order) > 0x3FFF:
             raise GraphError("parcel %r has %d nodes (max 0x3fff)" % (parcel, len(order)))
         prepared[parcel] = (code, order, ent)
-        by_code[tuple(code)] = (order, {xy: i for i, xy in enumerate(order)}, ent)
-    bounds = {}
-    for parcel, (code, order, ent) in prepared.items():
-        boundary = {}
-        for xy in order:
-            side = edge_side(*xy)
-            if side is None or len(ent[xy]) != 1:
-                continue
-            dy, dx = SIDES[side][1]
-            nb = (step(code[0], dy) if dy else code[0], step(code[1], dx) if dx else code[1])
-            other = by_code.get(nb)
-            if other is None:
-                continue
-            j = other[1].get(mirror(side, *xy))
-            if j is None or len(other[2][mirror(side, *xy)]) != 1:
-                continue
-            boundary[xy] = (side, j, nb)
-        bounds[parcel] = boundary
+
+    def find_bounds():
+        by_code = {tuple(code): (order, {xy: i for i, xy in enumerate(order)}, ent)
+                   for code, order, ent in prepared.values()}
+        bounds = {}
+        for parcel, (code, order, ent) in prepared.items():
+            boundary = {}
+            for xy in order:
+                side = edge_side(*xy)
+                if side is None or len(ent[xy]) != 1:
+                    continue
+                dy, dx = SIDES[side][1]
+                nb = (step(code[0], dy) if dy else code[0], step(code[1], dx) if dx else code[1])
+                other = by_code.get(nb)
+                if other is None:
+                    continue
+                j = other[1].get(mirror(side, *xy))
+                if j is None or len(other[2][mirror(side, *xy)]) != 1:
+                    continue
+                boundary[xy] = (side, j, nb)
+            bounds[parcel] = boundary
+        return bounds
+
+    bounds = find_bounds()
+    moved = nudge_edge_nodes(graphs, prepared, bounds)
+    if moved:
+        st["level-1 edge nodes moved inside"] = moved
+        for parcel, (code, _order, _ent) in list(prepared.items()):
+            links, unit_m = graphs[parcel][1], graphs[parcel][2]
+            n = split_parallel(links)
+            if n:
+                st["level-1 parallel links split"] += n
+                for L in links:
+                    L["length"] = metres(L["pts"], unit_m)
+            order, ent = parcel_graph(links)
+            prepared[parcel] = (code, order, ent)
+        bounds = find_bounds()
     if free_traps:
         st["oneway links freed (SCC)"] = free_oneway_traps(prepared, bounds)
         for parcel, (code, order, ent) in list(prepared.items()):
             _order, ent = parcel_graph(graphs[parcel][1])
             prepared[parcel] = (code, order, ent)
     out = {}
+    upper = collections.defaultdict(set)
+    if level2:
+        import sec2_level2
+        flagged, lv, st2 = sec2_level2.build_levels(prepared, bounds, country, top=level2)
+        l2 = lv.get(2, {})
+        for level in (4, 5):
+            for key, rec in lv.get(level, {}).items():
+                out[("L%d" % level, key)] = rec
+        for code, xy in flagged:
+            upper[code].add(xy)
+        where = {}
+        for parcel, (code, _o, _e) in prepared.items():
+            where.setdefault(sec2_level2.l2_key(tuple(code))[0], parcel)
+        for key, rec in l2.items():
+            out[("L2", key)] = rec + (where[key],)
+        st.update(st2)
     for parcel, (code, order, ent) in prepared.items():
         boundary = {xy: v[:2] for xy, v in bounds[parcel].items()}
-        w = record_words(code, order, ent, country, boundary)
+        w = record_words(code, order, ent, country, boundary, upper.get(tuple(code), ()),
+                         sec2_level2.on_level2 if level2 else None)
         if len(w) > 0x10000:
             raise GraphError("parcel %r route record is %d words; the directory pair table "
                              "addresses at most 0x10000 (lower --max-plain)" % (parcel, len(w)))
@@ -321,6 +468,9 @@ def place(m: dict, built: dict) -> dict:
                 D = dm["D"]
                 dirs[(D["y"], tilewriter.dir_x0(D))] = dm
     rows = collections.defaultdict(dict)
+    l2 = {k[1]: v[:4] for k, v in built.items() if k[0] == "L2"}
+    where = {k[1]: v[4] for k, v in built.items() if k[0] == "L2"}
+    built = {k: v for k, v in built.items() if k[0] not in ("L2", "L4", "L5")}
     for (y0, x0, row, col), rec in built.items():
         if (y0, x0) not in dirs:
             raise GraphError("no section-2 directory for parcel %r" % ((y0, x0, row, col),))
@@ -344,6 +494,9 @@ def place(m: dict, built: dict) -> dict:
         dm["units"][row].update(live=True, old=("sec2", y0, x0, row), tag=0,
                                 block=b"".join(r["raw"] for r in recs), recs=[r["raw"] for r in recs])
         st["rows"] += 1
+    if l2:
+        import sec2_level2
+        st.update(sec2_level2.place_level2(m, l2, where))
     return dict(st)
 
 
@@ -356,14 +509,14 @@ def selftest() -> int:
     gB = [dict(cls=8, lid=1, pts=[(0, 100), (500, 100)], oneway=1)]
     import copy
     graphs = {"A": (A, gA, (1.1, 1.1)), "B": (B, gB, (1.1, 1.1))}
-    _b, st2 = build(copy.deepcopy(graphs), 826)
+    _b, st2 = build(copy.deepcopy(graphs), 826, level2=0)
     assert st2["oneway links freed (SCC)"] == 2 and st2["oneway link ends"] == 0, st2
     ring = [dict(cls=8, lid=i + 1, pts=[p, q], oneway=1) for i, (p, q) in
             enumerate([((10, 10), (90, 10)), ((90, 10), (50, 90)), ((50, 90), (10, 10))])]
     ring.append(dict(cls=8, lid=9, pts=[(50, 90), (50, 300)], oneway=0))
-    _b, st3 = build({"R": (A, ring, (1.1, 1.1))}, 826)
+    _b, st3 = build({"R": (A, ring, (1.1, 1.1))}, 826, level2=0)
     assert st3["oneway links freed (SCC)"] == 0 and st3["oneway link ends"] == 6, st3
-    built, st = build(graphs, 826, free_traps=False)
+    built, st = build(graphs, 826, free_traps=False, level2=0)
     assert st["boundary"] == 2, st
     for k, (plain, comp) in built.items():
         w = list(struct.unpack(">%dH" % (len(plain) // 2), plain))
@@ -379,7 +532,16 @@ def selftest() -> int:
     xy, links = unit_graph(w[27:])
     assert [decode(lw[6], SCALE_W6) for lw in links[xy.index((100, 100))]] == [2142, 880], links
     assert encode(5000, SCALE_W6) == (1 << 12) | 2500 and decode(encode(80000, SCALE_W6), SCALE_W6) == 80000
-    print("sec2_writer selftest OK: framing, one-way pairing, boundary links, length encoding, one-way traps")
+    # a one-way pair and a straight third link between the same two nodes
+    par = [dict(cls=8, lid=1, pts=[(10, 10), (40, 30), (90, 10)], oneway=1),
+           dict(cls=8, lid=2, pts=[(90, 10), (50, 2), (10, 10)], oneway=1),
+           dict(cls=8, lid=3, pts=[(10, 10), (90, 10)], oneway=0)]
+    assert split_parallel(par) == 2 and len(par) == 5, par
+    ends = [frozenset((tuple(L["pts"][0]), tuple(L["pts"][-1]))) for L in par]
+    assert len(set(ends)) == 5 and sorted(L["lid"] for L in par) == [1, 2, 3, 4, 5], par
+    assert ((50, 2) in [tuple(L["pts"][-1]) for L in par]) and ((50, 10) in [tuple(L["pts"][-1]) for L in par])
+    print("sec2_writer selftest OK: framing, one-way pairing, boundary links, length encoding, one-way traps,"
+          " parallel links")
     return 0
 
 

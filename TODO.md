@@ -3148,6 +3148,16 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-9930–C-9939
   - Result: EXP-2026-11-23-M4.98-sec2-fields-ghidra: direction w2>>14, turn words, cost w5, length w6, boundary links, header pairs and level-2 unit 1 named from the decompiled route search and checked on all of B48R068R (tools/sec2_fields.py, tools/ghidra/); L4: one closed route link gives a detour, a closed off-route link and the re-encode control do not, all one-ways reversed gives no route (C-9930-C-9939). Follow-up: runtime cost tables for the w1 categories.
 
+- [ ] **M4.100 — Route options from the firmware: cost profiles, avoid-motorway / ferry / toll switches, and the w1 cost column per road type**
+  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
+  - Step: P2
+  - Depends: M4.98 (link fields, done)
+  - Goal: the unit offers three routes and settings to avoid motorways, ferries and tolls. Name which data each option acts on, so the OSM writer fills those words (Marek, 2026-11-23).
+  - Input: EXP-2026-11-23-M4.100-route-cost-profiles, `tools/ze0_gdb.py`, the Navi.exe decompile (`tools/ghidra/README.md`), the owner's manual (menu paths of the route settings).
+  - Done when: each route setting in the UI is mapped to a request field (diff of the request struct at `0x00341134` after toggling it in L4) and to the link words it changes in the search; `w1 >> 12` per OSM road type is measured on the factory tile and used by `tools/sec2_writer.py`.
+  - Falsifier: toggling a setting changes the route while the request struct and cost tables stay byte-identical.
+  - Claims: C-10370–C-10375 (renumbered three times: C-10070–C-10075 collided with M9.80, C-10210–C-10215 with M1.58, C-10260–C-10265 with M8.H80 on main)
+
 - [x] **M4.99 — Name the class-d residual of `B48R058R`: padding or a record block, and the covering span if it is real**
   - Status: done · Owner: task/m4.99-class-d-residual · Critical: no · Pair: required
   - Depends: M4.96 (grade into classes, done), M4.93 (section-4 wide rows, done), M4.86 (unexplained ranking, done)
@@ -3470,7 +3480,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Input: `tools/sec2_writer.py`, `tools/sec2_fields.py --level2`, EXP-2026-11-23-M5.57-sec2-writer-l4, EXP-2026-11-23-M4.98-sec2-fields-ghidra (level-2 section), `docs/format/map-tiles.md` "Level 2 and its link to level 1".
   - Done when: (1) `sec2_fields.py --level2` passes on our tile with the factory's counts of rule hits (100 %); (2) in L4 a route from the London start to a destination two or more meshes away on our card prints `LEV2DSIDE`/`LEV4Top` (or the level our card has) and draws.
   - Falsifier: the route search ignores our level 2 (same stages and result with level 2 removed).
-  - Claims: C-10060–C-10069
+  - Claims: C-10060–C-10069, C-10376–C-10379, C-10380–C-10384
 
 - [x] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: done · Owner: task/m5.38-card-ladder · Critical: yes · Pair: solo
