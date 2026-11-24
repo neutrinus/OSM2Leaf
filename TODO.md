@@ -3577,7 +3577,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `python3 tools/profile_validate.py profiles/…` passes; a synthetic OSM fixture with one object per rule maps to the expected code (selftest); every target code exists in the M4.88 table.
   - Stop: one session.
   - Falsifier: a rule targets a code with zero records on the factory card.
-  - Claims: C-7920–C-7929
+  - Claims: C-10160–C-10168
   - Result: EXP-2026-11-24-M5.73-poi-category-profile (C-10140-C-10149); 19 rules, 11 mapped categories
 
 - [x] **M5.74 — Water and forests from OSM: first slice of a background writer**
