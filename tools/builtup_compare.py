@@ -97,12 +97,22 @@ def compare(factory: dict, ours: dict, tol: float = 0.10) -> dict:
         else:
             bucket = "ours_high"
         buckets[bucket] += 1
+    # A filled-parcel classification score at the same 0.5 share cutoff:
+    # "agree_at_tol" alone is dominated by true negatives (61,772 of 63,987
+    # factory parcels have low cover), so it rewards writing nothing.
+    tp = buckets["both_high"]
+    fp = buckets["ours_high"]
+    fn = buckets["factory_high"]
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
     return {"parcels": len(keys), "agree_at_tol": agree, "disagree": disagree,
-            "exact": exact, "tolerance": tol, "buckets": dict(buckets)}
+            "exact": exact, "tolerance": tol, "buckets": dict(buckets),
+            "precision": round(precision, 4), "recall": round(recall, 4), "f1": round(f1, 4)}
 
 
 def sweep(areas_path: str | None, buildings_path: str | None, factory: dict,
-          thresholds=(0.05, 0.10, 0.15, 0.20, 0.25, 0.30)) -> dict:
+          thresholds=(0.01, 0.02, 0.03, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30)) -> dict:
     """Sensitivity: run the production fill rule at each threshold and compare.
 
     Each sweep point calls the same ``build_background`` that writes the tile's
@@ -123,7 +133,8 @@ def sweep(areas_path: str | None, buildings_path: str | None, factory: dict,
         out[str(t)] = {"agree_at_tol": c["agree_at_tol"], "parcels": c["parcels"],
                        "filled": bst.get("urban_filled_parcels", 0),
                        "filled_by_landuse": bst.get("filled_by_landuse", 0),
-                       "filled_by_building": bst.get("filled_by_building", 0)}
+                       "filled_by_building": bst.get("filled_by_building", 0),
+                       "precision": c["precision"], "recall": c["recall"], "f1": c["f1"]}
     return out
 
 
