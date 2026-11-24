@@ -70,6 +70,26 @@ Blocks 0–7 are 8 KiB, blocks 8–`0x86` are 64 KiB; block `n ≥ 8` starts at
 | `0x500000`–`0x7DFFFF` | `0x57`–`0x84` | "VFlash": user data (written up to `0x74FFFF`, then erased) | VFlash |
 | `0x7E0000`–`0x7FFFFF` | `0x85`–`0x86` | erased | |
 
+### What LeafSDTools `Write NAND` writes (M6.26)
+
+From the upstream source (commit `422c6538`, C-10180–C-10186,
+[EXP-2026-11-24-M6.26](../experiments/EXP-2026-11-24-M6.26-leafsdtools-write-nand-sections.md)):
+
+| Button | Writes | Flash range |
+| --- | --- | --- |
+| `ALL+EEPROM` | blocks 0–`0x86` | the whole 8 MiB, boot loader and `PROD` included |
+| `ALL OS` | blocks 8–`0x86` | `0x010000`–`0x7FFFFF`: everything except IPL and `PROD`, **including `SRAM` and `VFlash`** |
+| `BL IPL`, `PROD`, `BL BASE`, `BL EBOOT`, `BL ENH`, `APP` | nothing (`NOT IMPLEMENTED YET`) | intended: 0–3, 4–7, 8, 9, `0x0A`, `0x0B`–`0x41` (from page counts in comments) |
+
+The intended `APP` range is 54 blocks for "X/W1" (`0x040000`–`0x39FFFF`, NK1
+plus the crash log) and 1 block for "PS + MEM" (`0x3A0000`). Every range ends
+on an image boundary of the table above. A larger NK1 has `0x52518` bytes
+before the crash log at `0x360000`. A block is erased (`0x8011200C`) and
+written (`0x80112004`) with no read-back. The first failed block stops the
+run, so the flash is left partly rewritten. On QY8 units (2013+) the layout
+differs: 128 KiB blocks, `PROD` in block 2, user data in the last three
+blocks, and `ALL OS` leaves the user data alone.
+
 ## The six images
 
 Every image starts with the same header as the CE images on the card:
@@ -163,14 +183,15 @@ then returns fields of the RAM copy at `0x89E439B8`.
 | --- | --- | --- |
 | `+0x000` | `PROD` | |
 | `+0x020` | Target ID, 4 bytes; byte 1 is the area (`0x10` JP, `0x20` USA, `0x30` Euro, `0x40` RU, `0x50` CN) | `10 20 02 12` |
+| `+0x030` | second product ID, 4 bytes (LeafSDTools `productId2`; meaning unknown) | |
 | `+0x040` | model | `QY7200ND` |
 | `+0x050` | serial | not recorded |
 | `+0x060` | unit half of the SD PIN, 4 bytes | never recorded |
 | `+0x090` | 8 bytes returned by the same IOCTL; meaning unknown | |
 | `+0x0A0` | IMMO code | `FF FF FF FF` |
-| `+0x0B0` | 5 characters: suffix of the Nissan part number `25915-xxxxx` printed as `N #` on the type label (C-10121) | |
+| `+0x0B0` | 5 characters: suffix of the Nissan part number `25915-xxxxx` printed as `N #` on the type label (C-10141) | |
 | `+0x100` | SD PIN as sent in CMD42, 16 bytes | never recorded |
-| `+0x140` | 6 bytes: unit ID = `10 01` + serial (BCD), printed as `車載機 ID` on the type label (C-10120, [photo](head-unit.md#type-label-community-picture-not-mareks-unit)) | |
+| `+0x140` | 6 bytes: unit ID = `10 01` + serial (BCD), printed as `車載機 ID` on the type label (C-10120, [photos](head-unit.md#type-labels-community-pictures-not-mareks-unit)) | |
 | `+0x180`, `+0x190` | 4 bytes each; `+0x193` is the IMMO check flag | flag `00` |
 | `+0x2D0` | u16 sum of bytes `+0x000..+0x2CF` | verifies |
 

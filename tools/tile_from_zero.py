@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import argparse
 import collections
-import hashlib
+import hashutil
 import json
 import struct
 import sys
@@ -40,6 +40,8 @@ for _p in (HERE / "ze0-viewer" / "tools_ze0", HERE):
 import fa_encode  # noqa: E402
 import tile_relayout  # noqa: E402
 import tilewriter  # noqa: E402
+
+sha256 = hashutil.sha256_bytes
 
 UNITS = 2048
 EMPTY1 = 0x7FFFFFFF  # empty even pair, level 1
@@ -782,7 +784,7 @@ def main(argv=None) -> int:
     q = lambda f: sizes[min(len(sizes) - 1, int(f * len(sizes)))] if sizes else 0  # noqa: E731
     st.update(parcels=len(built), plain_min=sizes[0] if sizes else 0, plain_median=q(0.5),
               plain_p99=q(0.99), plain_max=sizes[-1] if sizes else 0,
-              sha256=hashlib.sha256(out).hexdigest(), imf=imf_stats)
+              sha256=sha256(out), imf=imf_stats)
     if args.json:
         print(json.dumps(st, indent=1, default=str))
     else:

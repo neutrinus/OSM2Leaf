@@ -1,0 +1,194 @@
+name: IMG256 firmware-head regression
+
+# H84: the QA prompt requires real-bytes (IMG256 / vendor firmware-head)
+# regressions to run manually or weekly by QA, never as default PR CI. Until
+# this workflow existed no file had `workflow_dispatch`/`schedule`, so the only
+# real-bytes check (`tools/realcheck.py IMG256`) never ran anywhere.
+#
+# Policy:
+# - Triggers are workflow_dispatch (primary) and schedule (weekly) ONLY:
+#   never pull_request, never push. This is NOT a PR gate. The `run_img256`
+#   boolean input gates ONLY the optional synthetic L3 corpus step; a
+#   `schedule` event has no dispatch inputs, so the core realcheck runs on
+#   both schedule and dispatch regardless of that input (navigator must-fix).
+# - The 256 MiB head is resolved from a SHA-256-keyed cache, or fetched from
+#   files.viaaq.eu with `tools/fetch_image.py --image IMG256` (rule-11 fetch;
+#   head only, never the 7.4 GB card). The pinned SHA-256 (IMG256, quoted from
+#   `tools/fetch_image.py --list`):
+#   92aa525d0db2c167cf4288b82f9cb951865a53c3a9ab4ead84d11a6f19a007f9
+#   is resolved at run time via `fetch_image.py --list` and verified with
+#   `tools/fetch_image.py --verify` before any check runs.
+# - With a verified head: `tools/realcheck.py IMG256 --require-image` runs and
+#   the job summary reports PASS/FAIL per check; a real FAIL makes the job red.
+# - With no head (cache miss and no/failed fetch): the job writes an explicit
+#   `SKIP (no image on this runner)` summary and exits 0 — a SKIP is neither a
+#   green PASS nor a red FAIL (same policy as tools/gate.py). A scheduled run
+#   with no cached head must not train people to ignore red builds.
+# - No vendor bytes are committed. No full ROOT/card tree, no `l3check --card`
+#   gate (M9.12/H43), no QEMU/L4 and no rule-13 card-acceptance claim. Result
+#   is a firmware-head regression only.
+
+on:
+  schedule:
+    # Weekly QA regression; the manual workflow_dispatch is the primary mode.
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      run_img256:
+        description: "Run the IMG256 firmware-head regression (256 MiB fetch/cache)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: img256-firmware-regression
+  cancel-in-progress: false
+
+jobs:
+  img256:
+    name: img256 firmware-head regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Python/zlib environment
+        shell: bash
+        run: |
+          python -VV
+          python -c "import sys, zlib; print('zlib', zlib.ZLIB_VERSION, getattr(zlib,'ZLIB_RUNTIME_VERSION','?')); print('implementation', sys.implementation.name)"
+
+      - name: Resolve pinned IMG256 digest
+        id: pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          line=$(python3 tools/fetch_image.py --list | grep '^IMG256')
+          echo "IMG256 pin: $line"
+          sha=$(printf '%s\n' "$line" | awk '{print $3}')
+          size=$(printf '%s\n' "$line" | awk '{print $2}')
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "size=$size" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached 256 MiB head
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/osm2leaf/IMG256
+          key: img256-head-${{ steps.pin.outputs.sha256 }}
+
+      - name: Fetch 256 MiB head on cache miss
+        id: fetch
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p "$HOME/.cache/osm2leaf/IMG256"
+          target="$HOME/.cache/osm2leaf/IMG256/head256.img"
+          # A network failure is an honest SKIP, never a red job and never a
+          # silent pass. The verify step below decides whether a head exists.
+          if timeout 900 python3 tools/fetch_image.py --image IMG256 -o "$target"; then
+            echo "fetch=ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "fetch=failed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify pinned SHA-256
+        id: verify
+        shell: bash
+        run: |
+          set -uo pipefail
+          target="$HOME/.cache/osm2leaf/IMG256/head256.img"
+          # --image IMG256 pins the verify to the IMG256 digest specifically,
+          # not a match against any pin of the same size.
+          if [ -f "$target" ] && python3 tools/fetch_image.py --verify "$target" --image IMG256; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "path=$target" >> "$GITHUB_OUTPUT"
+            echo "Verified IMG256 head at $target"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "No verified IMG256 head on this runner"
+          fi
+
+      - name: Run firmware-head regression (real bytes)
+        id: realcheck
+        if: steps.verify.outputs.available == 'true'
+        shell: bash
+        run: |
+          set +e
+          # Resolve the verified head once. realcheck.py's PINS identify the
+          # image as IMG256, so expose the cached path under that name in the
+          # workspace rather than passing a literal missing file (which would
+          # be a permanent false-red). The input SHA-256 check verifies the
+          # digest of this resolved file against the pin.
+          IMAGE_PATH="${{ steps.verify.outputs.path }}"
+          echo "Verified image path: $IMAGE_PATH"
+          ln -sf "$IMAGE_PATH" IMG256
+          python3 tools/realcheck.py IMG256 --require-image | tee realcheck.txt
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Optional synthetic L3 corpus (manual dispatch only)
+        id: l3
+        if: steps.verify.outputs.available == 'true' && github.event_name == 'workflow_dispatch' && inputs.run_img256
+        shell: bash
+        run: |
+          set +e
+          python3 tools/l3check.py --build-corpus --json l3.json | tee l3.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish summary (PASS/FAIL per check, or explicit SKIP)
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## IMG256 firmware-head regression (H84)'
+            echo
+            echo '- Manual (`workflow_dispatch`) / weekly (`schedule`) QA regression only. Never a PR gate, never rule-13 card acceptance.'
+            echo "- Pinned IMG256 SHA-256: \`${{ steps.pin.outputs.sha256 }}\` (from \`tools/fetch_image.py --list\`)."
+            if [ "${{ steps.verify.outputs.available }}" != 'true' ]; then
+              echo
+              echo '### SKIP (no image on this runner)'
+              echo
+              echo 'No verified 256 MiB head (cache miss and no/failed network fetch). This job is **neither green-as-passed nor red**: SKIP is never a PASS.'
+              echo 'Re-run via `workflow_dispatch` on an approved runner with the cached head, or with access to `files.viaaq.eu`. Local run: `python3 tools/realcheck.py IMG256`.'
+            else
+              echo
+              echo '### realcheck.py IMG256 --require-image'
+              echo
+              echo 'Each line below is a real-bytes check against the verified head; any FAIL is a regression.'
+              echo
+              echo '```text'
+              cat realcheck.txt
+              echo '```'
+              if [ -f l3.json ]; then
+                echo
+                echo '### Optional synthetic L3 corpus (run_img256)'
+                echo
+                echo '```text'
+                cat l3.txt
+                echo '```'
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload regression artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: img256-firmware-head-regression
+          path: |
+            realcheck.txt
+            l3.json
+            l3.txt
+          if-no-files-found: ignore

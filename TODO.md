@@ -595,8 +595,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-4060–C-4069
   - Result: EXP-2026-11-22-H83-board-ref-lint; C-4060–C-4066. tools/todo_check.py --board-refs lints the first Priorities section: unresolved bold IDs, done IDs under next/then/Take first/in flight, and done IDs as a current blocker (drift, warning-only). Warnings by default, ERRORs under --strict; findings are structural and never baselined (H128). At bd92ec6a on origin/main 17b22eaf: unresolved 0 / not-next 4 (H105, M9.58/M9.60/M9.61) / drift 0 / sections 1, exit 0; --strict adds 4 board-ref ERRORs (22 total); gate 5 pass; selftest 184/0/21; todo_check selftest 80 checks. Prose half shipped; the four stale sentences are the PO's (EXP Follow-ups).
 
-- [ ] **H84 — The QA-prompt manual/weekly IMG256 regression has no workflow: add the `workflow_dispatch` + scheduled job**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H84 — The QA-prompt manual/weekly IMG256 regression has no workflow: add the `workflow_dispatch` + scheduled job**
+  - Status: done · Owner: task/h84-img256-regression-workflow · Critical: no · Pair: required
   - Depends: H25 (the CI skeleton), H28 (the same "optional IMG256 mode" contract, which stays about `l3check`); QA 2026-11-16 12th pass found the gap
   - Goal: `prompt_qa.txt` requires that "IMG256 / vendor-firmware-head regressions run **manually or weekly by QA** (`workflow_dispatch`/scheduled, approved runner/cache, SHA-256 verified), not as default PR CI", and `tools/realcheck.py` already implements the honest exit codes (`0 PASS/FAIL run`, `2` no image, `--require-image` turns a missing slice into `FAIL` exit 1). But **no workflow file has `workflow_dispatch` or `schedule`**: `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints `0`, so the only real-bytes regression (`realcheck.py IMG256`) never runs anywhere. On this host `python3 tools/realcheck.py IMG256` prints `realcheck: 0 PASS, 0 FAIL, 8 SKIP` and exits **2** — the image is absent, which is exactly the case the policy covers with an explicit skip, not a silent gap.
   - Precheck: `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints `0`; `python3 tools/realcheck.py IMG256; echo $?` prints `2` and `0 PASS, 0 FAIL, 8 SKIP`; `python3 tools/realcheck.py IMG256 --require-image; echo $?` prints `1` with eight `FAIL … no image: …`.
@@ -606,6 +606,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: `workflow_dispatch` on a machine with the cached head runs `realcheck.py IMG256 --require-image` and the job summary says `PASS`/`FAIL` per check with the artifact; with no head it says `SKIP (no image)` and the job is neither green-as-passed nor red; the workflow never triggers on `pull_request`/`push`; `.github/workflows/README.md` documents it; `python3 tools/selftest.py` unchanged.
   - Stop: if the approved runner cannot cache or fetch the head within the job timeout (7.4 GB images are out of scope; only the 256 MiB head), ship the `workflow_dispatch` skeleton with an explicit `SKIP: no image` path and record the fetch gap in the EXP; do not vendor the head.
   - Claims: C-4070–C-4079
+  - Result: EXP-2026-11-24-H84-img256-regression-workflow; workflow_dispatch+schedule only, SKIP path, 4 mutations caught; C-4070–C-4079
 
 - [x] **H87 — `fn_audit.US_BUILD_STARTS` still calls itself the M1.22b placeholder, but M1.22b merged**
   - Status: done · Owner: task/h87-us-build-comment · Critical: no · Pair: solo
@@ -884,8 +885,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: this is a map, not a rewrite; do not start re-implementing.
   - Claims: C-6480–C-6489
 
-- [ ] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
+  - Status: done · Owner: task/m1.48-antitheft-map · Critical: no · Pair: solo
   - Depends: — (M6.19 helps: the PROD record of a real unit)
   - Goal: side track, but it matters for bench work: a unit moved to another car, or powered on a bench without the car's CAN, can show the SECURE screen. Say who decides (the audio microcontroller, the SH-4, or the car's BCM), what is compared (PROD `+0xA0` 4-byte IMMO code, flag `+0x193`; LeafSDTools "DISABLE IMMO" zeroes the flag), over which link, and what stays blocked while locked.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 exports AntitheftCC.dll` prints exports; the string `ANT_RCV_SECURITY_LOCK` is found in `anwdrv.dll`.
@@ -893,7 +894,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Hints (strings seen 2026-11-21, US256, not decompiled): the audio microcontroller side reports `ANT_RCV_SECURITY_LOCK` / `ANT_RCV_SECURITY_RELEASE_OK`, the SH-4 answers `ANT_SEND_SEC_RESPONSE` / `ANT_SEND_SEC_RELEASE`; the updater (`CUpManager::AntiTheftThreadMain`), `Audio.exe` (`CAudioAccessFunction::AntitheftFunc`), telematics (`dcc_AntiTheftProc`), USB (`UsbAntiTheftProc`) and `Vehicle.exe` (`[VCL]Antitheft Lock...`) each run a thread that waits for the unlock; the HMI has `SRT_COLD_SECURE` / `POP_SRT_COLD_ANTI_THIEF_SECURE` screens and status pairs `…_FNR_…` / `…_CAS_…` (two vehicle variants). Marek's unit has the flag at 0 and code `FF FF FF FF` (C-5202).
   - Done when: the page has the lock and the release sequence with the VA of each send/receive, names where the code comparison happens (or shows it is not in SH-4 code), and lists what each waiting process refuses while locked.
   - Stop: no code or PROD bytes of a real unit are committed; do not describe how to defeat the lock on a unit that is not one's own beyond what LeafSDTools already documents.
-  - Claims: C-6730–C-6739
+  - Claims: C-10200–C-10209
+  - Result: EXP-2026-11-24-M1.48-antitheft-map; C-10200–C-10209; 10/10 claims
 
 - [x] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
   - Status: done · Owner: task/m1.49-ui-strings · Critical: no · Pair: solo
@@ -1144,6 +1146,20 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-10040–C-10049
   - Pair: solo
 
+- [x] **H143 — `ze0_consent.py` chose the card build from a name `card_mapcode.py` rewrites, so a renamed EU card got the US event ids and a false PASS**
+  - Status: done · Owner: task/h143-consent-detect-identity · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `tools/ze0_consent.py` `detect()` picked the build from the image-A name in the NKOK header at NB00 `+0x16`. That name is exactly the field `card_mapcode.py set --from-nk1` rewrites in the documented EU-on-US workflow (`docs/hardware/eu-card-on-us-unit.md`), so once the card is prepared for the unit the tool takes the other market's ids (`0x089e -> 0x0889`) and rewrites two comparators that are not the consent one; `verify` then passes because it searches for the id it just wrote. The hash the old code computed is the SHA-256 of the first `0x200000` bytes, which are byte-identical on both cards (`c49b5659…`), and it was never compared. Measured on the owner's cards on 2026-11-24 (EXP-2026-11-24-H143-consent-detect-identity O2/O3).
+  - Precheck: on the pristine EU card `python3 tools/ze0_consent.py find CARD` prints `build: EU 2011 … 0x08a6 -> 0x0891`; after `python3 tools/card_mapcode.py set --image CARD --from-nk1 firmware/unit-flash/nk1-QY7200ND.bin --in-place` the pre-fix tool printed `build: US 2011 … 0x089e -> 0x0889` and patched `2 literal(s)` at `0x1405912,0x143f2c0`.
+  - Scope: `tools/ze0_consent.py` (identity from the NB00 part number at `+0x50`, a `--build eu|us` override, refusal of an unknown card, selftest cases), the EXP named in Result, one claims section, a note in `docs/hardware/eu-card-on-us-unit.md`, and this block. Do not change the consent patch mechanism, the event ids or the SUM4 rule, do not run L4 (M8.C1p owns the EU L4 question), and commit no card copy, patched ROM or vendor bytes.
+  - Input: EU 2011 card `105e2032…076307`, US 2011 card `archive/leaf_2011_usa_sddump.img` `53342430…c5383`, NK1 `firmware/unit-flash/nk1-QY7200ND.bin`, `tools/card_mapcode.py`, `tools/selftest.py`, `tools/exp_check.py`, M8.C1p EXP and its doc note in `docs/research/leafsdtools-companion-patches.md`.
+  - Done when: `python3 tools/ze0_consent.py --selftest` covers a renamed EU card (EU ids), the US card, an unknown part number (non-zero exit) and `--build`, and passes; on a scratch copy of the EU card renamed by `card_mapcode.py`, `find` prints `EU 2011` with one `0x08a6` site per copy and `patch` writes one literal per copy (`0x08a6 -> 0x0891`) with `verify: PASS`; `python3 tools/selftest.py --only ze0_consent` is PASS; `python3 tools/exp_check.py` on the EXP is clean; `claims_check --strict --count-check` and `todo_check` show no new error; `python3 tools/gate.py` shows no new failure (its `selftest` row fails on the pre-existing `refer002_add_station` scratch-zlib gap, reproduced on `origin/main`).
+  - Stop: if the card's part number turns out to change between cards of the same build (it did not on the two 2011 cards), do not invent a second key: fall back to requiring `--build` for every card and record that as the result, with the ids unchanged.
+  - Falsifier: a renamed EU card still selecting the US ids without an explicit `--build`, or `verify` reporting PASS without checking the literal it patched against the card's own build.
+  - Claims: C-10150–C-10154
+  - Pair: solo
+  - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
+
 
 ## M2 — Map code, activation, updater
 
@@ -1316,6 +1332,26 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Claims: C-10120–C-10129
   - Result: EXP-2026-11-24-M2.27-unit-type-label (C-10120–C-10124). Photo in docs/hardware/img/, described in head-unit.md. Label unit ID = PROD +0x140 (1001 + BCD serial), N# suffix = PROD +0xB0. No PIN on the label: C-8304/C-8334 still need (serial, PIN) pairs.
+
+- [x] **M2.28 — Record a third unit's type label (QY-7200N-G, May 2012)**
+  - Status: done · Owner: claude/project-thread-08k71f · Critical: no · Pair: solo
+  - Depends: M2.27 (label fields mapped to PROD)
+  - Goal: Add a second community label photo and test the M2.27 readings (unit ID = 1001 + serial; part-number suffix letter follows the model letter) on a third unit.
+  - Scope: one photo supplied by Marek on 2026-11-24; not Marek's unit (his is QY7200ND), source not recorded. No PIN on the label. No owner dump bytes in the repo.
+  - Done when: the photo is in `docs/hardware/img/`, the head-unit.md label table covers both photos, and an EXP states which M2.27 claims hold.
+  - Stop: one session.
+  - Claims: C-10140–C-10149
+  - Result: EXP-2026-11-24-M2.28-second-type-label (C-10140–C-10144). Unit ID = 1001 + serial holds on 2 of 2 labels; C-10121 (suffix letter = model letter) retracted (QY-7200N-G has 3NA1A). Still no PIN.
+
+- [x] **M2.29 — What does Settings → Other "Initialise SD card" do (PIN, format or files)?**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+  - Depends: M2.13b (SDHC CMD42 IOCTLs), M2.26 (Navi.exe has no CMD42 code)
+  - Goal: Marek (2026-11-24) found "Please insert the SD memory card to be initialised into slot A … Touch OK to start initialisation" under Settings → Other on the EU card. Trace the path from `NaviSetCC.dll` method `SDCardInitialization` to the process and driver that act, and say whether it sets the CMD42 password, formats the card, or writes files.
+  - Scope: EU 2011 image A/B/C static (cerom, sh4dis, sh4xref, strings); emulator only if static stalls. No PIN, serial or dump bytes in the repo.
+  - Done when: an EXP names each hop (caller → message/IOCTL → receiver) with VAs, and states which SD operations the path reaches.
+  - Stop: one session.
+  - Claims: C-10170–C-10179
+  - Result: EXP-2026-11-24-M2.29-sd-card-initialisation (C-10170–C-10176). Menu → Navi msg 0x841000f7 → sub-slot DSK8 card: UNLOCK + CLR_PWD with the unit PIN (PROD +0x100 via FMD1), zero-write, Part00; no SET_PWD/LOCK in image A, so it does not set the PIN. C-8331 retracted.
 
 ## M3 — Reader contract
 
@@ -1988,7 +2024,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8160–C-8169
 
 - [ ] **M3.43 — L4 zoom-out on NK1: make the firmware read `FRWAY0nn`/`INTER0nn` and name the code that consumes the records**
-  - Status: blocked · Owner: task/m3.43-l4-zoomout-refer-reader · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: reader
   - Depends: — (M3.16 and M3.29 are blocked on exactly this observation; M5.100 proved the L4 zoom-out recipe works on NK1 with the committed unit flash)
   - Goal: L3 cannot deliver the REFER record request (`0x1507` undelivered, `0x14b5` never issued, EXP-2026-11-20-M3.29), so no content reader of `INTER`/`FRWAY` has ever been observed. A full-system run can generate the request through a real UI action: boot the factory EU 2011 card in QEMU with NK1, start near a motorway, zoom out through the steps where M5.100 saw level-2 map loading, watch SD/file reads for `FRWAY0nn.DAT`/`INTER0nn.DAT`, and attribute the bytes read to firmware code. Answer: does map zoom-out (or a neighbouring UI action such as route preview) make the firmware read those families, and which function consumes the 12-byte table and the blob fields?
@@ -2003,6 +2039,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Blocker: L4 UI never reaches SRT_COLD_I_AGREE on the EU 2011 card (zero flash 330 s, M6.24 anon flash 330 s); no tap injected and ze0_sdtrace maps 0/98677 SD reads to a card file
   - Unblock: M8.C1p — port the consent-screen skip to the ZE0 2011 card so --ui-start reaches the map
   - Result: EXP-2026-11-23-M3.43-l4-zoomout-refer-negative (negative, Stop rule met)
+  - Note: 2026-11-24: re-opened (rule 15) — M8.C1p done: EU card leaves consent with no tap on NK1 + owner flash with SRAM area 0 erased (EXP-2026-11-24-M8.C1p-eu-consent-l4); the anon flash still does not reach ScreenState on EU
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -3542,8 +3579,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M9.67
   - Result: EXP-2026-11-22-M5.72-locmap-ref-words (in-window fix PASS, census negative)
 
-- [ ] **M5.73 — OSM tag → POI category table for the unit's category codes**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.73 — OSM tag → POI category table for the unit's category codes**
+  - Status: done · Owner: task/m5.73-poi-category-profile · Critical: no · Pair: solo
   - Step: P4
   - Depends: M4.88
   - Goal: With the category table of M4.88, define which OSM tags become which category, so the POI writer (M5.18, M5.63) has a rule set.
@@ -3553,7 +3590,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `python3 tools/profile_validate.py profiles/…` passes; a synthetic OSM fixture with one object per rule maps to the expected code (selftest); every target code exists in the M4.88 table.
   - Stop: one session.
   - Falsifier: a rule targets a code with zero records on the factory card.
-  - Claims: C-7920–C-7929
+  - Claims: C-10160–C-10168
+  - Result: EXP-2026-11-24-M5.73-poi-category-profile (C-10140-C-10149); 19 rules, 11 mapped categories
 
 - [x] **M5.74 — Water and forests from OSM: first slice of a background writer**
   - Status: done · Owner: task/m5.74-osm-background-writer · Critical: no · Pair: required
@@ -3929,8 +3967,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8830–C-8839
 
-- [ ] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
+  - Status: done · Owner: task/m5.102-hashutil-migration · Critical: no · Pair: solo
   - Depends: M8.H76 (done)
   - Goal: M8.H76 shipped `sha256_file`/`sha256_bytes` and migrated the eight tools it named, but seven tools added later in the same window still hash inline: `launch_area.py`, `point_add_poi.py`, `tile_from_zero.py`, `tile_provenance.py`, `tile_relayout.py`, `ze0_l3parity.py`, `ze0_uistart.py`. Their evidence stamps can drift from the shared helpers, which is the exact failure M8.H76 was filed to prevent.
   - Precheck: `grep -l 'import hashlib' tools/launch_area.py tools/point_add_poi.py tools/tile_from_zero.py tools/tile_provenance.py tools/tile_relayout.py tools/ze0_l3parity.py tools/ze0_uistart.py | wc -l` prints 7; `grep -nE '^def (sha256_file|sha256_bytes)' tools/hashutil.py` prints both; `python3 tools/hashutil.py --selftest` passes.
@@ -3941,6 +3979,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: two call sites disagree on the hex of the same bytes after the change, or a tool's JSON output changes.
   - Claims: C-9960–C-9969
   - Pair: solo
+  - Result: EXP-2026-11-24-M5.102-hashutil-seven-tools; 17/17 call-site hex equal; selftest 282 pass 0 fail
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -4129,8 +4168,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-8860–C-8869
   - Result: EXP-2026-11-23-M6.24-anonymous-unit-flash; firmware/unit-flash/*-anon.bin + NK1 boot to the map on -M ze0 with 1 load error (erased flash: 11); scan against the real dump: 0 hits for serial, PIN, password, positions
 
-- [ ] **M6.25 — Object 0A of the object store: what it is and when it is first saved**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M6.25 — Object 0A of the object store: what it is and when it is first saved**
+  - Status: done · Owner: task/m6.25-cycle10 · Critical: no · Pair: solo
   - Step: firmware
   - Depends: M6.24
   - Goal: the anonymous unit flash (M6.24) boots with one `OBJ_BackUp_Load Error`, object 0A; the real dump has none. Find the object and the event that saves it, so that the image can be made with zero load errors.
@@ -4141,6 +4180,17 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: one session.
   - Falsifier: the error stays after the object's own save path has run.
   - Claims: C-8870–C-8879
+  - Result: EXP-2026-11-24-M6.25-object-0A (C-8870-C-8879); object 0A = OBJ_SEM_ODOMETER
+
+- [x] **M6.26 — What do LeafSDTools' Write NAND sections cover, and what does it mean for us?**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+  - Depends: M6.19 (unit flash map)
+  - Goal: Marek (2026-11-24) asked whether the section buttons of LeafSDTools `Write NAND` (ALL+EEPROM, ALL OS, BL IPL, PROD, BL BASE, BL EBOOT, BL ENH, APP) tell how the unit flash is divided, and whether anything follows for this project. Read the upstream source (`developerfromjokela/leafsdtools`, GPL-3.0) and set it against `docs/hardware/unit-flash.md`.
+  - Scope: source reading only (ReadNAND, WriteNAND, WriteNAND_QY8, Flash, UserSRAM, ProdInf); no code copied; no unit write.
+  - Done when: an EXP lists each button's blocks and flash range from the source, compares them with the M6.19 map, and names what changes for the EU-card guide and the emulator.
+  - Stop: one session.
+  - Claims: C-10180–C-10189
+  - Result: EXP-2026-11-24-M6.26-leafsdtools-write-nand-sections (C-10180–C-10186). Only ALL OS and ALL+EEPROM write; ALL OS = blocks 8–0x86 incl. SRAM/VFlash, so the area-0 reset goes after it (eu-card-on-us-unit.md); section page counts confirm the M6.19 map; APP partition 0x040000–0x39FFFF.
 
 ## M7 — Scale and release (later)
 
@@ -4515,8 +4565,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8840–C-8849
   - Result: Areas are 0xe0/0xd0 stencil polygon + 0x82 32x32 pattern; texquad() stretched the pattern over the box. Patch ze0-hc1u repeats it and masks by the polygon: water and parks follow their outlines (factory 3ccbb525…, NK1 zoom on factory and from-zero cards). Older L4 hashes are box-fill renders. EXP-2026-11-23-M8.C1u-2dg-area-pattern, C-8840–C-8844.
 
-- [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
-  - Status: blocked · Owner: task/m8.c1p-cycle10 · Critical: no · Pair: solo
+- [x] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
+  - Status: done · Owner: claude/project-thread-2u27o5 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1m
   - Goal: Marek (2026-11-22): the start-up consent screen and the GPS time fix are "two important and needed things". Companion's consent patch only knows the AZE0 states (`SRT_COLD_I_AGREE_TELEMA…`) and stops on the 2011 card (C-8359). Find the ZE0 equivalents and build a patch for card ROM A that skips the consent screen, in our own tool, without copying Companion code.
@@ -4526,10 +4576,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: the patched EU card on `-M ze0` logs the transition out of `SRT_COLD_I_AGREE` without `SK_SCT_AGREE_CLICK`, and the tool's selftest passes. Otherwise, the EXP names the sites found and what blocks the patch.
   - Stop: one session. No vendor bytes and no patched ROM in the repository.
   - Falsifier: the ZE0 consent state has no timer or transition site that a small patch can redirect.
-  - Claims: C-8370–C-8379
-  - Blocker: EU card never creates AuiApp/ScreenState on -M ze0 with any available unit flash, so the patched-EU zero-click consent transition cannot be logged
-  - Unblock: Re-preserve the owner's real unit flash (M6.18 dc2b30df...) used by M1.57 and re-run the zero-click assertion
-  - Result: EXP-2026-11-24-M8.C1p-ze0-consent-skip (negative EU L4; US patch mechanism VERIFIED with 0 clicks); 9 EU boots, 0 consent
+  - Claims: C-8370–C-8379, C-10110–C-10119, C-10190–C-10196
+  - Blocker: (resolved 2026-11-24) was: EU card never reached ScreenState on anon flash; with the owner's re-shared flash it does
+  - Unblock: done (owner re-shared the flash 2026-11-24)
+  - Result: EXP-2026-11-24-M8.C1p-eu-consent-l4 (EU L4: 0 clicks, NK1 + owner flash; ids 0x08a4->0x088f; earlier EU patch was wrong) + EXP-2026-11-24-M8.C1p-ze0-consent-skip (US)
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
@@ -5787,6 +5837,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: M5.100 from-zero card (SHA-256 1b5bafeb…aeb2f2da52) was reaped with scratch: 17 images >=7 GiB hashed this session, 0 match; tile 0717a913…, pinned PBF b26a178b… and intermediates deleted; stock zlib 1.3.1 unavailable, so exact rebuild cannot be confirmed. No from-zero card to boot, so no L4 file-open/screen comparison was possible
   - Unblock: A task that re-preserves the M5.100 from-zero card (rebuild tile 0717a913… from pinned PBF b26a178b… with stock zlib 1.3.1 and re-apply the M5.100 map-code patch), confirmed by sha256sum prefix 1b5bafeb…aeb2f2da52; plus M8.C1p for the EU-card consent skip so --ui-start reaches map state. Rule 15 re-opens M8.H79 when that task merges
   - Result: EXP-2026-11-23-M8.H79-from-zero-card-unavailable (negative; 0/17 card hashes match, selftests pass, bad-mmain control FAIL at F4; task falsifier untestable without the card)
+  - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
 
 - [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
   - Status: open · Owner: — · Critical: no · Pair: no
@@ -6550,8 +6601,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
   - Result: EXP-2026-11-23-M9.77-exp-check-subheadings.md; M4.96 PASS, corpus 550->542, selftest 15/15
 
-- [ ] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
+  - Status: done · Owner: task/m9.78-template-defects · Critical: no · Pair: required
   - Depends: M9.77
   - Goal: the 49 EXP records added between 2026-11-23 06:20Z and 19:07Z include real gaps behind the formatter noise: a sample without a full SHA-256, a Method with no runnable commands/controls/scope, or no falsifier. A reviewer cannot reproduce those results from the repo. After M9.77 separates layout from content, repair each record that still FAILs rather than waiving the lint wholesale.
   - Precheck: `python3 tools/exp_check.py docs/experiments` still prints FAIL lines; `git log --since=2026-11-23T06:20:04Z --diff-filter=A --name-only --pretty=format: origin/main -- docs/experiments/ | grep -c 'EXP-'` prints the window size (49 at 19:13Z).
@@ -6562,6 +6613,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: an EXP is marked PASS while still lacking a full sample hash, a runnable command, a control, a counted scope or a falsifier.
   - Claims: none (record repair; no claim rows reserved until the work commits them)
   - Pair: required
+  - Result: EXP-2026-11-24-M9.78-exp-template-defects.md; 31 repaired, window 48 PASS/0 FAIL, selftest 15/15, claims_check OK
 
 - [x] **M9.79 — Keep tool selftests off the `/tmp` tmpfs: the standing gate is red on this host**
   - Status: done · Owner: task/m9.79-tmp-tmpfs-selftests · Critical: yes · Pair: required

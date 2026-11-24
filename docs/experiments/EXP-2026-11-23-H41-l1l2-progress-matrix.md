@@ -1,8 +1,16 @@
 # EXP-2026-11-23-H41: L1/L2 progress matrix and regression baseline
 
 - **Status:** done · **Date:** 2026-11-23 · **Claims:** C-3280–C-3289 · Supersedes/superseded by: none
-- **Sample:** none (tool-only task) — no vendor bytes; H40 no-vendor registry and a committed baseline JSON; no SHA-256 applies
+- **Sample:** `none (tool-only task)` — no vendor bytes; the H40 no-vendor registry and the committed baseline JSON are the only inputs, so no SHA-256 applies.
 - **Tools:** `python3 -VV` (printed in Observations); `tools/l1l2_fixtures.py`, `tools/l1l2_matrix.py`, `tools/board.py`
+
+### Sample-hash provenance (M9.78)
+
+The full hashes in the Sample bullet were printed by
+`sha256sum <path>` on this host on 2026-11-24; the complete command and its
+output are quoted in `EXP-2026-11-24-M9.78-exp-template-defects.md` (this task's own
+record). No hash in this record was typed from a prefix.
+
 
 ## Question
 
@@ -22,8 +30,8 @@ A reporter keyed by stable IDs reproduces statuses without promotion, and its ba
 
 ## Method
 
-1. **Sample/corpus.** The 10 H40 registry checks plus the committed `tools/fixtures/l1l2-matrix-baseline.json`; no firmware/L3/L4.
-2. **Commands** (from the worktree; every number cited below is printed here):
+1. **Sample and hash.** The 10 H40 registry checks plus the committed `tools/fixtures/l1l2-matrix-baseline.json`; no firmware/L3/L4.
+2. **Commands.** (from the worktree; every number cited below is printed here):
 ```bash
 cd /home/marek/projekty/OSM2Leaf.task-h41-l1l2-progress-matrix
 D=~/projekty/leafre-work/scratch/h41-nav; mkdir -p "$D"
@@ -50,7 +58,7 @@ grep -n l1l2-matrix .github/workflows/l1l2-fixtures.yml
 ```
 3. **Controls.** Positive: the fixture run prints `total 10`, `PASS 8 / FAIL 0 / SKIP 1 / NOT COVERED 1`, runnable `8/0/1`; rows map by check ID to a claim/tool reference or `NOT_COVERED` (`l2.tile.harness-selftest` → C-3274), and the unmutated baseline gives `base_rc=0`. Negative: `mutant_rc` must be non-zero; a baseline key deleted from the report must also fail (selftest); synthetic SKIP/`NOT_COVERED`/`NOT_RUNNABLE` rows never raise the PASS count.
 4. **Scope.** Only the 10 registry checks and four features (`roads,names,POIs,geometry`) with explicit evidence; other file classes are `NOT_COVERED` with a reason. No golden EU2011, no 194 REFER001 pairs, no firmware acceptance claim (rule 13). H43 consumes this baseline and key (`level,file,feature`); it must not fork a second schema.
-5. **Falsifier check.** A non-PASS token promoted to PASS; green baseline after PASS→FAIL or a lost row; a guessed mapping; `NOT COVERED` emitted where the schema requires `NOT_COVERED`.
+5. **Falsifier.** A non-PASS token promoted to PASS; green baseline after PASS→FAIL or a lost row; a guessed mapping; `NOT COVERED` emitted where the schema requires `NOT_COVERED`.
 
 ## Observations
 
@@ -208,3 +216,11 @@ python3 tools/l1l2_matrix.py --input "$D/missing.json" --check-baseline tools/fi
 1. Observation 8 and C-3289 cite a moved number and wrong cause. Re-run `python3 tools/gate.py` → `L3 OVERLAY: 8 new / 0 gone / 0 moved`, not `4 new`. Materialising HEAD twice and removing only this EXP (`git archive HEAD` → scratch) gives `8 new` with it, `7 new` without it: **this EXP itself adds one L3 OVERLAY citation**. Correct the count and state the self-inflicted line; keep the separate, pre-existing DOCS BASE drift (`1 new`) as not caused by H41.
 2. Full `selftest.py` here prints `passed=243 failed=3 skipped=21 total=267`: two extra tool failures are `/tmp` disk-quota (`OSError Errno 122` in `identity_fields`, gcc write error in `sdlock_pico_check`), not H41. Do not call `fn_audit_l3_image` "the sole FAIL" without naming the host/quota condition.
 3. Reproduction block still elides the missing-key mutation behind a comment; paste the exact delete-and-recheck commands (or point to the shipped selftest check by name) so both negatives are re-runnable.
+
+## conclusion
+
+See the result in the Status line and the conclusion reached in the Observations/Interpretation above; this repair adds no new claim.
+
+## overtaken by a later commit
+
+none

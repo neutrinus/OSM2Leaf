@@ -115,6 +115,19 @@ That is for the car test to show.
    by hand, and `--map-code-only` skips it (that card would stop at
    `NK Version Error`).
 
+   Optional: skip the start-up consent screen ("Touch OK to accept") on
+   the same copy. Order does not matter:
+
+   ```bash
+   python3 tools/ze0_consent.py patch eu_card.img --in-place
+   python3 tools/ze0_consent.py verify eu_card.img     # verify: PASS
+   ```
+
+   It changes two 16-bit literals in each copy of image A and fixes each
+   copy's SUM4 (EXP-2026-11-24-M8.C1p-eu-consent-l4). A card patched with
+   a version before 2026-11-24 fails `verify`; run `patch` again on it.
+   The LeafSDTools Companion consent patch does not fit 2011 cards.
+
 5. Reset the navigation's saved state on the unit (area 0 of `SRAM`). See
    [Reset area 0 of the unit's SRAM](#reset-area-0-of-the-units-sram)
    below. Without it, the EU card crashed `Navi.exe` in the emulator.
@@ -132,6 +145,16 @@ That is for the car test to show.
 
 To undo: put the original card back, or run `set --code QSD-302-100
 --nk-name X210ECNI.158` on the patched copy.
+
+## Removing the consent screen (optional)
+
+`tools/ze0_consent.py patch CARD.img --in-place` retargets the cold-start
+`SRT_COLD_I_AGREE` comparator to an event the skin raises without a tap
+(M8.C1p). Run it **before** `card_mapcode.py`, or pass `--build eu`: the tool
+identifies the card by the NB00 part number (`470-2824-34` EU,
+`470-2818-33` US), because the build name it would otherwise read is exactly
+what `card_mapcode.py` rewrites (H143, C-10140). The patch is confirmed on a
+US card in the emulator only; on the EU card it has not been shown.
 
 ## Reset area 0 of the unit's SRAM
 
@@ -155,6 +178,12 @@ areas stay as they are: car position backup, history, Bluetooth, and VFlash
 (phone books, the TCU/CARWINGS server URL). The only URL in the user areas is
 the firmware default `http://biz.nissan-gev.com/…` in VFlash. Area 0 holds
 no URL.
+
+**Order matters.** LeafSDTools `Write NAND` → `ALL OS` also writes `SRAM`
+and `VFlash` from the `nand_….bin` file (blocks 8–`0x86`, M6.26). If you
+flash NK1 patches with `ALL OS`, do it **first**, and reset area 0 after it.
+Otherwise erase area 0 in the NAND file as well: bytes `0x400000`–`0x45FFFF`
+of that file.
 
 **Tool.** LeafSDTools, menu `SRAM` (`LeafSDTools/UserSRAM.cpp`
 upstream):

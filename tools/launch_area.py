@@ -45,7 +45,6 @@ Stdlib only; addresses come from ``tools/cerom.py``.
 
 import argparse
 import copy
-import hashlib
 import os
 import sys
 
@@ -53,6 +52,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import cerom  # noqa: E402
 import applaunch_table as A  # noqa: E402
+import hashutil  # noqa: E402
+
+sha256 = hashutil.sha256_bytes
 
 USA, EURO = 0x00040000, 0x00020000
 ALL_AREAS = 0xffff0000
@@ -263,7 +265,7 @@ def main(argv=None):
     elif args.cmd == "mutate":
         cmd_mutate(recs, args.index, args.area, args.mode)
     elif args.cmd == "table-hash":
-        print("sha256 %s" % hashlib.sha256(raw).hexdigest())
+        print("sha256 %s" % sha256(raw))
     return 0
 
 
