@@ -846,7 +846,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-24-M1.41-bluetooth-stack; paired 6 (mov #5 @0x032f1350, 6-slot mask), connected 1 (scalar GetCurrentConnectedId 0x032f3044), verdict policy in code; 282/282 selftest
 
 - [ ] **M1.42 — Decompile map of the audio stack (`Audio.exe`, `anwdrv`, `wavessi`, `DspDrv`, `MuteDrv`, `BeepDrv`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.42-audio-stack · Critical: no · Pair: solo
   - Depends: — (M4.60 is the data side: where the sounds are)
   - Goal: side track. What the SH-4 does itself and what it only asks the audio microcontroller to do over `SCI1:`: source switching, volume, mixing of guidance over media, USB/iPod/Bluetooth audio path, radio. List the message set of the `anwdrv` protocol (device `AUD`/`TNR`/`TMC`/`UPD`…: command ids, lengths).
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports anwdrv.dll` prints exports.
