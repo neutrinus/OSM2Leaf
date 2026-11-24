@@ -2709,7 +2709,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7760–C-7769
 
 - [ ] **M4.78 — KIWI verdict and plan: one page that says what the format buys us, and renames our fields**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.78-cycle10 · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M4.63, M4.64, M4.66, M4.67, M4.69
   - Goal: Close the loop for Marek's question 'is KIWI a shortcut?': gather the verdicts, decide per file family whether to adopt KIWI names and layouts, and turn each confirmed match into writer or reader work.
