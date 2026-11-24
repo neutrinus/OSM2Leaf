@@ -1,0 +1,10 @@
+# M8.H40 recorded QMP input session: tap the ZOOM IN button on the US card.
+# Send through the ze0-gfx display console (device=ze0-gfx) with
+#   python3 tools/ze0_input.py run docs/emulator/scenarios/live-tap.txt \
+#     --qmp WORK/qmp.sock --hmp WORK/mon.sock --panel-log WORK/panel.log \
+#     --shot-dir SHOTS --log WORK/serial.log
+# Panel (765,70) -> abs qwords (0x7a8d,0x12b5) -> decoded back (765,70).
+wait-log MAP_MAPOPERATION_NORMAL_MAP::CompleteShowScreen
+abs 765 70
+click
+shot after-tap
