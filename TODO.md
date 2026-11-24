@@ -2699,7 +2699,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-22-M4.70-kiwi-bg-frame; 0/17,659 KIWI fits, synthetic control PASS, 8 claims C-7690-C-7697
 
 - [ ] **M4.71 — KIWI Name Data Frame (chapter 7.4) against tile names and section 4: name records, placement kinds, string encoding**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m4.71-kiwi-name-frame · Critical: no · Pair: required
   - Step: P2
   - Depends: —
   - Goal: KIWI name records carry an attribute header, a placement kind (along a line, at a point, symbol + string) and the string. Our section-4 writer leaves names empty (M5.65) and road-name placement is not understood. Test the KIWI layout on the name bytes we have.
