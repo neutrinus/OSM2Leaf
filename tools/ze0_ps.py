@@ -88,6 +88,17 @@ MAX_THREADS = 4096                   # loop guard, not a CE limit
 MAX_MODULES = 2048
 MAX_NAME = 128                       # UTF-16 code units
 
+# CE 5.0 on SH-4 keeps the user VA -> physical map in the CPU page tables.
+# KDataStruct.aSections is inline at KData +0xa0 and KINX_SECTIONS is
+# aInfo[7] (KData +0x31c); both read 0x89e418a0 on the live EU2011 guest.
+# SH-4 Big Physical Page 1 KiB/4 KiB/64 KiB/4 MiB sizes are selected by the
+# SZ bits of the PTE (bits 9:8 of reg_data = PTE - 1, flycast's WinCE hack).
+AINFO_SECTIONS = 7
+ASECTIONS = 0xA0
+PTE_MASKS = (0x3FF, 0xFFF, 0xFFFF, 0x3FFFFF)
+PTE_HEADER = 12                      # bytes from a level-2 entry to its PTEs
+MAX_PTE_SPAN = 16                    # PTE words in one level-2 table
+
 
 def phys(va: int) -> int:
     """SH-4 cached/uncached P1/P2 alias -> physical address."""
@@ -163,20 +174,124 @@ class ImageMemory:
         return bytes(self.data[off:off + size])
 
 
+class PhysicalHmpMemory:
+    """Always read guest *physical* memory via HMP ``xp`` (never virtual)."""
+
+    def __init__(self, sock: str, words: int = 64):
+        self.sock = sock
+        self.words = words
+
+    def read(self, addr: int, size: int) -> bytes:
+        addr = phys(addr)
+        out = bytearray()
+        while len(out) < size:
+            chunk = min(self.words, (size - len(out) + 3) // 4)
+            base = addr + len(out)
+            vals = hmp_xp(self.sock, base, chunk)
+            if len(vals) != chunk:
+                raise OSError("xp at 0x%08x: got %d of %d words" %
+                              (base, len(vals), chunk))
+            for v in vals:
+                out += struct.pack("<I", v)
+        return bytes(out[:size])
+
+
+class PtbMemory:
+    """Translate a CE 5.0 user-slot VA to guest physical memory.
+
+    The idle guest's ASID does not map user slots, so HMP ``x`` and gdbstub
+    ``m`` fail on ``lpszProcName``.  The map is in the CPU page tables,
+    reachable through HMP ``xp`` (physical).  A section (level-1) entry is
+    selected by ``va[31:25]``, a level-2 entry by ``va[24:16]``, and the PTE
+    by ``va[15:10]``.  ``reg_data = PTE - 1``; its SZ bits pick a page size
+    mask from :data:`PTE_MASKS`, and the physical page is the high bits of
+    reg_data OR'd with ``va & mask``.  The derivation is the SH-4 MMU layout
+    in flycast's WinCE hack (validated against live guest bytes), not a
+    fitted delta.  Failed reads raise OSError so the caller reports them.
+    """
+
+    def __init__(self, reader, ttb: int | None = None, kdata: int = KDATA_P1):
+        self.reader = reader
+        self.kdata = kdata
+        self.ttb = ttb if ttb is not None else self._read_ttb()
+        self.cache: dict[int, int] = {}
+        self.walks = 0
+
+    def _read_ttb(self) -> int:
+        # aInfo[7] (KData +0x31c) is the base of the 64-entry aSections
+        # array; that array holds per-slot level-1 page-table pointers.
+        # It is not equal to KData +0xa0 on the live guest: that address is
+        # the first array element, i.e. slot 0's L1 pointer.
+        ainfo = self.reader.read(phys(self.kdata) + AINFO +
+                                 4 * AINFO_SECTIONS, 4)
+        return struct.unpack("<I", ainfo)[0]
+
+    def _word(self, addr: int) -> int:
+        addr = phys(addr)
+        if addr in self.cache:
+            return self.cache[addr]
+        val = struct.unpack("<I", self.reader.read(addr, 4))[0]
+        self.cache[addr] = val
+        return val
+
+    def translate(self, va: int) -> int:
+        """Return the guest physical address for a U0 VA, or raise OSError."""
+        if va >= 0x80000000:
+            return phys(va)
+        ttb = phys(self.ttb)
+        l1 = self._word(ttb + ((va >> 25) & 0x7F) * 4)
+        if not (l1 & 0x80000000):
+            raise OSError("U0 VA 0x%08x: invalid level-1 entry 0x%08x" %
+                          (va, l1))
+        l2 = self._word((l1 & 0x1FFFFFFF) + ((va >> 16) & 0x1FF) * 4)
+        if not (l2 & 0x80000000):
+            raise OSError("U0 VA 0x%08x: invalid level-2 entry 0x%08x" %
+                          (va, l2))
+        pte = self._word((l2 & 0x1FFFFFFF) + PTE_HEADER +
+                         ((va >> 10) & 0x3C))
+        reg = pte - 1
+        sz = (reg >> 8) & 3
+        if reg < 0 or pte == 1:
+            raise OSError("U0 VA 0x%08x: invalid PTE 0x%08x" % (va, pte))
+        mask = PTE_MASKS[sz]
+        page = (reg & 0x1FFFFFFF) & ~mask
+        if not page:
+            raise OSError("U0 VA 0x%08x: empty PTE 0x%08x" % (va, pte))
+        self.walks += 1
+        return page | (va & mask)
+
+    def read(self, va: int, size: int) -> bytes:
+        out = bytearray()
+        while len(out) < size:
+            addr = va + len(out)
+            mask = PTE_MASKS[0]
+            pa = self.translate(addr)
+            chunk = min(size - len(out), 4)
+            # never cross a 1 KiB boundary: each chunk is one PTE
+            chunk = min(chunk, 0x400 - (addr & 0x3FF))
+            val = struct.unpack("<I", self.reader.read(pa, 4))[0]
+            out += struct.pack("<I", val)[:chunk]
+        return bytes(out[:size])
+
+
 class Memory:
     """u32/UTF-16 view of one of the two byte readers above."""
 
-    def __init__(self, reader, vreader=None):
+    def __init__(self, reader, vreader=None, ptb=None):
         self.reader = reader
         self.vreader = vreader  # optional gdbstub fallback for user-slot VAs
+        self.ptb = ptb          # optional U0 VA -> physical page-table walker
         self.errors: list[str] = []
 
     def u32(self, va: int) -> int:
         return struct.unpack("<I", self.reader.read(va, 4))[0]
 
     def utf16(self, va: int, limit: int = MAX_NAME) -> str:
+        reader = self.reader
+        if va < 0x80000000 and self.ptb is not None:
+            reader = self.ptb
         try:
-            raw = self.reader.read(va, 2 * limit)
+            raw = reader.read(va, 2 * limit)
         except (OSError, ValueError):
             if self.vreader is None:
                 raise
@@ -250,6 +365,7 @@ class Snapshot:
     processes: list[Process]
     modules: list[Module]
     errors: list[str]
+    ptb_walks: int = 0
 
 
 def _valid_name(name: str) -> bool:
@@ -359,10 +475,11 @@ def take_snapshot(mem: Memory, kdata: int,
 
 def format_report(snap: Snapshot, threads: bool = False,
                   modules: bool = True) -> list[str]:
-    out = ["KData phys 0x%08x  NKSIG=%s  procarray=0x%08x  modules=0x%08x  curthread=0x%08x" %
+    out = ["KData phys 0x%08x  NKSIG=%s  procarray=0x%08x  modules=0x%08x  curthread=0x%08x  ptb_walks=%d" %
            (phys(snap.kdata),
             "NKSG" if snap.nksig == NKSIG else "0x%08x" % snap.nksig,
-            snap.procarray, snap.modlist, snap.cur_thread)]
+            snap.procarray, snap.modlist, snap.cur_thread,
+            snap.ptb_walks)]
     out.append("== CE processes (%d) ==" % len(snap.processes))
     out.append("%-18s %4s %-10s %-10s %6s %6s" %
                ("name", "slot", "handle", "vmbase", "threads", "pTh"))
@@ -393,6 +510,7 @@ def to_json(snap: Snapshot) -> dict:
         "procarray": "0x%08x" % snap.procarray,
         "module_list": "0x%08x" % snap.modlist,
         "current_thread": "0x%08x" % snap.cur_thread,
+        "ptb_walks": snap.ptb_walks,
         "processes": [
             {
                 "name": p.name, "slot": p.procnum,
@@ -482,6 +600,43 @@ def make_synthetic() -> bytes:
     return bytes(img)
 
 
+# --------------------------------------------------------------------------
+# Synthetic page table for --selftest: U0 VA -> physical translation
+# --------------------------------------------------------------------------
+
+SYN_TTB = 0x09E10000                  # physical page-table root
+SYN_U0_VA = 0x0405FEC4                # a user-slot lpszProcName VA
+SYN_U0_PHYS = 0x09E30000              # physical page holding the name
+
+
+def make_synthetic_ptb() -> bytes:
+    """A minimal two-level table mapping SYN_U0_VA to SYN_U0_PHYS."""
+    img = bytearray(0x80000)
+
+    def u32(va: int, value: int) -> None:
+        off = phys(va) - SYN_BASE
+        img[off:off + 4] = struct.pack("<I", value)
+
+    # aInfo[7] and KData +0xa0 both hold the *base* of aSections (a P1 VA).
+    # The level-1 pointer lives at TTB + slot*4, not at the base itself.
+    u32(KDATA_P1 + AINFO + 4 * AINFO_SECTIONS, SYN_TTB | 0x80000000)
+    u32(KDATA_P1 + ASECTIONS, SYN_TTB | 0x80000000)
+    l1_phys = SYN_TTB + ((SYN_U0_VA >> 25) & 0x7F) * 4
+    l2_phys = SYN_TTB + 0x1000
+    u32(l1_phys, l2_phys | 0x80000000)
+    l2_entry = l2_phys + ((SYN_U0_VA >> 16) & 0x1FF) * 4
+    pte_phys = l2_phys + 0x100
+    u32(l2_entry, pte_phys | 0x80000000)
+    # PTE = reg_data + 1, reg_data = (physical page & ~mask) | sz
+    reg = (SYN_U0_PHYS & ~PTE_MASKS[1]) | (1 << 8)
+    u32(pte_phys + PTE_HEADER + ((SYN_U0_VA >> 10) & 0x3C), reg + 1)
+    name_off = phys(SYN_U0_PHYS) + (SYN_U0_VA & PTE_MASKS[1])
+    off = name_off - SYN_BASE
+    img[off:off + len("filesys.exe") * 2 + 2] = \
+        "filesys.exe".encode("utf-16le") + b"\0\0"
+    return bytes(img)
+
+
 def selftest() -> int:
     checks = 0
     failures = 0
@@ -559,6 +714,46 @@ def selftest() -> int:
     looped = take_snapshot(Memory(ImageMemory(bad3, SYN_BASE)), KDATA_P1)
     check("negative: circular thread list stops", len(looped.processes[0].threads), 1)
 
+    # Page-table translation: positive and negative controls.
+    ptb_img = make_synthetic_ptb()
+    ptb = PtbMemory(ImageMemory(ptb_img, SYN_BASE), None, KDATA_P1)
+    check("U0 VA translates to physical", ptb.translate(SYN_U0_VA),
+          SYN_U0_PHYS + (SYN_U0_VA & PTE_MASKS[1]))
+    check("U0 name decoded from guest memory",
+          Memory(ImageMemory(ptb_img, SYN_BASE), ptb=ptb).utf16(SYN_U0_VA),
+          "filesys.exe")
+    check("translation counted", ptb.walks >= 2, True)
+
+    # Negative mutations: a corrupt level-1 / level-2 / PTE must fail loudly.
+    def ptb_poke(data: bytearray, va: int, value: int) -> None:
+        off = phys(va) - SYN_BASE
+        data[off:off + 4] = struct.pack("<I", value)
+
+    l1_word = SYN_TTB + ((SYN_U0_VA >> 25) & 0x7F) * 4
+    l2_word = SYN_TTB + 0x1000 + ((SYN_U0_VA >> 16) & 0x1FF) * 4
+    pte_word = SYN_TTB + 0x1100 + PTE_HEADER + ((SYN_U0_VA >> 10) & 0x3C)
+    for label, where in (("level-1", l1_word), ("level-2", l2_word),
+                         ("PTE", pte_word)):
+        mut = bytearray(ptb_img)
+        ptb_poke(mut, where, 0)
+        bad_ptb = PtbMemory(ImageMemory(mut, SYN_BASE),
+                            SYN_TTB | 0x80000000, KDATA_P1)
+        try:
+            bad_ptb.translate(SYN_U0_VA)
+            got = "NO ERROR"
+        except OSError as exc:
+            got = "OSError"
+        check("negative: zero %s entry fails" % label, got, "OSError")
+    mut = bytearray(ptb_img)
+    ptb_poke(mut, KDATA_P1 + AINFO + 4 * AINFO_SECTIONS, 0xDEADBEEF)
+    bad_base = PtbMemory(ImageMemory(mut, SYN_BASE), None, KDATA_P1)
+    try:
+        bad_base.translate(SYN_U0_VA)
+        got = "NO ERROR"
+    except (OSError, ValueError):
+        got = "OSError"
+    check("negative: corrupt section base fails", got, "OSError")
+
     print("checks: %d, failures: %d" % (checks, failures))
     print("ze0_ps selftest: %s" % ("OK" if failures == 0 else "FAILED"))
     return 0 if failures == 0 else 1
@@ -580,6 +775,10 @@ def main(argv=None) -> int:
                     help="physical address of byte 0 of --dump (default 0x%x)" % SYN_BASE)
     ap.add_argument("--kdata", type=lambda s: int(s, 0), default=KDATA_P1,
                     help="KData P1 address (default 0x%08x)" % KDATA_P1)
+    ap.add_argument("--ttb", type=lambda s: int(s, 0), default=None,
+                    help="page-table root (default: KData aInfo[7])")
+    ap.add_argument("--no-ptb", action="store_true",
+                    help="disable the U0 VA page-table walk (baseline H68)")
     ap.add_argument("--threads", action="store_true", help="print every thread")
     ap.add_argument("--no-modules", action="store_true", help="omit the module table")
     ap.add_argument("--json", action="store_true", help="emit JSON")
@@ -593,12 +792,22 @@ def main(argv=None) -> int:
         ap.error("choose --monitor or --dump, not both")
     try:
         vmem = GdbMemory(args.gdb) if args.gdb else None
+        ptb = None
         if args.dump:
             with open(args.dump, "rb") as handle:
-                mem = Memory(ImageMemory(handle.read(), args.dump_base), vmem)
+                reader = ImageMemory(handle.read(), args.dump_base)
+                if not args.no_ptb:
+                    ptb = PtbMemory(reader, args.ttb, args.kdata)
+                mem = Memory(reader, vmem, ptb)
         else:
-            mem = Memory(HmpMemory(args.monitor), vmem)
+            reader = HmpMemory(args.monitor)
+            if not args.no_ptb:
+                ptb = PtbMemory(PhysicalHmpMemory(args.monitor),
+                                args.ttb, args.kdata)
+            mem = Memory(reader, vmem, ptb)
         snap = take_snapshot(mem, args.kdata, args.proc_stride)
+        if ptb is not None:
+            snap.ptb_walks = ptb.walks
     except (OSError, ValueError) as exc:
         print("ze0_ps: %s" % exc, file=sys.stderr)
         return 2
