@@ -128,8 +128,12 @@ by H84 (H28 only documented its contract):
 
 - **Triggers:** `workflow_dispatch` (primary, manual QA run) and `schedule`
   (weekly, cron `23 4 * * 1`) **only** — never `pull_request`, never `push`. It
-  is not a merge gate. An input `run_img256` (boolean, default `false`) carries
-  H28's documented contract; the job itself is the explicit opt-in.
+  is not a merge gate. The boolean input `run_img256` (default `false`) gates
+  **only** the optional synthetic L3 corpus step on a manual dispatch; a
+  `schedule` event has no dispatch inputs, so it never gates the core realcheck.
+  The core `realcheck.py IMG256 --require-image` runs on both schedule and
+  dispatch regardless of the input — otherwise the "weekly regression" would be
+  a permanent no-op (H84 navigator must-fix).
 - **Image resolution:** a `actions/cache` keyed by the pinned IMG256 digest
   holds the 256 MiB firmware head; on a miss, `tools/fetch_image.py --image
   IMG256` fetches **only the 256 MiB head** from `files.viaaq.eu` (rule-11
