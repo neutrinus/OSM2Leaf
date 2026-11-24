@@ -21,8 +21,8 @@ v11.1.3 plus the earlier patches of this directory, in sorted order.
 
 diff --git a/hw/sh4/Kconfig b/hw/sh4/Kconfig
 index 9f9354dd0..9abf521a4 100644
---- a/hw/sh4/NO_SUCH_CONFIG_FILE_M8H14
-+++ b/hw/sh4/NO_SUCH_CONFIG_FILE_M8H14
+--- a/hw/sh4/Kconfig
++++ b/hw/sh4/Kconfig
 @@ -21,6 +21,7 @@ config ZE0
      default y
      depends on SH4
