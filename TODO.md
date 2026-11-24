@@ -5707,7 +5707,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     2026-11-23 SE: rule-15 re-open — M8.H32 merged; its follow-up answered the gate and the car moves on ze0. Keep the negative Result as history; finish the Done when and close.
 
 - [ ] **M8.H68a — Resolve CE user-slot VAs for `ze0_ps.py` process names**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h68a-cycle10 · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: M8.H68 found the CE 5.0 SH-4 process/thread/module tables but
