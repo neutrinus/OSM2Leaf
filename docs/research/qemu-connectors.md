@@ -36,7 +36,7 @@ many agents can build connectors at the same time.
 
 | Connector | Unit side | Carrier in QEMU | Protocol read | Peer / model | Live test |
 | --- | --- | --- | --- | --- | --- |
-| GPS receiver | `SCI7:`, `navdrv.dll` | chardev `sci7` (M8.H1, M8.H66) | M8.H27 | `ze0_peers/gps.py` M8.H30 | M8.H31, track M8.H33, map matching M8.H34 |
+| GPS receiver | `SCI7:`, `navdrv.dll` | chardev `sci7` (M8.H1, M8.H66) | M8.H27; RX path in [`docs/firmware/serial-scif-rx.md`](../firmware/serial-scif-rx.md) (M8.H66) | `ze0_peers/gps.py` M8.H30 | M8.H31, track M8.H33, map matching M8.H34 |
 | Speed pulse, gyro, reverse | `kepdrv.dll`, timers `0xffc5a000` | patch M8.H32 | M8.H28 | in the patch, driven by the GPS peer | M8.H32 |
 | Position without sensors | saved position in flash | flash file M8.H18 | M8.H19 | `ze0_seed.py` M8.H20 | M8.H20; demo mode M8.H21 |
 | Touch panel | display unit frames on `SCI3:`, command `51` (`docs/firmware/lcddrv.md`) | chardev `sci3` (`ze0-h02`), peer `panel.py --sci3` | M8.H35 (done), M8.H36 | `ze0_peers/panel.py` M8.H38 | M8.H39 (tap reaches kepdrv, locked by UI state), live window M8.H40 |
