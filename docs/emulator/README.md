@@ -227,7 +227,8 @@ names the record.
 | NOR flash / saved position | not yet | M8.H18 |
 | Live screen in a host window | works — VNC/gtk via `run.sh --display` (M8.H4) | EXP-2026-11-23-M8.H4 |
 | UI layer (buttons, status bar) | not yet — plane 2 is fully colour-keyed | EXP-2026-11-22-M8.C1f O6 |
-| US 2011 / 2014 / 2016 cards | untested on this machine | M8.H12 |
+| US 2011 card | boots to `Launcher End !`, card accepted; `Finish Launch Threads` NOT reached — US-only blocker `CAuiMonitorCmn::ThreadProc::TIMEOUT!!!!!` / `Force PowerOff` | EXP-2026-11-24-M8.H12 (M8.H12) |
+| 2014 / 2016 cards | untested on this machine | M8.H12 |
 
 ## 8. Troubleshooting
 

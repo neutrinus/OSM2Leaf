@@ -4820,8 +4820,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H9
   - Result: EXP-2026-11-23-M8.H11-l3-l4-parity (negative; tool + exit-3 contract + selftest only)
 
-- [ ] **M8.H12 — The US 2011 card on `-M ze0` (Marek's unit is US)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H12 — The US 2011 card on `-M ze0` (Marek's unit is US)**
+  - Status: done · Owner: task/m8.h12-cycle10 · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: All L4 work so far used the EU 2011 card. The only real unit is US, and its card carries another `Navi.exe` build (rule 14, name the build). Bring the US card to the same stage.
@@ -4832,6 +4832,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; a US-only crash inside `Navi.exe` is recorded, not debugged here.
   - Falsifier: the EU recipe works unchanged on the US card with EU constants (then nothing is build-specific and the README says so).
   - Claims: C-7090–C-7099
+  - Result: EXP-2026-11-24-M8.H12-us-card-ze0 (blocker branch: US card accepted to Launcher End !; FinishThread Error TimeOut 0 and Finish Launch Threads 0 at 900s; first US-only blocker CAuiMonitorCmn::ThreadProc::TIMEOUT!!!!! / Force PowerOff)
 
 - [x] **M8.H13 — `tools/l4check.py`: one command, card image in, L4 verdict out**
   - Status: done · Owner: — · Critical: yes · Pair: required
