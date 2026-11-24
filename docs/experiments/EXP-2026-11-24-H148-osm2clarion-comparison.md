@@ -2,7 +2,7 @@
 
 - **Status:** done
 - **Date:** 2026-11-24
-- **Sample:** none (tool-only task): a read of the public repository `https://github.com/albertbm/osm2clarion` at commit `458f5f0da3466de704190f8b2778d2c85688be9e`; no card image and no factory data was opened
+- **Sample:** `none (tool-only task)` — a read of the public repository `https://github.com/albertbm/osm2clarion` at commit `458f5f0da3466de704190f8b2778d2c85688be9e`; no card image and no factory data was opened
 - **Tools:** git 2.43.0, grep, python3 3.13.18 (only for `tools/board.py`); the upstream code was read, not executed
 - **Claims:** C-10370–C-10376
 - **Supersedes:** none
