@@ -5399,7 +5399,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H53-powermonitor-static; scan --check 14/14 strings, 9/9 xrefs, 19/19 IOCTLs, 5/5 immediates, selftest 5/5
 
 - [ ] **M8.H54 — Clean shutdown at L4: ACC off, data saved to the flash file, restored at the next boot**
-  - Status: in progress · Owner: task/m8.h54-cycle10 · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h54-cycle10 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.H18, M8.H53, M8.H50
   - Goal: Close the persistence loop: after an ACC-off from the vehicle peer the flash file changes, and the next boot starts from the saved state.
@@ -5410,6 +5410,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the flash file is unchanged after a completed shutdown sequence.
   - Claims: C-7510–C-7519
+  - Blocker: vcan on NK1 stalls boot before drivers (M8.H75); no ACC-off reached, flash unchanged
+  - Unblock: M8.H75
+  - Result: EXP-2026-11-24-M8.H54-shutdown-persistence-negative (negative; falsifier fired)
 
 - [x] **M8.H55 — Bluetooth module on `SCI8:`: wire protocol and what makes its start-up finish**
   - Status: done · Owner: task/m8.h55-bt-wire · Critical: no · Pair: solo
