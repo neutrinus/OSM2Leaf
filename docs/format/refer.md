@@ -109,6 +109,45 @@ The field dictionary is a C-block (`ff ff u16 word-offset` to a header with
 The record *body* field positions are **not** decoded here: the 48/88-byte name
 record grammar is still open for REFER001 too.
 
+### Writing a charging station to `REFER002` (M5.79)
+
+> **Status:** `VERIFIED` (tool, EU 2011 POINT016; C-10100–C-10109).
+> Evidence: EXP-2026-11-24-M5.79-refer002-write-first-record.
+
+`REFER002` is stored on the card as **plain uncompressed `.DAT` files**
+(`roadmap.md`; the `l2check` golden is `REFER002/COORD001.DAT`), not as
+`.cmp`/`.ind` pairs — `cmpind.py verify` on a REFER002 tree reports
+`no .ind files`.  All 880 EU 2011 facility records across the 15 POINT shards
+carry tag `0x60`; there is no `0x68` template.
+
+`tools/refer002_add_station.py` adds one record to a factory `POINT0nn.DAT`:
+
+1. inflate the name-page stream (POINT016: `0x1a00`, 112 B → 114 B);
+2. clone the factory `0x60` record verbatim (POINT016: 114 B, `len2=57`);
+3. replace **only** field 5 (`facility name`) through
+   `mutate_refer_poi.field_layout(rec, 11)`: POINT016 has `starts[5]=68`,
+   `lens[5]=10`, so the safe swap window is `rec[68:88]` — **20 bytes**.
+   The new ASCII name must have exactly that length.  Do not swap the whole
+   display text (`\x02\x11` prefix and the address at `rec[88:110]` are
+   separate fields; changing their length needs the UNKNOWN body offsets,
+   C-7866, and reproduces the M5.52/C-5117 stale-length defect);
+4. append the clone to the same inner page (114 → 228 B), recompress that one
+   stream with stock zlib 1.3.1 (factory L6/m8/w15), and require it to fit
+   before the next aligned stream (POINT016: 137 B in a 256 B slot at
+   `0x1b00`).  All other bytes, including the `.DAT` logical size, are kept.
+
+The census then reads one more record (POINT016 1→2, tree 880→881).  The
+only per-record index observed is the **24-byte-per-record stream at
+`0x1108`**: POINT016 has one 24-B row, and on all 15 shards the stream length
+divided by 24 equals the record count.  There is **no separate count field**,
+so this writer does not change the index (the task falsifier — a stale count
+field — therefore does not fire).  A complete EV index writer must add a row;
+the row's word meanings (e.g. `000f0002000100060002ffff02110077ffff3f00`) are
+UNKNOWN (new M4 task).  L1 (`cardcheck`) and L2 (`l2check`) pass on the edited
+tree; the position is inherited from the host record (no OSM coordinate is
+written), and the row-24 firmware opener is still unlocated (M3.29), so no
+L3/L4/L5 acceptance is claimed.
+
 ## `POINT0nn` — POIs
 
 - The field dictionary is inside each file: plain ASCII names with per-field

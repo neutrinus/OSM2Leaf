@@ -3615,7 +3615,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `tools/refer002_census.py census` on the edited tree shows one more station at the given position; L1 and L2 pass; the EXP states which index structures had to change.
   - Stop: one session; if an index is undecoded, stop with its name (a new M4 task).
   - Falsifier: the census reads the new record but an index still points to the old record count.
-  - Claims: C-7980–C-7989
+  - Claims: C-10100-C-10109
 
 - [x] **M5.80 — Names the unit cannot draw: transliteration fallback in the compiler**
   - Status: done · Owner: task/m5.80-transliteration · Critical: no · Pair: solo
