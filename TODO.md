@@ -5624,7 +5624,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8120–C-8129
 
 - [ ] **M8.H68 — `tools/ze0_ps.py`: process, thread and module list of the running guest from kernel structures**
-  - Status: blocked · Owner: task/m8.h68-ze0-ps · Critical: no · Pair: solo
+  - Status: open · Owner: — · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: Several tasks need 'is process X running, what is thread Y waiting on' (M8.H47, M8.H45). CE 5 keeps fixed-layout kernel tables; read them from guest memory over the monitor or gdbstub.
@@ -5638,6 +5638,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: User-slot lpszProcName VAs (0x0405fec4 etc.) return Cannot access memory via HMP x and E14 via gdbstub m, so only NK.EXE (2 threads) is named on the live guest
   - Unblock: M8.H68a
   - Result: EXP-2026-11-23-M8.H68-ze0-ps (negative); selftest 25/25; 59 modules; 1/4 processes named
+  - Note: 2026-11-24 M8.H68a: user-slot VAs translated through the guest SH-4 page tables; the four process names now print from the kernel tables (EXP-2026-11-24-M8.H68a-user-va-translation, C-10140–C-10149). Negative Result retained as history; rule-15 re-open to finish the original Done when.
 
 - [x] **M8.H69 — Breakpoints by name: a symbol file for the guest from `.pdata` and exports**
   - Status: done · Owner: task/m8.h69-symbols · Critical: no · Pair: solo
@@ -5745,8 +5746,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     (M8.H32 follow-up, 2026-11-23) answered: OBJ_CarPos takes a far GPS position through the map-matching branch 0x00458994 once five consecutive samples at >10 km/h have reported speed/heading matching the position track (C-8830–C-8833); on ze0 the car moves Kentucky→Chicago with gps.py 'drive on'.
     2026-11-23 SE: rule-15 re-open — M8.H32 merged; its follow-up answered the gate and the car moves on ze0. Keep the negative Result as history; finish the Done when and close.
 
-- [ ] **M8.H68a — Resolve CE user-slot VAs for `ze0_ps.py` process names**
-  - Status: in progress · Owner: task/m8.h68a-cycle10 · Critical: no · Pair: solo
+- [x] **M8.H68a — Resolve CE user-slot VAs for `ze0_ps.py` process names**
+  - Status: done · Owner: task/m8.h68a-cycle10 · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: M8.H68 found the CE 5.0 SH-4 process/thread/module tables but
@@ -5769,7 +5770,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     exact failing VA reads and stop with a negative EXP.
   - Falsifier: the printed names disagree with the DBGMSG lines of the same
     run, or a name is supplied from the DBGMSG log instead of guest memory.
-  - Claims: C-9940–C-9949
+  - Claims: C-10140–C-10149
+  - Result: EXP-2026-11-24-M8.H68a-user-va-translation; 7 processes/141 threads, 4 required names, 0 READ ERROR; selftest 30/30
 
 - [ ] **M8.H79 — First L4 boot of the from-zero card: file-open log and first divergence from the factory screen**
   - Status: blocked · Owner: task/m8.h79-from-zero-l4-boot · Critical: yes · Pair: required

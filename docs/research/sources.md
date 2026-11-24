@@ -87,6 +87,8 @@ and Windows CE/SH-4 parts of the work.
 | <https://learn.microsoft.com/en-us/windows/win32/debug/pe-format> | PE/COFF format reference | FACT |
 | <https://rizin.re/> | Reverse-engineering framework used for SH-4 analysis | reference |
 | <https://qemu.googlesource.com/qemu/+/refs/heads/master/hw/sh4> | QEMU SH-4 board/SoC code (`r2d.c`, `sh7750.c`); `sh_serial`/`sh_timer` in `hw/char`/`hw/timer`. Basis for a `ze0` machine (EXP-2026-11-05-37). | FACT (source) |
+| <https://github.com/flyinghead/flycast/blob/449d2569/core/hw/sh4/modules/wince.h> | flycast WinCE `wince_resolve_address`: a CE-oriented U0→physical lookup via `TTB + (VA>>25)*4` then a page-group PTE; consulted as a cross-check only, **not** copied as authority (EXP-2026-11-24-M8.H68a). | reference |
+| <https://qemu.googlesource.com/qemu/+/refs/heads/master/target/sh4/helper.c> | QEMU 11.1.3 `target/sh4/helper.c` `get_physical_address`/`cpu_sh4_write_mmaped_utlb_data`: documents the SH-4 **hardware UTLB** PTE encoding (ppn/sz/pr/v bits), distinct from CE's software page tables; layout validated against live guest bytes in EXP-2026-11-24-M8.H68a. | FACT (source) |
 | Renesas SH-NaviJ press coverage (SH77721, 2008; SH77722) | SH-4A 333 MHz, 2D/3D graphics, USB, SD host, CAN, GPS baseband, FM multiplex; matches the driver set, part number unproven (C-531). | reference (secondary) |
 
 ## Pending research

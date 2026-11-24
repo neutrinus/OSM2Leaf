@@ -56,6 +56,7 @@ AINFO = 0x300
 KINX_PROCARRAY = 0
 KINX_MODULES = 9
 KINX_NKSIG = 31
+KINX_SECTIONS = 7
 NKSIG = 0x4E4B5347
 PROC_ARRAY_LEN = 32                  # MAX_PROCESSES in pkfuncs.h
 
@@ -88,6 +89,27 @@ MAX_THREADS = 4096                   # loop guard, not a CE limit
 MAX_MODULES = 2048
 MAX_NAME = 128                       # UTF-16 code units
 
+# --- CE 5.0 SH-4 user-VA -> physical translation (M8.H68a) -----------------
+# TTB (SH-4 P4 register 0xff000000+0x08) equals KData+aInfo[KINX_SECTIONS]
+# = KData+0x31c = 0x89e418a0 on this guest; the section array is inline at
+# KData+0xa0.  Both were read with HMP xp (0x09e41b1c -> 0x89e418a0), so no
+# fitted delta is involved.  The array is the SH-4 hardware first-level page
+# table: 128 P1 pointers, one per 32 MB user slot.  Each slot's second-level
+# table holds page-group pointers; a group begins with a 12-byte header and
+# the hardware PTEL words follow at +0x0c, indexed by (VA>>10)&0x3c.
+# Physical = (PTEL & 0xfffff000) | (VA & 0x0fff).  All reads are LE u32.
+TTB_OFFSET = AINFO + 4 * KINX_SECTIONS
+PTE_HEADER = 0x0C
+PTE_INDEX_MASK = 0x3C
+PTE_PHYS_MASK = 0xFFFFF000
+PAGE_MASK = 0x0FFF
+SLOT_MASK = 0x7F
+L2_INDEX_MASK = 0x1FF
+L2_SHIFT = 16
+L1_SHIFT = 25
+L2_ENTRY_SHIFT = 2
+PTE_SHIFT = 10
+
 
 def phys(va: int) -> int:
     """SH-4 cached/uncached P1/P2 alias -> physical address."""
@@ -102,8 +124,9 @@ class HmpMemory:
     """Physical memory of a live guest, read with HMP ``xp``.
 
     ``xp`` addresses physical RAM, so P1/P2 pointers work directly.  A P0
-    (user-slot) pointer is retried with HMP ``x``, the virtual-memory form,
-    which succeeds only when the guest CPU currently maps that slot.
+    (user-slot) pointer is translated through the guest's SH-4 section/
+    PTE tables (``UserVaMemory``) instead of the virtual HMP ``x`` form,
+    which cannot read a slot that is not currently mapped.
     """
 
     def __init__(self, sock: str, words: int = 64):
@@ -113,6 +136,8 @@ class HmpMemory:
 
     def read(self, addr: int, size: int) -> bytes:
         if addr < 0x80000000:
+            from ze0_gdb import hmp_xp as _xp
+            # keep the virtual method as an explicit fallback for callers
             return self._virtual(addr, size)
         addr = phys(addr)
         out = bytearray()
@@ -136,6 +161,64 @@ class HmpMemory:
         if len(vals) < (size + 3) // 4:
             raise OSError("x at 0x%08x: no virtual mapping" % addr)
         return struct.pack("<%dI" % len(vals), *vals)[:size]
+
+
+class UserVaMemory:
+    """Translate CE 5.0 SH-4 U0 addresses to physical through the guest's
+    own page tables, then read the bytes with the underlying physical reader.
+
+    The public SH-4 two-level layout is used: L1 is the TTB/section array
+    (128 P1 pointers at 32 MB granularity), L2 gives a page-group pointer at
+    64 KB granularity, and the hardware PTEL word at group+0x0c gives the
+    4 KB physical page.  A failed read at any level raises OSError with the
+    exact address, so the caller records a READ ERROR instead of guessing.
+    """
+
+    def __init__(self, phys_reader, kdata: int = KDATA_P1, ttb: int = None):
+        self.reader = phys_reader
+        self.ttb = ttb if ttb is not None else self._read_u32(phys(kdata) + TTB_OFFSET)
+        self.pte_cache: dict[int, int] = {}
+        self.trace: list[str] = []
+
+    def _read_u32(self, addr: int) -> int:
+        return struct.unpack("<I", self.reader.read(addr | 0x80000000, 4))[0]
+
+    def translate(self, va: int) -> int:
+        if not 0 <= va < 0x80000000:
+            raise ValueError("0x%08x is not a U0 address" % va)
+        l1_va = phys(self.ttb + ((va >> L1_SHIFT) & SLOT_MASK) * 4)
+        l1 = self._read_u32(l1_va)
+        if not l1 or l1 == 0xFFFFFFFF:
+            raise OSError("L1 at 0x%08x: no section for 0x%08x" % (l1_va, va))
+        l2_va = phys(l1 + ((va >> L2_SHIFT) & L2_INDEX_MASK) * 4)
+        l2 = self._read_u32(l2_va)
+        if not l2 or l2 == 0xFFFFFFFF:
+            raise OSError("L2 at 0x%08x: no page group for 0x%08x" % (l2_va, va))
+        pte_va = phys(phys(l2) + PTE_HEADER +
+                      ((va >> PTE_SHIFT) & PTE_INDEX_MASK))
+        pte = self.pte_cache.get(pte_va)
+        if pte is None:
+            pte = self._read_u32(pte_va)
+            self.pte_cache[pte_va] = pte
+        if not pte or pte == 0xFFFFFFFF:
+            raise OSError("PTE at 0x%08x: unmapped 0x%08x" % (pte_va, va))
+        pa = (pte & PTE_PHYS_MASK) | (va & PAGE_MASK)
+        self.trace.append("0x%08x -> L1 0x%08x L2 0x%08x PTE@0x%08x=0x%08x -> phys 0x%08x" %
+                          (va, l1, l2, pte_va, pte, pa))
+        return pa
+
+    def read(self, addr: int, size: int) -> bytes:
+        if addr >= 0x80000000:
+            return self.reader.read(addr, size)
+        out = bytearray()
+        done = 0
+        while done < size:
+            va = addr + done
+            chunk = min(size - done, 0x1000 - (va & PAGE_MASK))
+            pa = self.translate(va)
+            out += self.reader.read(pa | 0x80000000, chunk)
+            done += chunk
+        return bytes(out)
 
 
 class GdbMemory:
@@ -455,7 +538,12 @@ def make_synthetic() -> bytes:
         u32(p + P_HPROC, 0x00400000 + i)
         u32(p + P_VMBASE, 0x02000000 * (i + 1))
         name_ptr = 0x8A000800 + 0x80 * i
-        name(name_ptr, names[i])
+        if i == 1:
+            name_ptr = 0x0405fec4
+            put(0x8A050000 + (name_ptr & PAGE_MASK),
+                names[i].encode("utf-16le") + b"\0\0")
+        elif name_ptr:
+            name(name_ptr, names[i])
         u32(p + P_NAME, name_ptr)
         first = 0x8A002000 + 0x200 * i
         u32(p + P_PTH, first)
@@ -479,6 +567,19 @@ def make_synthetic() -> bytes:
         u32(m + M_BASEPTR, 0x02000000 * (i + 1))
         u32(m + M_VBASE, 0x88000000 + 0x100000 * i)
         u32(m + M_VSIZE, 0x10000)
+
+    # User-slot page tables for the translator (M8.H68a).  Slot 1 gets a
+    # user-slot lpszProcName page for filesys.exe; TTB is the section array
+    # at KData + aInfo[KINX_SECTIONS].
+    ttb = 0x8A010000
+    u32(kd + AINFO + 4 * KINX_SECTIONS, ttb)
+    for slot in range(1, 5):
+        u32(ttb + slot * 4, 0x8A020000)
+    u32(0x8A020000 + 4 * ((0x0405fec4 >> 16) & 0x1ff), 0x8A050000)
+    pte_off = phys(0x8A050000 + PTE_HEADER +
+                   ((0x0405fec4 >> 10) & 0x3c)) - SYN_BASE
+    img[pte_off:pte_off + 4] = struct.pack("<I", 0x0A050000 | 0x17D)
+    name(0x8A050000 + (0x0405fec4 & PAGE_MASK), "filesys.exe")
     return bytes(img)
 
 
@@ -500,7 +601,7 @@ def selftest() -> int:
         [0x31B, 0xC4, 0x89E42BF8, 0x89E418A0])
     check("HMP xp rejects noise", parse_xp("hello (qemu) \n"), [])
 
-    mem = Memory(ImageMemory(make_synthetic(), SYN_BASE))
+    mem = Memory(UserVaMemory(ImageMemory(make_synthetic(), SYN_BASE)))
     snap = take_snapshot(mem, KDATA_P1)
     check("NKSG signature", snap.nksig, NKSIG)
     check("process count", len(snap.processes), 4)
@@ -541,13 +642,13 @@ def selftest() -> int:
     for i in range(PROC_ARRAY_LEN):
         for off in range(0, 0x40, 4):
             poke(bad, 0x8A000000 + PROC_STRIDE * i + off, 0)
-    empty = take_snapshot(Memory(ImageMemory(bad, SYN_BASE)), KDATA_P1)
+    empty = take_snapshot(Memory(UserVaMemory(ImageMemory(bad, SYN_BASE))), KDATA_P1)
     check("negative: empty process array", len(empty.processes), 0)
     check("negative: signature still read", empty.nksig, NKSIG)
 
     bad2 = bytearray(make_synthetic())
     poke(bad2, 0x8A000000 + P_NAME, 0x8BFFFFFF)
-    broken = take_snapshot(Memory(ImageMemory(bad2, SYN_BASE)), KDATA_P1)
+    broken = take_snapshot(Memory(UserVaMemory(ImageMemory(bad2, SYN_BASE))), KDATA_P1)
     check("negative: unreadable name drops the process",
           [p.name for p in broken.processes],
           ["filesys.exe", "device.exe", "Navi.exe"])
@@ -556,8 +657,32 @@ def selftest() -> int:
 
     bad3 = bytearray(make_synthetic())
     poke(bad3, 0x8A002000 + T_NEXT, 0x8A002000)  # self-loop
-    looped = take_snapshot(Memory(ImageMemory(bad3, SYN_BASE)), KDATA_P1)
+    looped = take_snapshot(Memory(UserVaMemory(ImageMemory(bad3, SYN_BASE))), KDATA_P1)
     check("negative: circular thread list stops", len(looped.processes[0].threads), 1)
+
+    # User-slot translation (M8.H68a): synthetic TTB/page table maps VA
+    # 0x0405fec4 to phys 0x0a05aec4, where "filesys.exe" is stored.
+    syn = make_synthetic()
+    uvm = UserVaMemory(ImageMemory(syn, SYN_BASE))
+    check("TTB derived from aInfo[KINX_SECTIONS]", uvm.ttb, 0x8A010000)
+    check("user VA translates to physical", uvm.translate(0x0405fec4),
+          0x0A050000 | (0x0405fec4 & PAGE_MASK))
+    check("user-slot name read through translator",
+          Memory(uvm).utf16(0x0405fec4), "filesys.exe")
+    check("translation trace records full walk",
+          len(uvm.trace), 2)
+
+    bad4 = bytearray(syn)
+    pte_off = phys(0x8A050000 + PTE_HEADER +
+                   ((0x0405fec4 >> 10) & 0x3c)) - SYN_BASE
+    bad4[pte_off:pte_off + 4] = struct.pack("<I", 0)
+    failed = Memory(UserVaMemory(ImageMemory(bad4, SYN_BASE)))
+    try:
+        failed.utf16(0x0405fec4)
+        got_error = False
+    except OSError:
+        got_error = True
+    check("negative: broken PTE makes name unreadable", got_error, True)
 
     print("checks: %d, failures: %d" % (checks, failures))
     print("ze0_ps selftest: %s" % ("OK" if failures == 0 else "FAILED"))
@@ -583,6 +708,8 @@ def main(argv=None) -> int:
     ap.add_argument("--threads", action="store_true", help="print every thread")
     ap.add_argument("--no-modules", action="store_true", help="omit the module table")
     ap.add_argument("--json", action="store_true", help="emit JSON")
+    ap.add_argument("--translate-trace", action="store_true",
+                    help="print each user-VA -> physical translation used")
     args = ap.parse_args(argv)
 
     if args.selftest:
@@ -597,8 +724,12 @@ def main(argv=None) -> int:
             with open(args.dump, "rb") as handle:
                 mem = Memory(ImageMemory(handle.read(), args.dump_base), vmem)
         else:
-            mem = Memory(HmpMemory(args.monitor), vmem)
+            base_mem = HmpMemory(args.monitor)
+            mem = Memory(UserVaMemory(base_mem, args.kdata), vmem)
         snap = take_snapshot(mem, args.kdata, args.proc_stride)
+        if args.translate_trace:
+            for line in mem.reader.trace:
+                print(line)
     except (OSError, ValueError) as exc:
         print("ze0_ps: %s" % exc, file=sys.stderr)
         return 2
