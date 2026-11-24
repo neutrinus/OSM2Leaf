@@ -5685,8 +5685,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H66
   - Result: EXP-2026-11-22-M8.H65-debugshell (static result complete: 13 commands + start condition in docs/firmware/debugshell.md; negative live result O7); C-7620-C-7629
 
-- [ ] **M8.H66 — `serial_scif.dll` receive path: per channel, interrupt or DMA, and what an emulator must raise**
-  - Status: in progress · Owner: task/m8.h66-scif-rx-path · Critical: no · Pair: solo
+- [x] **M8.H66 — `serial_scif.dll` receive path: per channel, interrupt or DMA, and what an emulator must raise**
+  - Status: done · Owner: task/m8.h66-scif-rx-path · Critical: no · Pair: solo
   - Step: reader
   - Depends: —
   - Goal: M8.H1 has to deliver received bytes the way the driver expects. Transmit on channel 10 is known (M8.C2a); receive is not. Read it once so the patch is written against facts.
@@ -5697,6 +5697,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: two channels of the same driver instance use different mechanisms with no configuration value selecting them.
   - Claims: C-8110–C-8119
+  - Result: EXP-2026-11-24-M8.H66-scif-rx-path; channel table SCIF1/3/7/8; 16 pool words, 9 call sites, 8/8 selftest; C-8110-C-8119
 
 - [x] **M8.H67 — Watchdog and reset on `-M ze0` (row C22): who kicks what, and what a reset request looks like**
   - Status: done · Owner: task/m8.h67-watchdog-reset · Critical: no · Pair: solo
