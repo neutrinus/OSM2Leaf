@@ -289,7 +289,17 @@ All five target tiles now rebuild **byte-identically**, including the dense
   kinds `0x2a46` and up (seen outside the P1 bbox) are still preserved. At L3 the firmware reads a
   spliced directory with the slot-table parser `0x00414dbc`, loading the
   `0x2046` length (C-5546); what it does with the sub-records is UNKNOWN
-  (record/sub-record decoding not covered, rule 13);
+  (record/sub-record decoding not covered, rule 13). M5.93 adds the inverse:
+   `tilewriter.py` writes a **parent plus four 2x2 sub-records** into an
+   already-wide row when a level-1 record exceeds the 68,000-B inflated
+   shape-pool budget (C-8724, M5.92) or `--force-subrecord` names a parcel.
+   The parent keeps its runs and sets bit 31 of its even `ln`; each sub is a
+   full `0x00fa` record whose code is `sub_code(parent,k)`, with points in
+   the matching half-parcel quadrant of the full 0..2047 lattice. The
+   directory size, kind and `s1_wide_dir census` counts are unchanged
+   (C-8730-C-8737). Widening a narrow row needs a 512-B relocation and is
+   refused; street names in split subs need a per-sub name-offset remap and
+   are not written (C-8730);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 
 Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
