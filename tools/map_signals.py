@@ -125,7 +125,29 @@ def signal_readers(matrix: Path) -> dict:
 L3_AWK = ('{gsub(/ /,"",$9); if ($9 ~ /PASS|REJECT/) c++} END{print "l3-running", c+0}')
 
 
-def signal_l3_rows(matrix: Path) -> dict:
+def signal_l3_rows(matrix: Path, runs_manifest: Path | None = None) -> dict:
+    """The l3-running count.
+
+    With *runs_manifest*, read the count from the M9.62 manifest (one source),
+    cross-checked against the matrix awk count; a disagreement is ``NOT RUN``
+    with a named reason, never a silently chosen number.  Without it, use the
+    verbatim Priorities awk over the numbered matrix (the pre-M9.62 path).
+    """
+    if runs_manifest is not None:
+        try:
+            if str(TOOLS) not in sys.path:
+                sys.path.insert(0, str(TOOLS))
+            from l3_harness import runs as runs_mod
+            doc = runs_mod.load(Path(runs_manifest))
+        except Exception as exc:
+            return _not_run(f"cannot read runs manifest: {exc}")
+        agreement = runs_mod.count_agreement(doc, matrix)
+        if not agreement["agree"]:
+            return _not_run(
+                f"l3-running count disagrees: matrix {agreement['matrix']} "
+                f"vs manifest {agreement['manifest']}")
+        return {"status": "LOCAL", "l3-running": agreement["manifest"],
+                "raw": f"l3-running {agreement['manifest']}", "source": "runs.json"}
     if not matrix.is_file():
         return _not_run(f"matrix not found: {matrix}")
     # Same two-stage pipeline as the Priorities block: numbered rows from grep,
@@ -408,6 +430,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help=f"subset of {', '.join(SIGNALS)} (default: all four)")
     parser.add_argument("--matrix", type=Path, default=None,
                         help="reader-coverage matrix (default: docs/research/reader-coverage.md)")
+    parser.add_argument("--runs-manifest", type=Path, default=None,
+                        help="M9.62 runs.json: source l3_rows from its row list, "
+                             "cross-checked against the matrix")
     parser.add_argument("--factory-root", type=Path, default=None,
                         help="factory card root holding MAPAL001/*.DAT "
                              "(default: $OSM2LEAF_FACTORY_ROOT or the host path)")
@@ -437,7 +462,7 @@ def run(args: argparse.Namespace) -> dict:
     if "readers" in wanted:
         out["readers"] = signal_readers(matrix)
     if "l3_rows" in wanted:
-        out["l3_rows"] = signal_l3_rows(matrix)
+        out["l3_rows"] = signal_l3_rows(matrix, getattr(args, "runs_manifest", None))
     if "tile_bytes" in wanted:
         out["tile_bytes"] = signal_tile_bytes(factory_root)
     if "card_step" in wanted:
@@ -530,6 +555,26 @@ def selftest() -> int:
         l3 = signal_l3_rows(matrix)
         chk(l3.get("status") == "LOCAL", "fixture matrix l3_rows LOCAL")
         chk(l3.get("l3-running") == 1, "fixture matrix: only the REJECT row counts (1)")
+
+        # M9.62: a manifest that agrees with the matrix sources the same count.
+        manifest = tmp / "runs.json"
+        manifest.write_text(json.dumps({
+            "schema": "osm2leaf.l3-runs/v1",
+            "placeholders": {},
+            "rows": [{"row": "1", "what": "x", "reader": "x", "build": "eu2011",
+                      "tool": "x", "argv": ["python3", "-c", "pass"],
+                      "expect": "ok", "source_exp": "x", "claim": "C-1",
+                      "need": [], "firmware_pass": False}],
+        }), encoding="utf-8")
+        sourced = signal_l3_rows(matrix, manifest)
+        chk(sourced.get("l3-running") == 1 and sourced.get("source") == "runs.json",
+            "manifest-sourced l3_rows agrees with matrix (1)")
+        bad_manifest = tmp / "bad-runs.json"
+        bad_rows = json.loads(manifest.read_text())
+        bad_rows["rows"] = bad_rows["rows"] * 2  # 2 rows vs 1 matrix row
+        bad_manifest.write_text(json.dumps(bad_rows), encoding="utf-8")
+        chk(signal_l3_rows(matrix, bad_manifest).get("status") == "NOT RUN",
+            "manifest/matrix count disagreement is NOT RUN, never a guess")
 
         # Absent matrix -> NOT RUN, no crash, not a guess.
         missing = signal_readers(tmp / "nope.md")
