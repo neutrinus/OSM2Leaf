@@ -4587,7 +4587,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.C1v
 
 - [ ] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.c1v-aui-buttons · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1n
   - Goal: M8.C1t showed the map screen with the AUI widget pixels but not the button labels: the AUI text reaches plane 1 with bit 15 clear and the colour key drops it (C-8502, C-8505). The unit makes the text opaque through a 2DG blit that ze0-0014 does not render (C-8506). Marek wants the interface (plane 1 buttons) over the map in the emulator screenshot (2026-11-22).
