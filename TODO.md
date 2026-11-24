@@ -3976,7 +3976,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session for the writer; L4 depends on a parcel on screen (the start-screen parcel may be forced to sub-records for the test).
   - Claims: C-8730–C-8739
   - Blocker: L4 boot never reached Pow Off 1st Detect in 600 s (0 markers, 1,084-line log); no screenshot and no quarter proven unread; L3 walk of sub0 ran but sub1-3 harness groups produce no LOC_map on the unmodified factory card too
-  - Unblock: M8
+  - Unblock: M8.C1p
   - Result: EXP-2026-11-24-M5.93-subrecord-writer (writer+census+L3 PASS; L4 NOT VERIFIED)
 
 - [ ] **M5.94 — London in numbers: per-parcel OSM size against the factory records and the limits**
