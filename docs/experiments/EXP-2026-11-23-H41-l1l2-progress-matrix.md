@@ -1,7 +1,7 @@
 # EXP-2026-11-23-H41: L1/L2 progress matrix and regression baseline
 
 - **Status:** done · **Date:** 2026-11-23 · **Claims:** C-3280–C-3289 · Supersedes/superseded by: none
-- **Sample:** none (tool-only task) — no vendor bytes; H40 no-vendor registry and a committed baseline JSON; no SHA-256 applies
+- **Sample:** `none (tool-only task)` — no vendor bytes; H40 no-vendor registry and a committed baseline JSON; no SHA-256 applies
 - **Tools:** `python3 -VV` (printed in Observations); `tools/l1l2_fixtures.py`, `tools/l1l2_matrix.py`, `tools/board.py`
 
 ## Question
@@ -22,8 +22,8 @@ A reporter keyed by stable IDs reproduces statuses without promotion, and its ba
 
 ## Method
 
-1. **Sample/corpus.** The 10 H40 registry checks plus the committed `tools/fixtures/l1l2-matrix-baseline.json`; no firmware/L3/L4.
-2. **Commands** (from the worktree; every number cited below is printed here):
+1. **Sample and hash.** The 10 H40 registry checks plus the committed `tools/fixtures/l1l2-matrix-baseline.json`; no firmware/L3/L4.
+2. **Commands.** (from the worktree; every number cited below is printed here):
 ```bash
 cd /home/marek/projekty/OSM2Leaf.task-h41-l1l2-progress-matrix
 D=~/projekty/leafre-work/scratch/h41-nav; mkdir -p "$D"
@@ -50,7 +50,7 @@ grep -n l1l2-matrix .github/workflows/l1l2-fixtures.yml
 ```
 3. **Controls.** Positive: the fixture run prints `total 10`, `PASS 8 / FAIL 0 / SKIP 1 / NOT COVERED 1`, runnable `8/0/1`; rows map by check ID to a claim/tool reference or `NOT_COVERED` (`l2.tile.harness-selftest` → C-3274), and the unmutated baseline gives `base_rc=0`. Negative: `mutant_rc` must be non-zero; a baseline key deleted from the report must also fail (selftest); synthetic SKIP/`NOT_COVERED`/`NOT_RUNNABLE` rows never raise the PASS count.
 4. **Scope.** Only the 10 registry checks and four features (`roads,names,POIs,geometry`) with explicit evidence; other file classes are `NOT_COVERED` with a reason. No golden EU2011, no 194 REFER001 pairs, no firmware acceptance claim (rule 13). H43 consumes this baseline and key (`level,file,feature`); it must not fork a second schema.
-5. **Falsifier check.** A non-PASS token promoted to PASS; green baseline after PASS→FAIL or a lost row; a guessed mapping; `NOT COVERED` emitted where the schema requires `NOT_COVERED`.
+5. **Falsifier.** A non-PASS token promoted to PASS; green baseline after PASS→FAIL or a lost row; a guessed mapping; `NOT COVERED` emitted where the schema requires `NOT_COVERED`.
 
 ## Observations
 
@@ -124,12 +124,18 @@ below). `python3 -VV`: `Python 3.15.0 (3.15.0-1.fc45.x86_64, Oct 9 2026,
 - **UNKNOWN:** Whether the pre-existing `fn_audit` corpus drift is fixed by
   an unrelated in-flight task; H41 does not touch that corpus.
 
-**Conclusion.** `tools/l1l2_matrix.py`, its 12-row committed baseline, the
+## Conclusion
+
+`tools/l1l2_matrix.py`, its 12-row committed baseline, the
 workflow step/artifact and the README regression policy implement H41's Done
 when. The gate remains red on citation drift: the DOCS BASE row comes from
 merged tasks, while this EXP itself contributes one of the eight L3 OVERLAY
 rows (Observation 8). H41's own selftest passes 25/25 and both board
 checkers pass.
+
+## Overtaken by a later commit
+
+none. The 10/8/0/1/1 fixture counts, 12-row baseline and 25/25 selftest this record cites were not changed by a later merge.
 
 ## Corrections after navigator review
 
