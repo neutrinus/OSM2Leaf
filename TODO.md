@@ -2797,8 +2797,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7850–C-7859
   - Result: EXP-2026-11-22-M4.84-zipfr-decode; zipfr_decode census 100.0 % on EU2011/2014/2016, US2011 absent; selftest OK
 
-- [ ] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
+  - Status: done · Owner: task/m4.85-refer002-census · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: `REFER002` holds the Leaf-specific data (charging stations with plug type and parking information). The matrix says 'EV schema xy/plug/parking undecoded'. For a Polish card this is the layer owners care about most after roads: chargers.
@@ -2809,6 +2809,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session; plug-type code meanings may stay open if the layout is done.
   - Falsifier: station positions decoded with the POI rule fall outside the card's coverage area.
   - Claims: C-7860–C-7869
+  - Result: EXP-2026-11-22-M4.85-refer002-census; tools/refer002_census.py --selftest 13/13 PASS; 16 EU files, 880 records, 11-field facility dictionary
 
 - [x] **M4.86 — What is still unexplained in a factory tile: rank the unknown bytes of `B48R058R` by structure**
   - Status: done · Owner: task/m4.86-tile-unknown · Critical: no · Pair: solo
