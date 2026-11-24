@@ -94,7 +94,7 @@ BLOCKS = [
     (0xffe80000, 0xffe80fff, "2DG drawing engine (gdisubdrv)"),
     (0xfff80000, 0xfff800ff, "DU display unit (gdisubdrv)"),
     (0xfff80000, 0xfff80fff, "unknown P4 block (nk)"),
-    (0x10000000, 0x1fffffff, "area 4: graphics/DSP or more DRAM (role hypothesis)"),
+    (0x10000000, 0x17ffffff, "area 4: graphics/DSP or more DRAM (role hypothesis)"),
     (0x19300000, 0x19300fff, "area 6: kernel external device regs 0x00-0x24"),
     (0x19400000, 0x1940ffff, "area 6: GPIO / CAN"),
     (0x19800000, 0x1980ffff, "area 6: navdrv"),
@@ -356,6 +356,11 @@ def selftest():
             if pc == 0x0398E8A2:
                 return "serial_scif.dll", "live"
             return "?", "none"
+
+    check("a7 alias low bound", p4_form(0x1C800000), 0xFC800000)
+    check("a7 alias bound", p4_form(0x1FC5A000), 0xFFC5A000)
+    check("block size", BLOCK_SIZE, 0x1000)
+    check("area4 bound excludes 0x19x", block_name(0x19200000), "unmapped/unnamed")
 
     r = FakeResolver()
     c = Census(r, times={2: 1000, 3: 2000, 7: 3000, 8: 4000})
