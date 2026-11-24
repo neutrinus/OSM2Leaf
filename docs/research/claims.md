@@ -7200,7 +7200,16 @@ into three printed classes.
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
 | C-10120 | The 12-digit `車載機 ID` (unit ID) on the unit's type label is `1001` + the 8-digit serial, i.e. PROD `+0x140` (`10 01` + serial in packed BCD). | OBSERVED | M | EXP-2026-11-24-M2.27-unit-type-label; label photo vs M2.25 PROD layout |
-| C-10121 | PROD `+0xB0` (5 ASCII) is the suffix of the Nissan part number `25915-xxxxx` (`N #` on the label); its last letter tracks the model letter (`QY-7200N-B`↔`3NA0B`, `QY7200ND`↔`3NA0D`). | OBSERVED | M | EXP-2026-11-24-M2.27-unit-type-label; two units |
+| C-10121 | PROD `+0xB0` (5 ASCII) is the suffix of the Nissan part number `25915-xxxxx` (`N #` on the label); its last letter tracks the model letter (`QY-7200N-B`↔`3NA0B`, `QY7200ND`↔`3NA0D`). | RETRACTED | M | EXP-2026-11-24-M2.27-unit-type-label; two units |
 | C-10122 | A second 2011 unit (internet photo, not the owner's): model `QY-7200N-B`, manufactured March 2011, serial `0004058`, unit ID `100100004058`. | OBSERVED | H | EXP-2026-11-24-M2.27-unit-type-label |
 | C-10123 | The 2011 unit's Bluetooth module is model `BTU-3588` (QD ID `B014872`); the unit's FCC ID is `SJ2QY7200`, IC `419C-7200`. | OBSERVED | M | EXP-2026-11-24-M2.27-unit-type-label; label text only |
 | C-10124 | The label carries no PIN, so it does not test whether the SD PIN depends on the serial (C-8304, C-8334 unchanged). | VERIFIED | H | EXP-2026-11-24-M2.27-unit-type-label |
+
+## M2.28 — Second unit type label (C-10140–C-10149)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-10140 | The unit-ID rule of C-10120 (`車載機 ID` = `1001` + 8-digit serial = PROD `+0x140`) holds on a second labelled unit (`100100019744` / `0019744`); 2 of 2 labels. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
+| C-10141 | PROD `+0xB0` holds the 5-character suffix of the Nissan part number `25915-xxxxx` (`N #` on the label); its letter does not follow the model letter (`QY-7200N-G` ↔ `3NA1A`). Supersedes: C-10121. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
+| C-10142 | A third unit (internet photo, not the owner's): model `QY-7200N-G`, part `25915-3NA1A`, manufactured May 2012, serial `0019744`, mark `ZA`, shown with a U.S./Canada map card. | OBSERVED | H | EXP-2026-11-24-M2.28-second-type-label |
+| C-10143 | The Bluetooth module (`BTU-3588`, QD ID `B014872`) and FCC ID (`SJ2QY7200`) are the same on the March 2011 and May 2012 labels; the label part moves from `276-0925-00` to `-06`. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
+| C-10144 | Serials may be one counter for the `QY-7200N` family (0004058 in March 2011, 0019744 in May 2012); two points cannot separate this from per-model counters. | HYPOTHESIS | L | EXP-2026-11-24-M2.28-second-type-label |
