@@ -5944,7 +5944,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: an EXP shows at least one valid `DBGPARAM` (name + 16 zone names + mask VA) in a real image with a printed command, and either a mask-set boot that adds DBGMSG lines over the 142-line baseline or a named blocker for the missing build.
   - Stop: if no checked build is obtainable, record the source search as a negative EXP and leave M8.H15 blocked.
   - Falsifier: a checked build with no `DBGPARAM` and no new boot lines.
-  - Claims: C-10140–C-10149
+  - Claims: C-10260–C-10269
 
 ---
 
