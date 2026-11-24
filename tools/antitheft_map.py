@@ -64,19 +64,18 @@ def find_needles(rom, data, needles):
                 i = data.find(blob, pos, end)
                 if i < 0:
                     break
-                rva = i - start + (section["realaddr"] - section["realaddr"])
-                # realaddr is the module VA of the section start; rva is the
-                # displacement from that start, as ce_strfind.py reports it.
                 va = section["realaddr"] + (i - start)
-                hits.append((needle, module["name"], index, section["realaddr"],
-                             va, i, section["flags"]))
+                hits.append((needle, module["name"], index, va, i, section["flags"]))
                 pos = i + 1
     return hits
 
 
-def code_xrefs(rom, data, needle_hit, digest):
-    """List literal-pool loads of a string VA in uncompressed code sections."""
-    needle, name, index, sec_real, va, file_off, flags = needle_hit
+def code_word_matches(rom, data, va):
+    """List 4-byte words equal to ``va`` in uncompressed code sections.
+
+    These are only *word matches*: a `mov.l @(disp,PC),Rn` load is verified by
+    ``sh4xref.py``, not here, so a caller must not call them proven code sites.
+    """
     word = struct.pack("<I", va)
     out = []
     for module, sidx, section, start, end in module_sections(rom):
@@ -88,7 +87,7 @@ def code_xrefs(rom, data, needle_hit, digest):
             j = blob.find(word, pos)
             if j < 0:
                 break
-            out.append((module["name"], sidx, sec_real if False else section["realaddr"] + j))
+            out.append((module["name"], sidx, section["realaddr"] + j))
             pos = j + 1
     return out
 
@@ -98,16 +97,17 @@ def report(rom, data, needles):
     if not hits:
         print("no UTF-16LE hits for %d needle(s)" % len(needles))
         return 1
-    for needle, name, index, sec_real, va, file_off, flags in hits:
+    for needle, name, index, va, file_off, flags in hits:
         print("%-28s %-24s sec%d va=0x%08x file=0x%x %s"
               % (needle, name, index, va, file_off,
                  "COMPRESSED" if flags & 0x2000 else "RAW"))
-        xrefs = code_xrefs(rom, data, (needle, name, index, sec_real, va, file_off, flags), None)
+        xrefs = code_word_matches(rom, data, va)
         if xrefs:
             for mod, sidx, xva in xrefs:
-                print("    literal 0x%08x in %s sec%d" % (xva, mod, sidx))
+                print("    word-match 0x%08x in %s sec%d (verify with sh4xref)"
+                      % (xva, mod, sidx))
         else:
-            print("    (no code literal pool holds this VA)")
+            print("    (no code word match for this VA)")
     return 0
 
 
