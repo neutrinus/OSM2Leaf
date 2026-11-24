@@ -196,3 +196,62 @@ jobs:
             l3.txt
           if-no-files-found: warn
           retention-days: 7
+
+  ze0-patches:
+    name: ze0 patch series still applies
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      sha256: ${{ steps.pin.outputs.sha256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read pinned tarball hash (M8.H14)
+        id: pin
+        shell: bash
+        run: |
+          # Single source: build.sh's pin, not a copy typed into this file.
+          sha="$(sed -n 's/^QEMU_SHA256="\([0-9a-f]*\)"/\1/p' tools/qemu-ze0/build.sh)"
+          [ -n "$sha" ] || { echo "no QEMU_SHA256 pin in build.sh" >&2; exit 1; }
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "pinned QEMU tarball sha256=$sha"
+
+      - name: Cache pinned QEMU tarball (M8.H14)
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/qemu-ze0/qemu-11.1.3.tar.xz
+          key: qemu-11.1.3-tar-${{ steps.pin.outputs.sha256 }}
+
+      - name: build.sh selftest (covers patch-name lint)
+        shell: bash
+        run: bash tools/qemu-ze0/build.sh --selftest
+
+      - name: Lint current patch names
+        shell: bash
+        run: bash tools/qemu-ze0/build.sh --lint-patches --patch-dir tools/qemu-ze0/patches
+
+      - name: Apply the whole ze0 series (build nothing)
+        shell: bash
+        run: |
+          # build.sh --check-version is the verdict: 0 all patches apply,
+          # 4 a porting delta. Propagate it unchanged (no continue-on-error),
+          # so a patch that no longer applies makes this job RED.
+          bash tools/qemu-ze0/build.sh --check-version 11.1.3 \
+            --srcdir "$HOME/.cache/qemu-ze0" \
+            --patch-dir tools/qemu-ze0/patches
+
+      - name: Policy summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo '## ze0 patch series (M8.H14)'
+            echo
+            echo '- Blocking: `build.sh --selftest` (includes the patch-name lint), `build.sh --lint-patches` on the current series and `build.sh --check-version 11.1.3` (exit 4 = a patch no longer applies stays RED).'
+            echo "- Cache: \`~/.cache/qemu-ze0/qemu-11.1.3.tar.xz\` keyed by the SHA-256 read from \`build.sh\` (\`${{ steps.pin.outputs.sha256 }}\`); \`cache hit: ${{ steps.cache.outputs.cache-hit }}\`."
+            echo '- No full QEMU build, no vendor image, no card tree. This is CI gating only, not rule-13 firmware acceptance.'
+          } >> "$GITHUB_STEP_SUMMARY"
