@@ -986,14 +986,14 @@ def selftest() -> int:
                       "expect": "ok", "source_exp": "x", "claim": "C-1",
                       "need": [], "firmware_pass": True}],
         }), encoding="utf-8")
-        # a 1-row manifest vs the 9-row matrix must disagree; the helper is pure.
+        # a 1-row manifest vs the live matrix must disagree; the helper is pure.
         if str(TOOLS) not in sys.path:
             sys.path.insert(0, str(TOOLS))
         from l3_harness import runs as runs_mod
         doc = json.loads(good_runs.read_text())
         a = runs_mod.count_agreement(doc, ROOT / "docs/research/reader-coverage.md")
-        ok(not a["agree"] and a["manifest"] == 1 and a["matrix"] == 9,
-           "runs manifest count disagrees with matrix (1 vs 9) is flagged")
+        ok(not a["agree"] and a["manifest"] == 1 and a["matrix"] >= 9,
+           "runs manifest count disagrees with matrix (1 vs live) is flagged")
     # broken header
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "rc.md"

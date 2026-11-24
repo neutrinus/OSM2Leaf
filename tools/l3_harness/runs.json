@@ -261,6 +261,29 @@
         "HDDINFO"
       ],
       "firmware_pass": true
+    },
+    {
+      "row": "24",
+      "what": "REFER002 EV-layer opener resolves REFER002/POINTnnn.DAT (M3.40)",
+      "reader": "refer002",
+      "build": "eu2011",
+      "tool": "tools/refer002_opener_l3.py",
+      "argv": [
+        "python3",
+        "tools/refer002_opener_l3.py",
+        "run",
+        "{IMG}",
+        "--card-image",
+        "{CARD}"
+      ],
+      "expect": "boot ACCEPT; opener 0x3fbed8; resolver 0x40b358",
+      "source_exp": "EXP-2026-11-24-M3.40-refer002-opener",
+      "claim": "C-8150",
+      "need": [
+        "IMG",
+        "CARD"
+      ],
+      "firmware_pass": true
     }
   ]
 }

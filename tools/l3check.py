@@ -2886,7 +2886,7 @@ def test_runs_coverage():
     assert not problems, problems
     agreement = runs_mod.count_agreement(doc, matrix)
     assert agreement["agree"], agreement
-    assert agreement["matrix"] == 9 and agreement["manifest"] == 9, agreement
+    assert agreement["matrix"] == agreement["manifest"] and agreement["matrix"] >= 9, agreement
     # negative mutation: a matrix row with no manifest entry is named
     doc2 = {"rows": [r for r in doc["rows"] if str(r["row"]) != "17"]}
     gone = runs_mod.coverage_problems(doc2, matrix)
