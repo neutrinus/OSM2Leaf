@@ -833,8 +833,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-6420–C-6429
   - Result: EXP-2026-11-22-M1.40-hw-map-ii; head-unit.md updated with I2C/GPIO/baud/SCI0/UAT4 static map; C-6420-C-6429
 
-- [ ] **M1.41 — Decompile map of the Bluetooth stack, and why two phones work badly**
-  - Status: in progress · Owner: task/m1.41-bluetooth-stack · Critical: no · Pair: solo
+- [x] **M1.41 — Decompile map of the Bluetooth stack, and why two phones work badly**
+  - Status: done · Owner: task/m1.41-bluetooth-stack · Critical: no · Pair: solo
   - Depends: — (M1.36b/M1.37 help: the same modules in the 2014/2016 builds)
   - Goal: side track, not on the map path. Modules: `BT_FW.dll` (B), `BT_MGR.dll`, `BT_ENG.dll`, `BT_WRPENG.dll`, `BT_DB.dll`, `BT_Modem.dll`, `PhoneBTA.exe`, `PhoneCC.dll`, `BtAudioCC.dll` (A). Answer: (1) what each module does and how they call each other; (2) the data model for paired devices — how many can be stored, how many can be connected at once, per profile (HFP, A2DP/AVRCP, PBAP, DUN); (3) where the limit that hurts with two phones is: a constant in the unit's code (patchable), the reconnect policy (which phone wins at start), or the Bluetooth module's own firmware (`BtUpdate.exe` payload, not patchable by us); (4) whether the 2014/2016 builds changed any of this.
   - Precheck: `python3 tools/pdata.py` lists functions for `BT_MGR.dll`; `python3 tools/cerom.py --image-start 0x200200 IMG256 exports BT_ENG.dll` prints exports.
@@ -843,6 +843,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: the page states the maximum paired and simultaneously connected devices with the code evidence (VA, constant), and one verdict for two-phone support: `patchable constant / policy in code / module firmware / unknown`.
   - Stop: if the connection limit is enforced inside the Bluetooth module (HCI error from the module, not a check in our code), say so and close the patch idea.
   - Claims: C-6430–C-6439
+  - Result: EXP-2026-11-24-M1.41-bluetooth-stack; paired 6 (mov #5 @0x032f1350, 6-slot mask), connected 1 (scalar GetCurrentConnectedId 0x032f3044), verdict policy in code; 282/282 selftest
 
 - [ ] **M1.42 — Decompile map of the audio stack (`Audio.exe`, `anwdrv`, `wavessi`, `DspDrv`, `MuteDrv`, `BeepDrv`)**
   - Status: open · Owner: — · Critical: no · Pair: solo
