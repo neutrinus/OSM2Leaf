@@ -51,6 +51,43 @@ per `python3 tools/frway_decode.py census ROOT` (C-7837/C-7838; the older
 `REFER002` is **not** duplicate data — it carries the longer EV schema
 (xy-coordinates, plug info, parking capacity).
 
+### Who opens `REFER002` (M3.40, EU 2011)
+
+> **Status:** `OBSERVED (L3)` for the file opener/read path; the EV record
+> consumer is still unlocated. Evidence: EXP-2026-11-24-M3.40-refer002-opener,
+> C-8150–C-8159.
+
+`Navi.exe`'s shared REFER search-type opener `fn 0x003fbed8` (pdata START,
+prologue 22 B, length `0x214`, end `0x003fc0ec`) loads the **directory name**
+`REFER002` (`0x001793a4`) into r12 at `0x003fbf40` and passes it to the
+resolver `fn 0x0040b358` at `0x003fc086`; by default r12 is `REFER001`
+(`0x00178c68`, loaded at `0x003fbeee`). The `0x14ef` / `0x14f0` context
+selector is derived from the disassembly (LE, pinned in `sh4dis`): `ctx+104`
+is one of those two words, `ctx+124 == 0`, and the word tested with
+`and #0x4000` at `0x003fbf34` is nonzero — at `ctx+0xa0` for `0x14f0`, reached
+through the pointer at `ctx+0xa4` for `0x14ef`. The generic read issuers
+downstream are `fn 0x003f6c88` (read request) and `fn 0x0041841c` (layer read
+API), not an EV-specific record reader.
+
+Run the opener on the mounted EU 2011 factory card:
+
+```bash
+python3 tools/refer002_opener_l3.py run archive/head256.img \
+  --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img
+# boot ACCEPT; 15 REFER002/POINTnnn.DAT resolves, ids 0x00070002..0x00070010
+# negatives: ctx+124=1 or flag=0 -> REFER001/POINT002.DAT (0x00060081)
+```
+
+With `ctx+104=0x14f0`, `ctx+124=0`, `ctx+0xa0=0x4000` it resolves all 15 EV
+shards {2,4,5,7,8,10,11,16,18,19,20,22,25,29,33} as
+`REFER002/POINT0nn.DAT` (file ids `0x00070002…0x00070010`), matching the
+16-file on-card census. `ctx+124=1` or flag `0` selects `REFER001` instead;
+`ctx+104=0x14e4` selects LCTBL. The two other `REFER002` strings —
+`0x00178e4c` (volume-id table) and `0x0001ca9e` (a full `\SystemSD\REFER002`
+path in `Vehicle.exe`) — have no literal-pool xref and are data/table entries,
+not independent openers. No EV field-dictionary consumer or US 2011 twin is
+located; the rule-13 level of this result is L3, not L4/L5.
+
 ### `REFER002` census (M4.85, EU 2011)
 
 > **Status:** `OBSERVED` (file-level census and field schema; record-body field
