@@ -1059,7 +1059,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Status: open · Owner: — · Critical: no · Pair: solo
   - Depends: M1.59
   - Goal: Marek (2026-11-24, car test of M1.59): with the audio patch the equalizer and beeps work, but FM "does not fully work". Find what limits FM: band raster (US 200 kHz odd 87.9–107.9 vs EU 100 kHz / 50 kHz from 87.5), seek thresholds, RDS vs RBDS decoding, or the EU radio screen (`RDSCC.RDSCtrl`) not matching the US `Audio.exe` messages; propose a patch.
-  - Precheck: Marek's symptom list (which stations: none / some; manual step size shown; RDS name; sound) and which variant was written (transplant or TNR patch).
+  - Precheck: Marek's symptom list (which stations: none / some; manual step size shown; RDS name; sound) ; the car ran the full transplant (US `Audio.exe`).
   - Scope: US and EU `Audio.exe` (band tables, step, seek), `RDSCC.dll` vs `RBDS_CC.dll` message ids, NK1 tuner driver `TNR4:` IOCTLs (committed `firmware/unit-flash/nk1-QY7200ND.bin`); static plus `-M ze0` where the micom is not needed.
   - Done when: an EXP naming the FM band/step tables in each `Audio.exe` and in the NK1 tuner driver, the cause matching Marek's symptoms, and a patch tool or a car test plan; claims.
   - Stop: two sessions; no vendor bytes committed, no flash dump committed.
