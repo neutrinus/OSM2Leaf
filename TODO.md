@@ -3965,7 +3965,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-24-M5.92-capacity-probe; 8/8 probes + 2 edge runs; first failing window 68096 B (pass 67840 B); enforcing VA 0x004262f8 (0x109A0 pool), point gate 0x0041f4bc (1000); L3 only (L4 NOT RUN exit 3)
 
 - [ ] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.93-subrecord-writer · Critical: no · Pair: solo
   - Step: limits
   - Depends: M5.85
   - Goal: the factory keeps dense parcels as four sub-records in a wide directory row (M5.53); our writer drops them. Write them, so a dense OSM parcel keeps its detail without exceeding the record limit.
