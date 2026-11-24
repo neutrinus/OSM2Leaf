@@ -7,7 +7,10 @@ name: IMG256 firmware-head regression
 #
 # Policy:
 # - Triggers are workflow_dispatch (primary) and schedule (weekly) ONLY:
-#   never pull_request, never push. This is NOT a PR gate.
+#   never pull_request, never push. This is NOT a PR gate. The `run_img256`
+#   boolean input gates ONLY the optional synthetic L3 corpus step; a
+#   `schedule` event has no dispatch inputs, so the core realcheck runs on
+#   both schedule and dispatch regardless of that input (navigator must-fix).
 # - The 256 MiB head is resolved from a SHA-256-keyed cache, or fetched from
 #   files.viaaq.eu with `tools/fetch_image.py --image IMG256` (rule-11 fetch;
 #   head only, never the 7.4 GB card). The pinned SHA-256 (IMG256, quoted from
@@ -105,8 +108,11 @@ jobs:
         run: |
           set -uo pipefail
           target="$HOME/.cache/osm2leaf/IMG256/head256.img"
-          if [ -f "$target" ] && python3 tools/fetch_image.py --verify "$target"; then
+          # --image IMG256 pins the verify to the IMG256 digest specifically,
+          # not a match against any pin of the same size.
+          if [ -f "$target" ] && python3 tools/fetch_image.py --verify "$target" --image IMG256; then
             echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "path=$target" >> "$GITHUB_OUTPUT"
             echo "Verified IMG256 head at $target"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
@@ -119,14 +125,27 @@ jobs:
         shell: bash
         run: |
           set +e
-          target="$HOME/.cache/osm2leaf/IMG256/head256.img"
-          # realcheck.py's PINS identify the image as IMG256; expose the
-          # verified cached head under that name in the runner workspace.
-          ln -sf "$target" IMG256
+          # Resolve the verified head once. realcheck.py's PINS identify the
+          # image as IMG256, so expose the cached path under that name in the
+          # workspace rather than passing a literal missing file (which would
+          # be a permanent false-red). The input SHA-256 check verifies the
+          # digest of this resolved file against the pin.
+          IMAGE_PATH="${{ steps.verify.outputs.path }}"
+          echo "Verified image path: $IMAGE_PATH"
+          ln -sf "$IMAGE_PATH" IMG256
           python3 tools/realcheck.py IMG256 --require-image | tee realcheck.txt
           rc=${PIPESTATUS[0]}
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           exit $rc
+
+      - name: Optional synthetic L3 corpus (manual dispatch only)
+        id: l3
+        if: steps.verify.outputs.available == 'true' && github.event_name == 'workflow_dispatch' && inputs.run_img256
+        shell: bash
+        run: |
+          set +e
+          python3 tools/l3check.py --build-corpus --json l3.json | tee l3.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Publish summary (PASS/FAIL per check, or explicit SKIP)
         if: always()
@@ -152,6 +171,14 @@ jobs:
               echo '```text'
               cat realcheck.txt
               echo '```'
+              if [ -f l3.json ]; then
+                echo
+                echo '### Optional synthetic L3 corpus (run_img256)'
+                echo
+                echo '```text'
+                cat l3.txt
+                echo '```'
+              fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -160,5 +187,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: img256-firmware-head-regression
-          path: realcheck.txt
+          path: |
+            realcheck.txt
+            l3.json
+            l3.txt
           if-no-files-found: ignore
