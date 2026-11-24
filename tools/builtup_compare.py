@@ -103,46 +103,27 @@ def compare(factory: dict, ours: dict, tol: float = 0.10) -> dict:
 
 def sweep(areas_path: str | None, buildings_path: str | None, factory: dict,
           thresholds=(0.05, 0.10, 0.15, 0.20, 0.25, 0.30)) -> dict:
-    """Sensitivity: build the rule at each threshold (areas-only) and compare."""
+    """Sensitivity: run the production fill rule at each threshold and compare.
+
+    Each sweep point calls the same ``build_background`` that writes the tile's
+    odd records (with ``only={'urban'}``), so the filled share is exactly the
+    production decision, not a re-derivation. The built plain is then measured
+    with ``urban_share`` on the same metric as the factory tile.
+    """
     if not areas_path:
         return {}
-    from tile_from_zero import built_up_share, load_building_stats
+    from tile_from_zero import build_background, load_building_stats
     b = load_building_stats(buildings_path)
-    # Read area rings per parcel from the JSONL the same way build_background
-    # does, but only keep urban rings (the only kind this rule consumes).
-    by_parcel = collections.defaultdict(lambda: collections.defaultdict(list))
-    import tilewriter
-    with open(areas_path, encoding="utf-8") as fh:
-        for line in fh:
-            f = json.loads(line)
-            if f.get("kind") != "urban" or "rings" not in f:
-                continue
-            for ring in f["rings"]:
-                pts = [tuple(p) for p in ring]
-                shp = tile_from_zero._ring_area(pts)
-                if shp < 1:
-                    continue
-                xs = [p[0] for p in pts]
-                ys = [p[1] for p in pts]
-                for parcel in tile_from_zero._parcels_over((min(xs), min(ys), max(xs), max(ys))):
-                    q = [tilewriter.quantise(lon, lat, *__import__("clarion_bg").parcel_geo(1, *parcel))
-                         for lon, lat in pts]
-                    if len(q) >= 4 and tile_from_zero._ring_area(q) >= 1:
-                        by_parcel[parcel]["urban"].append(q)
     out = {}
     for t in thresholds:
-        ours = {}
-        for p, kinds in by_parcel.items():
-            share, _l, _b = built_up_share(p, kinds, b, 1)
-            if share >= t:
-                ours[p] = 1.0
-        for p in b:
-            share, _l, _bb = built_up_share(p, {}, b, 1)
-            if share >= t:
-                ours[p] = 1.0
+        plains, bst = build_background(areas_path, 826, only={"urban"},
+                                       buildings=b, building_density=t)
+        ours = {p: urban_share(plain) for p, plain in plains.items()}
         c = compare(factory, ours, 0.10)
         out[str(t)] = {"agree_at_tol": c["agree_at_tol"], "parcels": c["parcels"],
-                       "filled": len(ours)}
+                       "filled": bst.get("urban_filled_parcels", 0),
+                       "filled_by_landuse": bst.get("filled_by_landuse", 0),
+                       "filled_by_building": bst.get("filled_by_building", 0)}
     return out
 
 
