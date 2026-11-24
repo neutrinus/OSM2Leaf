@@ -68,7 +68,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 + *
 + * Values are 0..0x7fff (QEMU INPUT_EVENT_ABS_MIN/MAX); we scale to the
 + * 800x480 DU using max_out 799/479 (SCREEN_W-1/SCREEN_H-1), which round-trips
-+ * panel (765,70) to (0x7a8d,0x12b4) and back (M8.H39).
++ * panel (765,70) to (0x7a8d,0x12b5) and back (M8.H39).
 + */
 +static void ze0_gfx_input_write(Ze0GfxState *s, const char *fmt, ...)
 +    G_GNUC_PRINTF(2, 3);
