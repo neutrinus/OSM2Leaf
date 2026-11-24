@@ -78,7 +78,7 @@ On Python **3.11** and **3.13** the one blocking step is:
   | `fn_audit` | `python tools/fn_audit.py archive/head256.img --corpus … --overlay …` |
 
 - **SKIP is never PASS.** Each gate is `PASS` (ran, exit 0), `FAIL` (ran, non-zero for a real defect) or `SKIP (reason)` (a vendor input is absent, so the gate never ran). The job summary prints the SKIPs and the step exits 1 only when a *runnable* gate FAILs — a SKIP-only image gate does not make the step green-as-passed.
-- `fn_audit` is the gate that **SKIPs in PR CI**: `archive/head256.img` is not on the runner. It must **PASS** in the separate manual H84 real-image workflow, which has the image (`--require-image` turns a missing head into a FAIL there). That workflow is **not** H28's synthetic L3 job.
+- `fn_audit` is the gate that **SKIPs in PR CI**: `archive/head256.img` is not on the runner. It must **PASS** in the separate manual H84 real-image workflow, which has the image (`--require-image` turns a missing head into a FAIL there). That workflow is **not** H28's synthetic L3 job. See `firmware-regression.yml` below.
 
 ### Informational (non-blocking)
 
@@ -119,21 +119,40 @@ Measured baseline at `HEAD 6073164e` (see the H28 EXP): `counts` =
 l3_claim: true` firmware-fragment runs **on synthetic corpus data**. None is
 card acceptance (rule 13); the job reports no L4/L5 verdict.
 
-### Manual IMG256 real-image mode — contract only (documented by H28)
+### Manual IMG256 real-image mode — `firmware-regression.yml` (H84)
 
-The *default PR jobs stay vendor-free*: no image fetch, no network step and no
-`IMG256` in `ci.yml`. H28 only documents the contract of a **separate**
-`workflow_dispatch` job (owned and implemented by H84, not by this PR):
+The default PR jobs stay vendor-free: no image fetch, no network step and no
+`IMG256` in `ci.yml`. The real-bytes regression instead lives in a separate
+workflow, `.github/workflows/firmware-regression.yml`, which is **implemented**
+by H84 (H28 only documented its contract):
 
-- input `run_img256` (boolean, default `false`); manual dispatch only, on an
-  approved/self-hosted runner if `files.viaaq.eu` is unavailable; never runs on
-  every PR without an explicit cost justification;
-- `tools/fetch_image.py --image IMG256` fetches **only the 256 MiB firmware
-  head**, verified against its pinned SHA-256, into a cache keyed by that
-  digest, then `tools/realcheck.py IMG256` runs the pinned head checks;
-- limits: no full `ROOT`, no card tree, no 7 GB image, timeout **≤ 20 min**;
-- the result is labelled **"firmware-head regression"** — a real-bytes
-  regression check, *not* full L3 on a card and not rule-13 acceptance.
+- **Triggers:** `workflow_dispatch` (primary, manual QA run) and `schedule`
+  (weekly, cron `23 4 * * 1`) **only** — never `pull_request`, never `push`. It
+  is not a merge gate. An input `run_img256` (boolean, default `false`) carries
+  H28's documented contract; the job itself is the explicit opt-in.
+- **Image resolution:** a `actions/cache` keyed by the pinned IMG256 digest
+  holds the 256 MiB firmware head; on a miss, `tools/fetch_image.py --image
+  IMG256` fetches **only the 256 MiB head** from `files.viaaq.eu` (rule-11
+  fetch; no 7.4 GB card). `tools/fetch_image.py --verify` confirms the pinned
+  SHA-256 (`92aa525d…007f9`, quoted from `tools/fetch_image.py --list`) before
+  any check runs. Job timeout is 20 min.
+- **Check:** with a verified head, `python3 tools/realcheck.py IMG256
+  --require-image` runs the eight pinned real-bytes checks. The job summary
+  lists PASS/FAIL per check and `realcheck.txt` is uploaded as an artifact. A
+  genuine FAIL makes the job red.
+- **Honest skip:** with no verified head (cache miss and no/failed network
+  fetch), the summary states `SKIP (no image on this runner)` explicitly and
+  the job exits 0 — a SKIP is **neither green-as-passed nor red**. This is the
+  H28/H84 Hints policy: a scheduled job that turns "no cache" into red trains
+  people to ignore it. Re-run via `workflow_dispatch` on an approved runner
+  with a cache or network access.
+- **Cost/network:** ~256 MiB download on the first run; a cached run is local
+  only. The 7.4 GB full images are out of scope, and no head is vendored into
+  the repository.
+- **Not rule 13:** the result is a *firmware-head regression* — a real-bytes
+  regression of the CE ROM tools, not full L3 on a card, not L4/L5 and not card
+  acceptance. No `l3check --card` gate lives here (that is M9.12/H43), and
+  `tools/selftest.py` is unchanged.
 
 ### Deliberately out of scope (default PR jobs)
 
