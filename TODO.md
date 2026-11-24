@@ -4803,8 +4803,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Pair: solo
   - Result: EXP-2026-11-23-M8.H76-hashutil; Done-when grep empty; hashutil selftest 7 checks OK; selftest 256 pass/0 fail/21 skip; claims_check + todo_check OK; board lost exit 0
 
-- [ ] **M8.H77 — `tools/peerlib.py`: shared line-command loop and frame helpers for the `ze0_peers/*` peers**
-  - Status: in progress · Owner: task/m8.h77-peerlib · Critical: no · Pair: required
+- [x] **M8.H77 — `tools/peerlib.py`: shared line-command loop and frame helpers for the `ze0_peers/*` peers**
+  - Status: done · Owner: task/m8.h77-peerlib · Critical: no · Pair: required
   - Depends: M8.H38 (done), M8.H44 (done), M8.H50 (done), M8.H56 (done)
   - Goal: five peers landed in one window (`uart.py`, `gps.py`, `micon.py`, `panel.py`, `bt.py`, `vcan.py`) and each re-implements the same three things: a `control_commands(line, state)` REPL (`bt.py:115`, `gps.py:260`, `panel.py:170`), a frame splitter/`frame()` (`bt.py:74`, `gps.py:55`, `vcan.py:122`) and a `Peer`/socket class (`vcan.py:138`, `uart.py:31`, `micon.py:79`). They are the L4 inputs rule 17 calls high-risk, so a defect in one is copied to the next; a shared loop keeps the framing rules in one place and lets a new connector be a grammar, not a transport.
   - Precheck: `grep -n 'def control_commands' tools/ze0_peers/*.py` lists ≥ 3 files; `python3 tools/selftest.py --only gps` and `--only panel` pass (state the counts).
@@ -4815,6 +4815,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: a migrated peer answers a control line with a different frame than the frozen vector, or its negative control (bad checksum/out-of-range) stops failing.
   - Claims: C-8540–C-8549
   - Pair: required
+  - Result: EXP-2026-11-24-M8.H77-peerlib; gps 54/panel 45/bt 13/vcan 9 counts unchanged; frozen vectors byte-identical; negations fail; selftest 283 pass/0 fail/21 skip/304; claims C-8540-C-8549
 
 - [x] **M8.H4 — The guest screen as a QEMU display surface (`screendump`, VNC, `-display gtk`)**
   - Status: done · Owner: task/m8.h4-display-surface · Critical: no · Pair: required
