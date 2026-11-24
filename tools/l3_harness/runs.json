@@ -1,0 +1,266 @@
+{
+  "schema": "osm2leaf.l3-runs/v1",
+  "note": "Card-level L3 runs, one per l3-running reader-coverage matrix row. Driven by `l3check.py --runs`. Local/weekly only: needs vendor images, never in PR CI. Placeholders {IMG} (EU2011 head), {US256} (US2011 head), {CARD} (EU2011 card image), {CARDROOT} (factory card tree), {HDDINFO} (reference HDD_INFO.TXT), {CMP} (US POINT010 .cmp), {IND} (US POINT010 .ind), {EUPOINT} (EU POINT010 .cmp), {EUIND} (EU POINT010 .ind), {WORKDIR} (scratch dir), {JSON} (scratch report).",
+  "placeholders": {
+    "{IMG}": "archive/head256.img",
+    "{US256}": "archive/us256.img",
+    "{CARD}": "archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img",
+    "{CARDROOT}": "/home/marek/projekty/leafre-work/m5.4/card-factory",
+    "{HDDINFO}": "/home/marek/projekty/leafre-work/m5.4/card-factory/VER_INFO/HDD_INFO.TXT",
+    "{CMP}": "US POINT010.DAT.cmp",
+    "{IND}": "US POINT010.DAT.ind",
+    "{EUPOINT}": "EU POINT010.DAT.cmp",
+    "{EUIND}": "EU POINT010.DAT.ind",
+    "{WORKDIR}": "scratch work dir",
+    "{JSON}": "scratch report path"
+  },
+  "rows": [
+    {
+      "row": "3",
+      "what": "MMAIN001.DAT reader: factory, rebuilt, edited, generated, cut and absent files (M9.17)",
+      "reader": "MMAIN001",
+      "build": "eu2011",
+      "tool": "tools/mmain_l3.py",
+      "argv": [
+        "python3",
+        "tools/mmain_l3.py",
+        "run",
+        "{IMG}",
+        "--card-image",
+        "{CARD}"
+      ],
+      "expect": "RESULT: PASS (6/6 cases as expected)",
+      "source_exp": "EXP-2026-11-20-M9.17-mmain-reader-l3",
+      "claim": "C-6370",
+      "need": [
+        "IMG",
+        "CARD"
+      ],
+      "firmware_pass": true
+    },
+    {
+      "row": "4",
+      "what": "DRSTR001.DAT parser: the firmware's own parser accepts the factory file (M9.14/M9.24)",
+      "reader": "DRSTR001",
+      "build": "eu2011",
+      "tool": "tools/drstr_l3.py",
+      "argv": [
+        "python3",
+        "tools/drstr_l3.py",
+        "run",
+        "{IMG}",
+        "--card-image",
+        "{CARD}"
+      ],
+      "expect": "verdict        ACCEPT",
+      "source_exp": "EXP-2026-11-20-M9.14-drstr-parser-l3",
+      "claim": "C-6371",
+      "need": [
+        "IMG",
+        "CARD"
+      ],
+      "firmware_pass": false
+    },
+    {
+      "row": "5",
+      "what": "CMP.LST 19-byte read at firmware mount (M9.44): boot verdict ACCEPT includes the CMP.LST read",
+      "reader": "CMP.LST",
+      "build": "eu2011",
+      "tool": "tools/vcard_l3.py",
+      "argv": [
+        "python3",
+        "tools/vcard_l3.py",
+        "boot",
+        "{IMG}",
+        "--card-image",
+        "{CARD}"
+      ],
+      "expect": "boot: ACCEPT",
+      "source_exp": "EXP-2026-11-19-M9.44-virtual-card",
+      "claim": "C-6372",
+      "need": [
+        "IMG",
+        "CARD"
+      ],
+      "firmware_pass": false
+    },
+    {
+      "row": "6",
+      "what": "REFER001 .cmp/.ind chunk decoder on the factory POINT010 pair (M9.11/M9.11b/M9.32)",
+      "reader": "cmp_ind",
+      "build": "eu2011",
+      "tool": "tools/l3_harness/runner.py",
+      "argv": [
+        "python3",
+        "tools/l3_harness/runner.py",
+        "run",
+        "cmp_ind_reader",
+        "--image",
+        "{IMG}",
+        "--cmp",
+        "{EUPOINT}",
+        "--ind",
+        "{EUIND}"
+      ],
+      "expect": "RESULT: PASS",
+      "source_exp": "EXP-2026-11-19-M9.11-closeout",
+      "claim": "C-6373",
+      "need": [
+        "IMG",
+        "EUPOINT",
+        "EUIND"
+      ],
+      "firmware_pass": true
+    },
+    {
+      "row": "11",
+      "what": "ADDRE001 record walk: 1,041 records, all fields equal the model (M3.13)",
+      "reader": "ADDRE",
+      "build": "eu2011",
+      "tool": "tools/addre_field_reader.py",
+      "argv": [
+        "python3",
+        "tools/addre_field_reader.py",
+        "run",
+        "{IMG}",
+        "--cmp",
+        "{CARDROOT}/REFER001/ADDRE001.DAT.cmp",
+        "--build",
+        "eu2011",
+        "--block",
+        "all",
+        "--expect",
+        "AVINGUDA CARLEMANY"
+      ],
+      "expect": "result: PASS",
+      "source_exp": "EXP-2026-11-20-M3.13-addre-reader-l3",
+      "claim": "C-6374",
+      "need": [
+        "IMG",
+        "CARDROOT"
+      ],
+      "firmware_pass": true
+    },
+    {
+      "row": "17",
+      "what": "Tile container / section-1 mount at 51.70,17.45: 28 reads, no negative status (M9.13/M9.61)",
+      "reader": "tile",
+      "build": "eu2011",
+      "tool": "tools/l3check.py",
+      "argv": [
+        "python3",
+        "tools/l3check.py",
+        "--card-gate",
+        "--card",
+        "{CARD}",
+        "--factory",
+        "{CARD}",
+        "--position",
+        "51.70,17.45"
+      ],
+      "expect": "RESULT: PASS (all gate rows passed; exit 0)",
+      "source_exp": "EXP-2026-11-21-M9.60-card-gate-first-slice",
+      "claim": "C-6375",
+      "need": [
+        "CARD"
+      ],
+      "firmware_pass": false
+    },
+    {
+      "row": "19",
+      "what": "Tile section-4 record served by the firmware and matched to the Python model (M9.18)",
+      "reader": "section4",
+      "build": "eu2011",
+      "tool": "tools/record_l3.py",
+      "argv": [
+        "python3",
+        "tools/record_l3.py",
+        "run",
+        "{IMG}",
+        "--card-image",
+        "{CARD}",
+        "--workdir",
+        "{WORKDIR}",
+        "--factory-root",
+        "{CARDROOT}",
+        "--s4-mesh",
+        "0xa6cdd6be",
+        "--s4-kind",
+        "0x40",
+        "--position",
+        "51.70,17.45",
+        "--json",
+        "{JSON}"
+      ],
+      "expect": "RESULT: MATCH",
+      "source_exp": "EXP-2026-11-23-M9.18",
+      "claim": "C-6376",
+      "need": [
+        "IMG",
+        "CARD",
+        "CARDROOT",
+        "WORKDIR",
+        "JSON"
+      ],
+      "firmware_pass": true
+    },
+    {
+      "row": "22",
+      "what": "LCTBL001 lookup: four held/absent TMC codes agree with the model (M5.60)",
+      "reader": "LCTBL",
+      "build": "eu2011",
+      "tool": "tools/lctbl_lookup_l3.py",
+      "argv": [
+        "python3",
+        "tools/lctbl_lookup_l3.py",
+        "run",
+        "{IMG}",
+        "--card-image",
+        "{CARD}",
+        "--lookup",
+        "2,25,1203",
+        "--lookup",
+        "2,25,60000",
+        "--lookup",
+        "13,1,10000",
+        "--lookup",
+        "15,32,1"
+      ],
+      "expect": "lookups: 4, agree with the model: 4",
+      "source_exp": "EXP-2026-11-20-M5.60-lctbl-index-l3",
+      "claim": "C-6377",
+      "need": [
+        "IMG",
+        "CARD"
+      ],
+      "firmware_pass": false
+    },
+    {
+      "row": "23",
+      "what": "HDD_INFO.TXT map-code check 1 accepts the factory file (M9.6)",
+      "reader": "hdd_info",
+      "build": "eu2011",
+      "tool": "tools/l3_harness/runner.py",
+      "argv": [
+        "python3",
+        "tools/l3_harness/runner.py",
+        "run",
+        "applaunch_mapcode_compare",
+        "--image",
+        "{IMG}",
+        "--input",
+        "{HDDINFO}",
+        "--unit-from",
+        "{HDDINFO}"
+      ],
+      "expect": "RESULT: PASS",
+      "source_exp": "EXP-2026-11-19-M9.6-hddinfo-compare",
+      "claim": "C-6378",
+      "need": [
+        "IMG",
+        "HDDINFO"
+      ],
+      "firmware_pass": true
+    }
+  ]
+}
