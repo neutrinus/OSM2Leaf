@@ -507,7 +507,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-23-H56-progress-snapshot; selftest 27/27; table L1 1P/L2 8P1S2NC/L3 3P10B; PASS->FAIL rc=1; C-3720-C-3729
 
 - [ ] **H57 — Fixture regression baseline: a committed no-vendor baseline and a documented PASS->FAIL gate**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h57-fixture-baseline · Critical: no · Pair: solo
   - Depends: H41 (matrix), H56 (snapshot)
   - Goal: H41 mentions a "committed no-vendor baseline" and H26's fixtures have PASS/FAIL counts, but no file holds the expected result and no doc states when a baseline may change. Without it "once a level passes, CI fails if it stops passing" (prompt_qa) is unenforceable.
   - Precheck: `git ls-files | grep -i baseline` returns nothing today; `grep -n baseline .github/workflows/*.yml` returns nothing.
