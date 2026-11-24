@@ -185,8 +185,14 @@ def resolve(doc: dict, row: dict, *, scratch: Path | None = None,
     scratch.mkdir(parents=True, exist_ok=True)
 
     def path_for(key: str) -> str | None:
-        if key in ("WORKDIR", "JSON"):
-            return str(scratch / "record")
+        if key == "WORKDIR":
+            p = scratch / "record"
+            p.mkdir(parents=True, exist_ok=True)
+            return str(p)
+        if key == "JSON":
+            p = scratch / "record"
+            p.mkdir(parents=True, exist_ok=True)
+            return str(p / "record.json")
         if key in overrides:
             return overrides[key]
         val = defaults.get("{" + key + "}")
@@ -204,8 +210,6 @@ def resolve(doc: dict, row: dict, *, scratch: Path | None = None,
             name = "POINT010.DAT" + (".ind" if val.endswith(".ind") else ".cmp")
             p = root / "REFER001" / name
             return str(p) if p.is_file() else None
-        if key in ("WORKDIR", "JSON"):
-            return str(scratch)
         return val
 
     missing: list[str] = []
