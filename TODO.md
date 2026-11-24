@@ -4589,8 +4589,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: AUI text and button labels reach plane 1 with bit 15 clear, so the colour key drops them; the 2DG blit that sets the opacity bit is not in ze0-0014 (raw page shows the text, screen does not)
   - Unblock: M8.C1v
 
-- [ ] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
+  - Status: done · Owner: task/m8.c1v-aui-buttons · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1n
   - Goal: M8.C1t showed the map screen with the AUI widget pixels but not the button labels: the AUI text reaches plane 1 with bit 15 clear and the colour key drops it (C-8502, C-8505). The unit makes the text opaque through a 2DG blit that ze0-0014 does not render (C-8506). Marek wants the interface (plane 1 buttons) over the map in the emulator screenshot (2026-11-22).
@@ -4601,6 +4601,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the labels come from a plane/surface that is not 2DG (e.g. a CPU blit through gdisubdrv), record that and hand it back to a plane/surface task instead of widening ze0-0014.
   - Falsifier: the labels appear only with a non-key composition (plane -n 1), never from the windowed screen - then the key/alpha rule of C-8502 is what the unit relies on and the 2DG blit is a red herring.
   - Claims: C-9920–C-9929
+  - Result: EXP-2026-11-24-M8.C1v-aui-labels-opaque; patch ze0-h47; bbox 2378 opaque/0 dropped vs 441/1010 neg
 
 - [x] **M8.C1u — 2DG area fill: water and parks drawn as rectangles (pattern texture over a stencil polygon)**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
@@ -5354,8 +5355,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.H39-tap-l4; named-region after-tap hash c64ff230… equal in 2 boots, != idle 985e3ddd…, empty tap unchanged; bp hits 4/2; US fallback
   - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
-- [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
+  - Status: done · Owner: task/m8.h40-live-window · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H4, M8.H38
   - Goal: For exploring the UI by hand: `run.sh --display gtk` (or VNC) where a mouse click is a tap and mapped keyboard keys are the hard keys.
@@ -5366,9 +5367,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the click lands at a different guest coordinate than requested (scaling error) — measured by the peer's log.
   - Claims: C-7370–C-7379
+  - Result: EXP-2026-11-24-M8.H40-live-window; L4 QMP tap frame 5102fd004631 == H39, ZOOM ILL EVENT 1, 33/33 patches
 
-- [ ] **M8.H41 — Scenario: set a destination and calculate a route at L4**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H41 — Scenario: set a destination and calculate a route at L4**
+  - Status: done · Owner: task/m8.h41-route-scenario · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: The first routing test in the full system: enter a destination by the map or by a stored point, start route calculation, capture the result. It tells which files the router opens (section 2, `LEV3456R`) on a factory card and later on ours.
@@ -5379,6 +5381,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; stop at the first screen that needs an input no peer provides and name it.
   - Falsifier: no file is read during calculation (then the graph was preloaded and the trace window must start earlier).
   - Claims: C-7380–C-7389
+  - Result: EXP-2026-11-24-M8.H41-route-scenario; 2 US-card runs equal final hash 39dae3c3...; gated SD window 122/106 events, 74 mapped B30R0E0R.DAT reads at 0xacb800-0xacc400 and 0xaf5e00-0xafe400; no destination screen reached (5 states, VAR_CALCULATE_ROUTE_FLG=0)
 
 - [ ] **M8.H42 — Screen catalogue: walk the menu tree by script and record every screen reached**
   - Status: blocked · Owner: task/m8.h42-screen-catalogue · Critical: no · Pair: solo
@@ -5917,7 +5920,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
 
 - [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
-  - Status: open · Owner: — · Critical: no · Pair: no
+  - Status: blocked · Owner: task/m8.h20a-position-record · Critical: no · Pair: no
   - Step: reader
   - Depends: M8.H18, M8.H19
   - Goal: M8.H20 is blocked because the flash→object-store restorer of the last vehicle position is UNKNOWN (C-7167). Trace `OBJ_BackUpMgr` / `OBJDLL!OBJ_CarPos_read` back to the `FMD1:` record and derive its exact flash offset, record layout and checksum from structure or a real unit dump — never a guessed format. Report whether the saved word is `0x9c03a3c0`-style packed COORD001 and whether there is a second copy.
@@ -5928,6 +5931,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if no dump and no static derivation succeeds, stay blocked with a negative EXP and a positive control.
   - Falsifier: a candidate record whose mutation does not change the position read at init.
   - Claims: C-10130–C-10139
+  - Blocker: Exact on-flash CarPos record offset/fields UNKNOWN: globals in OBJDLL compressed/BSS .data, no real dump with a known position, L4 witness read unavailable
+  - Unblock: M1.2f
+  - Result: EXP-2026-11-24-M8.H20a-position-record (blocked, partial positive: SMST frame+checksum derived, 8/8 store sums OK, negative mutation rejects, 25 class rows; exact record offset/format UNKNOWN, M8.H20 not re-opened)
 
 - [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5972,6 +5978,26 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: No checked/debug ZE0 build of Navi.exe/NaviMapCC.dll (or DBGPARAM records/symbols) publicly obtainable: all four real images scan to dbgparam_candidates 0 and mirror/local/web search found no checked build
   - Unblock: A task that obtains a checked/debug ZE0 Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) from Nissan's dealer service channel and re-runs tools/ce_dbgzones.py on it; rule 15 re-opens M8.H80 when that task merges
   - Result: EXP-2026-11-24-M8.H80-checked-build (negative: 0 DBGPARAM in 1646 fully-scanned sections + 28 partial; 9/9 selftest, mutation 5/9; source search negative); C-10260–C-10269
+
+- [ ] **M8.H5a — Make SH-4 CPU migratable in the ze0 QEMU patch series (unblocks M8.H5)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: —
+  - Goal: upstream SH-4 `vmstate_sh_cpu` has `.unmigratable = 1` in QEMU 11.1.3 (`target/sh4/cpu.c:274`) and 8.2.10 (`cpu.c:245`), so HMP `savevm` prints `Error: State blocked by non-migratable device 'cpu'` on `-M ze0`. Make the CPU migratable in the ze0 patch series (or prove it cannot be), so `run.sh --savevm/--loadvm` of M8.H5 can be tested.
+  - Precheck: `grep -n 'unmigratable' tools/qemu-ze0/patches/*.patch` prints nothing; `python3 tools/qemu-ze0/build.sh --check-version 11.1.3` exits 0.
+  - Done when: an EXP shows `savevm t1` succeeding on `-M ze0` with a printed command, or a named blocker with the exact QEMU error.
+  - Stop: one session; do not patch upstream unrelated devices.
+  - Falsifier: `savevm` still fails with the same non-migratable error after the patch.
+  - Claims: C-10290–C-10299
+
+- [ ] **M8.H81 — Select test mode (mode_mask 0x40) in the launcher boot path (unblocks M8.H16)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `TestMode.exe` is gated by `mode_mask 0x40` in the AppLaunch table of both kernel B and C; forcing mode-7 IPL still logged `Boot System Mode = 10`. Find the launcher boot-mode selector and enter test mode so M8.H16's service screens can be reached.
+  - Precheck: `python3 tools/applaunch_table.py` prints the mode_mask rows cited in EXP-2026-11-24-M8.H16-testmode-kernel.
+  - Done when: an EXP shows a boot reaching a TestMode screen with the mode-select VA, and M8.H16 can be re-opened.
+  - Stop: one session; if the selector is in the unit flash (M6.18 dump), name that as the blocker.
+  - Falsifier: mode_mask change does not alter the launcher's mode decision.
+  - Claims: C-10300–C-10309
 
 ---
 
