@@ -2306,7 +2306,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
     or retract the bias hypothesis) with the evidence.
   - Stop: if no POI with a reliably known entrance can be identified from
     allowed sources, record the gap and stop.
-  - Claims: C-2680–C-2689
+  - Claims: C-2680–C-2684
   - Result: EXP-2026-11-24-M4.28-poi-lat-residual-explained.md; point_census.py refs: median 114.6 m vs 3557.7 m, 16/16 closer, swapped 1567.9 m; C-1903/C-1904 RETRACTED -> C-2683/C-2684 OBSERVED
 
 - [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
