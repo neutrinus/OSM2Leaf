@@ -67,9 +67,23 @@ p = subprocess.run([sys.executable, str(root/'tools/progress_snapshot.py'),
     cwd=str(root), capture_output=True, text=True, env=env)
 print('mutant snapshot rc=', p.returncode)
 PY
-# (publisher rerun on work/progress.json with the correct artifacts/snapshot/ layout
-#  prints 'ASSERTION FAILED: runnable FAIL in L1: 1 / exit_code=1 / baseline regression'
-#  and exits 1; see Observation 3.)
+# Extract the publisher heredoc verbatim from progress.yml into scratch (de-indent 10 spaces),
+# then run it against the directory holding progress.json + artifacts/snapshot/matrix.json.
+python3 - <<'PY'
+import re
+s = open('.github/workflows/progress.yml', encoding='utf-8').read()
+b = re.search(r"<<'PY'\n(.*?)\n          PY", s, re.S).group(1)
+open('/home/marek/projekty/leafre-work/scratch/h42/publisher.py','w').write(
+  '\n'.join(l[10:] if l.startswith('          ') else l for l in b.split('\n'))+'\n')
+PY
+cd /home/marek/projekty/leafre-work/scratch/h42/ciwork && \
+  GITHUB_STEP_SUMMARY=/home/marek/projekty/leafre-work/scratch/h42/ciwork/summary.md \
+  python3 /home/marek/projekty/leafre-work/scratch/h42/publisher.py; echo "rc=$?"
+# Positive control above: prints schema/levels/12 matrix rows/fp-syn/exit_code and rc=0.
+# Negative control: same command in scratch/h42/mutation (mutant progress.json +
+# artifacts/snapshot/matrix.json) prints the three ASSERTION FAILED lines and rc=1.
+# publisher.py is extracted verbatim from the heredoc (byte-identical after de-indent)
+# and lives in scratch only; it is not committed (workflow-only task).
 
 # CI run link for PR #709:
 gh run list --branch task/h42-cycle10 --limit 5
@@ -101,7 +115,7 @@ The observation that would refute the hypothesis: the PASS→FAIL mutation leavi
 4. Publisher positive control (driver host): prints `progress.json schema: osm2leaf.progress_snapshot/v1`, `level rows: ['L1','L2','L3','L4-emulator','L5-bench']`, `H41 matrix rows: 12`, `firmware proof / synthetic: 2 / 1`, `snapshot exit_code: 0`, exits 0, and writes the summary with all six sections. The authoritative CI numbers (O8) differ because of backend availability; the publisher logic is identical.
 5. Negative mutation: mutant snapshot `rc=1`, `exit_code=1`, L1 row `{runnable PASS: 0, FAIL: 1, verdict: FAIL}`; publisher `rc=1` with assertions `runnable FAIL in L1: 1`, `snapshot exit_code=1 (not 0)`, `baseline regressions: ['REGRESSION: L1|ZE0 generated fixture tree|structural: PASS -> FAIL']`; summary still written with the honest RED L1 row and the assertion block.
 6. NO_RUNNABLE control: publisher exits 1, summary contains `**L3 result: NO RUNNABLE TARGETS (RED).** ... NOT a PASS and NOT a green SKIP`.
-7. `yaml.safe_load` parses all four workflow files; `git diff --check` clean; `claims_check --strict --count-check: OK`, `todo_check: OK`; full `selftest.py` prints `passed=272 failed=0 skipped=21 total=293 time=232.66s` / `selftest: OK`; `board.py lost --base origin/main` prints `OK tasks=0 claims=0` for both board files.
+7. `yaml.safe_load` parses all four workflow files; `git diff --check` clean; `claims_check --strict --count-check: OK`, `todo_check: OK`; full `selftest.py` prints `passed=272 failed=0 skipped=21 total=293 time=232.66s` / `selftest: OK`. After the round-2 rebase onto `origin/main` `6617b3a6` (M4.76) with `board.py resolve TODO.md` and `board.py resolve docs/research/claims.md`, `board.py lost --base origin/main` prints `OK tasks=0 claims=0` for both board files, `grep -c '^# TODO' TODO.md` prints `1`, and `board.py check HEAD` reports `0 task(s) and 0 claim row(s) lost` against base `6617b3a6`. The authoritative CI run 45343432679 predates this rebase; the rebase only merged the two board files by ID and did not change `progress.yml` workflow logic, so its artifact remains valid evidence.
 8. Authoritative CI run (45343432679) `progress.json` differs from the driver host because backend availability differs: on CI `point_walk_us2011` and `poi_record_decode` are `BLOCKED` (no located reader entry point in that environment) rather than PASS, so L3 counts `1 PASS (synthetic probe only) / 12 BLOCKED` and `firmware_proof_passes=0`. This is the honest rule-13 outcome for a no-vendor CI job: no firmware proof is claimed there. The workflow publishes exactly what the tool emits; it never manufactures a reader verdict. L2 also counts 9 PASS on CI vs 8 on the driver host (one backend-dependent check), still with 2 NOT_COVERED.
 
 CI run link: PR #709 (`https://github.com/neutrinus/OSM2Leaf/pull/709`). The authoritative first CI run of `progress.yml` is `https://github.com/neutrinus/OSM2Leaf/actions/runs/45343432679` (`progress` job 138272222223, conclusion `success`, all steps success, artifact `progress-h42`). `gh run download 45343432679 -n progress-h42` prints the emitted files; the CI `progress.json` has schema `osm2leaf.progress_snapshot/v1`, `exit_code=0`, five rows L1 `1/0/0/0/0/0/PASS`, L2 `9/0/0/2/0/0/PASS WITH GAPS`, L3 `1/0/0/0/0/12/PASS WITH GAPS`, L4-emulator `NOT RUN`, L5-bench `NOT RUN`, `firmware_proof_passes=0`, `synthetic_passes_not_firmware_proof=1`, and `artifacts/snapshot/matrix.json` has 12 rows.
