@@ -32,8 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import socket
-import struct
+import re
 import subprocess
 import sys
 import tempfile
@@ -57,7 +56,7 @@ POINT_WALKER_END = 0x003F51D4  # exclusive
 
 PLUGIN_LINE = "ze0_cov: VA,COUNT"
 STATS_LINE = "ze0_cov: period="
-BLOCK_RE = __import__("re").compile(r"^0x([0-9a-fA-F]{1,16}),(\d+)$")
+BLOCK_RE = re.compile(r"^0x([0-9a-fA-F]{1,16}),(\d+)$")
 
 
 # ---------------------------------------------------------------------------
