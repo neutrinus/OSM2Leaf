@@ -1661,7 +1661,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
   - Unblock: **M3.43** — L4 QEMU zoom-out observes the INTER/FRWAY content reader in a full-system run; re-opens this task.
-  - Status: open · Owner: — · Critical: no
+  - Status: in progress · Owner: task/m3.16-inter-frway · Critical: no
   - Note (M3.28, 2026-11-19): openers run on the card: `0x003fbed8` with search type 4 (`INTER`) and 3 (`FRWAY`); the reads come from `0x003fc0ec` and `0x003fc518` (C-4666). The two signature searches that found nothing can be replaced by following those two functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
   - Blocker: no content reader VA consuming the real INTER/FRWAY 12-byte table (BE `0xffff` key at +0, `length`/`offset` +6/+10) or blob fields was found in decodable build-A Navi.exe sec0 (5,553,664 B, 0 compressed exec sections, C-2128) after four halfword signature families (only `0x00392122`, a byte walker) and an L3 watch of the 11 M3.23 candidates (context reads only); consumed-field mapping unknown (C-2215–C-2219). Shared REFER001 access path is confirmed (C-2210).
