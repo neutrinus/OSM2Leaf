@@ -231,14 +231,51 @@ def _parcels_over(bbox, level=1):
     return out
 
 
+def parcel_area_m2(parcel, level: int = 1) -> float:
+    """Ground area of a parcel in m^2 (equirectangular at its centre)."""
+    import math
+    from clarion_bg import parcel_geo
+    _lon0, lat0, w, h = parcel_geo(level, *parcel)
+    return w * 111320.0 * math.cos(math.radians(lat0 + h / 2)) * h * 110540.0
+
+
+def load_building_stats(path: str | None) -> dict:
+    """``{parcel_tuple: {"count": int, "area_m2": float}}`` from osm_areas JSON."""
+    if not path:
+        return {}
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    key = "parcels" if "parcels" in raw else "buildings"
+    return {tuple(int(v) for v in k.split(",")): val for k, val in raw[key].items()}
+
+
+def built_up_share(parcel, by_kind, buildings, level=1):
+    """Built-up share on one metric: max(landuse cover, building cover).
+
+    Landuse cover = sum of urban 0xc12b ring areas in quantised units / (2047**2);
+    building cover = summed building footprint m^2 / parcel ground m^2. Both
+    are clamped to 0..1; taking the max keeps the landuse fallback on the same
+    share metric as the building-density signal (navigator note 2).
+    """
+    landuse = min(1.0, sum(_ring_area(r) for r in by_kind.get("urban", [])) / float((UNITS - 1) ** 2))
+    b = buildings.get(parcel, {})
+    building = min(1.0, b.get("area_m2", 0.0) / parcel_area_m2(parcel, level)) if b else 0.0
+    return max(landuse, building), landuse, building
+
+
 def build_background(areas_path: str | None, country: int, only: set | None = None, urban_fill: float = 0.0,
-                     names: dict | None = None, with_places: bool = False, level: int = 1):
-    """``{parcel: plain}`` background records and stats from an osm_areas JSONL."""
+                     names: dict | None = None, with_places: bool = False, level: int = 1,
+                     buildings: dict | None = None, building_density: float = 0.0):
+    """``{parcel: plain}`` background records and stats from an osm_areas JSONL.
+
+    ``building_density`` fills when max(landuse cover, building cover) >= threshold
+    (M5.95); ``urban_fill`` keeps the old landuse-only rule (M5.89).
+    """
     import clarion_bg
     from bg_writer import clip_polygon
     from slot_budget import dp_simplify
     shapes = collections.defaultdict(lambda: collections.defaultdict(list))
     stats = collections.Counter()
+    buildings = buildings or {}
     names = names or {}
     types = BG_TYPES if level == 1 else BG_TYPES_L2
     kinds = PLACE_KINDS if level == 1 else PLACE_KINDS_L2
@@ -297,15 +334,17 @@ def build_background(areas_path: str | None, country: int, only: set | None = No
     for parcel in set(names) | set(places):
         shapes.setdefault(parcel, collections.defaultdict(list))
     for parcel, by_kind in shapes.items():
-        if urban_fill and by_kind.get("urban"):
-            # Generalised built-up area (HYPOTHESIS, M5.89): the factory's
-            # level-1 0xc12b is one parcel-wide polygon in central London,
-            # while OSM landuse covers blocks.  A parcel whose urban rings
-            # cover >= urban_fill of it (sum of ring areas, capped at 1) gets
-            # one full-parcel ring instead.
-            share = min(1.0, sum(_ring_area(r) for r in by_kind["urban"]) / float((UNITS - 1) ** 2))
-            if share >= urban_fill:
+        if urban_fill or building_density:
+            # Generalised built-up area (M5.89 / M5.95). M5.95 fills when the
+            # built-up share (max of landuse cover and building cover) reaches
+            # the threshold; M5.89 used landuse cover alone.
+            threshold = building_density or urban_fill
+            share, landuse, building = built_up_share(parcel, by_kind, buildings, level)
+            if share >= threshold:
                 stats["urban_filled_parcels"] += 1
+                stats["filled_by_landuse"] += landuse >= threshold
+                stats["filled_by_building"] += building >= threshold
+                stats["sum_built_share"] += share
                 by_kind["urban"] = [list(full)]
         layers = collections.defaultdict(list)
         for kind, rings in by_kind.items():
@@ -608,6 +647,29 @@ def selftest() -> int:
     blob2, st2 = from_zero(tmpl, {parcel: (plain, comp)}, pad=False,
                            odd={parcel: (bg[parcel], tilewriter.compress(bg[parcel]))})
     ok(st2["even_records"] == 1 and st2["odd_records"] == 1, "even + odd placed")
+    # M5.95: building-density rule. A parcel with no landuse urban ring but a
+    # large building footprint gets the full ring; a bare parcel does not.
+    import math
+    pa = parcel_area_m2(parcel)
+    bld = {parcel: {"count": 10, "area_m2": pa * 0.5}}
+    sq_urban = [[lon_p + pw * a, lat_p + ph * b] for a, b in ((0.1, 0.1), (0.3, 0.1), (0.3, 0.3), (0.1, 0.3), (0.1, 0.1))]
+    share_land, land, bshare = built_up_share(parcel, {"urban": [sq_urban]}, {}, 1)
+    share_bld, land2, bshare2 = built_up_share(parcel, {}, bld, 1)
+    ok(0 < share_land < 0.1 and land2 == 0.0 and bshare2 == 0.5 and share_bld == 0.5,
+       "landuse share ~4%%, building share 50%%; same 0..1 metric (%.3f / %.3f)" % (share_land, share_bld))
+    ok(built_up_share(parcel, {}, {}, 1)[0] == 0.0,
+       "an empty parcel has zero built-up share (negative control)")
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as fh:
+        fh.write(json.dumps(dict(id="w9", kind="park", rings=[sq], holes=[])) + "\n")
+    bfile = fh.name.replace(".jsonl", ".buildings.json")
+    Path(bfile).write_text(json.dumps({"parcels": {",".join(str(v) for v in parcel): bld[parcel]}}))
+    bg3, bst3 = build_background(fh.name, 826, buildings=load_building_stats(bfile), building_density=0.1,
+                                 only={"urban", "park"})
+    os.unlink(fh.name)
+    os.unlink(bfile)
+    ok(bst3["urban_filled_parcels"] == 1 and bst3["filled_by_building"] == 1
+        and bst3["sum_built_share"] == 0.5,
+       "building-only density fills the parcel: %s" % dict(bst3))
     c2 = s1_wide_dir.census(blob2)
     ok(s1_wide_dir.census_ok(c2) and c2["counts"]["records"] == 2, "census: 2 records")
     m2 = tile_relayout.read_model(blob2)
@@ -651,7 +713,10 @@ def main(argv=None) -> int:
     ap.add_argument("--no-names", action="store_true")
     ap.add_argument("--areas", help="osm_areas.py JSONL: write level-1 background records (Z4)")
     ap.add_argument("--urban-fill", type=float, default=0.0,
-                    help="fill a parcel with one urban ring when its urban rings cover >= this share (0 = off)")
+                    help="M5.89: fill a parcel when urban landuse rings cover >= this share (0 = off)")
+    ap.add_argument("--building-density", type=float, default=0.0,
+                    help="M5.95: fill when max(landuse cover, building cover) >= this share (0 = off)")
+    ap.add_argument("--buildings", help="osm_areas.py --buildings JSON: per-parcel building count + area")
     ap.add_argument("--class-override", default=DEFAULT_CLASS_OVERRIDE,
                     help="highway=cls,... replacing classes of the table (default: %(default)s; '' = none)")
     ap.add_argument("--places", action="store_true", help="write place=* labels from --areas (M5.90)")
@@ -674,6 +739,7 @@ def main(argv=None) -> int:
     try:
         names = {}
         graphs = {} if args.sec2 else None
+        bstats = load_building_stats(args.buildings)
         built, sizes, imf_stats = build_records(args.split, args.cell, args.class_table, args.country,
                                                 not args.no_names, args.max_plain, names_out=names,
                                                 class_override=args.class_override, graphs_out=graphs)
@@ -684,7 +750,8 @@ def main(argv=None) -> int:
         odd, bg_stats = {}, {}
         if args.areas or names:
             only = set(args.areas_kinds.split(",")) if args.areas_kinds else None
-            plains, bg_stats = build_background(args.areas, args.country, only, args.urban_fill, names, args.places)
+            plains, bg_stats = build_background(args.areas, args.country, only, args.urban_fill, names, args.places,
+                                                 buildings=bstats, building_density=args.building_density)
             odd = {k: (v, tilewriter.compress(v)) for k, v in plains.items()}
         built2, odd2, bg2 = {}, {}, {}
         if args.level2:
@@ -694,7 +761,8 @@ def main(argv=None) -> int:
                                               class_override=args.class_override, level=2)
             if args.areas or names2:
                 plains2, bg2 = build_background(args.areas, args.country, only, args.urban_fill,
-                                                names2, args.places, level=2)
+                                                names2, args.places, level=2,
+                                                buildings=bstats, building_density=args.building_density)
                 odd2 = {k: (v, tilewriter.compress(v)) for k, v in plains2.items()}
         out, st = from_zero(Path(args.template).read_bytes(), built, odd=odd, built2=built2, odd2=odd2,
                             sec2=sec2)
