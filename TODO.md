@@ -5899,7 +5899,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
 
 - [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
-  - Status: open · Owner: — · Critical: no · Pair: no
+  - Status: in progress · Owner: task/m8.h20a-position-record · Critical: no · Pair: no
   - Step: reader
   - Depends: M8.H18, M8.H19
   - Goal: M8.H20 is blocked because the flash→object-store restorer of the last vehicle position is UNKNOWN (C-7167). Trace `OBJ_BackUpMgr` / `OBJDLL!OBJ_CarPos_read` back to the `FMD1:` record and derive its exact flash offset, record layout and checksum from structure or a real unit dump — never a guessed format. Report whether the saved word is `0x9c03a3c0`-style packed COORD001 and whether there is a second copy.
