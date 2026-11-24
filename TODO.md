@@ -3567,7 +3567,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-22-M5.72-locmap-ref-words (in-window fix PASS, census negative)
 
 - [ ] **M5.73 — OSM tag → POI category table for the unit's category codes**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.73-poi-category-profile · Critical: no · Pair: solo
   - Step: P4
   - Depends: M4.88
   - Goal: With the category table of M4.88, define which OSM tags become which category, so the POI writer (M5.18, M5.63) has a rule set.
