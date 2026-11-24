@@ -65,8 +65,13 @@ def records(path: str) -> list[dict]:
                 for slot, s in dr["slots"].items():
                     for rec in s["recs"]:
                         raw = rec["raw"]
-                        plain = (zlib.decompress(raw)
-                                 if clarion_tile.is_zlib(raw) else raw)
+                        if clarion_tile.is_zlib(raw):
+                            try:
+                                plain = zlib.decompress(raw)
+                            except zlib.error:
+                                continue
+                        else:
+                            plain = raw
                         out.append({
                             "section": sec["id"], "dir": dr["off"],
                             "slot": slot, "k": rec["k"], "plain": plain,
@@ -312,7 +317,12 @@ def cmd_placement(args) -> int:
 def cmd_names(args) -> int:
     path = args.tile
     data = Path(path).read_bytes()
-    target = args.target.encode("latin-1")
+    target = (bytes.fromhex(args.target_hex) if args.target_hex
+              else args.target.encode("latin-1"))
+    target_label = args.target_hex or args.target
+    if not target:
+        print("error: --target or --target-hex is required", file=sys.stderr)
+        return 2
     for r in section4_records(path):
         sp = name_span(r["plain"])
         if not sp or target not in sp[2]:
@@ -342,8 +352,31 @@ def cmd_names(args) -> int:
                 "high_bytes": [hex(b) for b in high],
             }, indent=1))
         return 0
-    print("target %r not found in %s" % (args.target, path))
+    print("target %r not found in %s" % (target_label, path))
     return 1
+
+
+def cmd_census(args) -> int:
+    path = args.tile
+    data = Path(path).read_bytes()
+    recs = section4_records(path)
+    reasons = collections.Counter()
+    fits = 0
+    for r in recs:
+        res = kiwi_parse(r["plain"])
+        if res.get("ok"):
+            fits += 1
+        else:
+            reasons[res.get("reason")] += 1
+    print("tile %s sha256 %s" % (path, sha256(data)))
+    print("section-4 records %d KIWI-7.4 fits %d reasons %s" %
+          (len(recs), fits, dict(reasons)))
+    if args.json:
+        Path(args.json).write_text(json.dumps({
+            "tile": path, "sha256": sha256(data), "records": len(recs),
+            "fits": fits, "reasons": dict(reasons),
+        }, indent=1))
+    return 0
 
 
 def main(argv=None) -> int:
@@ -359,9 +392,14 @@ def main(argv=None) -> int:
     p.add_argument("tile")
     p.add_argument("--json")
     p.set_defaults(func=cmd_placement)
+    p = sub.add_parser("census")
+    p.add_argument("tile")
+    p.add_argument("--json")
+    p.set_defaults(func=cmd_census)
     p = sub.add_parser("names")
     p.add_argument("tile")
-    p.add_argument("--target", required=True)
+    p.add_argument("--target", default="", help="substring or text to find")
+    p.add_argument("--target-hex", help="substring as hex (for high-byte names)")
     p.add_argument("--json")
     p.set_defaults(func=cmd_names)
     args = ap.parse_args(argv)

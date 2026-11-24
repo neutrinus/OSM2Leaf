@@ -357,6 +357,19 @@ name-list start offset, its terminator rule and any count/length prefix are
 (two u16 words); no other `u32` offset is interpreted. `tools/section4.py`
 prints every non-documented span as hex instead of guessing.
 
+The `d=` prefix (`0=`, `1=`, `2=` and `4=` observed) is a name-category slot,
+not a KIWI placement kind. The KIWI 7.4 Name Data Frame does **not** describe
+these records (M4.71, C-7700–C-7709, `EXP-2026-11-24-M4.71-kiwi-name-frame`):
+0 of 1,872 section-4 records on two EU2011 tiles and one US2011 tile fit the
+`SWS(u16@0)` distribution header (the first word is the parcel code, e.g.
+`0x9b1d` → `SWS=79,358` against a 152-byte record), so its management pairs,
+attribute header, `st=1/4/5/6` placement kinds and coordinates are unreachable.
+What does fit is the M4.75 string rule: `word6`/`word7` at `0x0c`/`0x0e` give a
+word offset and word count × 2, and the raw bytes are CP1252 `d=TEXT` slots;
+`tools/kiwi_name_probe.py names` agrees with `section4.scan_names` on the same
+span. Writers must keep using the ZE0 `d=` grammar here, not a KIWI attribute
+header. See the M5.65 cross-reference below.
+
 **HYPOTHESIS:** the undocumented words at `0x06..0x0f` locate or count the name
 list (offset/count/length); the tool deliberately does not use them.
 
@@ -428,7 +441,10 @@ other tile byte stay verbatim; `section4.py verify` and `harness.py info` read
 the result, and the no-input run is byte-identical. This is not a new grammar
 claim: name-list placement and `0x06..0x0f` remain UNKNOWN (C-546, C-2391),
 and no firmware reader of the generated names has been run (C-6659). See
-`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659.
+`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659. M4.71
+(`EXP-2026-11-24-M4.71-kiwi-name-frame`) re-checks the name bytes this writer
+substitutes: KIWI 7.4 adds no placement rule, so the same-length CP1252
+substitution stays the correct operation (C-7700–C-7709).
 
 Road names: shape header word 4 is the name offset in the **odd partner
 record's** names section. `B30R060R` has 297/1,195 named lines; `B30R048R`
