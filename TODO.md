@@ -3967,7 +3967,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8830–C-8839
 
 - [ ] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.102-hashutil-migration · Critical: no · Pair: solo
   - Depends: M8.H76 (done)
   - Goal: M8.H76 shipped `sha256_file`/`sha256_bytes` and migrated the eight tools it named, but seven tools added later in the same window still hash inline: `launch_area.py`, `point_add_poi.py`, `tile_from_zero.py`, `tile_provenance.py`, `tile_relayout.py`, `ze0_l3parity.py`, `ze0_uistart.py`. Their evidence stamps can drift from the shared helpers, which is the exact failure M8.H76 was filed to prevent.
   - Precheck: `grep -l 'import hashlib' tools/launch_area.py tools/point_add_poi.py tools/tile_from_zero.py tools/tile_provenance.py tools/tile_relayout.py tools/ze0_l3parity.py tools/ze0_uistart.py | wc -l` prints 7; `grep -nE '^def (sha256_file|sha256_bytes)' tools/hashutil.py` prints both; `python3 tools/hashutil.py --selftest` passes.
