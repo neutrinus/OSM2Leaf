@@ -18,6 +18,13 @@ Sub-commands:
         set; repeats are collapsed (``x67``).  Also counts DMA-mode requests
         (``CC_EXT_MODE`` bit 1) and commands that got no response.
 
+  ports LOG
+        Per SD host port of the same trace: count SD_CMD writes and the
+        last card-detect read of SD_INFO1 (``+0x1c``, bit 5 = card present).
+        This is the ``--sd2`` evidence: with a card on port 1 its SD_INFO1
+        reads back bit 5 set and the guest issues commands there; without
+        one, card-detect stays off and the command count is 0.
+
   dmatrace LOG [--card CARD.img]
         Decode the HPB-DMAC transfers of a ``-d unimp`` log of ``-M
         ze0,sdhi-trace=on,hpbdmac-trace=on`` (M8.C1b): every ``ze0-hpbdmac:
@@ -35,10 +42,14 @@ Sub-commands:
         ``Mount System SD Proc Start``, the lock/no-security error) and
         the F3 lines (``Store Mgr Ready! [DSK1:]``, ``Mount Time of
         PartNN``, ``AppLch >> Error Proc<``, ``FailSafe.exe Start``).
+        The second-slot lines (M8.H17) ``EVT_SD_MOUNT``,
+        ``Detect DSK8: is Attached``, ``SdMountPartition() Start`` and
+        ``SYS_NOTIFY_USER_SD_CARD_MOUNT`` are counted too.
 
 Usage:
   ze0_sdhost.py inttable archive/head256.img [--find-sysintr 0x1f]
   ze0_sdhost.py sdtrace qemu-unimp.log
+  ze0_sdhost.py ports qemu-unimp.log
   ze0_sdhost.py dmatrace qemu-unimp.log --card CARD.img
   ze0_sdhost.py serial serial.log
   ze0_sdhost.py --selftest
@@ -65,6 +76,11 @@ MARKERS = [
     ("activate_ng", "ActivateSDCardDriver(lpszDevKey=Drivers\\SD\\Card) End(NG"),
     ("event2_timeout", "EventID = 2 Timeout"),
     ("sys_mount_event", "Stub_SetEvent[EVT_SD_SYS_MOUNT]"),
+    ("user_mount_event", "Stub_SetEvent[EVT_SD_MOUNT]"),
+    ("dsk8_attached", "SD Card Mount Thread : Detect DSK8: is Attached."),
+    ("dsk8_mount_exec", "SD Card Mount Thread : Mount Execute."),
+    ("user_part_mount", "CMemoryCardStatus::SdMountPartition() Start"),
+    ("user_sd_notify", "SYS_NOTIFY_USER_SD_CARD_MOUNT"),
     ("wait37_timeout", "ACM::WaitModule Timeout ID[37]"),
     ("lock_unlock_call", "SDHC_Lock_Unlock_Card() byFlag["),
     ("lock_unlock_err", "SDHC_Lock_Unlock_Card() Err"),
@@ -86,6 +102,8 @@ ARG_RE = re.compile(r"ze0-sdhi(\d): wr\d+ \+0x0([46]) = 0x([0-9a-f]+)")
 XFER_RE = re.compile(r"ze0-hpbdmac: ch(\d+) (read|write) (\d+) bytes, D[DS]AR 0x([0-9a-f]+), "
                      r"left (\d+), crc32 0x([0-9a-f]+)")
 NORSP_RE = re.compile(r"ze0-sdhi(\d): CMD(\d+) arg 0x[0-9a-f]+: no response")
+INFO1_RE = re.compile(r"ze0-sdhi(\d): rd\d+ \+0x1c = 0x([0-9a-f]+)")
+CD_BIT = 0x20
 
 
 def table_rows(read_u32, start, limit=256):
@@ -206,6 +224,43 @@ def count_markers(text):
     return {key: text.count(needle) for key, needle in MARKERS}
 
 
+def decode_ports(text):
+    """{port: {'cmds': N, 'cd_reads': N, 'cd_seen': bool, 'last_info1': int}}"""
+    ports = {}
+    for line in text.splitlines():
+        m = CMD_RE.search(line)
+        if m:
+            ports.setdefault(int(m.group(1)), dict(cmds=0, cd_reads=0,
+                             cd_seen=False, last_info1=None))["cmds"] += 1
+            continue
+        m = INFO1_RE.search(line)
+        if m:
+            p = ports.setdefault(int(m.group(1)), dict(cmds=0, cd_reads=0,
+                                 cd_seen=False, last_info1=None))
+            v = int(m.group(2), 16)
+            p["cd_reads"] += 1
+            p["last_info1"] = v
+            if v & CD_BIT:
+                p["cd_seen"] = True
+    return ports
+
+
+def cmd_ports(args):
+    with open(args.log, encoding="utf-8", errors="replace") as fh:
+        ports = decode_ports(fh.read())
+    if not ports:
+        print("no SD host trace (sdhi-trace off?)")
+        return 0
+    for port in sorted(ports):
+        p = ports[port]
+        last = "0x%04x" % p["last_info1"] if p["last_info1"] is not None else "—"
+        print("port %d: %d commands, card-detect reads %d, last SD_INFO1 %s, "
+              "card %s" % (port, p["cmds"], p["cd_reads"], last,
+                           "present" if p["cd_seen"] else "absent"))
+    return 0
+
+
+
 def cmd_inttable(args):
     import cerom
     with open(args.image, "rb") as fh:
@@ -286,6 +341,23 @@ def selftest():
     check("no-response count", norsp, {1: 1})
     check("argument write is not a command", sum(c for _, c in seq[0]), 3)
 
+    plog = "\n".join([
+        "ze0-sdhi0: rd16 +0x1c = 0x00a0",
+        "ze0-sdhi0: wr16 +0x00 = 0x0011",
+        "ze0-sdhi0: rd16 +0x1c = 0x00a1",
+        "ze0-sdhi1: rd16 +0x1c = 0x0000",   # baseline: no card on port 1
+        "ze0-sdhi1: wr16 +0x00 = 0x0008",
+    ])
+    p = decode_ports(plog)
+    check("port 0 card present", p[0]["cd_seen"], True)
+    check("port 0 commands", p[0]["cmds"], 1)
+    check("port 1 no card (negative)", p[1]["cd_seen"], False)
+    check("port 1 last SD_INFO1", p[1]["last_info1"], 0x0000)
+    plog2 = plog.replace("ze0-sdhi1: rd16 +0x1c = 0x0000",
+                         "ze0-sdhi1: rd16 +0x1c = 0x00a0")
+    check("port 1 card present with --sd2", decode_ports(plog2)[1]["cd_seen"], True)
+    check("no trace", decode_ports(""), {})
+
     dlog = "\n".join([
         "ze0-sdhi0: wr16 +0x04 = 0x0002",
         "ze0-sdhi0: wr16 +0x06 = 0x0000",
@@ -309,6 +381,20 @@ def selftest():
     check("marker check error", m["sd_check_error"], 1)
     check("marker NG", (m["activate_ng"], m["activate_ok"]), (1, 0))
 
+    m2 = count_markers(
+        "###SDHC(Port=1)-->Stub_SetEvent[EVT_SD_MOUNT]\n"
+        "SystemEXE : SD Card Mount Thread : Detect DSK8: is Attached.\n"
+        " CMemoryCardStatus::SdMountPartition() Start \n"
+        "MsgId[SYS_NOTIFY_USER_SD_CARD_MOUNT]\n")
+    check("user mount event", m2["user_mount_event"], 1)
+    check("DSK8 attached", m2["dsk8_attached"], 1)
+    check("user part mount", m2["user_part_mount"], 1)
+    check("user sd notify", m2["user_sd_notify"], 1)
+    check("second-slot markers absent in baseline (negative)",
+          all(count_markers("Mount Time of Part00 = 1 [msec]")[k] == 0
+              for k in ("user_mount_event", "dsk8_attached",
+                        "user_part_mount", "user_sd_notify")), True)
+
     print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -328,6 +414,8 @@ def main(argv=None):
     t.add_argument("--find-sysintr", type=_int)
     s = sub.add_parser("sdtrace")
     s.add_argument("log")
+    p = sub.add_parser("ports")
+    p.add_argument("log")
     d = sub.add_parser("dmatrace")
     d.add_argument("log")
     d.add_argument("--card")
@@ -341,6 +429,8 @@ def main(argv=None):
         return cmd_inttable(args)
     if args.cmd == "sdtrace":
         return cmd_sdtrace(args)
+    if args.cmd == "ports":
+        return cmd_ports(args)
     if args.cmd == "dmatrace":
         return cmd_dmatrace(args)
     if args.cmd == "serial":
