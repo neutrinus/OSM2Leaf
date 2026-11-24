@@ -177,6 +177,7 @@ class Census:
         self.delay_pc = None
         self.delay_line = -1
         self.time_source = "n/a"
+        self.calibration = []  # (host timestamp, guest ms) from sidecar lines
 
     def feed(self, line, lineno):
         self.lines += 1
@@ -185,6 +186,8 @@ class Census:
             if self.t0 is None:
                 self.t0 = ts
             self.time_source = "host-elapsed"
+            if lineno in self.times:
+                self.calibration.append((ts, self.times[lineno]))
         pc = PC_LINE.search(line)
         if pc and TS.match(line) or (pc and not TS.match(line)):
             self.last_pc = int(pc.group(1), 16)
@@ -229,22 +232,45 @@ class Census:
         r["sizes"].add(size)
         r["sources"].add(source)
         r["last_line"] = lineno
-        if lineno in self.times:
-            guest = self.times[lineno]
-            if r["first_guest"] is None:
-                r["first_guest"] = guest
-            r["last_guest"] = guest
-            self.time_source = "guest"
-        if ts is not None:
-            val = (ts - self.t0).total_seconds() if self.t0 else 0.0
-            if r["first_time"] is None:
-                r["first_time"] = val
-            r["last_time"] = val
+        if r["first_time"] is None:
+            r["first_time"] = ts
+        r["last_time"] = ts
         if event_pc is not None:
             r["pcs"].add(event_pc)
             mod, prov = self.resolver.module_at(event_pc)
             r["modules"][mod] += 1
             r["provenance"].add(prov)
+
+    def resolve_guest_times(self):
+        """Interpolate guest ms for every block from the sidecar calibration.
+
+        The sidecar gives real guest-clock readings at sampled log lines; the
+        log header gives a host timestamp for each line.  Interpolation uses
+        only those two measured series, never line counts or file mtimes.
+        """
+        if len(self.calibration) < 2:
+            return
+        table = sorted(self.calibration)
+        self.time_source = "guest"
+
+        def interp(ts):
+            if ts is None:
+                return None
+            if ts <= table[0][0]:
+                return table[0][1]
+            if ts >= table[-1][0]:
+                return table[-1][1]
+            for i in range(1, len(table)):
+                t0, g0 = table[i - 1]
+                t1, g1 = table[i]
+                if t0 <= ts <= t1:
+                    frac = (ts - t0).total_seconds() / (t1 - t0).total_seconds()
+                    return round(g0 + frac * (g1 - g0))
+            return None
+
+        for r in self.blocks.values():
+            r["first_guest"] = interp(r["first_time"])
+            r["last_guest"] = interp(r["last_time"])
 
     def ranked(self, top):
         return sorted(self.blocks.items(), key=lambda kv: (-kv[1]["count"], kv[0]))[:top]
@@ -275,13 +301,16 @@ def _row_times(census, r):
     if census.time_source == "guest":
         return (fmt_time(r["first_guest"]), fmt_time(r["last_guest"]))
     if census.time_source == "host-elapsed":
-        return (fmt_time(r["first_time"]), fmt_time(r["last_time"]))
+        def sec(v):
+            return "n/a" if v is None else "%.3f" % (v - census.t0).total_seconds()
+        return (sec(r["first_time"]), sec(r["last_time"]))
     return ("n/a", "n/a")
 
 
 def report(census, top, label, as_json):
     rows = census.ranked(top)
-    unit = {"guest": "guest ms", "host-elapsed": "host s", "n/a": "none"}[census.time_source]
+    unit = {"guest": "guest ms (interpolated)", "host-elapsed": "host s",
+            "n/a": "none"}[census.time_source]
     if as_json:
         print(json.dumps({
             "label": label, "lines": census.lines, "events": census.events,
@@ -343,14 +372,15 @@ def selftest():
     ]
     for i, line in enumerate(lines, 1):
         c.feed(line, i)
+    c.resolve_guest_times()
     check("events counted", c.events, 5)
     check("modelled trace ignored", len(c.blocks), 3)
     check("area7 alias to P4", block_name(0x1FC5A000), "GPS/odometer pulse capture or timers (kepdrv)")
     check("block grouping", c.blocks[0xFFC5A000]["count"], 2)
     check("read/write split", (c.blocks[0xFFC5A000]["reads"], c.blocks[0xFFC5A000]["writes"]), (1, 1))
     check("guest time first/last", (c.blocks[0xFFC5A000]["first_guest"], c.blocks[0xFFC5A000]["last_guest"]), (1000, 2000))
-    check("host elapsed first/last", (round(c.blocks[0xFFC5A000]["first_time"], 3),
-                                      round(c.blocks[0xFFC5A000]["last_time"], 3)), (0.0, 0.1))
+    check("host elapsed first/last", (round((c.blocks[0xFFC5A000]["first_time"] - c.t0).total_seconds(), 3),
+                                      round((c.blocks[0xFFC5A000]["last_time"] - c.t0).total_seconds(), 3)), (0.0, 0.1))
     check("delay-slot PC module", c.blocks[0xFFE70000]["modules"].most_common(1)[0][0],
           "serial_scif.dll")
     check("near-PC module", c.blocks[0xFFC5A000]["modules"].most_common(1)[0][0], "nk.exe")
@@ -375,7 +405,7 @@ def selftest():
     text = buf.getvalue()
     check("rank table top", "0xffc5a000" in text, True)
     check("rank count printed", "GPS/odometer" in text, True)
-    check("guest unit printed", "time=guest (guest ms)" in text, True)
+    check("guest unit printed", "time=guest (guest ms (interpolated))" in text, True)
     check("guest first time printed", "1000" in text, True)
     buf2 = io.StringIO()
     with contextlib.redirect_stdout(buf2):
@@ -420,6 +450,7 @@ def main(argv=None):
     with open(args.log, encoding="utf-8", errors="replace") as fh:
         for lineno, line in enumerate(fh, 1):
             census.feed(line, lineno)
+    census.resolve_guest_times()
     report(census, args.top, args.label, args.json)
     return 0 if census.events else 2
 
