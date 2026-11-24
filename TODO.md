@@ -5970,6 +5970,26 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: A task that obtains a checked/debug ZE0 Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) from Nissan's dealer service channel and re-runs tools/ce_dbgzones.py on it; rule 15 re-opens M8.H80 when that task merges
   - Result: EXP-2026-11-24-M8.H80-checked-build (negative: 0 DBGPARAM in 1646 fully-scanned sections + 28 partial; 9/9 selftest, mutation 5/9; source search negative); C-10260–C-10269
 
+- [ ] **M8.H5a — SH-4 CPU migration format for QEMU `-M ze0` (unblocks M8.H5)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: tooling
+  - Depends: —
+  - Goal: M8.H5 could not take a `savevm` snapshot of `-M ze0` because
+    upstream QEMU's `vmstate_sh_cpu` is `.unmigratable = 1` (both 11.1.3
+    and 8.2.10, EXP-2026-11-24-M8.H5-savevm-blocked). A real SH-4 CPU
+    migration format is required before snapshots can exist at all.
+  - Scope: a QEMU patch replacing `vmstate_sh_cpu` with a real vmsd for
+    `CPUSH4State` (core/user-visible registers, MMU/TLB state, FPU status)
+    with `post_load` re-deriving TB flags, `movcal_backup_tail` and float
+    rounding; negative mutation must make `savevm` fail again.
+  - Input: `tools/qemu-ze0/patches/`, `~/.cache/qemu-ze0/qemu-11.1.3/target/sh4/`.
+  - Done when: HMP `savevm t1` on `-M ze0` with a qcow2 SD overlay prints
+    no `Error:` line and `info snapshots` lists `t1`; a mutated build
+    (`.unmigratable = 1` restored) fails again; EXP quotes both outputs.
+  - Falsifier: `savevm` still prints `State blocked by non-migratable device
+    'cpu'` after the patch.
+  - Claims: C-10280–C-10289
+
 ---
 
 ## M9 — L3 toolkit: run firmware functions against our data
