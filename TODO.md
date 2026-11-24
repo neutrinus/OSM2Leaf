@@ -5626,8 +5626,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the applications reach GPIO only through a driver that never touches the registers in a boot.
   - Claims: C-7570–C-7579
 
-- [ ] **M8.H61 — Reversing camera path: a test picture on the video input when reverse is on**
-  - Status: in progress · Owner: task/m8.h61-camera-path · Critical: no · Pair: solo
+- [x] **M8.H61 — Reversing camera path: a test picture on the video input when reverse is on**
+  - Status: done · Owner: task/m8.h61-camera-path · Critical: no · Pair: solo
   - Step: model
   - Priority: low (after touch, GPS and the vehicle peer)
   - Depends: M8.H49, M8.C1f
@@ -5639,6 +5639,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; do not model a video decoder.
   - Falsifier: reverse changes nothing on the display path.
   - Claims: C-7580–C-7589
+  - Result: EXP-2026-11-24-M8.H61-camera-capture-path; verdict B needs video-capture model (register list UNKNOWN); C-7580-C-7589; N3 mutation 1ref->0ref
 
 - [x] **M8.H62 — `fmmdrv.dll` and the TMC path: where a traffic message enters, and what it looks up on the card**
   - Status: done · Owner: task/m8.h62-cycle10 · Critical: no · Pair: required
