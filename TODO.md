@@ -5091,7 +5091,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H21-demo-drive; verdict present; 149 EU / 151 US modules, switch + VAs; follow-up M8.H72
 
 - [ ] **M8.H22 — Census of unmodelled hardware accesses in one boot: what to model next, by numbers**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h22-unmapped-census · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: Each missing device shows up as reads and writes to unmapped addresses. Rank them, so the next model is chosen by count and by who asks, not by guess.
