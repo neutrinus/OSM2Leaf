@@ -5775,7 +5775,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H71-osm-roads-l4; OSM London parcel drawn by Navi.exe at L4 (no names: --no-names); L1 PASS; pipeline negative-lon bbox fix
 
 - [ ] **M8.H72 — Trigger the route simulation under ze0 to get a moving position**
-  - Status: in progress · Owner: task/m8.h72-route-simulation · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m8.h72-route-simulation · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H21 (done)
   - Goal: M8.H21 found a demo/simulation mode in both 2011 builds: the `Navi.exe` menu item `2: Simulation on/off` (`fn 0x003daf5c`), the demo flag `u16 0x00bcd208`, `RGD_DEMO_*` position feeders (`fn 0x005182e0` …), `CRouteSimulation` in `NaviRouteCC.dll` (`fn 0x02f69198`) and the `NAVI_ROUTE_SIMULATION_START/PAUSE/STOP` events (`fn 0x004b9fa4`). If any trigger works under `-M ze0`, the emulator gets a moving position with no GPS/CAN sensor model — a moving test oracle for generated OSM cards.
@@ -5788,6 +5788,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8380–C-8389
   - Pair: required
   - Note: follow-up from M8.H21 (verdict `present`). L4 integration input; needs a reviewer.
+  - Blocker: Under -M ze0 the demo flag (u16 0x00bcd208 -> P1 0x8e869cec = 1) and a direct RGD_DEMO_Start call (0x005182e0 -> P1 0x8da772e0) do not move the position: 3 successive screenshots identical (bab3eeb7...e1), position word at xp 0x0cd940e4 stays 0x00090009 (outside grid), flag-check site 0x004ffd5e has 0 hits; serial shows CarPos_read failed + rcv error(Gyro)
+  - Unblock: M8.H45,M8.H49,M8.H32
+  - Result: EXP-2026-11-24-M8.H72-route-simulation (negative: falsifier fired)
 
 - [x] **M8.C1o — 2DG engine: decode and draw the remaining `0xb1`/`0xb3` commands**
   - Status: done · Owner: task/m8.c1o-2dg-ops · Critical: no · Pair: solo
