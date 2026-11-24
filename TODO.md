@@ -6278,8 +6278,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: none — reuses C-4651, C-2140–C-2147, C-6362–C-6368
   - Result: EXP-2026-11-22-M9.63-us-client-layer-survey; 4 rows; Precheck/Scope expectation overtaken by M9.61 (PR #426); M9.58 shape walk NOT RUNNABLE
 
-- [ ] **M9.64 — `main_watch` counts a green `L1/L2 synthetic fixtures` run as shadowing a red gate run: the two workflows test different things**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M9.64 — `main_watch` counts a green `L1/L2 synthetic fixtures` run as shadowing a red gate run: the two workflows test different things**
+  - Status: done · Owner: task/m9.64-main-watch-shadowing · Critical: no · Pair: required
   - Depends: — (H117 built the watchdog; this narrows its "later green" rule)
   - Goal: `.github/workflows/main-watch.yml` triggers on `workflow_run` for **both** `"CI quality gate"` and `"L1/L2 synthetic fixtures"`, but the verdict step runs `main_watch.py --branch main --workflow "CI quality gate" --limit 40`. `classify()` marks a red gate run `shadowed` whenever **any** later run in the fetched list is green — and the list it fetches is only the gate workflow, but the "shadowed" idea assumes a later green on the same workflow proves the red is stale. QA cycle 20 saw the effect on the reverse side: `44881534307` (gate, `3e41dc89`, `todo: PO 22nd pass`) is `cancelled`, and 9 cancelled runs sit in the 40-run window with only 5 shadowed reds; the two workflows are counted as if interchangeable. A red **gate** run must be covered by a later green **gate** run to be `shadowed`; a green L1/L2 run proves nothing about selftest/claims_check/todo_check. Today's tip is green so this changes no verdict, but the rule is wrong and would hide a red the day a L1/L2-only green lands after it.
   - Precheck: `grep -n 'workflow' .github/scripts/main_watch.py` shows one `--workflow` value and no cross-workflow guard in `classify()`; `python3 .github/scripts/main_watch.py --branch main` prints `0 salient, 5 shadowed, 9 cancelled, 40 runs`; `.github/workflows/main-watch.yml` `on.workflow_run.workflows` lists both workflows but the run step passes only one.
@@ -6291,6 +6291,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a red gate run reported `shadowed` whose only later green is a non-gate workflow.
   - Claims: C-6690–C-6699
   - Step: tooling
+  - Result: EXP-2026-11-22-M9.64-main-watch-cross-workflow; main_watch --selftest OK (32 checks), gate 5 pass/0 fail/0 skip
 
 - [x] **M9.65 — L3 harness: run `STDDLL` exports for `Navi.exe` import thunks (unblocks M4.55)**
   - Status: done · Owner: task/m9.65-stddll-mesh-import · Critical: yes · Pair: required

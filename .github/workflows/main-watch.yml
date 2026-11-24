@@ -9,6 +9,11 @@ name: Main gate watchdog
 #
 # The policy lives in `.github/scripts/main_watch.py` so it has an offline
 # `--selftest` and can be replayed against a saved run list (the H117 EXP).
+#
+# M9.64: the two triggers below run *different* checks, so the verdict step runs
+# the sweep once per workflow with its own `--workflow` (M9.64).  A green
+# `L1/L2 synthetic fixtures` run never covers a red `CI quality gate` run; each
+# workflow has its own salient/shadowed verdict line.
 
 on:
   workflow_run:
@@ -48,8 +53,8 @@ jobs:
         shell: bash
         run: python .github/scripts/main_watch.py --selftest
 
-      - name: Gate verdict on main
-        id: watch
+      - name: Gate verdict on main (CI quality gate)
+        id: watch_gate
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -58,7 +63,22 @@ jobs:
           set +e
           python .github/scripts/main_watch.py \
             --branch main --workflow "CI quality gate" --limit 40 \
-            --json main-watch.json 2>&1 | tee main-watch.txt
+            --json main-watch-gate.json 2>&1 | tee main-watch-gate.txt
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Gate verdict on main (L1/L2 synthetic fixtures)
+        id: watch_l1l2
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set +e
+          python .github/scripts/main_watch.py \
+            --branch main --workflow "L1/L2 synthetic fixtures" --limit 40 \
+            --json main-watch-l1l2.json 2>&1 | tee main-watch-l1l2.txt
           rc=${PIPESTATUS[0]}
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           exit $rc
@@ -86,28 +106,32 @@ jobs:
         run: |
           python - <<'PY'
           import json, os
-          def load(name):
+          def load(path):
               try:
-                  with open(name, encoding='utf-8') as f:
+                  with open(path, encoding='utf-8') as f:
                       return json.load(f)
               except OSError:
                   return None
-          d = load('main-watch.json')
+          docs = [('CI quality gate', load('main-watch-gate.json')),
+                  ('L1/L2 synthetic fixtures', load('main-watch-l1l2.json'))]
           p = load('pr-heads.json')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
               out.write('## Main gate watchdog (H117)\n\n')
-              if d is None:
-                  out.write('*no verdict document (the watchdog did not run)*\n')
-              else:
+              out.write('Each workflow is classified on its own run list: a green run')
+              out.write(' of one workflow never covers a red run of the other (M9.64).\n\n')
+              out.write('| workflow | tip | salient red | shadowed red | unrelated green | cancelled | runs read |\n')
+              out.write('| --- | --- | --- | --- | --- | --- | --- |\n')
+              for name, d in docs:
+                  if d is None:
+                      out.write(f'| {name} | *no verdict document* | | | | | |\n')
+                      continue
                   c = d['counts']
-                  out.write('| quantity | value |\n| --- | --- |\n')
-                  out.write(f"| tip | `{str(d['tip_sha'])[:8]}` **{d['tip_conclusion']}** |\n")
-                  out.write(f"| salient red (unaddressed) | {c['salient']} |\n")
-                  out.write(f"| shadowed red (later green covers) | {c['shadowed']} |\n")
-                  out.write(f"| cancelled (concurrency de-dup) | {c['cancelled']} |\n")
-                  out.write(f"| runs read | {c['runs']} |\n")
+                  out.write(f"| {name} | `{str(d['tip_sha'])[:8]}` **{d['tip_conclusion']}** | "
+                            f"{c['salient']} | {c['shadowed']} | {c.get('unrelated_green', 0)} | "
+                            f"{c['cancelled']} | {c['runs']} |\n")
               out.write('\n- A **salient** red opens/updates one `[H117] fix:` issue naming the SHA and the failing step; the step fails while it is open.\n')
-              out.write('- A **shadowed** red is counted, not failed: a later green run on `main` covers it. This is the count H117 watches.\n')
+              out.write('- A **shadowed** red is counted, not failed: a later green run of the *same* workflow on `main` covers it (M9.64).\n')
+              out.write('- An **unrelated green** is a green run of the other workflow; it covers nothing and is counted, never failed.\n')
               out.write('\n## PR-head sweep (H126)\n\n')
               if p is None:
                   out.write('*no PR-head document (the sweep did not run)*\n')
@@ -131,8 +155,10 @@ jobs:
         with:
           name: main-watch
           path: |
-            main-watch.json
-            main-watch.txt
+            main-watch-gate.json
+            main-watch-l1l2.json
+            main-watch-gate.txt
+            main-watch-l1l2.txt
             pr-heads.json
             pr-heads.txt
           if-no-files-found: warn

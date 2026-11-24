@@ -1,0 +1,20 @@
+[
+  {
+    "databaseId": 45005779931,
+    "headSha": "a92f5a9b574f569eb929f165b40c7ccaf679c678",
+    "conclusion": "failure",
+    "createdAt": "2026-11-22T09:04:51Z",
+    "url": "https://github.com/neutrinus/OSM2Leaf/actions/runs/45005779931",
+    "event": "push",
+    "workflowName": "CI quality gate"
+  },
+  {
+    "databaseId": 45005780000,
+    "headSha": "a92f5a9b574f569eb929f165b40c7ccaf679c678",
+    "conclusion": "success",
+    "createdAt": "2026-11-22T09:04:51Z",
+    "url": "https://github.com/neutrinus/OSM2Leaf/actions/runs/45005780000",
+    "event": "push",
+    "workflowName": "L1/L2 synthetic fixtures"
+  }
+]
