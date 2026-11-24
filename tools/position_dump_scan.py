@@ -197,10 +197,12 @@ def scan_rom(data, lat=REF_LAT, lon=REF_LON, tol_deg=0.02):
 
 def selftest():
     fails = 0
+    checks = 0
 
     def check(label, got, want):
-        nonlocal fails
+        nonlocal fails, checks
         ok = got == want
+        checks += 1
         fails += not ok
         print("%s %s: got %r want %r" %
               ("ok  " if ok else "FAIL", label, got, want))
@@ -284,7 +286,8 @@ def selftest():
         check("planted ROM tolerance offset",
               tolerance["tolerance_detail"][0][0], 128)
 
-    print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
+    print("selftest: %s (%d checks, %d failure(s))" %
+          ("PASS" if not fails else "FAIL", checks, fails))
     return 1 if fails else 0
 
 
@@ -316,9 +319,12 @@ def main(argv=None):
         else:
             print("pairs=%d near_ref=%d radius_m=%g" %
                   (got["pairs"], got["near_ref"], got["radius_m"]))
-            print("box_lat=%.6f..%.6f box_lon=%.6f..%.6f" %
-                  (got["box_lat"][0], got["box_lat"][1],
-                   got["box_lon"][0], got["box_lon"][1]))
+            if got["pairs"]:
+                print("box_lat=%.6f..%.6f box_lon=%.6f..%.6f" %
+                      (got["box_lat"][0], got["box_lat"][1],
+                       got["box_lon"][0], got["box_lon"][1]))
+            else:
+                print("box_lat=none box_lon=none")
             print("date_span=%s" % got["date_span"])
             print("rollover_date=%s" % got["rollover_date"])
         return 0
