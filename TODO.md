@@ -4938,7 +4938,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H19-position-store; VSram block 0x8e is settings, not the position (pattern control negative); L3 falsifier not triggered: EU B48R058R vs B48R060R, US B38R0B0R vs B30R0E0R; coord selftest 24/24; position_store_l3 5/5 on both builds
 
 - [ ] **M8.H20 — Start the emulator at a chosen place: seed the saved position**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h20-cycle10 · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H18, M8.H19
   - Goal: Use the record of M8.H19 and the flash file of M8.H18 so `run.sh --start-position LAT,LON` boots with the map centred there — no GPS needed. First use: the four Poland tiles of the EU card.
