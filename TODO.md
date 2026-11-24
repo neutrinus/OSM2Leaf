@@ -4991,8 +4991,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H80
   - Result: EXP-2026-11-24-M8.H15-debug-zones (negative: 0 DBGPARAM in 1111 sections, 0 skipped; selftest 9/9; baseline 142 hook hits); C-7120–C-7129
 
-- [x] **M8.H16 — Boot the test-mode kernel (ROM image C) on `-M ze0`: the service screens as a test bench for the models**
-  - Status: done · Owner: task/m8.h16-testmode-kernel · Critical: no · Pair: solo
+- [ ] **M8.H16 — Boot the test-mode kernel (ROM image C) on `-M ze0`: the service screens as a test bench for the models**
+  - Status: blocked · Owner: task/m8.h16-testmode-kernel · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: Image C is the kernel with `TestMode.exe` (hardware checks for GPS, touch, CAN, audio, SD). Its screens and logs would validate each peer model against the vendor's own diagnostics, and it has the `AppTimerDll` that `Speech.exe` misses on image B.
@@ -5003,7 +5003,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions.
   - Falsifier: C boots exactly like B with no extra process (then test mode is entered another way and the EXP says which).
   - Claims: C-7130–C-7139
-  - Result: EXP-2026-11-24-M8.H16-testmode-kernel (C boots to app launch, no TestMode.exe: mode_mask 0x40 gate in BOTH kernels; device.exe CAN.dll fault; full test-item->driver->peer table); C-7130–C-7139
+  - Result: EXP-2026-11-24-M8.H16-testmode-kernel (negative: C boots to app launch, no test-mode screen; falsifier fired, gate named; full test-item->driver->peer table); C-7130–C-7139
+  - Unblock: M8.H81
+  - Blocker: Image C boots to app launch but never starts TestMode.exe (0 TestMode/Clarion lines): mode_mask 0x40 gate in BOTH kernels (boot mode 0); boot then faults in device.exe with RA in C's CAN.dll after audio-micon timeouts
 
 - [x] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
   - Status: done · Owner: task/m8.h17-cycle10 · Critical: no · Pair: solo
@@ -5952,6 +5954,32 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: No checked/debug ZE0 build of Navi.exe/NaviMapCC.dll (or DBGPARAM records/symbols) publicly obtainable: all four real images scan to dbgparam_candidates 0 and mirror/local/web search found no checked build
   - Unblock: A task that obtains a checked/debug ZE0 Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) from Nissan's dealer service channel and re-runs tools/ce_dbgzones.py on it; rule 15 re-opens M8.H80 when that task merges
   - Result: EXP-2026-11-24-M8.H80-checked-build (negative: 0 DBGPARAM in 1646 fully-scanned sections + 28 partial; 9/9 selftest, mutation 5/9; source search negative); C-10260–C-10269
+
+- [ ] **M8.H81 — Select boot mode 7/9 at L4 so `TestMode.exe` launches on `-M ze0`**
+  - Status: open · Owner: — · Critical: no
+  - Step: model
+  - Depends: M8.H16 (blocked; names this task as `Unblock`)
+  - Goal: M8.H16 found that `TestMode.exe` is gated by `AppLaunch.dll`'s `mode_mask 0x40` in BOTH kernels B and C, and the boot logs `AppLch:: Boot System Mode = 0`. Make the launcher select mode 7 (mask `0x40`) or mode 9 (`0xffff`, Service Tool Mode) so the C image actually starts test mode and the service screens can validate the peer models.
+  - Precheck: `python3 tools/applaunch_table.py archive/head256.img --image-start 0x5200200 select --area 0x30 --mode 7 | grep -i TestMode` prints record #106 with mode_mask 0x40; a C boot log greps `Boot System Mode = 0` (`grep -a -m1`).
+  - Scope: EU2011 image C (`0x5200200`); find where `CApi_GetBootMode` (commondll.dll export #18, VA `0x03be3b60` in C) gets the mode from `KernelIoControl 0x01013018`, and set it in the kernel OAL or the IPL patch (image C's `ipl-C.txt` poke to commondll alone logged `Boot System Mode = 10` and must not be retried as-is). Then boot with `tools/qemu-ze0/run.sh --kernel 0x5200200`. Excluded: L5 hardware, new QEMU device models.
+  - Input: EXP-2026-11-24-M8.H16-testmode-kernel O7/O8, `tools/applaunch_table.py`, `tools/cerom.py`, `tools/ze0_ipl.py`, `tools/qemu-ze0/run.sh`.
+  - Done when: a C boot log on `-M ze0` prints a boot mode of 7 or 9 and a `TestMode.exe` process or the `Clarion Testmode` title, with an EXP naming the exact poke/flag and the stage reached.
+  - Stop: two sessions; if the mode is latched in the OAL before commondll.dll loads and cannot be set via ipl-patch, record the blocker and the VA that holds it.
+  - Falsifier: mode 7/9 selected but no TestMode process appears — then another gate exists and the EXP names it.
+  - Claims: C-10290–C-10299
+
+- [ ] **M8.H82 — Keep `device.exe` alive on the image-C boot (audio-micon and CAN peers)**
+  - Status: open · Owner: — · Critical: no
+  - Step: model
+  - Depends: M8.H45, M8.H50
+  - Goal: EXP-2026-11-24-M8.H16's C boot faults in `device.exe` with `PC=8800f048(NK.EXE+0xf048) RA=03b26e54(can.dll+0x16e54)` after repeated `AudioNetwork ErrorLogMsg` / `COMSTS_WAIT_RESPONCE` timeouts. Give the C boot the audio-micon peer (M8.H44/H45) and the vehicle/CAN peer (M8.H49/H50) so process launch completes and a test-mode screen can be driven.
+  - Precheck: on a C boot, `grep -a -m1 'Exception 0e0'` prints the device.exe/CAN.dll crash and `grep -a -c 'AudioNetwork ErrorLogMsg'` is > 0 (record the exact count in the EXP).
+  - Scope: EU2011 image C boot recipe from M8.H16; use the existing `tools/ze0_peers/micon.py` and `vcan.py` where they apply, record which peer removes which timeout. Excluded: new device models not already used by M8.H44/H50.
+  - Input: EXP-2026-11-24-M8.H16-testmode-kernel O5/O6, `tools/qemu-ze0/run.sh` (`--serial-peer`), `tools/ze0_peers/micon.py`, `tools/ze0_peers/vcan.py`.
+  - Done when: a 90 s C boot with both peers reaches `AppLch >> Finish Launch Threads!` with 0 `Exception 0e0` in `device.exe`, logged in an EXP with the peer commands.
+  - Stop: if a different C-only driver faults after the peers are attached, name its VA/module and set blocked.
+  - Falsifier: the peers remove the timeouts but the same device.exe/CAN.dll fault remains — then the fault is not a missing peer and this task records the new blocker.
+  - Claims: C-10300–C-10309
 
 ---
 
