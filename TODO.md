@@ -6579,3 +6579,4 @@ Do not take these up again; each was superseded by the CE ROM TOC
 | Spare-card `HDD_INFO`/`.ind` matrices as next steps | no hardware; shrink them with M2.4/M3.3 first | M6.3 |
 | Building S1/S2 with `mkcard.py`'s fresh build | re-lays out the whole FAT and drops the root volume-label entry (200 diff ranges), so three variables change at once | M5.13 `imgpatch.py`, M5.13b |
 | `NaviStateCC` vtable hunts (EXP-27…29) | parked; COM objects come from runtime or `DllGetClassObject` with real VAs | M9 / M8.E3 if needed |
+| "KIWI is a reader / shortcut for ZE0 card files" (M4.63–M4.73 verdict) | 0/4 header checks, 0/6,000 road records, 0/17,659 background records, 0 informative address fits on two cards; only ch.1.2 `SWS` size words adopt (already in `tools/kiwi_types.py`), 3 families concept-only | M4.78 verdict page (`docs/format/kiwi-glossary.md`); M4.77 real KIWI disc is the only positive control that could re-open it |
