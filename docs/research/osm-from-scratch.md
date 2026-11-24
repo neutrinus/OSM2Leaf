@@ -68,7 +68,7 @@ The fear "OSM will not fit the factory blocks" splits in two.
 | 3 | parcel grid | 32 columns per directory; level boxes from the tile box | map-tiles.md, M5.44 | parcels are fixed; we choose only what goes into each |
 | 4 | coordinates inside a parcel | 11 bit, `0..2047` | firmware diagnostics, M4.37 | quantisation per level; simplify (M5.75: 3 m / 12 m) |
 | 5 | one even + one odd record per parcel (+ 4 sub-records in a wide row) | — | M5.53 | a parcel with more data than one record can hold must use sub-records |
-| 6 | largest record the firmware reads | **UNKNOWN**; factory max seen 18,580 B inflated, road blocks up to 7,472 B compressed | M4.86, M5.75 | **probe it** (M5.92) before planning dense cities |
+| 6 | largest record the firmware walks (L3) | **68,000 B (`0x109A0`) shape-pool window**; first failing window 68,096 B (`0x10A00`), plain 67,864 B. Record reads up to 147,764 B (8×) still inflate and reply sub 3 — the reader is not the limit. | M5.92, `sh4dis` of `fn 0x0042613c` (`0x004262f8` `cmp/ge`); EXP-2026-11-24-M5.92-capacity-probe | keep an inflated record under 68,000 B; split dense parcels 2×2 (M5.93) rather than grow one record. The shape point gate is 1000 points (`0x0041f4bc`). L4 drawing of the boundary records NOT RUN (exit 3) |
 | 7 | shape point count | `u16`, top bit is a flag at levels 4/5 | map-tiles.md | split long ways |
 | 8 | background group count byte | wraps at 256; the layer length is the authority | map-tiles.md | the writer must not rely on the count byte |
 | 9 | label width / font | long names not drawn (C-8223); cmap U+0001–U+011F | M8.H70, M4.87 | transliterate (M5.80), shorten |
@@ -144,8 +144,9 @@ labels (C-8715).
 
 Cross-cutting tasks, independent of the rungs:
 
-- **M5.92** — capacity probe: the largest record / shape / point count the
-  firmware draws (L3 + L4), with the VA that enforces it (limit 6).
+- **M5.92** — capacity probe (done, L3): 68,000-B shape-pool window enforced at
+  `0x004262f8` (`fn 0x0042613c`), 1000-point shape gate at `0x0041f4bc`;
+  first failing window 68,096 B. L4 drawing NOT RUN (exit 3). Limit 6 updated.
 - **M5.93** — sub-record writer: split an over-budget parcel 2 × 2 like the
   factory, and show at L4 that all four quarters are drawn (limit 5).
 - **M5.94** — London in numbers: per-parcel OSM bytes at the default
