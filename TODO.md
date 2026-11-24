@@ -1136,7 +1136,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-23-H131-semantic-l2-fixture; good rc=0/21 features, mutant 0x7a02 -> tile_semantic FAIL rc=1; selftest 270/0/21 (180s)
 
 - [ ] **H140 — Workflow contract guard: CI must stay vendor-free and blocking steps must stay blocking**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: in progress · Owner: task/h140-workflow-contract · Critical: yes · Pair: required
   - Depends: H25 (standing gate), H41/H57 (baseline policy); coordinates H84 (manual firmware-head job, open)
   - Goal: the test system's own guarantees are prose only. Nothing fails a PR if someone adds `continue-on-error: true` to a blocking step, adds a `fetch_image.py`/`IMG256` step to a PR workflow (a 7 GB download), removes `workflow_dispatch`/`schedule` from the manual firmware job, or drops `--require-image` from its realcheck step. H84's Precheck says `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints 0; today that same command matches `main-watch.yml`, so even the recorded premise is stale. QA's target says CI must use tiny synthetic fixtures, vendor checks must stay manual/weekly, and a level's PASS must not silently disappear; this guard is the machine-checkable half of those three rules.
   - Precheck: `ls tools/workflow_contract.py` reports no such file; `grep -rniE 'continue-on-error|fetch_image|files.viaaq.eu' .github/workflows/ci.yml .github/workflows/l1l2-fixtures.yml` hits only the informational Python 3.14 matrix and comments; `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml` prints `main-watch.yml`; `python3 tools/realcheck.py IMG256` prints `0 PASS, 0 FAIL, 8 SKIP` and exits 2.
