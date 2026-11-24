@@ -5798,7 +5798,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: an EXP reproduces, from a printing command, the exact flash offset(s), record fields and checksum rule of the saved position, and a negative control (corrupt one field or the checksum) shows the firmware/reader rejects it; the EXP names whether M8.H20 can then be re-opened.
   - Stop: one session; if no dump and no static derivation succeeds, stay blocked with a negative EXP and a positive control.
   - Falsifier: a candidate record whose mutation does not change the position read at init.
-  - Claims: C-10120–C-10129
+  - Claims: C-10130–C-10139
 
 - [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
   - Status: open · Owner: — · Critical: no · Pair: required
