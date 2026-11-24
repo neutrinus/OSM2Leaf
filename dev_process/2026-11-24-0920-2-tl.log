@@ -137,3 +137,67 @@ M1.56, M4.60, M8.H68a, H57, M8.G4, M3.42 (13/30).
 Still in flight: 17 tasks, several drivers awaiting navigator APPROVE or
 still running L4/QEMU experiments (M8.H66/H67/H63/H72/H77/H15/H23/H42/H47,
 M8.G3, H57 done, M2.23, M9.62, M5.81, M8.C1v not in batch).
+
+FINAL OUTCOME TABLE — 30 tasks, 57 subagents launched (27 pairs + 3 solos:
+  S=3 solos M5.102, M5.73, M8.G3 => 2T-S = 60-3 = 57).
+  Task    Mode  Navigators/rounds  Outcome  PR     EXP
+  M1.41   pair  (1) 2r             done     #739   EXP-...-bluetooth-stack
+  M1.48   pair  (1) 3r             done     #735   EXP-...-antitheft-map
+  M1.55   pair  (1) 1r             done     #752   EXP-...-speech-folder
+  M1.56   pair  (1) 2r             done     #734   EXP-...-position-dump-scan
+  M3.40   pair  (1) 2r             done     #737   EXP-...-refer002-opener
+  M3.41   pair  (1) 3r             blocked  #732   EXP-...-background-reader-l3 (Unblock M8.H10)
+  M3.42   pair  (1) 3r             done     #747   EXP-...-rcv-parcel-queue
+  M4.60   pair  (1) 2r             done     #742   EXP-...-sounds-inventory
+  M5.73   solo  —   TL             done     #738   EXP-...-poi-category-profile
+  M5.81   pair  (1) 1r             done     #746   EXP-...-section1-census-replay
+  M5.102  solo  —   TL             done     #733   EXP-...-hashutil-seven-tools
+  M6.25   returned (external PR #729 won; lower PR number / prior claim)
+  M8.H14  pair  (1) 1r             done     #751   EXP-...-ci-ze0-patch-series
+  M8.H15  pair  (1) 2r             blocked  #758   EXP-...-debug-zones (Unblock M8.H80)
+  M8.H23  pair  (1) 2r             done     #753   EXP-...-pc-sampler
+  M8.H42  pair  (1) 2r             blocked  #743   EXP-...-screen-catalogue (Unblock M8.C1v)
+  M8.H47  pair  (1) 1r             done     #755   EXP-...-apptimerdll
+  M8.G3   solo  —   TL             done     #757   EXP-...-android-auto-ze0-vs-aze0
+  M8.G4   pair  (1) 3r             done     #744   EXP-...-aze0-machine
+  M8.H63  pair  (1) 1r(TL)         done     #750   EXP-...-traffic-event-injection
+  M8.H66  pair  (1) 1r             done     #760   EXP-...-scif-rx-path
+  M8.H67  pair  (1) 1r             done     #736   EXP-...-watchdog-reset
+  M8.H68a pair  (1) 3r             done     #749   EXP-...-user-slot-vas
+  M8.H72  pair  (1) 1r             blocked  #754   EXP-...-route-simulation (Unblock M8.H45/M8.H49/M8.H32)
+  M8.H77  pair  (1) 2r             done     #740   EXP-...-peerlib
+  M9.62   pair  (1) 2r             done     #759   EXP-...-l3-runs-manifest
+  H57     pair  (1) 2r             done     #741   EXP-...-fixture-baseline
+  H84     pair  (1) 1r             done     #748   EXP-...-img256-regression-workflow
+  M2.23   pair  (1) 2r             done     #756   EXP-...-sd-lock-emulator
+  M9.78   pair  (1) 2r             done     #745   EXP-...-exp-template-defects
+
+  Totals: 25 done, 4 blocked, 1 returned (M6.25 external duplicate).
+  All 29 task PRs merged to origin/main; external queue PRs #729/#730/#731/#
+  762/#728 also cleared. M6.25 stand-down recorded (no duplicate PR).
+
+Defects navigators caught (SM input):
+  - M8.G4: --machine aze0 rejected by run.sh whitelist; claim block collision;
+    dbgmsg VA not derived by a printed signature.
+  - M2.23: SD model TOFU cannot express third password state.
+  - M8.H15: DBGPARAM zone stride 16 vs authoritative 32 WCHAR -> false negatives.
+  - M9.62: wrong manifest rows (non-l3-running row 10, row 19 blocked).
+  - M3.40: indirect-pointer selector misread initially; corrected before commit.
+  - M8.H42: 5/15 screens reachable -> blocked, not done; empty corrections heading.
+  - M3.42: mov.l @(20,r2) = +0x14 not +0x1c (decimal error).
+  - M4.60: committed EXP pointed at a deleted US SPEECH tree.
+  - H57: baseline semantics PASS>non-PASS>FAIL; set-equality mutant control.
+  - M8.H68a: bogus pointer-vs-value guard in the TTB walk.
+
+TL-only fixes after merges:
+  - Repeated claim-range collisions on a moving main (M2.28 vs H143/M5.73/
+    M8.G4/M1.48); renumbered via board.py field / careful row reconstruction.
+  - Four fn_audit snapshot re-freezes (no threshold change) as batch EXPs added
+    firmware VA citations; reconciled M9.62 manifest with new row 24 added by
+    M3.40 and made two selftest count assertions follow the live matrix.
+  - tmpfs quota cleared 3x (orphaned ze0_card_selftest_* dirs).
+  - Final gate on origin/main 7e3e52a6: 5 pass / 0 fail / 0 skip.
+  - All TL worktrees removed; no open PRs from this batch remain.
+
+Handoff: next role should look at the four blocked tasks and their Unblock IDs,
+and the rule-15 task M8.H80 added by M8.H15.
