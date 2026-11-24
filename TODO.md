@@ -4884,7 +4884,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7130–C-7139
 
 - [ ] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h17-cycle10 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1b (done; SD host row C10 of the peripheral table is done too)
   - Goal: The unit has a second slot for user media. With it a test can offer the firmware an update or a user file without touching the map card.
