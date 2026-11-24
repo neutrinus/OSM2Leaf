@@ -61,7 +61,7 @@ Options:
   --entry ADDR        initial PC (-M none default 0x8800ebd0 = nk.exe entry,
                       EXP-37; -M ze0 takes it from nk.exe unless given)
   --mem MB            -M none RAM in MiB (default 512)
-  --machine WHAT      auto | ze0 | none (default auto)
+  --machine WHAT      auto | ze0 | aze0 | none (default auto; M8.G4)
   --gdb[=PORT]        gdbstub on 127.0.0.1:PORT (default port 1234)
   --stop              add -S: freeze the CPU until gdb continues
   --timeout SECONDS   wall clock, 0 = run until killed (default 10)
@@ -80,10 +80,12 @@ Options:
   --uart-intevt N=HEX  -M ze0: INTEVT for uat3/uat4 (M8.H3; default 0x8c0/
                       0x8e0). Use to sweep the OAL vector until the guest
                       driver's receive path runs.
-  --dbgmsg VA|off     -M ze0 with --image: copy the kernel debug strings to
-                      the first serial port (machine option dbgmsg=VA, M8.B6;
-                      needs ze0-0007). Default 0x880404f4 (EU2011 nk.exe
-                      debug-string sink); off for older QEMU builds
+  --dbgmsg VA|off     -M ze0/aze0 with --image: copy the kernel debug strings
+                      to the first serial port (machine option dbgmsg=VA,
+                      M8.B6; needs ze0-0007). Default 0x880404f4 (EU2011
+                      nk.exe sink) on -M ze0; on -M aze0 the machine's own
+                      default (0x88040a54, EU2014) is used unless set here;
+                      off for older QEMU builds
   --verinf STR        -M ze0 with --image: unit map code at kernel image
                       header +0x60, which the launcher compares with line 1
                       of VER_INFO/HDD_INFO.TXT (EU card: QSD-302-100;
@@ -344,6 +346,7 @@ SERIAL=log
 SERIAL_PEERS=
 UART_INTEVT=
 DBGMSG=0x880404f4
+DBGMSG_SET=0
 SD=
 SD2=
 VERINF=
@@ -425,7 +428,7 @@ while [ "$#" -gt 0 ]; do
           esac
           UART_INTEVT="${UART_INTEVT:+${UART_INTEVT}|}$_val"
           ;;
-        --dbgmsg) DBGMSG=$_val ;;
+        --dbgmsg) DBGMSG=$_val; DBGMSG_SET=1 ;;
         --icount) ICOUNT=$_val ;;
         --sd) SD=$_val ;;
         --sd2) SD2=$_val ;;
@@ -479,8 +482,8 @@ while [ "$#" -gt 0 ]; do
 done
 
 case $MACHINE in
-  auto | ze0 | none) ;;
-  *) usage_error "--machine must be auto, ze0 or none, got '$MACHINE'" ;;
+  auto | ze0 | aze0 | none) ;;
+  *) usage_error "--machine must be auto, ze0, aze0 or none, got '$MACHINE'" ;;
 esac
 case $DISPLAY in
   none | gtk | sdl | dbus | vnc=*) ;;
@@ -638,12 +641,17 @@ if [ -n "$SERIAL_PEERS" ]; then
   set +f
 fi
 
-if [ "$MACHINE" = ze0 ]; then
+if [ "$MACHINE" = ze0 ] || [ "$MACHINE" = aze0 ]; then
   if [ -n "$IMAGE" ]; then
     # Built-in loader (M8.A3): the machine reads the CE images itself.
-    _mopts="ze0,kernel-off=$(printf '0x%x' "$KERNEL_OFF"),app-off=$(printf '0x%x' "$APP_OFF")"
-    if [ "$DBGMSG" != off ]; then
-      # Kernel debug text on serial port 0 (M8.B6, ze0-0007).
+    # M8.G4: -M aze0 carries its own X212 dbgmsg class default, so run.sh
+    # passes dbgmsg= on ze0 (or whenever the user set --dbgmsg explicitly).
+    _mopts="$MACHINE,kernel-off=$(printf '0x%x' "$KERNEL_OFF"),app-off=$(printf '0x%x' "$APP_OFF")"
+    if [ "$DBGMSG" = off ]; then
+      _mopts="$_mopts,dbgmsg=0"
+    elif [ "$MACHINE" = ze0 ] || [ "$DBGMSG_SET" -eq 1 ]; then
+      # Kernel debug text on serial port 0 (M8.B6, ze0-0007).  -M aze0
+      # carries its own X212 class default unless --dbgmsg is given.
       _mopts="$_mopts,dbgmsg=$(printf '0x%x' "$((DBGMSG))")"
     fi
     # Unit record in the kernel image header (M8.C1c, ze0-0010).
@@ -659,7 +667,7 @@ if [ "$MACHINE" = ze0 ]; then
     fi
     set -- "$@" -M "$_mopts" -kernel "$IMAGE"
   else
-    _mopts="ze0$PEER_MOPTS"
+    _mopts="$MACHINE$PEER_MOPTS"
     if [ "$DISPLAY" != none ]; then
       _mopts="$_mopts,gfx-display=on"
     fi
@@ -688,11 +696,11 @@ set -- "$@" -monitor "unix:$WORK/hmp.sock,server,nowait"
 if [ -n "$ICOUNT" ]; then
   set -- "$@" -icount "$ICOUNT"
 fi
-if [ -n "$SD" ] && [ "$MACHINE" = ze0 ]; then
+if [ -n "$SD" ] && { [ "$MACHINE" = ze0 ] || [ "$MACHINE" = aze0 ]; }; then
   # SD host port 0 (M8.C10, ze0-0008).
   set -- "$@" -drive "if=sd,index=0,file=$SD"
 fi
-if [ -n "$SD2" ] && [ "$MACHINE" = ze0 ]; then
+if [ -n "$SD2" ] && { [ "$MACHINE" = ze0 ] || [ "$MACHINE" = aze0 ]; }; then
   # SD host port 1 (M8.H17): card present -> card-detect asserted; HPB-DMAC
   # channel 9 moves its data. Without --sd2 the port has no card and the
   # driver sees card-detect off (today's behaviour).
@@ -715,7 +723,7 @@ if [ "$QEMU_PRESENT" -eq 1 ] && "$QEMU" -d help 2>/dev/null | grep -qw invalid_m
 fi
 set -- "$@" -d "$DFLAGS" -D "$LOG"
 
-if [ -n "$IMAGE" ] && [ "$MACHINE" = ze0 ]; then
+if [ -n "$IMAGE" ] && { [ "$MACHINE" = ze0 ] || [ "$MACHINE" = aze0 ]; }; then
   info "kernel  -kernel $IMAGE, kernel-off=0x$(printf '%x' "$KERNEL_OFF"), app-off=0x$(printf '%x' "$APP_OFF") (built-in loader, M8.A3)"
   if [ "$ENTRY_SET" -eq 1 ]; then
     set -- "$@" -device "loader,addr=0x$(printf '%x' "$ENTRY"),cpu-num=0"
