@@ -4497,7 +4497,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: Areas are 0xe0/0xd0 stencil polygon + 0x82 32x32 pattern; texquad() stretched the pattern over the box. Patch ze0-hc1u repeats it and masks by the polygon: water and parks follow their outlines (factory 3ccbb525…, NK1 zoom on factory and from-zero cards). Older L4 hashes are box-fill renders. EXP-2026-11-23-M8.C1u-2dg-area-pattern, C-8840–C-8844.
 
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.c1p-cycle10 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1m
   - Goal: Marek (2026-11-22): the start-up consent screen and the GPS time fix are "two important and needed things". Companion's consent patch only knows the AZE0 states (`SRT_COLD_I_AGREE_TELEMA…`) and stops on the 2011 card (C-8359). Find the ZE0 equivalents and build a patch for card ROM A that skips the consent screen, in our own tool, without copying Companion code.
