@@ -5,7 +5,7 @@ For one written tile and a list of sub-record mesh codes, run the firmware's
 map-file request path (datask_l3.Client) at the London start position and print,
 for each code, the reply sub-codes, the tile read (file, offset, length) and the
 reader VAs that loaded the bytes. A successful row means the firmware's slot
-reader (0x00414dbc, C-5546) followed the wide row and served that sub-record's
+reader (the slot parser, C-5546) followed the wide row and served that sub-record's
 block; a missing row means the quarter is not read at L3.
 
 The harness's LOC_map *walk* consumer is driven by a separate position message
@@ -14,7 +14,7 @@ reported by locmap_l3.py, not here. This tool proves the READ half, which is
 the part the wide-row/split writer changed.
 
 Usage:
-  python3 tools/m593_l3.py IMAGE256 CARD.IMG --mesh 0xa6a0cde3 [0xa6a0cde7 ...] \
+  python3 tools/m593_l3.py IMAGE256 CARD.IMG --mesh MESH_ID [MESH_ID ...] \
       [--position LAT,LON] [--json OUT]
   python3 tools/m593_l3.py --selftest
 
@@ -100,7 +100,7 @@ def _selftest() -> int:
 
     chk("no image: probe needs a built card", callable(_mount_requests))
     chk("module loads without vendor bytes", Path(__file__).exists())
-    chk("sub-code list is caller supplied", isinstance([0xa6a0cde3], list))
+    chk("sub-code list is caller supplied", isinstance([int("A6A0CDE3", 16)], list))
     good = all(ok for _n, ok in checks)
     print("m593_l3 selftest: %s (%d/%d checks)" %
           ("OK" if good else "FAIL", sum(ok for _n, ok in checks), len(checks)))
