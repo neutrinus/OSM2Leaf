@@ -1,0 +1,46 @@
+role: TL (team lead), cycle 10 driver. Model: opencode/hy4-flash-free
+start: 2026-11-24 06:11 UTC
+end: (in progress)
+origin/main at start: 49a551c9
+
+inputs read: prompt_common.txt, prompt_tl.txt, AGENTS.md, TODO.md rules 1-17
+  and Priorities, dev_process/2026-11-23-2214-13-tl.log (batch 9 outcome),
+  open PR list.
+
+queue clearing: no non-draft PRs open. Three stale DRAFTs remain from prior
+  owners: #523 (M4.85), #501 (M9.62), #472 (M9.64) — all ~1 day old.
+  Whether to release them (rule 8 / ghost claims) is decided below.
+
+(task selection, manifest, outcome table appended below)
+
+queue clearing (done):
+  - #523 M4.85 and #472 M9.64 were stale DRAFTs with complete work and green
+    CI. Verified each in a scratch worktree, resolved stale-base conflicts:
+    #523 needed a stale full second '# TODO' copy removed (board.py resolve
+    kept both), claims by ID, reader-coverage HEAD row 23 + PR row 24 kept;
+    merged direct as 76462480. #472 needed main_watch.py selftest blocks
+    unioned (47 checks), per-workflow verdicts merged with H126 PR sweep,
+    YAML validated, claims by ID, EXP tool-only Sample waiver normalised for
+    post-M9.77 exp_check; merged direct as 21e370df.
+  - #501 M9.62 was a ghost claim (45 h, claim commit only, task still open
+    Owner: — on main) — closed with a rule-8 comment.
+  - main after queue: 21e370df, gate 5 pass / 0 fail / 0 skip with TMPDIR.
+
+task selection (26 tasks; 20 pairs + 6 solos = 46 subagents):
+  - Eligible set recomputed fresh from origin/main: open, deps done, unowned,
+    local runner. Critical first: M5.92, M8.H39, M2.21, M3.14, H42.
+  - Greedy disjoint-file selection (generic shared citations excluded); 26
+    tasks fit. Skipped: non-Claude/hardware tasks, tasks with undone deps,
+    tasks sharing files with a selected task.
+  - PAIRS (20): M5.92, M8.H39, M2.21, M3.14, H42, M1.38, M4.28, M8.C1p,
+    M1.52, M4.78, M5.95, M6.25, M8.H68a, M4.76, M5.79, M8.H12, M9.78,
+    M1.53, M8.H20, M8.H62. High-risk fields (firmware/L3/L4/writer/claims/
+    gate) paired even where Pair: solo (M3.14, M5.92, M1.38, etc.).
+  - SOLOS (6): M4.57, M4.59, M4.75, M8.G2, M8.H17, M8.H54 — small
+    docs/selftest-covered tools, no gate/claim/firmware/L4 exposure. TL is
+    the only reviewer and applies both mandatory checks.
+  - All 26 worktrees created with wt from origin/main, archive symlinks
+    verified. Brief: ~/projekty/leafre-work/scratch/dev_assignments_cycle10.md.
+
+(dynamic manifest: PR numbers and subagent session IDs in the message log;
+outcome table appended as results arrive)
