@@ -125,6 +125,16 @@ step's `run:` on a synthetic ci.yml and asserts a FAIL naming that file.
   `gate selftest: OK (20 checks, 0 failed)` — unchanged from baseline.
 - `python3 tools/gate.py --json /tmp/opencode/wf-gate.json` printed
   `gate_exit=0`.
+- Under heavy parallel-agent load, a later full `gate.py` run printed
+  `gate: 4 pass, 1 fail, 0 skip`: `selftest` failed only because several suites
+  timed out at the runner's 60 s cap or hit `[Errno 122] Disk quota exceeded`
+  on the 3.8 GiB `/tmp` tmpfs (`df -h /tmp`: 3.1G used, 764M free). With
+  `TMPDIR=/home/marek/projekty/leafre-work/scratch/tl-tmp2` the same gate
+  printed `claims_check PASS`, `todo_check PASS`, `board_check PASS`,
+  `fn_audit PASS` and only `ci_gate_repro FAIL timeout after 60s (60.09s)`;
+  `selftest.py --only ci_gate_repro --timeout 180` then printed PASS in
+  100.20 s. No failure came from `workflow_contract`, which passed in every
+  run.
 - Real-file negatives (scratch copies of the 5 workflows with N1 and N3
   injected) printed:
   `blocking-steps-blocking … FAIL step Standing gate (tools/gate.py)` and
