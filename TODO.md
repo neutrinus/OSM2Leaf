@@ -2027,8 +2027,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the firmware reads the sections in an order that depends on the request kind only (no fixed parse order).
   - Claims: C-7790–C-7799
 
-- [ ] **M3.40 — Who opens `REFER002`: the EV-layer opener and its read path**
-  - Status: in progress · Owner: task/m3.40-refer002-opener · Critical: no · Pair: required
+- [x] **M3.40 — Who opens `REFER002`: the EV-layer opener and its read path**
+  - Status: done · Owner: task/m3.40-refer002-opener · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: Matrix row 24 has no reader. Before decoding (M4.85) or writing (M5.79) the EV layer, locate what opens its files and whether the reads go through the same search-type opener as `REFER001`.
@@ -2039,6 +2039,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: after three xref patterns with no opener, set blocked with the patterns tried (rule 14).
   - Falsifier: the name string has no code reference in any module (opened through a table: then name the table).
   - Claims: C-8150–C-8159
+  - Result: EXP-2026-11-24-M3.40-refer002-opener; L3 15/15 shards; gate 5/5
 
 - [ ] **M3.41 — Which code draws background polygons: the renderer's reader of the odd-partner record**
   - Status: blocked · Owner: task/m3.41-background-polygons · Critical: no · Pair: required
