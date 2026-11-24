@@ -5421,7 +5421,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H46-ssi-audio (negative for guest playback; model positive control 1024/1024 bytes)
 
 - [ ] **M8.H47 — `Speech.exe` does not start on `-M ze0`: who provides `AppTimerDll`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h47-apptimerdll · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: After ROM A was joined, `Speech.exe` fails because `AppTimerDll` exists only in ROM image C (project notes 2026-11-22). Find how the real unit resolves it (a module of the kernel half that lives in the unit's flash, another name, load order) and get the voice process running.
