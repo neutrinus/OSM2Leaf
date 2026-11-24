@@ -2703,8 +2703,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7690–C-7699
   - Result: EXP-2026-11-22-M4.70-kiwi-bg-frame; 0/17,659 KIWI fits, synthetic control PASS, 8 claims C-7690-C-7697
 
-- [ ] **M4.71 — KIWI Name Data Frame (chapter 7.4) against tile names and section 4: name records, placement kinds, string encoding**
-  - Status: in progress · Owner: task/m4.71-kiwi-name-frame · Critical: no · Pair: required
+- [x] **M4.71 — KIWI Name Data Frame (chapter 7.4) against tile names and section 4: name records, placement kinds, string encoding**
+  - Status: done · Owner: task/m4.71-kiwi-name-frame · Critical: no · Pair: required
   - Step: P2
   - Depends: —
   - Goal: KIWI name records carry an attribute header, a placement kind (along a line, at a point, symbol + string) and the string. Our section-4 writer leaves names empty (M5.65) and road-name placement is not understood. Test the KIWI layout on the name bytes we have.
@@ -2715,6 +2715,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the decoded strings are not the names `tools/name_strings.py` already extracts from the same tile.
   - Claims: C-7700–C-7709
+  - Result: EXP-2026-11-24-M4.71-kiwi-name-frame; 0/1872 fits, C-7700-C-7709
 
 - [x] **M4.72 — KIWI route-planning data against tile section 2 and `LEV3456R`: nodes, links, costs, upper-level links**
   - Status: done · Owner: task/m4.72-kiwi-route-planning · Critical: yes · Pair: required
@@ -3518,6 +3519,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a generated tile whose `section4.py verify` passes but whose viewer `info` shows a place name from the neighbouring tile's bbox (then the record indexes the wrong parcel and the writer, not the test, is wrong).
   - Claims: C-6650–C-6659
   - Result: EXP-2026-11-22-M5.65-osm-section4-places; 37/37 OSM names, section4 verify OK, l2check PASS, C-6650-C-6659
+  - Note: M4.71 (EXP-2026-11-24-M4.71-kiwi-name-frame) re-checked the substituted name bytes: KIWI 7.4 adds no placement rule; same-length CP1252 d=NAME substitution stays correct (C-7700-C-7709).
 
 - [ ] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
   - Status: open · Owner: — · Critical: no · Pair: required
