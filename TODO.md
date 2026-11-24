@@ -4129,8 +4129,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-8860–C-8869
   - Result: EXP-2026-11-23-M6.24-anonymous-unit-flash; firmware/unit-flash/*-anon.bin + NK1 boot to the map on -M ze0 with 1 load error (erased flash: 11); scan against the real dump: 0 hits for serial, PIN, password, positions
 
-- [ ] **M6.25 — Object 0A of the object store: what it is and when it is first saved**
-  - Status: in progress · Owner: task/m6.25-cycle10 · Critical: no · Pair: solo
+- [x] **M6.25 — Object 0A of the object store: what it is and when it is first saved**
+  - Status: done · Owner: task/m6.25-cycle10 · Critical: no · Pair: solo
   - Step: firmware
   - Depends: M6.24
   - Goal: the anonymous unit flash (M6.24) boots with one `OBJ_BackUp_Load Error`, object 0A; the real dump has none. Find the object and the event that saves it, so that the image can be made with zero load errors.
@@ -4141,6 +4141,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: one session.
   - Falsifier: the error stays after the object's own save path has run.
   - Claims: C-8870–C-8879
+  - Result: EXP-2026-11-24-M6.25-object-0A; object 0A = OBJ_SEM_ODOMETER, VSram data id 0x1e, store AREA 0 (0x400000/0x430000), +0=1 SRAM medium, +0x10=8 comparator arg; C-8870–C-8879; neg-mutation 1→2 errors, fresh unit cannot have it (no accepted VCAN speed/ignition)
 
 ## M7 — Scale and release (later)
 
