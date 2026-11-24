@@ -7318,6 +7318,7 @@ into three printed classes.
 | C-10223 | With the US `Audio.exe` appended and the TOC entry, `physlast`, NKOK length and SUM4 updated in both copies, NK1 + Marek's flash (area 0 erased) in `-M ze0` passes `Sum Check NK2`, loads the longer image (last chunk 0x45C sectors), creates `Audio.exe` and reaches `NAVIMAP_CC_NTF_OWNFIRSTMAPDRAW_END`, like the control. | OBSERVED (emulator, 1 run each) | H | EXP-2026-11-24-M1.59-eu-audio-transplant O3 |
 | C-10224 | The EU radio screen binds the COM control `RDSCC.RDSCtrl` (`RDSCC.dll`); the US control is `RBDS_CC.RBDSCtl` with another interface, so swapping the DLL would not serve the EU screens. `RBDS_CC.dll` and `RDSCC.dll` share vbase `0x35A0000`; `XMCC.dll`/`XMStatusCC.dll` collide with EU `CameraCC.dll`/`PhoneCC.dll` bases. | OBSERVED (strings, TOC) | M | EXP-2026-11-24-M1.59-eu-audio-transplant Interpretation; M1.58 module list |
 | C-10225 | Tuner, equalizer and radio screen with either variant are untested: `-M ze0` has no audio microcontroller and `Audio.exe` stops at `AUD1:` in both runs. | VERIFIED (scope) | H | EXP-2026-11-24-M1.59-eu-audio-transplant O3 |
+| C-10226 | Car test L5 (Marek, 2026-11-24): with the M1.59 audio patch the EU 2011 card on a USA 2011 unit has a working equalizer and button beeps; FM radio works only partly (details pending). | VERIFIED (car, user report) | M | EXP-2026-11-24-M1.59-eu-audio-transplant, Car test L5 |
 
 ## M1.55 — SPEECH language folder selection (C-8460–C-8469)
 | ID | Claim | Status | Confidence | Evidence |
