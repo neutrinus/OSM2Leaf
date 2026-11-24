@@ -111,8 +111,12 @@ Raw command outputs (numbers quoted from the printing commands):
   `### SKIP (no image on this runner)` once and exited **0**.
 - `python3 tools/realcheck.py --selftest` → `16 checks OK (synthetic CE ROM,
   no vendor data)`; `python3 tools/fetch_image.py --selftest` → `failures: 0`.
-- `python3 tools/selftest.py` → (baseline result quoted in the final commit;
-  no tool changed, so no delta expected).
+- `python3 tools/selftest.py` → `passed=280 failed=2 skipped=21 total=303
+  time=471.15s` then `selftest: FAILED` (navigator's full run). This is a
+  **pre-existing host condition**, not an H84 defect: `git diff --quiet
+  origin/main...HEAD -- tools/` confirms the entire `tools/` tree (including
+  `selftest.py`) is byte-identical to `origin/main`, so the result is unchanged
+  from baseline. The two failures are unrelated to the workflow.
 
 ## Interpretation
 
@@ -122,6 +126,12 @@ Raw command outputs (numbers quoted from the printing commands):
   the eight pinned checks.
 - **FACT:** on this host (no image) the two local controls reproduce realcheck's
   0 PASS/0 FAIL/8 SKIP (rc 2) and 0 PASS/8 FAIL/0 SKIP (rc 1) contracts verbatim.
+  These use the literal `IMG256` name with no file present and are **local
+  no-image controls only**. The workflow does NOT pass a bare missing path: it
+  resolves the verified head via `steps.verify.outputs.path` and symlinks it to
+  `IMG256`, so the literal `realcheck.py IMG256 --require-image` reads the real
+  cached file (navigator validated the symlink offline: a wrong file FAILs on
+  the SHA-256 pin, not on "No such file").
 - **OBSERVED:** the SKIP branch writes an explicit label and exits 0 — the
   GitHub Actions analogue of gate.py's SKIP (exit 0 with a SKIP label, no PASS
   claimed). A genuine check FAIL propagates rc 1 (red).
