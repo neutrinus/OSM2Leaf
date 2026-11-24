@@ -2448,8 +2448,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Step: tooling
   - Result: EXP-2026-11-21-M4.58-skins-tfat16 (C-6500–C-6509); docs/format/skins.md lists TFAT16 (3070 entries, 3066 placeholders, 1 real .skn) and the .skn field table; skin id 1..4 -> \SystemSD2\SkinChange\001..004\Substance.skn; gate 4 pass 0 fail
 
-- [ ] **M4.59 — One changed image on the screen: the smallest skin edit that passes the checks**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.59 — One changed image on the screen: the smallest skin edit that passes the checks**
+  - Status: done · Owner: task/m4.59-cycle10 · Critical: no · Pair: required
   - Depends: M4.58 (where the image is and what indexes it); M1.36b
   - Unblock: M4.58 is done — the TFAT16 skin volume (3070 entries, skin id 1..4) and the .skn field table are decoded; the in-place bitmap it names is the M4.58 EXP's OPNG/ROM-A PNG. This task re-opens with that image named.
   - Goal: prove the mechanism before anyone designs a skin: replace one visible bitmap (same dimensions), fix every checksum on the way (ROM `SUM4` word sum, C-160, if the image is inside ROM A — both copies `0x200000` and `0x2000000`), and show the result is consistent offline.
@@ -2458,6 +2458,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: if the image is in a compressed section or its size cannot stay equal, record why and stop.
   - Claims: C-6400–C-6409
   - Step: tooling
+  - Result: EXP-2026-11-24-M4.59-skin-patch; skin_patch.py 12/12 selftest; 4 changed ranges; SUM4 0xcdf87db0->0xbcb5ac44 both copies; negative control fails; PNG decodes; cerom+cardcheck PASS
 
 - [ ] **M4.60 — Sounds: inventory of every sound the unit plays and where its data is (beeps, chimes, voice prompts, TTS)**
   - Status: open · Owner: — · Critical: no · Pair: solo
