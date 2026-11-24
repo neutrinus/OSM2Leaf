@@ -230,7 +230,13 @@ An OSM background writer exists (M5.74, C-7930–C-7937,
 clips water/river/forest polygons to one level-1 parcel and splices one odd
 record using the grammar above; a written tile passes L1/L2 and an L3
 `datask_l3.py mount` diff `SAME` against the factory. It writes no styling,
-names or routing, and only one parcel at a time.
+names or routing, and only one parcel at a time. **No firmware reader of the
+odd background record is known:** M3.41 (EXP-2026-11-24-M3.41, C-8160–C-8165)
+seeded a real odd record into an L3 read-watch and found no polygon reader on
+the mount/draw path — kind 4 serves the even road record, only the road
+row-count prologue `fn 0x00422384` touches the odd record, and `fn 0x0041f3dc`
+faults at `0x0041f44e`. The task is blocked on M8.H10 (L4 read-watch); rule 13
+is not satisfied for any background writer.
 
 Byte-identical rebuilds with the patched harness:
 
@@ -351,6 +357,19 @@ name-list start offset, its terminator rule and any count/length prefix are
 (two u16 words); no other `u32` offset is interpreted. `tools/section4.py`
 prints every non-documented span as hex instead of guessing.
 
+The `d=` prefix (`0=`, `1=`, `2=` and `4=` observed) is a name-category slot,
+not a KIWI placement kind. The KIWI 7.4 Name Data Frame does **not** describe
+these records (M4.71, C-7700–C-7709, `EXP-2026-11-24-M4.71-kiwi-name-frame`):
+0 of 1,872 section-4 records on two EU2011 tiles and one US2011 tile fit the
+`SWS(u16@0)` distribution header (the first word is the parcel code, e.g.
+`0x9b1d` → `SWS=79,358` against a 152-byte record), so its management pairs,
+attribute header, `st=1/4/5/6` placement kinds and coordinates are unreachable.
+What does fit is the M4.75 string rule: `word6`/`word7` at `0x0c`/`0x0e` give a
+word offset and word count × 2, and the raw bytes are CP1252 `d=TEXT` slots;
+`tools/kiwi_name_probe.py names` agrees with `section4.scan_names` on the same
+span. Writers must keep using the ZE0 `d=` grammar here, not a KIWI attribute
+header. See the M5.65 cross-reference below.
+
 **HYPOTHESIS:** the undocumented words at `0x06..0x0f` locate or count the name
 list (offset/count/length); the tool deliberately does not use them.
 
@@ -422,7 +441,10 @@ other tile byte stay verbatim; `section4.py verify` and `harness.py info` read
 the result, and the no-input run is byte-identical. This is not a new grammar
 claim: name-list placement and `0x06..0x0f` remain UNKNOWN (C-546, C-2391),
 and no firmware reader of the generated names has been run (C-6659). See
-`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659.
+`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659. M4.71
+(`EXP-2026-11-24-M4.71-kiwi-name-frame`) re-checks the name bytes this writer
+substitutes: KIWI 7.4 adds no placement rule, so the same-length CP1252
+substitution stays the correct operation (C-7700–C-7709).
 
 Road names: shape header word 4 is the name offset in the **odd partner
 record's** names section. `B30R060R` has 297/1,195 named lines; `B30R048R`

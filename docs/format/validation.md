@@ -292,6 +292,27 @@ preceding the literal pool that holds all of the string pointers; exact function
 a heuristic (C-807). The function is the single dispatcher that selects a screen from an error
 code; `UNKNOWN ERROR` is the fallback.
 
+### Reproduced error screens at L4 (M2.24)
+
+Three of the catalogue screens were reproduced under the full-system emulator (`-M ze0`, EU 2011
+build B, QEMU 11.1.3) and tied to their card trigger, serial log line and drawn AUI-plane
+screenshot. The screenshot PNGs are kept in `archive/error-screens/` (git-ignored via
+`.gitignore:6`); only hashes and wording are committed here (C-8060–C-8065,
+EXP-2026-11-24-M2.24-error-screens-l4). "Screen text" is attributed through the dispatcher's
+error code and the log line, not by OCR: the glyphs are sub-pixel/anti-aliased on keyed plane 1.
+
+| Error text (code) | Trigger card / unit pin | Serial log line (`grep -a -nE`) | Screenshot PNG (SHA-256) |
+| --- | --- | --- | --- |
+| `DIFFERENT MAP CODE` (`0x50`) | card `HDD_INFO.TXT` line 1 `QSD-302-100`→`QSD-301-100`; unit `verinf=QSD-302-100` | `VerInf:QSD-302-100 / HddInf:QSD-301-100`; `AppLch >> Error Proc<00000050>!!`; `Draw Error Message End` | `archive/error-screens/C_line1b-plane` · `e7140beb24b986bf42df6c61c184a2a39feeb0478fd56372a17298430ee30d41` |
+| `MAP DATA BASE UNMATCH` (`0x51`) | card line 3 `02-110100-00`→`02-110050-00` (MapDBVer 5); unit `mapdb=16-16` | `MapDBVer : 16 <= [5] <= 16`; `AppLch >> Error Proc<00000051>!!`; `Draw Error Message End` | `archive/error-screens/F_mapdbb-plane` · `d67fd71f15eba351e712c46cc78586c88e66873a8c5e8693003c4e4de8a902ce` |
+| `SD UNLOCK NG` / security lock (`0x81`) | factory card, machine `sd-pwd-tofu=off` (never locked) | `AppLch >> Error!!! SD Card is [Security lock state] or [no Security]....`; `AppLch >> Error Proc<00000081>!!`; `Draw Error Message End` | `archive/error-screens/SD_lock-plane` · `37a588578adeef2366565ae42938fc614970e3db274755ba97936b679b7b39d2` |
+
+The composed `tools/ze0_screenshot.py screen` PNG is byte-identical for all three errors
+(`26445218bb0288e5c04c90c5fbab1d3c92f976158e221e1713bbae5f9db16574`, 384000 non-black pixels):
+the error text is drawn on the keyed AUI plane, whose DU window stays on an empty page (M8.C1t),
+so the cited view is `ze0_screenshot.py plane --monitor SOCK -n 1`. The factory card with the
+same unit pin shows 0 error markers (positive control).
+
 ## HDD_CHK.ATT attestation (updater path)
 
 > **Evidence status:** static firmware analysis of `MapUpdate.exe`/`commondll.dll`

@@ -63,6 +63,7 @@ VERIFY_ONLY=0
 SELFTEST=0
 CHECK_VERSION=0
 LINT_PATCHES=0
+PLUGINS=0
 
 usage() {
   cat <<'EOF'
@@ -80,6 +81,9 @@ Options:
   --patch-dir DIR    where the local patches live (default
                      tools/qemu-ze0/patches)
   --no-patch         do not apply patches/*.patch
+  --plugins          add --enable-plugins to the configure line (needed for
+                     tools/qemu-ze0/plugins/ze0_cov.so; already on by default
+                     in the pinned 11.1.3 build)
   --version V        QEMU release to build (default and only pinned
                      version: 11.1.3; others only with --check-version)
   --check-version V  probe V without building: verify the tarball when it is
@@ -179,6 +183,7 @@ while [ $# -gt 0 ]; do
     --jobs)       [ $# -ge 2 ] || usage_error "--jobs needs a value"; JOBS="$2"; shift 2 ;;
     --patch-dir)  [ $# -ge 2 ] || usage_error "--patch-dir needs a value"; PATCH_DIR="$2"; shift 2 ;;
     --no-patch)   USE_PATCHES=0; shift ;;
+    --plugins)    PLUGINS=1; shift ;;
     --version)    [ $# -ge 2 ] || usage_error "--version needs a value"; VERSION="$2"; shift 2 ;;
     --check-version) [ $# -ge 2 ] || usage_error "--check-version needs a value"; VERSION="$2"; CHECK_VERSION=1; shift 2 ;;
     --from-git)   FROM_GIT=1; shift ;;
@@ -456,6 +461,9 @@ configure_and_build() {
     # gitlab at configure time; no sh4 board needs a device tree, so the
     # build turns it off and stays inside the verified tarball.
     local extra=(--disable-fdt)
+    if [ "$PLUGINS" -eq 1 ]; then
+      extra+=(--enable-plugins)
+    fi
     run_in "$BUILD" "$SRC/configure" \
       --target-list=sh4-softmmu \
       --disable-werror \
@@ -724,6 +732,22 @@ selftest() {
   st_contains "dry-run plan" "--disable-werror"
   st_contains "dry-run plan" "make -j3"
   st_contains "dry-run plan" "-M help"
+  if printf '%s\n' "$ST_OUT" | grep -Fq -- "--enable-plugins"; then
+    st_fail "dry-run plan must not enable plugins without --plugins"
+  else
+    st_ok "dry-run plan omits --enable-plugins by default"
+  fi
+
+  st_run "dry-run --plugins plan" 0 -- env HOME="$tmp/home" "$SELF" --dry-run \
+    --plugins --srcdir "$tmp/cache" --qemu "$tmp/bin/qemu-system-sh4" --jobs 3
+  st_contains "dry-run --plugins plan" "--enable-plugins"
+  st_contains "dry-run --plugins plan" "--target-list=sh4-softmmu"
+  st_ok "control: --plugins plan fires the flag check"
+  if printf '+  --enable-plugins\n' | grep -Fq -- "--enable-plugins"; then
+    st_ok "control: flag check matches an injected --enable-plugins line"
+  else
+    st_fail "control: flag check misses an injected --enable-plugins line"
+  fi
   if printf '%s\n' "$ST_OUT" | grep -Fq "dry-run:"; then
     st_ok "dry-run plan prefixes commands with 'dry-run:'"
   else

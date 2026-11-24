@@ -105,7 +105,14 @@ Options:
                       has its own SDHI and HPB-DMAC channel 9 (M8.H17). With
                       no --sd2 the port has no card and card-detect stays off.
   --icount SPEC       pass -icount SPEC (e.g. shift=0,sleep=off: guest time
-                      independent of host load, M8.B2)
+                      independent of host load, M8.B2). Recommended default
+                      for repeatable traces; under -icount a CurMSec sample
+                      at a fixed wall second measures host speed, not guest
+                      progress (C-7536, EXP-2026-11-24-M8.H25). For wall-clock
+                      speed omit it and keep --log /dev/null on long runs:
+                      the -d log itself costs host time (2.81 s to Store Mgr
+                      Ready in M8.H25). --log only REDIRECTS -d; it does not
+                      remove it.
   --display SPEC      -M ze0: show the guest screen through QEMU. SPEC is
                       none (default: headless, the HMP monitor still saves a
                       screendump), gtk, sdl, vnc=HOST:DISPLAY (e.g.

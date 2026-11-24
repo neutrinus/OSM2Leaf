@@ -1,0 +1,135 @@
+hw/sd: ZE0 fixed test password for the SD lock (TODO M2.23).
+
+The ze0 machine's SD card used "trust on first use" (M8.C1b): the card's
+CMD42 password becomes whatever password the host first presents, so the
+emulator cannot represent a card locked to a *different* password.  This
+patch adds two properties:
+
+  sd-card: fixed-pwd=ASCII (up to 16 bytes), fixed-locked=bool
+  machine: sd-fixed-pwd=STR, sd-fixed-locked=bool  (forwarded to both cards)
+
+At reset the fixed password is copied into the card's existing pwd[16] /
+pwd_len fields (the same ones the M8.C1b TOFU path and QEMU's CMD42
+sd_lock_command() use); fixed-locked sets CARD_IS_LOCKED.  Both options are
+off by default, so the TOFU baseline is unchanged.  The test value used by
+the EXP is a synthetic 16-byte string; no real unit password is stored.
+
+With sd-pwd-tofu=off, sd-fixed-pwd=<test> and sd-fixed-locked=on the card
+powers up locked to the test password; the unit's own boot UNLOCK (a
+different 16 bytes from PROD, M2.13b/M2.25) is refused by CMD42.  This is
+the "card from another unit" case the task asks for.
+
+Evidence: TODO M2.23, EXP-2026-11-24-M2.23-sd-lock-emulator; base is QEMU
+11.1.3 with the earlier patches of tools/qemu-ze0/patches/ applied in sorted
+order (this patch sorts after ze0-hc1u).
+
+--- a/hw/sd/sd.c
++++ b/hw/sd/sd.c
+@@ -187,6 +187,9 @@
+     bool pwd_tofu;
+     bool start_locked;
+     bool pwd_tofu_armed;
++    /* ZE0 (M2.23): a fixed test password (up to 16 bytes, never a real PIN) */
++    char *fixed_pwd;
++    bool fixed_locked;
+     uint8_t function_group[6];
+     uint8_t current_cmd;
+     const char *last_cmd_name;
+@@ -957,7 +960,17 @@
+     sd->blk_len = 0x200;
+     sd->pwd_len = 0;
+     sd->pwd_tofu_armed = sd->pwd_tofu;
+-    if (sd->pwd_tofu && sd->start_locked) {
++    if (sd->fixed_pwd) {
++        size_t n = strlen(sd->fixed_pwd);
++
++        if (n > 16) {
++            n = 16;
++        }
++        memset(sd->pwd, 0, sizeof(sd->pwd));
++        memcpy(sd->pwd, sd->fixed_pwd, n);
++        sd->pwd_len = n;
++    }
++    if ((sd->pwd_tofu && sd->start_locked) || sd->fixed_locked) {
+         sd->card_status |= CARD_IS_LOCKED;
+     }
+     sd->expecting_acmd = false;
+@@ -3241,6 +3254,8 @@
+                       spec_version, SD_PHY_SPECv3_01_VERS),
+     DEFINE_PROP_BOOL("pwd-tofu", SDState, pwd_tofu, false),
+     DEFINE_PROP_BOOL("start-locked", SDState, start_locked, false),
++    DEFINE_PROP_STRING("fixed-pwd", SDState, fixed_pwd),
++    DEFINE_PROP_BOOL("fixed-locked", SDState, fixed_locked, false),
+ };
+ 
+ static const Property emmc_properties[] = {
+
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -210,6 +210,8 @@
+     bool gfx_display;
+     bool sd_pwd_tofu;
+     bool sd_start_locked;
++    char *sd_fixed_pwd;
++    bool sd_fixed_locked;
+     bool scif_stubs;
+     char *sci_chardev[9];           /* M8.H1: chardev id per SCIF 0-8 */
+     char *uart_chardev[2];         /* M8.H3: UAT3/UAT4 chardev ids */
+@@ -1086,6 +1088,12 @@
+                                   ZE0_MACHINE(machine)->sd_pwd_tofu);
+                 qdev_prop_set_bit(card, "start-locked",
+                                   ZE0_MACHINE(machine)->sd_start_locked);
++                if (ZE0_MACHINE(machine)->sd_fixed_pwd) {
++                    qdev_prop_set_string(card, "fixed-pwd",
++                                         ZE0_MACHINE(machine)->sd_fixed_pwd);
++                }
++                qdev_prop_set_bit(card, "fixed-locked",
++                                  ZE0_MACHINE(machine)->sd_fixed_locked);
+                 qdev_realize_and_unref(card,
+                     qdev_get_child_bus(h, "sd-bus"), &error_fatal);
+             }
+@@ -1324,6 +1332,29 @@
+     ZE0_MACHINE(obj)->sd_start_locked = value;
+ }
+ 
++static char *ze0_get_sd_fixed_pwd(Object *obj, Error **errp)
++{
++    return g_strdup(ZE0_MACHINE(obj)->sd_fixed_pwd ?: "");
++}
++
++static void ze0_set_sd_fixed_pwd(Object *obj, const char *value, Error **errp)
++{
++    Ze0MachineState *s = ZE0_MACHINE(obj);
++
++    g_free(s->sd_fixed_pwd);
++    s->sd_fixed_pwd = *value ? g_strdup(value) : NULL;
++}
++
++static bool ze0_get_sd_fixed_locked(Object *obj, Error **errp)
++{
++    return ZE0_MACHINE(obj)->sd_fixed_locked;
++}
++
++static void ze0_set_sd_fixed_locked(Object *obj, bool value, Error **errp)
++{
++    ZE0_MACHINE(obj)->sd_fixed_locked = value;
++}
++
+ static bool ze0_get_scif_stubs(Object *obj, Error **errp)
+ {
+     return ZE0_MACHINE(obj)->scif_stubs;
+@@ -1495,6 +1526,14 @@
+                              ze0_set_sd_start_locked);
+     object_property_set_description(obj, "sd-start-locked",
+         "with sd-pwd-tofu: the card powers up locked (default off)");
++    object_property_add_str(obj, "sd-fixed-pwd", ze0_get_sd_fixed_pwd,
++                            ze0_set_sd_fixed_pwd);
++    object_property_set_description(obj, "sd-fixed-pwd",
++        "fixed CMD42 test password (ASCII, up to 16 bytes, never a real PIN)");
++    object_property_add_bool(obj, "sd-fixed-locked", ze0_get_sd_fixed_locked,
++                             ze0_set_sd_fixed_locked);
++    object_property_set_description(obj, "sd-fixed-locked",
++        "with sd-fixed-pwd: the card powers up locked (default off)");
+     object_property_add_bool(obj, "hpbdmac", ze0_get_hpbdmac, ze0_set_hpbdmac);
+     object_property_set_description(obj, "hpbdmac",
+         "model the HPB-DMAC that moves SD data (default on)");

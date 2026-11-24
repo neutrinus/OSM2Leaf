@@ -85,9 +85,27 @@ and Windows CE/SH-4 parts of the work.
 
 | <https://www.stat.go.jp/english/data/mesh/> | Japanese grid/mesh code reference (JIS X 0410) | reference |
 | <https://learn.microsoft.com/en-us/windows/win32/debug/pe-format> | PE/COFF format reference | FACT |
+| <https://learn.microsoft.com/en-us/previous-versions/windows/embedded/aa451060(v=msdn.10)> | CE 5 `DBGPARAM` (`dbgapi.h`): `lpszName[32]`, `rglpszZones[16][32]`, `ulZoneMask` at struct +0x440. Basis for `tools/ce_dbgzones.py` (M8.H15). Checked 2026-11-24. | FACT |
 | <https://rizin.re/> | Reverse-engineering framework used for SH-4 analysis | reference |
 | <https://qemu.googlesource.com/qemu/+/refs/heads/master/hw/sh4> | QEMU SH-4 board/SoC code (`r2d.c`, `sh7750.c`); `sh_serial`/`sh_timer` in `hw/char`/`hw/timer`. Basis for a `ze0` machine (EXP-2026-11-05-37). | FACT (source) |
 | Renesas SH-NaviJ press coverage (SH77721, 2008; SH77722) | SH-4A 333 MHz, 2D/3D graphics, USB, SD host, CAN, GPS baseband, FM multiplex; matches the driver set, part number unproven (C-531). | reference (secondary) |
+
+## Android Auto / CarPlay on Leaf head units (M8.G3, checked 2026-11-24)
+
+These are secondary/community sources, opened this revision, used only to
+answer *how* AZE0 owners get Android Auto (firmware vs external box) and which
+unit generation is involved. They are leads, not proof of our firmware facts.
+
+| Source | What it is | Type | Note (checked 2026-11-24) |
+| --- | --- | --- | --- |
+| <https://nissanleaf.carhackingwiki.com/index.php/AV_Control_Unit> | Community wiki on the AV control unit | HYPOTHESIS | Opened. Lists "Android Auto and/or CarPlay via USB (in some models)" as a function; Gen 1 = QY7204/QY7224/QY7214/QY7254. Early Gen 2 runs CE, some later units (e.g. `25915 5SR0B`) run Linux. SD card holds CE firmware + maps + hidden `substance.skn`. |
+| <https://mynissanleaf.com/threads/maintenance-of-your-navigation-unit.38356/> | My Nissan Leaf thread with LeafSDTools maintainer `dfj` | HYPOTHESIS | Opened. On backporting AA to a 2014 QY7xxx: "Technically it seems possible, needs some effort adapting it to Windows CE. But it won't ever be wireless, only via USB"; "better way would be to replace with newer Clarion QY8xxx, which has all the hardware for CarPlay&Android Auto, only missing the software." No external-box solution is claimed for the OEM screen. |
+| <https://mynissanleaf.com/threads/translating-2014-jdm-leaf-qy7214nk-head-unit.39380/> | My Nissan Leaf thread on QY7214NK translation | HYPOTHESIS | Opened via search snippet. Reports Russian sellers distribute a hacked/English firmware with a unit-unique licence key and pirated maps; a cheaper "Leafhacker" option updates software only. This is a software/SD-card modification, not an external video box. |
+| <https://mynissanleaf.ru/viewtopic.php?id=2917> | Russian Nissan Leaf club firmware-for-sale thread (`metori`) | HYPOTHESIS | Not opened (HTTP 403 on 2026-11-24); text read via search index. Lists Android Auto + CarPlay firmware for ZE1 2017-2020 and AZE0 30 kWh 12.2015-2017, with Russian maps/voice; explicitly **no** Android Auto offer for ZE0/AZE0 24 kWh 2010-2015 (only interface translation). AA is traded against the charge/climate timers. |
+| <https://www.speakev.com/threads/leaf-24-2015-sd-card-fault.175163/> | Speak EV discussion of QY8xxx retrofit | HYPOTHESIS | Opened via search snippet. "Xanavi firmware comes in two flavours - original and CarPlay. The CarPlay one adds Apple CarPlay and Android Auto at the expense of climate timers, charge timers and the CD player"; a QY8xxx unit was retrofitted into a 2015 Leaf with a wiring change. Confirms the AA-capable hardware is the newer QY8xxx generation. |
+| <https://www.reddit.com/r/leaf/comments/z3w7jr/android_autoapple_carplay_on_2011_nissan_leaf_sl/> | Reddit r/leaf, 2011 Leaf SL AA question | HYPOTHESIS | Opened via search snippet. Answer: only SD-card software sold by a third party, "mainly for the newer models (2015 etc)". No native ZE0 solution. |
+| <https://www.goingelectric.de/forum/viewtopic.php?lang=en&t=52823> | German goingelectric forum, "Android Auto in old Leaf" | HYPOTHESIS | Opened via search snippet. For a 2014 ZE0 the consensus is no native AA; suggestions are phone-only AA via Bluetooth/aux or an external display. "Nobody has achieved anything significant" with the second SD slot. |
+| <https://mynissanleaf.com/threads/does-my-leaf-support-android-auto.39276/> | My Nissan Leaf thread, 2015 QY-7210 | HYPOTHESIS | Opened via search snippet. Replies: no AA in 2015; support arrived in gen 2 (2019 wired CarPlay/AA); owners use external display units. |
 
 ## Pending research
 

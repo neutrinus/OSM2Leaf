@@ -34,6 +34,8 @@ import sys
 import time
 from pathlib import Path
 
+import peerlib  # noqa: E402  (shared control-socket accept loop)
+
 # The 17 decoded CAN ids subscribed by Vehicle.exe (docs/firmware/can.md §4).
 FRAMES = {
     0x180: "ECM_TorqueControl_RN1",
@@ -183,44 +185,34 @@ class Peer:
             srv.connect(path)
             self.guest = srv
             srv = None
-        ctrl_srv = None
-        if control:
-            c = Path(control)
-            if c.exists():
-                c.unlink()
-            ctrl_srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            ctrl_srv.bind(control)
-            ctrl_srv.listen(1)
+        # M8.H77: the control socket's accept/read loop is shared plumbing;
+        # the command grammar (status / SIGNAL VALUE) stays in Peer.control.
+        line_peer = peerlib.LinePeer(control, self.control,
+                                     timeout=0.1) if control else None
         deadline = time.monotonic() + seconds
         next_send = time.monotonic() + 1.0 / max(rate, 0.01)
-        ctrl = None
         try:
             while time.monotonic() < deadline:
-                fds = [x for x in (srv, ctrl_srv, self.guest, ctrl) if x]
+                fds = [x for x in (srv, self.guest) if x]
+                if line_peer is not None:
+                    fds.append(line_peer.server)
                 if not fds:
                     break
                 ready, _, _ = select.select(fds, [], [], 0.1)
                 for fd in ready:
                     if fd is srv:
                         self.guest, _ = srv.accept()
-                    elif fd is ctrl_srv:
-                        if ctrl:
-                            ctrl.close()
-                        ctrl, _ = ctrl_srv.accept()
-                    elif fd is ctrl:
-                        msg = ctrl.recv(4096)
-                        if not msg:
-                            ctrl.close()
-                            ctrl = None
-                        else:
-                            self.control(ctrl, msg.decode("ascii", "replace"))
+                if line_peer is not None:
+                    line_peer.poll()
                 if self.guest and time.monotonic() >= next_send:
                     self.send(self.car.frames())
                     next_send = time.monotonic() + 1.0 / max(rate, 0.01)
         finally:
-            for s in (self.guest, ctrl, srv, ctrl_srv):
+            for s in (self.guest, srv):
                 if s:
                     s.close()
+            if line_peer is not None:
+                line_peer.close()
 
 
 def selftest() -> int:

@@ -51,6 +51,43 @@ per `python3 tools/frway_decode.py census ROOT` (C-7837/C-7838; the older
 `REFER002` is **not** duplicate data — it carries the longer EV schema
 (xy-coordinates, plug info, parking capacity).
 
+### Who opens `REFER002` (M3.40, EU 2011)
+
+> **Status:** `OBSERVED (L3)` for the file opener/read path; the EV record
+> consumer is still unlocated. Evidence: EXP-2026-11-24-M3.40-refer002-opener,
+> C-8150–C-8159.
+
+`Navi.exe`'s shared REFER search-type opener `fn 0x003fbed8` (pdata START,
+prologue 22 B, length `0x214`, end `0x003fc0ec`) loads the **directory name**
+`REFER002` (`0x001793a4`) into r12 at `0x003fbf40` and passes it to the
+resolver `fn 0x0040b358` at `0x003fc086`; by default r12 is `REFER001`
+(`0x00178c68`, loaded at `0x003fbeee`). The `0x14ef` / `0x14f0` context
+selector is derived from the disassembly (LE, pinned in `sh4dis`): `ctx+104`
+is one of those two words, `ctx+124 == 0`, and the word tested with
+`and #0x4000` at `0x003fbf34` is nonzero — at `ctx+0xa0` for `0x14f0`, reached
+through the pointer at `ctx+0xa4` for `0x14ef`. The generic read issuers
+downstream are `fn 0x003f6c88` (read request) and `fn 0x0041841c` (layer read
+API), not an EV-specific record reader.
+
+Run the opener on the mounted EU 2011 factory card:
+
+```bash
+python3 tools/refer002_opener_l3.py run archive/head256.img \
+  --card-image archive/sd-images/LEAF_2011-2012_QSD-309-101_navi158_eu.img
+# boot ACCEPT; 15 REFER002/POINTnnn.DAT resolves, ids 0x00070002..0x00070010
+# negatives: ctx+124=1 or flag=0 -> REFER001/POINT002.DAT (0x00060081)
+```
+
+With `ctx+104=0x14f0`, `ctx+124=0`, `ctx+0xa0=0x4000` it resolves all 15 EV
+shards {2,4,5,7,8,10,11,16,18,19,20,22,25,29,33} as
+`REFER002/POINT0nn.DAT` (file ids `0x00070002…0x00070010`), matching the
+16-file on-card census. `ctx+124=1` or flag `0` selects `REFER001` instead;
+`ctx+104=0x14e4` selects LCTBL. The two other `REFER002` strings —
+`0x00178e4c` (volume-id table) and `0x0001ca9e` (a full `\SystemSD\REFER002`
+path in `Vehicle.exe`) — have no literal-pool xref and are data/table entries,
+not independent openers. No EV field-dictionary consumer or US 2011 twin is
+located; the rule-13 level of this result is L3, not L4/L5.
+
 ### `REFER002` census (M4.85, EU 2011)
 
 > **Status:** `OBSERVED` (file-level census and field schema; record-body field
@@ -646,6 +683,26 @@ is not the same record form. See
 `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (C-2210–C-2214) and
 `EXP-2026-11-20-M3.16-inter-frway.md` (C-2215–C-2219).
 
+### Opener follow-up (M3.16 r3, negative)
+
+**FACT (access path):** the shared REFER name-builder `fn 0x003fbed8` loads the
+7-entry family table at `0x001792c4` (`POINT0`, `.DAT`, `ADDRE0`, `FRWAY0`,
+`INTER0`, `LCTBL0`, `ZCODE0`); its one-call-away read issuers are exactly
+`fn 0x003fc0ec` (INTER) and `fn 003fc518` (FRWAY) — all CODE/sec0 (C-10270).
+
+**FACT (negative):** an L3 read-watch of those two followers on the factory
+`INTER001` page (39,936 B, `inter_table.py check` = OK) sees only context-header
+reads (`+0x68` name id at pcs `0x003fc146`/`0x003fc534`/`0x003fc65e`, `+0x7c`
+family word at `0x003fc142`/`0x003fc65c`); none lands at the `0x1108`/`0x1110`
+table. The LCTBL reader `0x0040de98` control reads 6 guest words on the same
+page (`result: PASS`), so the negative is a result, not a broken watch. Two
+signature families derived from these L3 observations (ctx-read pair,
+family dispatch) give 3 and 0 candidates; the only non-opener hit
+`0x003fec82` (fn `0x003fec60`) is a u16-key walker reached from REFER message
+handlers, not from an INTER/FRWAY opener. **No content-reader VA or consumed
+field is established** (C-10271–C-10273). See
+`EXP-2026-11-24-M3.16-opener-follow.md`; Unblock remains **M3.43**.
+
 ## `FRWAY0nn` — freeways/routes
 
 - Same 12-byte big-endian table (corrected layout above): an 8-byte block
@@ -1213,6 +1270,43 @@ images (file absent). The open question — whether an `INDEX003` entry holds
 name bytes or pointers into `POINT` pages — requires an image version that
 ships the file. Factory vs mutated comparison (M5.12 mutated only `POINT010`)
 is N/A on these images.
+
+## KIWI index comparison (M4.74)
+
+The KIWI V1.22 chapter-11 "Management Pattern of Index Data" names one abstract
+`Index Data Frame` with category codes (`11.7`), a jump table (`11.8`) and an
+overseas search method (`11.12`); the chapter-11 PDF was **not** retrieved
+(M4.65), so this is a *concept* list, not a byte layout. Our search database is
+**not** that one container: each family below has its own node format, so no
+KIWI node layout was adopted. Evidence:
+`EXP-2026-11-24-M4.74-kiwi-index` (C-7730–C-7737); table machine-checked by
+`python3 tools/kiwi_index_check.py docs/experiments/EXP-2026-11-24-M4.74-kiwi-index.md`.
+
+| Family | KIWI structure | Our node format | Record id / parcel pointer | Verdict |
+| --- | --- | --- | --- | --- |
+| `POINT` | 11.1 index frame; 11.7 category codes; 11.8 jump table | name-trie + 12-`u16` index records + spatial leaves | 24-byte key; leaf = low 11 bits of name pointer | concept only |
+| `ADDRE` | 11.1 index frame; 7.4 name frame | 12-B initial directory + 6-B cells + 22-B index records | 11 BE `u16`; packed coord id + point tokens | concept only |
+| `ZCODE` | 11.1 index frame; 11.7 category codes | 12-B digit-tag directory, child `0x1204 + offset*2` | 1-B tag; 16-B area ladder, not a parcel id | concept only |
+| `ICODE` | 11.8 jump table; 7.4 name frame | 12-B name rows in per-language chains | `u16` chain-relative `roff`; chain terminator `0xffffffff` | concept only |
+| `COORD` | 10.12 node coordinates; 1.2.13 parcel ID | 14-B bbox records at `0x1010` | `u16` grid; one-hot 48-bit level mask | unrelated (M4.68) |
+| `INDEX003` | 11.1 / 11.8 | absent EU+US; US `INDEX001` binary | UNKNOWN | concept only; layout UNKNOWN |
+
+What this does and does not explain about the UNKNOWN index fields above:
+
+- **Explains the structure class, not the bytes:** `INDEX003.DAT`'s role is that
+  of a KIWI "Index Data Frame" (11.1) with a jump table (11.8), but the file is
+  absent on these cards, so its record layout stays UNKNOWN.
+- **Explains the concept, not the value:** the ICODE root-pointer table is the
+  kind of table `11.8 Jump Table` predicts, but no table was located; roots are
+  still recovered by chain tracing (see [coord-zcode-icode.md](coord-zcode-icode.md)).
+- **Does not resolve:** the ADDRE `block > 0` cell base and the 6-byte cell
+  `value`/`count` semantics (a concept name is not an address or a field width),
+  nor the POINT `(XX,YY)` 2D arithmetic, range-item body or INTER/FRWAY field
+  meanings — those are outside the index families.
+
+No firmware reader VA or L3/L4 run backs this comparison (rule 13); a real KIWI
+`ALLDATA.KWI` volume (M4.77) is the only positive control that could re-open the
+concept-only verdicts.
 
 ## What this means for the compiler
 

@@ -885,6 +885,30 @@ def build_report(args) -> dict:
         "backward_compatible": True, "auto_detect": True,
         "note": "progress_schema module unavailable; minimal inline contract",
     })
+    # M9.62: one card-level L3 run count, sourced from the runs manifest and
+    # cross-checked against the matrix.  Kept separate from the legacy `l3`
+    # target metrics: it counts manifest rows, not runner.py targets.
+    runs_manifest = getattr(args, "runs_manifest", None)
+    l3_runs = None
+    if runs_manifest:
+        try:
+            if str(TOOLS) not in sys.path:
+                sys.path.insert(0, str(TOOLS))
+            from l3_harness import runs as runs_mod
+            doc, pr = load_json_file(Path(runs_manifest))
+            if doc is not None:
+                problems += pr
+                agreement = runs_mod.count_agreement(
+                    doc, Path(getattr(args, "reader_coverage", None) or
+                              (ROOT / "docs" / "research" / "reader-coverage.md")))
+                l3_runs = {"manifest": str(runs_manifest), "source": "runs.json",
+                           **agreement}
+                if not agreement["agree"]:
+                    problems.append(Problem(str(runs_manifest),
+                                            "runs manifest row count disagrees with matrix l3-running rows"))
+        except Exception as exc:
+            problems.append(Problem(str(runs_manifest), f"cannot read runs manifest: {exc}"))
+
     return {
         "schema": SCHEMA,
         "schema_version": SCHEMA,
@@ -910,6 +934,7 @@ def build_report(args) -> dict:
         "l1l2_matrix": l1l2 if isinstance(l1l2, dict) and l1l2.get("kind") == "l1l2_matrix" else None,
         "l3": l3,
         "l3_corpus": l3 if isinstance(l3, dict) and l3.get("corpus_aware") else None,
+        "l3_runs": l3_runs,
         "reader_coverage": rc_doc,
         "l4_emulator": l4,
         "l5_car": l5,
@@ -949,6 +974,26 @@ def selftest() -> int:
     ok(rc["summary"]["firmware_reader"]["unlocated"] >= 1, "has unlocated readers")
     bad, probs = parse_reader_coverage(Path("/no/such/file.md"))
     ok(probs and bad["contract"] == "unreadable", "unreadable file reported, not guessed")
+
+    # M9.62: the runs manifest sources one card-level L3 run count; a disagreeing
+    # manifest is a named problem, never a silently chosen number.
+    with tempfile.TemporaryDirectory() as td:
+        good_runs = Path(td) / "runs.json"
+        good_runs.write_text(json.dumps({
+            "schema": "osm2leaf.l3-runs/v1", "placeholders": {},
+            "rows": [{"row": "3", "what": "x", "reader": "x", "build": "eu2011",
+                      "tool": "x", "argv": ["python3", "-c", "pass"],
+                      "expect": "ok", "source_exp": "x", "claim": "C-1",
+                      "need": [], "firmware_pass": True}],
+        }), encoding="utf-8")
+        # a 1-row manifest vs the live matrix must disagree; the helper is pure.
+        if str(TOOLS) not in sys.path:
+            sys.path.insert(0, str(TOOLS))
+        from l3_harness import runs as runs_mod
+        doc = json.loads(good_runs.read_text())
+        a = runs_mod.count_agreement(doc, ROOT / "docs/research/reader-coverage.md")
+        ok(not a["agree"] and a["manifest"] == 1 and a["matrix"] >= 9,
+           "runs manifest count disagrees with matrix (1 vs live) is flagged")
     # broken header
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "rc.md"
@@ -1197,6 +1242,7 @@ def main(argv=None):
     ap.add_argument("--l4-status", help="backward-compat alias for --l5-status (v1: car was L4)")
     ap.add_argument("--l4-emulator-status", help="explicit L4 emulator/M8 status JSON ({stages:{F0:{status,evidence}}})")
     ap.add_argument("--run-tools", action="store_true", help="run l1l2_fixtures/l3check (no vendor data)")
+    ap.add_argument("--runs-manifest", help="M9.62 runs.json: report the single card-level L3 run count sourced from the manifest")
     ap.add_argument("--no-stdout", action="store_true")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args(argv)
