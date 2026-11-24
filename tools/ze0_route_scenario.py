@@ -134,10 +134,11 @@ def build_argv(args, work, trace_path, qmp_path):
         args.qemu, args.card, args.nk, args.flash,
         os.path.join(work, "ipl.txt"), work, lines, args.gdb)
     argv += ["-qmp", "unix:%s,server,nowait" % qmp_path]
-    # Start with tracing OFF; the harness enables it at the first PHASE
-    # marker and disables it at the last.  The log then contains only the
-    # window's events — no reliance on block-buffered live line counts.
-    argv += ["-trace", "enable=never,file=%s" % trace_path]
+    # Register the event at boot (so QMP trace-event-set-state can control it),
+    # then disable it immediately at scenario start.  The harness enables it
+    # at the first PHASE marker and disables it at the last, so the trace file
+    # contains only the window's events — no block-buffering race.
+    argv += ["-trace", "enable=%s,file=%s" % (TRACE_EVENT, trace_path)]
     return argv
 
 
@@ -216,6 +217,11 @@ def run(args):
         trace_last = phase_ordinals[-1] if phase_ordinals else None
         print("trace window: enable at step %s, disable at step %s" % (
             trace_first, trace_last))
+        if phase_ordinals:
+            qmp0 = runner._qmp()
+            qmp0.command("trace-event-set-state",
+                         {"name": TRACE_EVENT, "enable": False})
+            print("trace DISABLED at boot (registered event)")
 
         t0 = time.monotonic()
         for idx, step in enumerate(steps, 1):
