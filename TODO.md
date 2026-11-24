@@ -4579,8 +4579,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6940–C-6949
   - Result: EXP-2026-11-22-M8.G1-generations; 12 rows x 3 columns, every cell evidenced or unknown; falsifier not met (same BSP, +8 MiB RAM shift); 3 emulation differences
 
-- [ ] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
-  - Status: in progress · Owner: task/m8.g2-cycle10 · Critical: no · Pair: solo
+- [x] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
+  - Status: done · Owner: task/m8.g2-cycle10 · Critical: no · Pair: solo
   - Step: plan
   - Priority: low (after the ZE0 F5 screen, M8.C1f).
   - Depends: M8.G1
@@ -4592,6 +4592,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if M8.G1 shows ZE1 is not SH-4/CE, plan `aze0` only and mark `ze1` as a separate emulator decision for Marek.
   - Falsifier: an F0 try of the EU2014 kernel on unmodified `-M ze0` prints the same boot log as EU2011 (then no new machine is needed for AZE0, only properties).
   - Claims: C-6950–C-6959
+  - Result: EXP-2026-11-24-M8.G2-machine-types-plan; 20 device rows x 3 gens, 6 follow-ups, M8.G4 added; falsifier not met (EU2014 0 vs EU2011 423 debug lines, different final PC)
 
 - [ ] **M8.G3 — Why does Android Auto run on AZE0 units and not on ZE0? (H.264 decode, USB host, CPU, OS)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5763,6 +5764,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: an off-SHA card is accepted as the rebuilt M5.100 card, or M8.H79 is re-opened without the card being present on disk.
   - Claims: C-10080–C-10089
   - Pair: required
+
+- [ ] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Priority: low (first follow-up of M8.G2; part of the long-term "run any generation in QEMU" goal).
+  - Depends: M8.G2 (done), M8.A11 (done)
+  - Goal: add an `AZE0` subclass of the `TYPE_ZE0_MACHINE` base in `hw/sh4/ze0.c` (same 11.1.3 patch series, no fork) with the measured X212 parameters: CE RAM window `ulRAMStart 0x8a640000` (ZE0 `0x89e40000`, +8 MiB) under the same `0x8e600000` ceiling, kernel file offset `0x3e00200` and entry `0x8800f100` from the EU2014 image TOC. Find the X212 debug-string sink VA (EU2011 `dbgmsg=0x880404f4` yields 0 lines on EU2014) and set it as the subclass default so F0 has a log.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/eu2014-256.img romhdr` prints `ulRAMStart 0x8a640000`, `physlast 0x8870fb90`; an unmodified `-M ze0` 5 s EU2014 boot from `tools/qemu-ze0/run.sh` prints entry `0x8800f100`, 0 debug lines and final PC `0x8803d796` (M8.G2, C-6952).
+  - Scope: one new patch in `tools/qemu-ze0/patches/` modifying only the machine class in `hw/sh4/ze0.c` (plus its Kconfig/meson wiring if a second `defines` line is needed). Existing device models are reused unchanged. No new device model, no card change, no ZE1. The X212 debug sink VA must be obtained from the EU2014 `nk.exe` (string or OAL reference), not guessed.
+  - Input: `docs/research/qemu-machine-types.md` §1/§4, `docs/hardware/generations.md`, `tools/qemu-ze0/patches/ze0-0004-hw-sh4-ze0-builtin-loader.patch`, EXP-2026-11-24-M8.G2-machine-types-plan.
+  - Done when: a 5 s `tools/qemu-ze0/run.sh --machine aze0 --image archive/eu2014-256.img` boot prints a non-zero count of X212 debug lines on its own `dbgmsg` default, reaches an idle kernel with no CPU exception, and an EXP compares that log with the EU2011 F0 log (entry `0x8800f100`, RAM `0x8a640000`); `-M ze0` behaves byte-for-byte as before.
+  - Stop: if the X212 kernel stops short of F0 twice with the same log, record the last debug line and stage in an EXP and set `blocked` on the M8.G2 follow-up that owns the missing device (INTEVT table M8.G5).
+  - Falsifier: the EU2014 kernel prints debug text at the EU2011 VA `0x880404f4` and ends at the EU2011 final PC `0x8803d266` — then no X212 subclass is needed and this task records that instead of adding a machine.
+  - Claims: C-10090–C-10099
 
 ---
 
