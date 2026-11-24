@@ -6484,7 +6484,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Result: EXP-2026-11-23-M9.77-exp-check-subheadings.md; M4.96 PASS, corpus 550->542, selftest 15/15
 
 - [ ] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m9.78-cycle10 · Critical: no · Pair: required
   - Depends: M9.77
   - Goal: the 49 EXP records added between 2026-11-23 06:20Z and 19:07Z include real gaps behind the formatter noise: a sample without a full SHA-256, a Method with no runnable commands/controls/scope, or no falsifier. A reviewer cannot reproduce those results from the repo. After M9.77 separates layout from content, repair each record that still FAILs rather than waiving the lint wholesale.
   - Precheck: `python3 tools/exp_check.py docs/experiments` still prints FAIL lines; `git log --since=2026-11-23T06:20:04Z --diff-filter=A --name-only --pretty=format: origin/main -- docs/experiments/ | grep -c 'EXP-'` prints the window size (49 at 19:13Z).
