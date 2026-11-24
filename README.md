@@ -172,6 +172,7 @@ python3 tools/verify.py --root /path/to/root
 - [Roadmap and confidence gates](docs/research/roadmap.md)
 - [Reader coverage: every file type vs its firmware reader](docs/research/reader-coverage.md)
 - [US unit in Europe: region gates](docs/research/us-eu-region.md)
+- [**How-to: EU map card on a US 2011–2012 Leaf** (works in a car)](docs/hardware/eu-card-on-us-unit.md)
 - [Map image lineage 2011 → 2019](docs/research/image-versions.md)
 - [OSM data pipeline](docs/research/osm-pipeline.md)
 - [Intermediate map format (IMF v1)](docs/research/intermediate-format.md)

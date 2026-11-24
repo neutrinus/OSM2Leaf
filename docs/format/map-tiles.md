@@ -230,7 +230,13 @@ An OSM background writer exists (M5.74, C-7930–C-7937,
 clips water/river/forest polygons to one level-1 parcel and splices one odd
 record using the grammar above; a written tile passes L1/L2 and an L3
 `datask_l3.py mount` diff `SAME` against the factory. It writes no styling,
-names or routing, and only one parcel at a time.
+names or routing, and only one parcel at a time. **No firmware reader of the
+odd background record is known:** M3.41 (EXP-2026-11-24-M3.41, C-8160–C-8165)
+seeded a real odd record into an L3 read-watch and found no polygon reader on
+the mount/draw path — kind 4 serves the even road record, only the road
+row-count prologue `fn 0x00422384` touches the odd record, and `fn 0x0041f3dc`
+faults at `0x0041f44e`. The task is blocked on M8.H10 (L4 read-watch); rule 13
+is not satisfied for any background writer.
 
 Byte-identical rebuilds with the patched harness:
 
@@ -1507,6 +1513,30 @@ the section-4 rename records and section-1 added records by tile and offset.
 - The section-4 rename samples (parcel + pre-names header identical, only the
   name text differs) are listed in EXP-2026-11-19-M4.41-diff-years; they are
   the cleanest name-index pairs for M4.36 and the section-4 reader.
+
+## What the firmware calls a parcel
+
+"Parcel" in the firmware is **not** the map-format level-1 parcel of the grid
+above; it is the firmware's own name for an element of an in-RAM receive queue
+(`EXP-2026-11-24-M3.42`). The string starts `MDP_pushRcvParcel`,
+`MDP_popRcvParcel` and `MDP_freeRcvParcel` in `Navi.exe` (sec0 VAs `0x187f70`,
+`0x187f98`, `0x187f08`) resolve by literal-pool xref to the PUSH and POP
+functions `0x49a21c` and `0x49a29c` (pdata START, error string → xref — strong).
+The queue is a circular doubly linked list of **44-byte (11 × u32)** nodes,
+pooled 299-deep at INIT `0x49a158`; `0x9f0f70` / `0x9f0650` are the sentinel
+pair, `0x9e6418` the free-list head and `0x9f1008` the count (all BSS globals,
+written by INIT). PUSH copies 44 B from the caller's source into a pool node
+and inserts it before the sentinel; POP matches the `u8` at element `+8`
+against a selector argument, unlinks, copies the 44 B out and logs the
+`MDP_freeRcvParcel: error` string if the count underflows. The producer is the
+table-driven function `0x49636c` (address in the table at `0x185a58`); the
+consumer `0x48ef24` pops and forwards to `0x496c8c`, which dispatches on the
+`u16` at element `+10` (values 3/5/9). The consumer is reached from the
+`OSM_TaskReceive` task loop `0x48f0c4`, so this queue sits between the file
+reader and the map consumer. Fields: `+0x08` u8 selector (POP match key, producer writes the table index), `+0x0a` u16 kind (downstream 3/5/9 dispatch in `0x496c8c` reads `mov.w @(10,r2)`), `+0x0c..+0x28` 8 u32 from the producer's source struct with `+0x0c`/`+0x14` read as payload words by `0x496c8c`; `+0/+4/+9..+0xb` UNKNOWN (caller-prefilled, copied verbatim). A *static* call from the M3.25 read-completion handlers to the producer was
+**not** found (the producer is reached via `0x185a58`); that one-hop link is
+UNKNOWN, not asserted. Sibling queues `MDP_*RcvMmi` (68 B, 17 u32) and
+`MDP_freeScrollRect` are separate and must not be merged with this element.
 
 ## Key questions
 

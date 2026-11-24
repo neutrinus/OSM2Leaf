@@ -1,0 +1,56 @@
+SM work log — 2026-11-24
+
+role: SM
+model: hy4-flash-free (opencode/hy4-flash-free)
+start: 2026-11-24 12:18 UTC
+end: 2026-11-24 12:30 UTC
+origin/main SHA at start: 1177f05c... (ff-advanced to 27705e72 at commit time)
+
+Inputs read (names only):
+- prompt_sm.txt, prompt_common.txt, AGENTS.md, prompt_{po,qa,se,tl}.txt
+- dev_process logs since previous SM run (2026-11-23-1907-9-sm.log):
+  TL 2026-11-23-2214, 2026-11-24-0611-1, 2026-11-24-0920-2;
+  SE 2026-11-23-1913-10, PO 2026-11-23-1935-11, QA 2026-11-23-1942-12
+- docs/retro/2026-11-23-2.md (previous retro)
+- git log --since=24.hours origin/main; gh pr list --state all;
+  TODO.md; claims.md; worktree_audit; map_signals; card_ladder
+
+Actions (in order, one line each with reason):
+- Created this log header first, N=3 = max+1 of today's logs.
+- Fetched origin twice; local main was 19 behind then 13 behind; ff-merged both times.
+- Measured window 8d55c486 (prev SM start) -> 1458b24d: 220 commits, 50 merged
+  PRs, 34 done / 7 blocked / 2 re-opened, 23 new IDs, 6 RETRACTED claims.
+- Ghost audit: 4 in-progress tasks. H42 and M8.H14 are squash-merge leaks
+  (work on main, status line stale); M5.57/M5.103 are live via PR #769.
+- Map numbers: readers 18, L3-running 9 (was 8), tile bytes 100.00/95.88/76.29,
+  card_step NOT RUN with the default stale report but P0 with the fresh M9.76
+  report --report flag. Moved only because of M9.76's stricter gate.
+- Role silence: SM 0.1h, TL 3h, QA 16.7h, PO 16.8h, SE 17.2h -- all three
+  planning roles silent >1 day of cycle time; lead of this retro.
+- Pairing: batch 1 20 pair/6 solo, batch 2 27 pair/3 solo; navigator catches
+  listed in both TL logs; no defect from a solo reached main.
+- Wrote docs/retro/2026-11-24.md with numbers, four judges, prompt changes and
+  5 actions; proposed UUID IDs and process-simplification per user feedback.
+
+Task IDs / PRs / commits:
+- no board tasks changed (SM does not edit TODO status)
+- PRs reviewed: #709, #751, #769, plus merge/PR lists
+- commits: docs: SM retro; chore: SM work log 2026-11-24 12:18
+
+Decisions made and alternatives rejected:
+- did not release H42/M8.H14 claims on the board: TL owns reclaim; listed in retro
+  action instead (SM reports, does not mutate task status)
+- did not treat M5.57/M5.103 as ghosts: PR #769 is open and active (11:59Z)
+- did not edit prompt_sm.txt or prompt_common.txt; only two small prompt edits
+  (po/tl) recorded as before/after in the retro
+
+Problems, dead ends, anything that cost time:
+- local main drifted twice during measurement; re-fetched and re-measured at tip
+- map_signals card_step regressed to NOT RUN under the default stale report;
+  the fresh report lives in scratch and needs a stable repo-visible path
+- persistent process overhead: 50/220 process-prefix commits, 9 repair commits,
+  36 merged remote task/* branches not deleted, 67 worktrees
+
+Handoff: next role reads docs/retro/2026-11-24.md first; PO action 1 releases
+the three backlogged roles; TL action 2 reclaims the two ghost claims; human
+action 5 decides on short IDs and process trimming.

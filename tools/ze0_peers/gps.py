@@ -363,48 +363,81 @@ class Sink:
                 s.close()
 
 
+import peerlib  # noqa: E402  (shared control-command dispatch)
+
+
 def control_commands(line, state):
-    """Apply one control line; returns a reply string."""
-    parts = line.strip().split()
-    if not parts:
-        return ""
-    cmd = parts[0].lower()
-    try:
-        if cmd in ("gps", "fix") and len(parts) >= 3:
-            state["lat"], state["lon"] = float(parts[1]), float(parts[2])
-            _units(state["lat"]), _units(state["lon"])
-            return "fix %.6f %.6f" % (state["lat"], state["lon"])
-        if cmd in ("no-fix", "nofix"):
-            state["fix"] = False
-            return "no-fix"
-        if cmd == "on":
-            state["fix"] = True
-            return "on"
-        if cmd == "speed" and len(parts) == 2:
-            state["speed"] = float(parts[1])
-            return "speed %g" % state["speed"]
-        if cmd == "heading" and len(parts) == 2:
-            state["heading"] = float(parts[1])
-            return "heading %g" % state["heading"]
-        if cmd == "alt" and len(parts) == 2:
-            state["alt"] = float(parts[1])
-            return "alt %g" % state["alt"]
-        if cmd == "stat" and len(parts) == 2:
-            state["stat"] = int(parts[1], 16) & 0x7f
-            return "stat %02x" % state["stat"]
-        if cmd == "sats" and len(parts) == 2:
-            state["sats"] = int(parts[1]) & 0x7f
-            return "sats %d" % state["sats"]
-        if cmd == "drive" and len(parts) == 2 and parts[1] in ("on", "off"):
-            state["drive"] = parts[1] == "on"
-            return "drive %s" % parts[1]
-        if cmd == "status":
-            return "status %s lat=%s lon=%s stat=%02x sent=%d" % (
-                "fix" if state["fix"] else "no-fix", state["lat"], state["lon"],
-                state.get("stat", DEFAULT_STAT), state.get("sent", 0))
-    except ValueError as exc:
-        return "ERR %s" % exc
-    return "ERR unknown command: %s" % cmd
+    """Apply one control line; returns a reply string.
+
+    Verbs, replies and validation stay here; only the arity/verb dispatch is
+    shared via peerlib.dispatch (M8.H77).
+    """
+    def eq(*verbs):
+        return lambda cmd, parts: cmd in verbs
+
+    def arity(n, *verbs):
+        return lambda cmd, parts: cmd in verbs and len(parts) == n
+
+    def at_least(n, *verbs):
+        return lambda cmd, parts: cmd in verbs and len(parts) >= n
+
+    def fix(parts, state):
+        state["lat"], state["lon"] = float(parts[1]), float(parts[2])
+        _units(state["lat"]), _units(state["lon"])
+        return "fix %.6f %.6f" % (state["lat"], state["lon"])
+
+    def no_fix(parts, state):
+        state["fix"] = False
+        return "no-fix"
+
+    def on(parts, state):
+        state["fix"] = True
+        return "on"
+
+    def speed(parts, state):
+        state["speed"] = float(parts[1])
+        return "speed %g" % state["speed"]
+
+    def heading(parts, state):
+        state["heading"] = float(parts[1])
+        return "heading %g" % state["heading"]
+
+    def alt(parts, state):
+        state["alt"] = float(parts[1])
+        return "alt %g" % state["alt"]
+
+    def stat(parts, state):
+        state["stat"] = int(parts[1], 16) & 0x7f
+        return "stat %02x" % state["stat"]
+
+    def sats(parts, state):
+        state["sats"] = int(parts[1]) & 0x7f
+        return "sats %d" % state["sats"]
+
+    def drive(parts, state):
+        if parts[1] not in ("on", "off"):
+            return None
+        state["drive"] = parts[1] == "on"
+        return "drive %s" % parts[1]
+
+    def status(parts, state):
+        return "status %s lat=%s lon=%s stat=%02x sent=%d" % (
+            "fix" if state["fix"] else "no-fix", state["lat"], state["lon"],
+            state.get("stat", DEFAULT_STAT), state.get("sent", 0))
+
+    rules = [
+        (at_least(3, "gps", "fix"), fix),
+        (eq("no-fix", "nofix"), no_fix),
+        (eq("on"), on),
+        (arity(2, "speed"), speed),
+        (arity(2, "heading"), heading),
+        (arity(2, "alt"), alt),
+        (arity(2, "stat"), stat),
+        (arity(2, "sats"), sats),
+        (arity(2, "drive"), drive),
+        (eq("status"), status),
+    ]
+    return peerlib.dispatch(line, rules, state, error=ValueError)
 
 
 def advance(state, seconds):

@@ -68,7 +68,11 @@ Editing TODO.md concurrently (a normal cycle has ~15 agents, a 30-task TL batch 
   whole TODO.md or claims.md: PR #340 lost 42 tasks and 199 claim rows that
   way. The tool refuses any write that drops an ID.
 - Keep edits small and local; do not reflow or reorder unrelated sections.
-- New task IDs and claim blocks follow "ID allocation" in TODO.md.
+- New task IDs and claim blocks follow "ID allocation" in TODO.md. Before
+  allocating, check open PR titles and their claim blocks too (`gh pr list
+  --state open`): `next-id`/`next-claims` only see `main`, so an ID held by an
+  open PR is invisible to them. Never take a block whose owner has not merged
+  or released it.
 - Every new task has: Depends, Input, Done when (a command that can fail),
   and a falsifier. A task without a runnable Done when is not ready.
 - Any command in a `Done when`, `Precheck` or evidence cell selects its rows by

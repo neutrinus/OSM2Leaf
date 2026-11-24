@@ -1,29 +1,49 @@
-# EU map card on a US unit: change the card's map code
+# EU map card on a US unit: the whole procedure
 
-This guide is for a US 2011–2012 Leaf unit (QY7200ND class) and an EU map
-card. The unit refuses the EU card twice: the build name of the card's
-application image differs from the unit's, and so does the map code. The
-fix is to give the EU card the unit's build name and map code. Nothing on
-the unit changes. To undo it, put the original card back.
+This guide is for a US 2011–2012 Leaf unit (QY7200ND class) and an EU 2011
+map card. The unit refuses the EU card twice, because the build name of
+the card's application image and the map code both differ from the unit's.
+The fix gives the EU card the unit's build name and map code. Three
+further steps make it usable in the car: a navigation state reset on the
+unit, an optional consent-screen skip, and an audio patch. To undo it, put
+the original card back.
 
-**Status:** tested in the emulator on Marek's unit data.
+**Status: works in a car (L5), 2026-11-24.** Marek's unit is a US
+QY7200ND with an EU 2011 card in Wrocław. Results:
 
-- With the unit's own kernel NK1 (`-M ze0,nk=…,flash=`), the EU card with
-  both changes passes both checks and the launcher finishes
-  (EXP-2026-11-22-M8.C1r-nk1-boot). With the map code alone it stops at
-  `NK Version Error`.
-- With the `ze0_ipl.py --nk` line added in M8.C1q, Navi.exe starts on NK1
-  and draws the EU card's map (London), and the US card's map (Los Angeles)
-  in the same setup (EXP-2026-11-22-M8.C1q-navi-on-nk1). Before that fix it
-  failed on both cards: an emulator timing gap (deferred RAM), not the region.
-- With the card's kernel B instead (M8.C1m), Navi drew the EU map.
-- With Marek's whole unit flash, the EU card crashed `Navi.exe` until area
-  0 of the unit's `SRAM` was erased. After that the map drew and the car
-  followed a GPS fix to Wrocław (EXP-2026-11-23-M1.57, see
-  [Reset area 0](#reset-area-0-of-the-units-sram)).
+- The EU map draws.
+- After a few kilometres of driving, the car shows its real position in
+  Wrocław. Standing still it stays in London, the card's default, because
+  the navigation accepts a far GPS fix only from consistent moving samples.
+- The clock is correct, with the GPS time fix.
+- The consent screen is skipped.
+- The equalizer and the key beeps work.
+- **Not working yet:** FM radio is only partly working, and the service
+  menu does not open.
 
-**It has not been tested in a car yet.** The emulator has no GPS, no radio and no
-vehicle bus. Before the car test, back up the unit's flash (M6.18).
+Records: EXP-2026-11-23-M1.57-eu-card-unit-data-wroclaw (car tests 1
+and 2), EXP-2026-11-22-M8.C1r-nk1-boot and EXP-2026-11-22-M8.C1q-navi-on-nk1
+(emulator), M8.C1p (consent), M1.58/M1.59 (audio), M6.26 (LeafSDTools
+flash writes). One unit has been tested so far. Another US unit with
+another build of NK1 may need other values. Step 2 reads them from your
+own unit.
+
+## Overview
+
+| # | Where | What | Tool |
+| --- | --- | --- | --- |
+| 1 | unit | back up the flash and `SRAM` | LeafSDTools |
+| 2 | PC | read the unit's map code and build name | `card_mapcode.py unit` |
+| 3 | PC | consent skip on the EU card (optional) | `ze0_consent.py` |
+| 4 | PC | US `Audio.exe` transplanted into the EU card | `audio_transplant.py` |
+| 5 | PC | map code and build name on the EU card | `card_mapcode.py set` |
+| 6 | unit | GPS time fix in NK1 (optional, fixes the clock) | LeafSDTools Companion + `Write NAND` → `ALL OS` |
+| 7 | unit | erase area 0 of `SRAM`, **after** step 6 | LeafSDTools `RESTORE SRAM` |
+| 8 | SD card | write the image and lock it with the unit's PIN | `dd`, LeafSDTools or the Pico locker |
+| 9 | car | start, then drive a few km with sky view | |
+
+Steps 3–5 change only the card image. Steps 6–7 write the unit's flash,
+and that cannot be undone without the backup from step 1.
 
 ## Why it works
 
@@ -55,68 +75,44 @@ A second check compares the map-DB window (NK1 `+0x70`/`+0x72`) with the
 card. It is 16–16 on both, so it passes.
 
 The unit's area (PROD `+0x20`, `10 20 02 12` = USA) is not part of either
-check. It stays USA, which may affect languages, units and radio bands.
-That is for the car test to show.
+check. It stays USA. In the car the map scale is in miles, and FM radio
+is only partly working (M1.58). Languages were not checked.
 
 ## What you need
 
-- A copy of the EU card as an image file, made with `dd` from the card or
-  taken from a backup. Work on a copy and keep the original.
-- The unit's map code. Use the committed NK1
-  (`firmware/unit-flash/nk1-QY7200ND.bin`, Marek's unit) or your own
-  LeafSDTools NAND dump.
+- A copy of the EU 2011 card as an image file, made with `dd` from the
+  card or taken from a backup. Work on a copy and keep the original.
 - Python 3 and this repository.
-- A way to write the image to an SD card, then lock the card with the
-  unit's PIN as before: [sd-blocker-pico.md](sd-blocker-pico.md) or
-  LeafSDTools. **Without the password the unit does not read the card.**
+- An SD card with [LeafSDTools](https://github.com/developerfromjokela/leafsdtools)
+  for the unit's flash (steps 1, 6, 7). Optionally
+  [LeafSDTools Companion](https://github.com/developerfromjokela/leafsdtools_companion)
+  for the GPS time fix.
+- For the audio transplant only: the first 100 MiB of the US 2011 card
+  (`curl -r 0-104857599`, see `tools/fetch_image.py`).
+- The unit's SD PIN and a way to lock the card with it:
+  [sd-blocker-pico.md](sd-blocker-pico.md) or LeafSDTools. **Without the
+  password the unit does not read the card.**
 
 ## Steps
 
-1. Read the unit's map code:
+1. **Back up the unit.** In LeafSDTools run `Read NAND` and `SRAM` →
+   `DUMP TO SD`. Copy `nand_….bin`, `sram_….bin` and `vflash_….bin` to the
+   PC and keep them. They hold the SD PIN, the serial number and personal
+   data, so do not share them or commit them (M6.18).
+
+2. **Read the unit's map code and build name** from your own NAND dump.
+   The committed NK1 is Marek's unit:
 
    ```bash
+   python3 tools/card_mapcode.py unit --nk1 nand_XXXXXXXX_XXXXXXXX.bin
    python3 tools/card_mapcode.py unit --nk1 firmware/unit-flash/nk1-QY7200ND.bin
    # NK1 at +0x0: map code (VerInf) QSD-301-100, map DB window 16-16, build X110NBNI.147
-   python3 tools/card_mapcode.py unit --nk1 my_nand_dump.bin     # own unit
-   ```
-
-2. Read the card:
-
-   ```bash
    python3 tools/card_mapcode.py show --image eu_card.img
    # map code (HddInf, launcher): QSD-302-100
-   # raw copy at 0x06000000: same as the file
    # image A build name (NKOK +0x16, NB00 / NB01): X210ECNI.158 / X210ECNI.158
    ```
 
-3. See the plan without writing anything:
-
-   ```bash
-   python3 tools/card_mapcode.py set --image eu_card.img \
-       --from-nk1 firmware/unit-flash/nk1-QY7200ND.bin --dry-run
-   ```
-
-4. Patch the copy, either in place or into a new file (about 7.5 GB):
-
-   ```bash
-   python3 tools/card_mapcode.py set --image eu_card.img \
-       --from-nk1 firmware/unit-flash/nk1-QY7200ND.bin --in-place
-   # setting: image A build name X210ECNI.158 / X210ECNI.158 -> X210NBNI.147 (both NKOK headers)
-   # patched eu_card.img: map code QSD-302-100 -> QSD-301-100 (file and raw copy)
-   # verify: ok
-   ```
-
-   `--code QSD-301-100` gives the code directly. The tool changes one
-   character in the file's cluster and in the 72-byte raw copy at
-   `0x06000000`. It does not rebuild the FAT. `--file-only` leaves the raw
-   copy alone; the launcher reads only the file (C-8356). With
-   `--from-nk1` the tool also writes NK1's build-name tail into both
-   `NKOK` headers (12 bytes each). `--nk-name X210NBNI.147` sets the name
-   by hand, and `--map-code-only` skips it (that card would stop at
-   `NK Version Error`).
-
-   Optional: skip the start-up consent screen ("Touch OK to accept") on
-   the same copy. Order does not matter:
+3. **Skip the consent screen** ("Touch OK to accept"). This step is optional:
 
    ```bash
    python3 tools/ze0_consent.py patch eu_card.img --in-place
@@ -124,37 +120,84 @@ That is for the car test to show.
    ```
 
    It changes two 16-bit literals in each copy of image A and fixes each
-   copy's SUM4 (EXP-2026-11-24-M8.C1p-eu-consent-l4). A card patched with
-   a version before 2026-11-24 fails `verify`; run `patch` again on it.
-   The LeafSDTools Companion consent patch does not fit 2011 cards.
+   copy's SUM4 (EXP-2026-11-24-M8.C1p-eu-consent-l4). A card patched with a
+   version before 2026-11-24 fails `verify`, so run `patch` again on it. The
+   LeafSDTools Companion consent patch does not fit 2011 cards.
 
-5. Reset the navigation's saved state on the unit (area 0 of `SRAM`). See
-   [Reset area 0 of the unit's SRAM](#reset-area-0-of-the-units-sram)
-   below. Without it, the EU card crashed `Navi.exe` in the emulator.
+4. **Audio.** The EU `Audio.exe` opens the RDS tuner `TNR2:`, which a USA
+   unit never starts. Without a patch the equalizer does not react. Use
+   the transplant, which was tested in the car on 2026-11-24. It appends the
+   US `Audio.exe` to image A (M1.59):
 
-6. Write the image to the SD card (`dd if=eu_card.img of=/dev/sdX bs=4M
-   conv=fsync`), lock it with the unit's PIN, and put it in the car.
+   ```bash
+   python3 tools/audio_transplant.py plan  eu_card.img us_card_head.img   # no writes
+   python3 tools/audio_transplant.py apply eu_card.img us_card_head.img --in-place
+   ```
 
-7. Check and note:
-   - whether the map starts (or `DIFFERENT MAP CODE` / FailSafe appears);
-   - whether the car's position shows in Wrocław and not Kentucky
-     (M1.50/M1.51);
-   - the menu languages, units and radio bands.
+   An untested alternative is the 4-byte `audio_tnr_patch.py patch
+   eu_card.img --in-place` (EU `Audio.exe` pointed at `TNR4:`).
 
-   Photos of the screens help.
+   Run this after step 3 and before step 5. FM radio still does not fully
+   work with either variant.
 
-To undo: put the original card back, or run `set --code QSD-302-100
---nk-name X210ECNI.158` on the patched copy.
+5. **Map code and build name.** Check the plan first, then patch:
+
+   ```bash
+   python3 tools/card_mapcode.py set --image eu_card.img \
+       --from-nk1 nand_XXXXXXXX_XXXXXXXX.bin --dry-run
+   python3 tools/card_mapcode.py set --image eu_card.img \
+       --from-nk1 nand_XXXXXXXX_XXXXXXXX.bin --in-place
+   # setting: image A build name X210ECNI.158 / X210ECNI.158 -> X210NBNI.147 (both NKOK headers)
+   # patched eu_card.img: map code QSD-302-100 -> QSD-301-100 (file and raw copy)
+   # verify: ok
+   ```
+
+   The tool changes one character in `VER_INFO/HDD_INFO.TXT` and in its
+   72-byte raw copy at `0x06000000`, and NK1's build-name tail in both
+   `NKOK` headers. It does not rebuild the FAT. `--code` and `--nk-name`
+   set the values by hand. `--map-code-only` skips the name, and that card
+   stops at `NK Version Error`.
+
+6. **GPS time fix** (optional; without it the clock is 1024 weeks off). In
+   LeafSDTools Companion, run "Fix GPS Time Rollover" on `nand_….bin`
+   ([details](../research/leafsdtools-companion-patches.md)). Put the
+   patched file back on the LeafSDTools card under the same name, then run
+   `Write NAND` → `ALL OS`. **`ALL OS` also writes `SRAM` and `VFlash`
+   from that file** (blocks 8–`0x86`, M6.26), so step 7 must come after
+   it. Never use `ALL+EEPROM`, which rewrites the boot loader and `PROD`.
+   Nothing is read back after the write, so keep the backup from step 1.
+
+7. **Erase area 0 of `SRAM`**, after step 6. Without this the EU card
+   crashed `Navi.exe` or did not draw the map in the emulator. See
+   [Reset area 0](#reset-area-0-of-the-units-sram) below. In short: take
+   `sram_….bin` from `DUMP TO SD`, set its first `0x60000` bytes to `FF`,
+   and run `RESTORE SRAM`.
+
+8. **Write the card and lock it:**
+   `dd if=eu_card.img of=/dev/sdX bs=4M conv=fsync`. Then lock the card
+   with the unit's PIN.
+
+9. **In the car.** The EU map starts in London. Drive a few kilometres
+   above 10 km/h with sky view, and the car moves to its real position.
+   This is a one-time catch-up after the card change.
+
+To undo: put the original US card back. For the unit, `RESTORE SRAM` with
+the backup restores area 0; the US card also rewrites it on its own. To
+undo step 6, write the original `nand_….bin` with `ALL OS`, then restore
+`SRAM`. To turn the patched image back into the EU original, use the
+original copy. `card_mapcode.py set --code QSD-302-100 --nk-name
+X210ECNI.158` reverses only step 5.
 
 ## Removing the consent screen (optional)
 
 `tools/ze0_consent.py patch CARD.img --in-place` retargets the cold-start
 `SRT_COLD_I_AGREE` comparator to an event the skin raises without a tap
-(M8.C1p). Run it **before** `card_mapcode.py`, or pass `--build eu`: the tool
-identifies the card by the NB00 part number (`470-2824-34` EU,
-`470-2818-33` US), because the build name it would otherwise read is exactly
-what `card_mapcode.py` rewrites (H143, C-10140). The patch is confirmed on a
-US card in the emulator only; on the EU card it has not been shown.
+(M8.C1p). The tool identifies the card by the length of image A and by the
+NB00 part number (`470-2824-34` EU, `470-2818-33` US), not by the build
+name that `card_mapcode.py` rewrites. Run it before an audio transplant,
+because the transplant changes image A's length. It is confirmed in the
+emulator on Marek's flash (EXP-2026-11-24-M8.C1p-eu-consent-l4) and in the
+car (2026-11-24).
 
 ## Reset area 0 of the unit's SRAM
 
@@ -211,7 +254,7 @@ upstream):
    (`393216` = `0x60000`.)
 3. In LeafSDTools: `SRAM` → `RESTORE SRAM`, and wait for
    `Wrote 1048576 bytes`.
-4. Switch off, put in the patched EU card (step 6 above), and switch on.
+4. Switch off, put in the patched EU card (step 8 above), and switch on.
    Expect the navigation's start-up as after a reset. Settings stored in area
    0 return to their defaults. Which settings those are is not known.
 

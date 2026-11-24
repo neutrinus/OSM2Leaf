@@ -111,6 +111,7 @@ from l3_harness import corpus as corpus_mod  # noqa: E402
 from l3_harness import engine as engine_mod  # noqa: E402
 from l3_harness import manifest as manifest_mod  # noqa: E402
 from l3_harness import runner as runner_mod  # noqa: E402
+from l3_harness import runs as runs_mod  # noqa: E402
 
 SCHEMA = "osm2leaf.l3check/v1"
 
@@ -2094,6 +2095,33 @@ def build_parser() -> argparse.ArgumentParser:
         "compared with the listed SHA-256; nothing is run)",
     )
     parser.add_argument(
+        "--runs",
+        action="store_true",
+        help="M9.62: re-run the card-level L3 runs in tools/l3_harness/runs.json "
+             "(needs vendor images; local/weekly only, never in PR CI)",
+    )
+    parser.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="ROW",
+        help="M9.62 --runs: re-run only this reader-coverage matrix row (repeatable)",
+    )
+    parser.add_argument(
+        "--run-manifest",
+        help="M9.62 --runs: alternate runs.json (default: tools/l3_harness/runs.json)",
+    )
+    parser.add_argument(
+        "--runs-scratch",
+        help="M9.62 --runs: scratch dir for extracted card files and work dirs",
+    )
+    parser.add_argument(
+        "--runs-timeout",
+        type=int,
+        default=900,
+        help="M9.62 --runs: per-row subprocess timeout in seconds (default: 900)",
+    )
+    parser.add_argument(
         "--selftest",
         action="store_true",
         help="synthetic self-test: probe target, blocked target, FAIL/SKIP/card paths",
@@ -2107,6 +2135,44 @@ def main(argv=None) -> int:
 
     if args.selftest:
         return run_selftest()
+
+    if args.runs:
+        matrix = TOOLS_DIR.parent / "docs" / "research" / "reader-coverage.md"
+        manifest_path = Path(args.run_manifest) if args.run_manifest else runs_mod.MANIFEST
+        try:
+            doc = runs_mod.load(manifest_path)
+        except runs_mod.RunsError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        problems = runs_mod.validate(doc) + runs_mod.coverage_problems(doc, matrix)
+        scratch = Path(args.runs_scratch) if args.runs_scratch else None
+        try:
+            rows = runs_mod.run_rows(doc, only=args.only, scratch=scratch,
+                                     timeout=args.runs_timeout)
+        except runs_mod.RunsError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        verdict, exit_code = runs_mod.result(rows)
+        report = {
+            "schema": runs_mod.SCHEMA, "command": "l3check --runs",
+            "manifest": str(manifest_path), "matrix": str(matrix),
+            "matrix_rows": runs_mod.matrix_row_ids(matrix),
+            "problems": problems, "counts": runs_mod.counts(rows),
+            "result": verdict, "exit": exit_code, "rows": rows,
+        }
+        if problems:
+            report["result"], report["exit"] = "FAIL", 1
+        if args.json is not None:
+            document = json.dumps(report, indent=2)
+            if args.json in ("", "-"):
+                print(document)
+            else:
+                _write_atomic(Path(args.json), document + "\n")
+        else:
+            runs_mod.print_report(rows, report)
+            for problem in problems:
+                print(f"FAIL {problem}")
+        return report["exit"]
 
     if args.card_gate:
         if not (args.card and args.factory):
@@ -2809,6 +2875,50 @@ def test_card_gate_build_prefix():
     p.write_bytes(b"\x00" * 4096)
     assert _card_head_build(p) not in ("eu2011", "us2011")
     assert "unknown" in _card_head_build(p) and "…" in _card_head_build(p)
+
+
+@check("runs (M9.62): manifest has one entry per l3-running matrix row")
+def test_runs_coverage():
+    matrix = TOOLS_DIR.parent / "docs" / "research" / "reader-coverage.md"
+    doc = runs_mod.load()
+    assert not runs_mod.validate(doc), runs_mod.validate(doc)
+    problems = runs_mod.coverage_problems(doc, matrix)
+    assert not problems, problems
+    agreement = runs_mod.count_agreement(doc, matrix)
+    assert agreement["agree"], agreement
+    assert agreement["matrix"] == 9 and agreement["manifest"] == 9, agreement
+    # negative mutation: a matrix row with no manifest entry is named
+    doc2 = {"rows": [r for r in doc["rows"] if str(r["row"]) != "17"]}
+    gone = runs_mod.coverage_problems(doc2, matrix)
+    assert any("row 17" in p for p in gone), gone
+
+
+@check("runs (M9.62): no images -> every row NOT RUN, exit 3")
+def test_runs_no_images():
+    doc = runs_mod.load()
+    rows = runs_mod.run_rows(doc, only=["5"], scratch=_SELFTEST_TMP,
+                             extra={"IMG": "/no/such-head.img",
+                                    "CARD": "/no/such-card.img"})
+    assert rows[0]["status"] == runs_mod.NOT_RUN, rows[0]
+    verdict, exit_code = runs_mod.result(rows)
+    assert (verdict, exit_code) == ("NOT RUN", 3), (verdict, exit_code)
+
+
+@check("runs (M9.62): a wrong expected verdict FAILs (exit 1)")
+def test_runs_wrong_expect():
+    import sys as _sys
+    synth = {
+        "schema": runs_mod.SCHEMA, "placeholders": {},
+        "rows": [{"row": "S", "what": "synthetic", "reader": "x",
+                  "build": "eu2011", "tool": "x",
+                  "argv": [_sys.executable, "-c", "print('hello')"],
+                  "expect": "goodbye", "source_exp": "x", "claim": "C-1",
+                  "need": [], "firmware_pass": False}],
+    }
+    rows = runs_mod.run_rows(synth, scratch=_SELFTEST_TMP)
+    assert rows[0]["status"] == runs_mod.FAIL, rows[0]
+    verdict, exit_code = runs_mod.result(rows)
+    assert (verdict, exit_code) == ("FAIL", 1), (verdict, exit_code)
 
 
 def run_selftest() -> int:

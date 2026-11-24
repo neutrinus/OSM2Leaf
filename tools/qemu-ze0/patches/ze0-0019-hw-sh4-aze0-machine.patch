@@ -1,0 +1,120 @@
+hw/sh4: add an AZE0 machine subclass with X212 CE parameters (TODO M8.G4).
+
+EU2014 on the unmodified -M ze0 boots to an idle kernel but prints 0 debug
+lines because the kernel debug-string sink moved.  Turn TYPE_ZE0_MACHINE
+into a QOM base class with per-generation defaults (dbgmsg_va, kernel_off,
+app_off, ce_ram_start) read from the images' ROMHDRs, and add
+TYPE_AZE0_MACHINE which derives from it and overrides only the X212 values.
+-M ze0 keeps every previous default so its boot is unchanged.
+
+The X212 debug sink fn 0x88040a54 is derived, not guessed: the 20-byte LE
+signature of EU2011 fn 0x880404f4 occurs exactly once in EU2014 nk.exe, the
+two functions both take the UTF-16 string in r4, call AstLog with L"%s",
+then test two gate words; sh4xref lists three callers/pools for each.  The
+gate words move from 0x89e613b0/b4 (CE window 0x89e40000) to 0x8a6623d0/d4
+(window 0x8a640000, +8 MiB).  The entry 0x8800f100 comes from the image's
+own nk.exe TOC walk (no hard-coded entry needed).  QEMU's physical RAM map
+is unchanged: ulRAMStart is a CE virtual window, not a QEMU phys address.
+
+Evidence: docs/experiments/EXP-2026-11-24-M8.G4-aze0-machine.md
+(C-10140..C-10149).  Base: tag v11.1.3 plus the earlier patches of this
+directory, in sorted order (sorts after ze0-0018).
+
+diff --git a/hw/sh4/ze0.c b/hw/sh4/ze0.c
+--- a/hw/sh4/ze0.c
++++ b/hw/sh4/ze0.c
+@@ -168,7 +168,24 @@
+  * entryrva +4, vbase +8).  Nothing is shelled out.
+  */
+ #define TYPE_ZE0_MACHINE MACHINE_TYPE_NAME("ze0")
+-OBJECT_DECLARE_SIMPLE_TYPE(Ze0MachineState, ZE0_MACHINE)
++#define TYPE_AZE0_MACHINE MACHINE_TYPE_NAME("aze0")
++OBJECT_DECLARE_TYPE(Ze0MachineState, Ze0MachineClass, ZE0_MACHINE)
++
++/*
++ * Per-generation machine defaults (TODO M8.G4).  The base class carries the
++ * measured ZE0 (EU2011) values so -M ze0 stays byte-for-byte unchanged;
++ * TYPE_AZE0_MACHINE overrides the X212 (EU2014/2016) values.  The two CE
++ * RAM-window starts are firmware virtual windows from each image's ROMHDR
++ * (ulRAMStart 0x89e40000 / 0x8a640000) under the same 0x8e600000 ceiling;
++ * QEMU's physical RAM map at 0x08000000 is unchanged.
++ */
++struct Ze0MachineClass {
++    MachineClass parent_obj;
++    uint32_t dbgmsg_va;
++    uint64_t kernel_off;
++    uint64_t app_off;
++    uint32_t ce_ram_start;
++};
+ 
+ struct Ze0MachineState {
+     MachineState parent_obj;
+@@ -1561,9 +1578,9 @@
+         "unit map-DB window MIN-MAX at kernel image header +0x70/+0x72 "
+         "(big-endian u16; default empty = 0-0, as on the card)");
+ 
+-    s->kernel_off = ZE0_DEFAULT_KERNEL_OFF;
++    s->kernel_off = ZE0_MACHINE_GET_CLASS(obj)->kernel_off;
+     s->gfx = true;
+-    s->app_off = ZE0_DEFAULT_APP_OFF;
++    s->app_off = ZE0_MACHINE_GET_CLASS(obj)->app_off;
+     s->tmu = true;
+     s->ext_ram = true;
+     object_property_add_bool(obj, "ext-ram", ze0_get_ext_ram, ze0_set_ext_ram);
+@@ -1573,6 +1590,7 @@
+     object_property_add_bool(obj, "tmu", ze0_get_tmu, ze0_set_tmu);
+     object_property_set_description(obj, "tmu",
+         "map TMU ch0-2 at 0xffd80000 (default on; off = negative control)");
++    s->dbgmsg_va = ZE0_MACHINE_GET_CLASS(obj)->dbgmsg_va;
+     object_property_add_uint32_ptr(obj, "dbgmsg", &s->dbgmsg_va,
+                                    OBJ_PROP_FLAG_READWRITE);
+     object_property_set_description(obj, "dbgmsg",
+@@ -1593,7 +1611,12 @@
+ static void ze0_machine_class_init(ObjectClass *oc, const void *data)
+ {
+     MachineClass *mc = MACHINE_CLASS(oc);
++    Ze0MachineClass *zc = ZE0_MACHINE_CLASS(oc);
+ 
++    zc->dbgmsg_va = 0x880404f4u;
++    zc->kernel_off = ZE0_DEFAULT_KERNEL_OFF;
++    zc->app_off = ZE0_DEFAULT_APP_OFF;
++    zc->ce_ram_start = 0x89e40000u;
+     mc->desc = "Nissan Leaf ZE0 navigation unit (SH-4A, research skeleton)";
+     mc->init = ze0_init;
+     mc->default_cpu_type = TYPE_SH7785_CPU;
+@@ -1605,13 +1628,35 @@
+     .name = TYPE_ZE0_MACHINE,
+     .parent = TYPE_MACHINE,
+     .instance_size = sizeof(Ze0MachineState),
++    .class_size = sizeof(Ze0MachineClass),
+     .instance_init = ze0_machine_instance_init,
+     .class_init = ze0_machine_class_init,
+ };
+ 
++/* AZE0 (X212, EU2014/2016): same devices, X212 CE layout and debug sink. */
++static void aze0_machine_class_init(ObjectClass *oc, const void *data)
++{
++    MachineClass *mc = MACHINE_CLASS(oc);
++    Ze0MachineClass *zc = ZE0_MACHINE_CLASS(oc);
++
++    ze0_machine_class_init(oc, data);
++    zc->dbgmsg_va = 0x88040a54u;
++    zc->ce_ram_start = 0x8a640000u;
++    /* kernel_off/app_off stay 0x3e00200/0x200200; entry 0x8800f100 is
++     * derived per image by ze0_load_ce's nk.exe TOC walk. */
++    mc->desc = "Nissan Leaf AZE0 navigation unit (X212, research skeleton)";
++}
++
++static const TypeInfo aze0_machine_type = {
++    .name = TYPE_AZE0_MACHINE,
++    .parent = TYPE_ZE0_MACHINE,
++    .class_init = aze0_machine_class_init,
++};
++
+ static void ze0_machine_register_types(void)
+ {
+     type_register_static(&ze0_machine_type);
++    type_register_static(&aze0_machine_type);
+ }
+ 
+ type_init(ze0_machine_register_types)
