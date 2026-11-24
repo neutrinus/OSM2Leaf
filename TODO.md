@@ -1144,6 +1144,19 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-10040–C-10049
   - Pair: solo
 
+- [ ] **H143 — `ze0_consent.py` chose the card build from a name `card_mapcode.py` rewrites, so a renamed EU card got the US event ids and a false PASS**
+  - Status: in progress · Owner: task/h143-consent-detect-identity · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `tools/ze0_consent.py` `detect()` picked the build from the image-A name in the NKOK header at NB00 `+0x16`. That name is exactly the field `card_mapcode.py set --from-nk1` rewrites in the documented EU-on-US workflow (`docs/hardware/eu-card-on-us-unit.md`), so once the card is prepared for the unit the tool takes the other market's ids (`0x089e -> 0x0889`) and rewrites two comparators that are not the consent one; `verify` then passes because it searches for the id it just wrote. The hash the old code computed is the SHA-256 of the first `0x200000` bytes, which are byte-identical on both cards (`c49b5659…`), and it was never compared. Measured on the owner's cards on 2026-11-24 (EXP-2026-11-24-H143-consent-detect-identity O2/O3).
+  - Precheck: on the pristine EU card `python3 tools/ze0_consent.py find CARD` prints `build: EU 2011 … 0x08a6 -> 0x0891`; after `python3 tools/card_mapcode.py set --image CARD --from-nk1 firmware/unit-flash/nk1-QY7200ND.bin --in-place` the pre-fix tool printed `build: US 2011 … 0x089e -> 0x0889` and patched `2 literal(s)` at `0x1405912,0x143f2c0`.
+  - Scope: `tools/ze0_consent.py` (identity from the NB00 part number at `+0x50`, a `--build eu|us` override, refusal of an unknown card, selftest cases), the EXP named in Result, one claims section, a note in `docs/hardware/eu-card-on-us-unit.md`, and this block. Do not change the consent patch mechanism, the event ids or the SUM4 rule, do not run L4 (M8.C1p owns the EU L4 question), and commit no card copy, patched ROM or vendor bytes.
+  - Input: EU 2011 card `105e2032…076307`, US 2011 card `archive/leaf_2011_usa_sddump.img` `53342430…c5383`, NK1 `firmware/unit-flash/nk1-QY7200ND.bin`, `tools/card_mapcode.py`, `tools/selftest.py`, `tools/exp_check.py`, M8.C1p EXP and its doc note in `docs/research/leafsdtools-companion-patches.md`.
+  - Done when: `python3 tools/ze0_consent.py --selftest` covers a renamed EU card (EU ids), the US card, an unknown part number (non-zero exit) and `--build`, and passes; on a scratch copy of the EU card renamed by `card_mapcode.py`, `find` prints `EU 2011` with one `0x08a6` site per copy and `patch` writes one literal per copy (`0x08a6 -> 0x0891`) with `verify: PASS`; `python3 tools/selftest.py --only ze0_consent` is PASS; `python3 tools/exp_check.py docs/experiments/EXP-2026-11-24-H143-consent-detect-identity.md` is clean; `python3 tools/claims_check.py` and `python3 tools/todo_check.py` show no new error; `python3 tools/gate.py` row for `selftest` stays PASS.
+  - Stop: if the card's part number turns out to change between cards of the same build (it did not on the two 2011 cards), do not invent a second key: fall back to requiring `--build` for every card and record that as the result, with the ids unchanged.
+  - Falsifier: a renamed EU card still selecting the US ids without an explicit `--build`, or `verify` reporting PASS without checking the literal it patched against the card's own build.
+  - Claims: C-10140–C-10144
+  - Pair: solo
+
 
 ## M2 — Map code, activation, updater
 
