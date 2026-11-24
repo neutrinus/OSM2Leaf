@@ -48,7 +48,7 @@ many agents can build connectors at the same time.
 | Power / ACC | `PowerMonitor` | vehicle peer + GPIO | M8.H53 | `vcan.py` | M8.H54 |
 | Bluetooth | `SCI8:`, `BT_FW.dll` | chardev `sci8` | M8.H55 | `ze0_peers/bt.py` M8.H56 | M8.H56 |
 | USB host | OHCI `0xffe70400` | patch M8.H57 | in M8.H57 | QEMU `usb-storage` M8.H58 | M8.H58 |
-| Second SD slot | SD host port 1 | `run.sh --sd2` M8.H17 | — | QEMU `sd-card` | M8.H17 |
+| Second SD slot | SD host port 1 | `run.sh --sd2` M8.H17 (done) | — | QEMU `sd-card` | M8.H17: `DSK8:` / `\UserSD` mounts (EXP-2026-11-24-M8.H17) |
 | NOR flash | `FMD1:` | patch M8.H18 | in M8.H18 | QEMU pflash | M8.H18, M8.H54 |
 | I²C | `0xffc71000` | logging patch M8.H59 | M1.40 (static limit) | NACK + log | M8.H59 |
 | GPIO | `0xffc41000`…, `0x19400000` | logging patch M8.H60 | M1.40 (static limit) | latches + log | M8.H60 |
