@@ -799,7 +799,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-22-M1.37-rom-changelog; per-module tables for EU2011->EU2014 and EU2014->EU2016 in docs/research/rom-changelog.md; control EU2011 vs US2011 build B = 0 changes; BT_FW.dll 100%; C-6300-C-6309
 
 - [ ] **M1.38 — Can a 2014/2016 kernel ROM start on the 2011 board? (static)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.38-cycle10 · Critical: no · Pair: solo
   - Depends: M1.36 (done); M6.19 helps (what the unit's own flash holds)
   - Goal: decide whether "use the newer binaries" is possible at all on Marek's `QY7200ND`: compare ROMHDR RAM windows, BSP/platform strings, the driver set (`fmmdrv` vs `fmmdrv_05`/`_07`, `FlashManager` vs `FlashManager2`, LCD, SDHC) and the launcher's unit checks between `X210` and `X212` builds B.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 <EU2014 head> romhdr` prints a ROMHDR.
