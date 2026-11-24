@@ -108,3 +108,33 @@ resolved; drivers running experiments. M8.H79a (rule-15 follow-up) open,
 not launched this cycle.
 
 (outcome table appended when the remaining agents finish)
+
+merge stream final additions (main 148f485d):
+  - #707 M4.28 done (marker-bit residual; C-1903/1904 RETRACTED, C-2683/84
+    OBSERVED) direct d599b93a. NOTE: that commit was an accidental MERGE commit
+    whose staged claims.md was discarded; main then failed claims_check with
+    RESERVED C-2683..C-2689. Repaired in 69e55c8e (restored real C-1903/04/
+    2683/84) and 9d60509d (dropped 5 surplus RESERVED rows) -> claims_check OK.
+    Lesson: a worktree with a leftover merge must be fully reset before commit;
+    always run claims_check on main after every merge.
+  - #708 M1.38 BLOCKED (X212 not a drop-in on X210; Unblock M8.G4) direct
+    a13c05c1; C-6315 evidence pinned with EU2016 head SHA in the merge tree.
+  - #710 M4.78 done (KIWI verdict: only SWS adopted; kiwi_verdict_check.py with
+    3 negative mutations) direct 7125c4e0.
+  - #720 M8.H20 BLOCKED (on-flash position record format UNKNOWN; follow-up
+    M8.H20a + C-10120-C-10129) direct eed1ae0b.
+  - #712 M5.95 done (building-density built-up rule; landuse dominates,
+    honest) direct 90f37fc1.
+  - #711 M1.52 done (TestMode GPS frames from code) direct 148f485d; driver
+    re-froze both fn_audit corpora for new citations (now 09be5216...), accepted
+    after verifying gate 5 pass/0 fail/0 skip.
+
+Gate verified green on main 148f485d: 5 pass / 0 fail / 0 skip.
+Rule-15 follow-ups opened this cycle: M8.G4 (from M1.38; from M8.G2 too),
+M8.H20a (from M8.H20), M8.H79a (from previous cycle). M8.C1p stays blocked on
+the owner's M6.18 flash dump.
+
+Still in flight: M5.92 #702 (capacity probe done, resolving fn_audit corpus),
+M3.14 #705 (just approved, negative EXP pending). Both drivers report to TL.
+
+(outcome table appended when the last two land)
