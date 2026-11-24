@@ -502,7 +502,7 @@ def from_zero(template: bytes, built: dict, pad: bool = True, odd: dict | None =
     if sec2:
         import sec2_writer
         st.update({"sec2_" + k: v for k, v in sec2_writer.place(m, sec2).items()})
-        st["records"] += sum(2 if k[0] == "L2" else 1 for k in sec2)
+        st["records"] += sum(2 if k[0] == "L2" else 0 if k[0] in ("L4", "L5") else 1 for k in sec2)
     if built2 or odd2:
         st.update(place(m, built2 or {}, odd2, level=2))
     st = dict(st)
@@ -662,6 +662,9 @@ def main(argv=None) -> int:
                     help="also write level-2 road and urban records (Z6, M5.91)")
     ap.add_argument("--sec2", action="store_true",
                     help="also write the level-1 route graph (section 2, M5.57; links split at junctions)")
+    ap.add_argument("--lev3456", help="factory MAPAL001/LEV3456R.DAT: with --sec2 and --lev-out, "
+                    "write its section-2 levels 4 and 5 from the generated graph (M5.103)")
+    ap.add_argument("--lev-out", help="output LEV3456R.DAT")
     ap.add_argument("-o", "--out")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
@@ -680,7 +683,7 @@ def main(argv=None) -> int:
         sec2, sec2_stats = {}, {}
         if args.sec2:
             import sec2_writer
-            sec2, sec2_stats = sec2_writer.build(graphs, args.country)
+            sec2, sec2_stats = sec2_writer.build(graphs, args.country, level2=5 if args.lev_out else 2)
         odd, bg_stats = {}, {}
         if args.areas or names:
             only = set(args.areas_kinds.split(",")) if args.areas_kinds else None
@@ -700,6 +703,15 @@ def main(argv=None) -> int:
                             sec2=sec2)
         if args.sec2:
             st["sec2"] = sec2_stats
+        if args.sec2 and args.lev3456 and args.lev_out:
+            import sec2_level2
+            import tile_relayout
+            lm = tile_relayout.read_model(Path(args.lev3456).read_bytes())
+            upper = {lv: {k[1]: v for k, v in sec2.items() if k[0] == "L%d" % lv} for lv in (4, 5)}
+            st["lev3456"] = sec2_level2.place_lev(lm, upper)
+            lev_bytes, _lst = tile_relayout.write_model(lm)
+            Path(args.lev_out).write_bytes(lev_bytes)
+            st["lev3456"]["sha256"] = hashlib.sha256(lev_bytes).hexdigest()
         st["background"] = bg_stats
         if args.level2:
             st["level2"] = dict(parcels=len(built2), odd=len(odd2), background=bg2)

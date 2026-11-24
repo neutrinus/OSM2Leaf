@@ -292,12 +292,14 @@ def nudge_edge_nodes(graphs: dict, prepared: dict, bounds: dict) -> int:
     return moved
 
 
-def build(graphs: dict, country: int, free_traps: bool = True, level2: bool = True):
+def build(graphs: dict, country: int, free_traps: bool = True, level2: int = 5):
     """``{parcel: (code, links, unit_m)}`` -> ``{parcel: (plain, comp)}`` and stats.
 
-    With ``level2`` the result also holds the level-2 records under keys
-    ``("L2", key)`` (``sec2_level2``), and level-1 nodes that are level-2
-    nodes get node word 2 = ``0x2000``."""
+    With ``level2`` (the top level built: 2, 4 or 5; 0 = none) the result also
+    holds the upper records under keys ``("L2", key)``, ``("L4", key)`` and
+    ``("L5", key)`` (``sec2_level2``; levels 4 and 5 belong in ``LEV3456R``,
+    see ``sec2_level2.place_lev``), and level-1 nodes that are level-2 nodes get
+    node word 2 = ``0x2000``."""
     prepared = {}
     st = collections.Counter()
     for parcel, (code, links, unit_m) in graphs.items():
@@ -349,7 +351,11 @@ def build(graphs: dict, country: int, free_traps: bool = True, level2: bool = Tr
     upper = collections.defaultdict(set)
     if level2:
         import sec2_level2
-        flagged, l2, st2 = sec2_level2.build_level2(prepared, bounds, country)
+        flagged, lv, st2 = sec2_level2.build_levels(prepared, bounds, country, top=level2)
+        l2 = lv.get(2, {})
+        for level in (4, 5):
+            for key, rec in lv.get(level, {}).items():
+                out[("L%d" % level, key)] = rec
         for code, xy in flagged:
             upper[code].add(xy)
         where = {}
@@ -357,7 +363,7 @@ def build(graphs: dict, country: int, free_traps: bool = True, level2: bool = Tr
             where.setdefault(sec2_level2.l2_key(tuple(code))[0], parcel)
         for key, rec in l2.items():
             out[("L2", key)] = rec + (where[key],)
-        st.update({"level-2 " + k: v for k, v in st2.items()})
+        st.update(st2)
     for parcel, (code, order, ent) in prepared.items():
         boundary = {xy: v[:2] for xy, v in bounds[parcel].items()}
         w = record_words(code, order, ent, country, boundary, upper.get(tuple(code), ()),
@@ -395,7 +401,7 @@ def place(m: dict, built: dict) -> dict:
     rows = collections.defaultdict(dict)
     l2 = {k[1]: v[:4] for k, v in built.items() if k[0] == "L2"}
     where = {k[1]: v[4] for k, v in built.items() if k[0] == "L2"}
-    built = {k: v for k, v in built.items() if k[0] != "L2"}
+    built = {k: v for k, v in built.items() if k[0] not in ("L2", "L4", "L5")}
     for (y0, x0, row, col), rec in built.items():
         if (y0, x0) not in dirs:
             raise GraphError("no section-2 directory for parcel %r" % ((y0, x0, row, col),))
@@ -434,14 +440,14 @@ def selftest() -> int:
     gB = [dict(cls=8, lid=1, pts=[(0, 100), (500, 100)], oneway=1)]
     import copy
     graphs = {"A": (A, gA, (1.1, 1.1)), "B": (B, gB, (1.1, 1.1))}
-    _b, st2 = build(copy.deepcopy(graphs), 826, level2=False)
+    _b, st2 = build(copy.deepcopy(graphs), 826, level2=0)
     assert st2["oneway links freed (SCC)"] == 2 and st2["oneway link ends"] == 0, st2
     ring = [dict(cls=8, lid=i + 1, pts=[p, q], oneway=1) for i, (p, q) in
             enumerate([((10, 10), (90, 10)), ((90, 10), (50, 90)), ((50, 90), (10, 10))])]
     ring.append(dict(cls=8, lid=9, pts=[(50, 90), (50, 300)], oneway=0))
-    _b, st3 = build({"R": (A, ring, (1.1, 1.1))}, 826, level2=False)
+    _b, st3 = build({"R": (A, ring, (1.1, 1.1))}, 826, level2=0)
     assert st3["oneway links freed (SCC)"] == 0 and st3["oneway link ends"] == 6, st3
-    built, st = build(graphs, 826, free_traps=False, level2=False)
+    built, st = build(graphs, 826, free_traps=False, level2=0)
     assert st["boundary"] == 2, st
     for k, (plain, comp) in built.items():
         w = list(struct.unpack(">%dH" % (len(plain) // 2), plain))
