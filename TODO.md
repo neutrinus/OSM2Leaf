@@ -4974,7 +4974,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7110–C-7119
 
 - [ ] **M8.H15 — Turn on the firmware's own debug output: debug zones of `Navi.exe` and the drivers**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h15-debug-zones · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: `ze0-0007` hooks the kernel debug message path, but retail modules print little. CE modules carry `dpCurSettings` zone masks (and often a registry override). Find how to enable them for `Navi.exe` map modules, `SDHC.dll`, `navdrv.dll`, `lcddrv.dll`, so a boot log names file opens, positions and errors in the vendor's words.
