@@ -134,7 +134,10 @@ def build_argv(args, work, trace_path, qmp_path):
         args.qemu, args.card, args.nk, args.flash,
         os.path.join(work, "ipl.txt"), work, lines, args.gdb)
     argv += ["-qmp", "unix:%s,server,nowait" % qmp_path]
-    argv += ["-trace", "enable=%s,file=%s" % (TRACE_EVENT, trace_path)]
+    # Start with tracing OFF; the harness enables it at the first PHASE
+    # marker and disables it at the last.  The log then contains only the
+    # window's events — no reliance on block-buffered live line counts.
+    argv += ["-trace", "enable=never,file=%s" % trace_path]
     return argv
 
 
@@ -208,6 +211,11 @@ def run(args):
         else:
             runner_args.shot_cmd = None
         runner = ze0_ui.Runner(runner_args)
+        phase_ordinals = sorted(phases)
+        trace_first = phase_ordinals[0] if phase_ordinals else None
+        trace_last = phase_ordinals[-1] if phase_ordinals else None
+        print("trace window: enable at step %s, disable at step %s" % (
+            trace_first, trace_last))
 
         t0 = time.monotonic()
         for idx, step in enumerate(steps, 1):
@@ -225,6 +233,18 @@ def run(args):
                 print("FAIL step %d %-11s %s" % (idx, step.kind, exc))
                 code = 1
                 break
+            # Toggle trace capture at the first/last PHASE step.  The QMP
+            # command is derived from this QEMU tree's qapi/trace.json.
+            if idx == trace_first:
+                qmp = runner._qmp()
+                qmp.command("trace-event-set-state",
+                            {"name": TRACE_EVENT, "enable": True})
+                print("trace ENABLED at step %d (%s)" % (idx, phases[idx]))
+            if idx == trace_last:
+                qmp = runner._qmp()
+                qmp.command("trace-event-set-state",
+                            {"name": TRACE_EVENT, "enable": False})
+                print("trace DISABLED at step %d (%s)" % (idx, phases[idx]))
             print("ok   step %d %-11s %s" % (idx, step.kind, detail))
             results.append({"step": idx, "kind": step.kind,
                             "raw": step.raw, "detail": detail})
@@ -232,7 +252,7 @@ def run(args):
                 name = phases[idx]
                 cnt = trace_count(trace_path) if os.path.exists(trace_path) else 0
                 phase_counts[name] = cnt
-                print("phase %-20s trace_lines=%d" % (name, cnt))
+                print("phase %-20s cumulative_trace_lines=%d" % (name, cnt))
 
         # A sample trace line, quoted so the grammar can be verified.
         if os.path.exists(trace_path):
@@ -260,18 +280,12 @@ def run(args):
             hashes[name] = sha256_file(path)
             print("sha256 %-24s %s" % (name, hashes[name]))
 
-    windows = {}
-    names = list(phase_counts)
-    for a, b in zip(names, names[1:]):
-        lines = (trace_slice(trace_path, phase_counts[a], phase_counts[b])
-                 if os.path.exists(trace_path) else [])
-        windows["%s->%s" % (a, b)] = {
-            "start": phase_counts[a], "end": phase_counts[b], "lines": lines}
-        slice_path = os.path.join(work, "trace-%s-%s.log" % (a, b))
-        with open(slice_path, "w", encoding="utf-8") as fh:
-            fh.write("\n".join(lines) + ("\n" if lines else ""))
-        print("window %s->%s: [%d:%d] = %d lines -> %s" % (
-            a, b, phase_counts[a], phase_counts[b], len(lines), slice_path))
+    # With QMP gating, the trace file holds only [enable:disable] events.
+    # QEMU's file backend is block-buffered, so count after the guest stops.
+    total_trace = trace_count(trace_path) if os.path.exists(trace_path) else 0
+    phase_counts = {"gated_window": total_trace}
+    print("trace window lines (gated, final): %d" % total_trace)
+    windows = {"gated_window": {"lines": total_trace}}
 
     serial = os.path.join(work, "serial.log")
     tail = []
