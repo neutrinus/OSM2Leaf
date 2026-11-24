@@ -1,0 +1,247 @@
+name: Progress dashboard (H42)
+
+# H42: publish the per-level progress signal on every PR/push to main.
+# Self-contained job: a cross-job artifact hand-off between ci.yml/l1l2-fixtures.yml
+# and this workflow is fragile, so the progress job runs the offline chain itself.
+# tools/progress_snapshot.py (H56) composes the H41 per-file/per-feature matrix,
+# the H28/H55 L3 synthetic corpus and the H27 schema-v3 progress report. No
+# vendor data, no IMG256/ROOT, no QEMU/M8 run, no L5 bench execution, no network.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: progress-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  progress:
+    name: progress (py3.11, no vendor data)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Per-level snapshot (H56 chain, offline only)
+        id: snapshot
+        shell: bash
+        run: |
+          # The snapshot composes l1l2_fixtures (H26) + l1l2_matrix (H41) +
+          # l3check --build-corpus --json (H28/H55) + progress_report.py (H27 v3).
+          # Exit is propagated unchanged: 0 no runnable FAIL / no baseline
+          # regression; 1 a runnable FAIL, a regression, an l3check rc != 0
+          # (including rc=3 NO_RUNNABLE), or a tool/parse error. No
+          # continue-on-error; SKIP/BLOCKED/NOT_RUNNABLE/NOT RUN are never PASS.
+          set +e
+          python3 tools/progress_snapshot.py \
+            --out artifacts/snapshot \
+            --json progress.json --md progress.md 2>&1 | tee progress-snapshot.txt
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Publish progress artifacts and job summary (H27/H41/H42)
+        if: always()
+        shell: bash
+        run: |
+          # Publisher reads the files the snapshot actually emitted; it never
+          # re-derives a verdict. Per-feature rows are NOT in progress.json
+          # (only 5 level rows + inputs.matrix), so H41 rows are read from
+          # artifacts/snapshot/matrix.json directly. A missing/invalid input is
+          # a named failure, not a silent omission.
+          python3 - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+
+          summary_path = os.environ['GITHUB_STEP_SUMMARY']
+          problems: list[str] = []
+          snap_path = Path('progress.json')
+          md_path = Path('progress.md')
+          matrix_path = Path('artifacts/snapshot/matrix.json')
+
+          def fail(msg):
+              problems.append(msg)
+
+          if not snap_path.is_file():
+              fail('MISSING progress.json (snapshot did not emit a report)')
+          if not md_path.is_file():
+              fail('MISSING progress.md (snapshot did not emit Markdown)')
+          if problems:
+              with open(summary_path, 'a', encoding='utf-8') as out:
+                  out.write('## Progress dashboard (H42)\n\n')
+                  for msg in problems:
+                      out.write(f'- **FAILED INPUT:** {msg}\n')
+              print('FAILED INPUT:', *problems, sep='\n - ')
+              sys.exit(1)
+
+          snap = json.loads(snap_path.read_text(encoding='utf-8'))
+
+          # ---- fail-loud assertions (negative-mutation target) ----
+          if snap.get('schema') != 'osm2leaf.progress_snapshot/v1':
+              fail(f"schema mismatch: {snap.get('schema')!r}")
+          rows = snap.get('rows') or []
+          levels = [r.get('level') for r in rows]
+          expected_levels = ['L1', 'L2', 'L3', 'L4-emulator', 'L5-bench']
+          if levels != expected_levels:
+              fail(f'level rows {levels!r} != {expected_levels!r}')
+          for manual in ('L4-emulator', 'L5-bench'):
+              row = next((r for r in rows if r.get('level') == manual), None)
+              if not row or row.get('verdict') != 'NOT RUN':
+                  fail(f'{manual} is not explicit NOT RUN (got '
+                       f'{(row or {}).get("verdict")!r})')
+          # Mandatory fail-loud check: any runnable FAIL row, a regression, or
+          # a snapshot problem must make this publisher fail too (a PASS->FAIL
+          # mutation cannot be published as a green progress summary).
+          for r in rows:
+              if int(r.get('FAIL') or 0) > 0:
+                  fail(f"runnable FAIL in {r.get('level')}: {r.get('FAIL')}")
+          if int(snap.get('exit_code') or 0) != 0:
+              fail(f"snapshot exit_code={snap.get('exit_code')} (not 0)")
+          if snap.get('baseline', {}).get('regressions'):
+              fail(f"baseline regressions: {snap['baseline']['regressions']}")
+          if snap.get('problems'):
+              fail(f"snapshot problems: {snap['problems']}")
+
+          # H41 per-file/per-feature matrix: matrix.json is the only source.
+          matrix = None
+          if not matrix_path.is_file():
+              fail('MISSING artifacts/snapshot/matrix.json (H41 matrix)')
+          else:
+              try:
+                  matrix = json.loads(matrix_path.read_text(encoding='utf-8'))
+              except Exception as exc:
+                  fail(f'UNPARSEABLE matrix.json: {exc}')
+          if matrix is not None:
+              mrows = matrix.get('rows')
+              if not isinstance(mrows, list) or not mrows:
+                  fail('H41 matrix.json has no rows')
+              if str(matrix.get('schema', '')).find('l1l2-matrix') < 0:
+                  fail(f"unexpected H41 matrix schema: {matrix.get('schema')!r}")
+
+          # Write the human-readable sections first so a failing run still
+          # publishes an honest, labelled summary (NO RUNNABLE / FAIL stay RED).
+          l3_problems = [p for p in (snap.get('problems') or [])
+                         if 'l3check' in str(p)]
+          l3_norun = any('rc=3' in str(p) for p in l3_problems)
+          fp = snap.get('firmware_proof_passes')
+          syn = snap.get('synthetic_passes_not_firmware_proof')
+          mrows = (matrix or {}).get('rows') or []
+
+          with open(summary_path, 'a', encoding='utf-8') as out:
+              out.write('## Progress dashboard (H42)\n\n')
+              out.write('Progress signal on every PR/push. Generated by '
+                        '`tools/progress_snapshot.py` (H56) on a no-vendor '
+                        'generated fixture. **No card acceptance claim.**\n\n')
+
+              # (1) per-level table straight from progress.md
+              out.write('### Per-level status (H27 / H56)\n\n')
+              out.write(md_path.read_text(encoding='utf-8'))
+              out.write('\n')
+
+              # (2) l3check NO_RUNNABLE stays RED, never green SKIP
+              if l3_norun:
+                  out.write('**L3 result: NO RUNNABLE TARGETS (RED).** '
+                            '`l3check.py --build-corpus` exited rc=3 (no '
+                            'runnable target); the snapshot exit is 1. This '
+                            'is NOT a PASS and NOT a green SKIP.\n\n')
+              elif l3_problems:
+                  out.write('**L3 result: RED (non-zero l3check exit).** '
+                            'The snapshot recorded an l3check problem; the '
+                            'run fails, never a green SKIP.\n\n')
+
+              # (3) rule-13 firmware-proof vs synthetic separation
+              out.write('### L3 evidence separation (rule 13)\n\n')
+              out.write(f'- Firmware-proof PASS targets: **{fp}** (explicit '
+                        'non-synthetic `l3_claim`/`firmware_proof`).\n')
+              out.write(f'- Synthetic / harness PASS (NOT firmware proof): '
+                        f'**{syn}**.\n')
+              out.write('- L3 = firmware fragments; generated-fixture/harness '
+                        'PASS is reported separately and never promoted to '
+                        'firmware proof. SKIP / NOT_COVERED / NOT_RUNNABLE / '
+                        'BLOCKED claim nothing.\n\n')
+
+              # (4) H41 per-file / per-feature matrix (from matrix.json)
+              out.write('### H41 per-file / per-feature matrix (generated fixture)\n\n')
+              out.write('Source: `artifacts/snapshot/matrix.json`. SKIP / '
+                        'NOT_COVERED / NOT_RUNNABLE are kept separate from PASS.\n\n')
+              out.write('| level | file | feature | status |\n')
+              out.write('| --- | --- | --- | --- |\n')
+              for r in mrows:
+                  cells = [str(r.get(k, '')).replace('|', '/')
+                           for k in ('level', 'file', 'feature', 'status')]
+                  out.write('| ' + ' | '.join(cells) + ' |\n')
+              out.write('\n')
+
+              # (5) L4 emulator / L5 bench explicit manual status
+              out.write('### L4 emulator / L5 bench (manual, not executed here)\n\n')
+              out.write('| Level | Status | Scope |\n| --- | --- | --- |\n')
+              out.write('| L4 full-system emulator (M8) | **NOT RUN** | '
+                        'QEMU ze0 fragments/emulator; readiness only, never '
+                        'auto-PASS |\n')
+              out.write('| L5 car / bench (M6) | **NOT RUN** | S0-S3 bench/car '
+                        'acceptance; manual evidence required, never auto-PASS |\n\n')
+
+              # (6) local-only / vendor-required section — listed, never run
+              out.write('### LOCAL-ONLY / NOT RUNNABLE — not run in CI, vendor data required\n\n')
+              out.write('These checks need a vendor image, full card tree, '
+                        'firmware dump, QEMU build or hardware. They are '
+                        'listed for traceability and are never fetched or '
+                        'executed by this workflow:\n\n')
+              out.write('- `python3 tools/realcheck.py IMG256` — pinned '
+                        'firmware-head regression (vendor IMG256).\n')
+              out.write('- golden `ROOT` tree checks — full 194 `REFER001` '
+                        'pairs and real `LEV3456R` tiles (vendor card).\n')
+              out.write('- QEMU ze0 full-system emulator (M8) — requires '
+                        'emulator build; not in PR gate.\n')
+              out.write('- L5 car / bench S0-S3 (M6) — hardware/bench '
+                        'acceptance; `NOT RUN` here.\n\n')
+              out.write('- Level mapping effective 2026-11-09: L3=fragments, '
+                        'L4=full-system emulator (M8), L5=bench/car (M6).\n')
+
+          # Fail only after the honest summary above has been written.
+          if problems:
+              with open(summary_path, 'a', encoding='utf-8') as out:
+                  out.write('\n### H42 assertions (FAILED)\n\n')
+                  for msg in problems:
+                      out.write(f'- **ASSERTION FAILED:** {msg}\n')
+              print('ASSERTION FAILED:', *problems, sep='\n - ')
+              sys.exit(1)
+
+          print('progress.json schema:', snap.get('schema'))
+          print('level rows:', levels)
+          print('H41 matrix rows:', len(mrows))
+          print('firmware proof / synthetic:', fp, '/', syn)
+          print('snapshot exit_code:', snap.get('exit_code'))
+          print('job summary written to', summary_path)
+          PY
+
+      - name: Upload progress artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: progress-h42
+          path: |
+            progress.json
+            progress.md
+            progress-snapshot.txt
+            artifacts/snapshot/l1l2.json
+            artifacts/snapshot/matrix.json
+            artifacts/snapshot/matrix.md
+            artifacts/snapshot/l3.json
+            artifacts/snapshot/progress-report.json
+          if-no-files-found: warn
+          retention-days: 7
