@@ -1307,7 +1307,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-24-M2.22-sdhost-dma-l4; 5 L4 boots, 4 good PASS/F5 + negative FAIL/F4 [0x28]
 
 - [ ] **M2.23 — The SD lock in the emulator: locked, unlocked and wrong-password cards**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m2.23-sd-lock-emulator · Critical: no · Pair: required
   - Step: reader
   - Depends: M8.C1b (done)
   - Goal: On the unit the card is password-locked (CMD42) with a unit-specific password; the emulator's SD model accepts the password 'on first use'. Make the model strict enough to test the firmware's behaviour with an unlocked card and with a card locked to another unit — the question behind 'can a self-made card work without the lock'.
