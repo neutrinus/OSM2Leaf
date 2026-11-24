@@ -2708,8 +2708,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: `kiwiread` parses our tile without error (then our container is KIWI and M4.66–M4.71 collapse into using it as an oracle).
   - Claims: C-7760–C-7769
 
-- [ ] **M4.78 — KIWI verdict and plan: one page that says what the format buys us, and renames our fields**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.78 — KIWI verdict and plan: one page that says what the format buys us, and renames our fields**
+  - Status: done · Owner: task/m4.78-cycle10 · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M4.63, M4.64, M4.66, M4.67, M4.69
   - Goal: Close the loop for Marek's question 'is KIWI a shortcut?': gather the verdicts, decide per file family whether to adopt KIWI names and layouts, and turn each confirmed match into writer or reader work.
@@ -2720,6 +2720,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: every family ends as 'unrelated' (then the page records the negative with its controls and the lead is closed in Retired leads).
   - Claims: C-7770–C-7779
+  - Result: EXP-2026-11-24-M4.78-kiwi-verdict; 1 adopt/3 partial/6 unrelated; map_signals tile_bytes unchanged
 
 - [x] **M4.79 — `ZCODE0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
   - Status: done · Owner: task/m4.79-zcode-decode · Critical: no · Pair: solo
@@ -6579,3 +6580,4 @@ Do not take these up again; each was superseded by the CE ROM TOC
 | Spare-card `HDD_INFO`/`.ind` matrices as next steps | no hardware; shrink them with M2.4/M3.3 first | M6.3 |
 | Building S1/S2 with `mkcard.py`'s fresh build | re-lays out the whole FAT and drops the root volume-label entry (200 diff ranges), so three variables change at once | M5.13 `imgpatch.py`, M5.13b |
 | `NaviStateCC` vtable hunts (EXP-27…29) | parked; COM objects come from runtime or `DllGetClassObject` with real VAs | M9 / M8.E3 if needed |
+| "KIWI is a reader / shortcut for ZE0 card files" (M4.63–M4.73 verdict) | 0/4 header checks, 0/6,000 road records, 0/17,659 background records, 0 informative address fits on two cards; only ch.1.2 `SWS` size words adopt (already in `tools/kiwi_types.py`), 3 families concept-only | M4.78 verdict page (`docs/format/kiwi-glossary.md`); M4.77 real KIWI disc is the only positive control that could re-open it |
