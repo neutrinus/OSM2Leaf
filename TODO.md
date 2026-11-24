@@ -3720,8 +3720,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7990–C-7999
   - Result: EXP-2026-11-22-M5.80-transliteration; 18-letter selftest, tile names 4/0, 5 claims C-7990-C-7994
 
-- [ ] **M5.81 — Section-1 record decoder: replay the M4.79–M4.84 field censuses on the real card**
-  - Status: in progress · Owner: task/m5.81-section1-census-replay · Critical: no · Pair: required
+- [x] **M5.81 — Section-1 record decoder: replay the M4.79–M4.84 field censuses on the real card**
+  - Status: done · Owner: task/m5.81-section1-census-replay · Critical: no · Pair: required
   - Depends: M4.79 (done), M4.80 (done), M4.81 (done), M4.82 (done), M4.83 (done), M4.84 (done), M4.93 (done)
   - Goal: six per-field decoders landed in one window (`zcode_decode.py`, `icode_decode.py`, `inter_decode.py`, `frway_decode.py`, `icadm_decode.py`, `zipfr_decode.py`, 460–750 lines each), each with `census ROOT`. `--selftest` proves the grammar on a synthetic vector but not that the tool walks a factory tile; a decoder that passes its fixture and reads no real shard is the EXP-2026-11-06-H5 defect one level up. One replay command per decoder, on the EU and US card, with the counts the EXP quotes.
   - Precheck: `for t in zcode icode inter frway icadm zipfr; do python3 tools/${t}_decode.py --selftest; done` all pass; `python3 tools/zcode_decode.py census <EU tree>` prints a table (state the byte total in the EXP).
@@ -3732,6 +3732,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a decoder's factory total is 0 bytes explained on a shard its EXP reports as fully explained (then the EXP sample or the decoder is wrong — say which).
   - Claims: C-8510–C-8519
   - Pair: required
+  - Result: EXP-2026-11-24-M5.81-section1-census-replay; EU 6/6 ok, US 4 ok + 2 absent; all totals match M4.79-M4.84; selftest 283 PASS 0 FAIL; claims C-8510-C-8519
 
 - [x] **M5.82 — New POI placement: a spatial-tree leaf, index record and copy-A word set for a POI that is not in the factory file**
   - Status: done · Owner: task/m5.82-new-poi-placement · Critical: no · Pair: required
