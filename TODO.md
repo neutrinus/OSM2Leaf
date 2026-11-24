@@ -1229,8 +1229,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
-- [ ] **M2.21 — Acceptance gates in the emulator: a wrong `HDD_INFO.TXT` and a wrong map code at L4**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M2.21 — Acceptance gates in the emulator: a wrong `HDD_INFO.TXT` and a wrong map code at L4**
+  - Status: done · Owner: task/m2.21-cycle10 · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H13
   - Goal: The card-acceptance rules (M2.1–M2.19) were read statically and at L3; the car test S0–S3 is their only full check and it is expensive. `-M ze0` now runs the launcher. Reproduce the gates there: each known reject condition should stop at the predicted place.
@@ -1241,6 +1241,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: all mutated cards pass like the factory card (then the launcher path in the emulator skips the check: find which precondition is missing).
   - Claims: C-8030–C-8039
+  - Result: EXP-2026-11-24-M2.21-l4-acceptance-gates; 7/7 mutate->predict->L4 agree (A/B/C/C-ctrl/D/E/F); C-8030-C-8039; l4check selftest OK; full selftest 272/0
 
 - [x] **M2.22 — Does a fully rebuilt card boot? `mkcard` output against in-place patching, at L4**
   - Status: done · Owner: task/m2.22-sdhost-dma-l4 · Critical: yes · Pair: required
