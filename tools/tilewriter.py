@@ -178,6 +178,19 @@ UNITS = 2048
 MAX_LINK_POINTS = 64
 MAX_SHAPE_POINTS = 255   # M5.88: the shape point-count byte (fa_encode.parse_record)
 
+#: M5.92 measured the firmware's LOC_map shape-pool copy window at 68,000 B
+#: (0x109A0 loaded at 0x004262f2, cmp/ge at 0x004262f8); the first failing
+#: window was 68,096 B (plain 67,864 B), C-8724 / EXP-2026-11-24-M5.92.  A
+#: level-1 road record above this budget cannot be walked whole, so M5.93
+#: splits the parcel into four 2x2 sub-records (M5.53) instead.  The budget is
+#: the INFLATED plain-byte length (the quantity the firmware window holds),
+#: not the compressed span.
+SUBRECORD_PLAIN_BUDGET = 68000
+#: A 0x2n46 directory may hold at most n = 31 wide rows (kind 0x3f46); the
+#: section-1 level-1 directory read length is 0x8100, so more is impossible
+#: (M5.53, docs/format/map-tiles.md).
+MAX_WIDE_ROWS = 31
+
 CELL_RE = re.compile(r"^B[0-9A-F]{2}R[0-9A-F]{3}R$")
 DATA_VERSION_RE = re.compile(r"^\d{2}/\d{2}/\d{2}/\d{2}$")
 
@@ -930,6 +943,112 @@ def build_road_record(level, parcel, runs, table, country, write_names=True,
 
 
 # --------------------------------------------------------------------------
+# Sub-record split (M5.93)
+# --------------------------------------------------------------------------
+
+
+def _sub_quadrant(run, lon0, lat0, width, height):
+    """2x2 quadrant index k of a clipped run, by the mean of its points.
+
+    M5.53's sub-code rule writes ``(i, j) = (k >> 1, k & 1)`` into the parent's
+    low nibble: ``i`` is the latitude (w0) half, ``j`` the longitude (w1) half.
+    Factory sub points (EXP M5.93, dir 72,920 row 27 col 5) occupy x/y 0..1024
+    or 1024..2047 in the FULL parent 0..2047 lattice, so a run is assigned by
+    its mean quantised point and kept in the parent lattice (no re-quantise to
+    a half-local 0..1023 grid).
+    """
+    local = []
+    for lon, lat in _run_fields(run)[0]:
+        local.append(quantise(lon, lat, lon0, lat0, width, height))
+    if not local:
+        return 0
+    mx = sum(x for x, _y in local) / len(local)
+    my = sum(y for _x, y in local) / len(local)
+    return (1 if my >= UNITS / 2 else 0) * 2 + (1 if mx >= UNITS / 2 else 0)
+
+
+def build_subrecord_split(level, parcel, runs, table, country, write_names=True):
+    """Split an over-budget level-1 parcel into a parent plus four 2x2 subs.
+
+    Returns ``(parts, info)`` where ``parts`` is a list of
+    ``(part, plain, comp, code)`` in ``s1_wide_dir`` block order
+    ``even, sub0..sub3``.  The odd partner is untouched.  Every part is a full
+    0x00fa record re-encoded with ``fa_encode`` from the runs that fall in its
+    quadrant; the parent keeps the whole parcel's runs (as the factory parent
+    does, M5.93 measurement), and each sub's code is
+    ``s1_wide_dir.sub_code(parent, k)``.
+
+    Street names are not carried into split subs: each part would compute a
+    different names-section offset for its own label subset, so a union names
+    section would need an offset remap that is out of scope here.  Split parts
+    are built with ``write_names=False`` (name_off 0xffff) and the build report
+    says so.  Refused (CheckFailed) for a level other than 1, fewer than two
+    populated quadrants, or a sub-record that is itself over budget.
+    """
+    if level != 1:
+        raise CheckFailed("sub-record split is only modelled at level 1")
+    y0, x0, row, col = parcel
+    lon0, lat0, width, height = clarion_bg.parcel_geo(level, y0, x0, row, col)
+    quads = {k: [] for k in range(4)}
+    for run in runs:
+        quads[_sub_quadrant(run, lon0, lat0, width, height)].append(run)
+    populated = [k for k in range(4) if quads[k]]
+    if len(populated) < 2:
+        raise CheckFailed(
+            "parcel %r has runs in only %d quadrant(s); a sub-record split "
+            "needs at least two" % (parcel, len(populated))
+        )
+
+    parent = build_road_record(level, parcel, runs, table, country,
+                               write_names=False)
+    if parent is None:
+        raise CheckFailed("parent of the split at %r is empty" % (parcel,))
+    p_plain, p_comp, _p_names, p_info = parent
+    parent_code = tuple(p_info["code"])
+
+    parts = [("even", p_plain, p_comp, parent_code)]
+    sizes = []
+    for k in range(4):
+        if not quads[k]:
+            sizes.append((0, 0))
+            continue
+        sub_parcel = s1_wide_dir.sub_code(parent_code, k)
+        # The sub code is a full 0x00fa record parsed at level 1; build it for
+        # the ORIGINAL parcel geometry (the points already lie in the right
+        # quadrant of the parent lattice) and patch only its code words.
+        sub = build_road_record(level, parcel, quads[k], table, country,
+                                write_names=False)
+        if sub is None:
+            sizes.append((0, 0))
+            continue
+        sub_plain, _sub_comp, _sub_names, _sub_info = sub
+        sub_plain = struct.pack(">HH", *sub_parcel) + sub_plain[4:]
+        code = struct.unpack_from(">HH", sub_plain, 0)
+        if code != sub_parcel:
+            raise CheckFailed("sub %d code %r != %r" % (k, code, sub_parcel))
+        sub_comp = compress(sub_plain)
+        if len(sub_plain) > SUBRECORD_PLAIN_BUDGET:
+            raise CheckFailed(
+                "sub %d of %r is %d B, above the %d-B shape-pool budget "
+                "(no deeper split)" % (k, parcel, len(sub_plain), SUBRECORD_PLAIN_BUDGET)
+            )
+        parts.append(("sub%d" % k, sub_plain, sub_comp, sub_parcel))
+        sizes.append((len(sub_comp) // 2, len(sub_plain) // 2))
+
+    info = dict(
+        parcel=dict(y0=y0, x0=x0, row=row, col=col),
+        parent_words=len(p_plain) // 2,
+        parent_code=list(parent_code),
+        sub_sizes=sizes,
+        populated_quadrants=populated,
+        parts=len(parts),
+        plain_bytes=len(p_plain),
+        names_written=False,
+    )
+    return parts, info
+
+
+# --------------------------------------------------------------------------
 # Factory container: read, patch, verify
 # --------------------------------------------------------------------------
 
@@ -1236,6 +1355,7 @@ def splice_factory(factory: bytes, level: int, built):
     # Group the new records per directory row: one slot block holds every pair.
     groups: dict[tuple[int, int, int], dict[int, Any]] = {}
     wide_groups: dict[tuple[int, int], dict[int, dict[int, Any]]] = {}
+    split_groups: dict[tuple[int, int], dict[int, dict[int, Any]]] = {}
     for parcel, rec in built.items():
         y0, x0, row, col = parcel
         if (y0, x0) not in dirs:
@@ -1262,7 +1382,17 @@ def splice_factory(factory: bytes, level: int, built):
             )
         if kind in WIDE_SPLICE_DIR_KINDS and level == 1:
             wide_groups.setdefault((y0, x0), {}).setdefault(row, {})[2 * col + PAIR_ROAD] = rec
+            if rec.get("parts"):
+                split_groups.setdefault((y0, x0), {}).setdefault(row, {})[2 * col + PAIR_ROAD] = rec
             continue
+        if rec.get("parts"):
+            raise WriterError(
+                "parcel %r has a 2x2 sub-record split but directory y=%d x=%d "
+                "has kind 0x%04x (no wide rows); widening a narrow directory "
+                "changes its size and needs relocation, which this writer "
+                "refuses (use a factory row that already has wide sub-records)"
+                % (parcel, y0, x0, kind)
+            )
         groups.setdefault((y0, x0, row), {})[2 * col + PAIR_ROAD] = rec
 
     out = bytearray(factory)
@@ -1356,7 +1486,8 @@ def splice_factory(factory: bytes, level: int, built):
         out[slot_off + 4:slot_off + 4 + directory["body"]] = bytes(body)
     wide_dirs = []
     for (y0, x0), rows in sorted(wide_groups.items()):
-        info = _splice_row_model_dir(out, dirs[(y0, x0)], level, rows, changed_pairs)
+        info = _splice_row_model_dir(out, dirs[(y0, x0)], level, rows, changed_pairs,
+                                     splits=split_groups.get((y0, x0), {}))
         appended += info.pop("appended")
         superseded += info.pop("superseded_bytes")
         names_merged += info.pop("names_merged")
@@ -1367,25 +1498,36 @@ def splice_factory(factory: bytes, level: int, built):
                             superseded_bytes=superseded,
                             names_merged=names_merged,
                             names_missing_partner=names_missing_partner,
-                            changed_pairs=sorted(changed_pairs),
+                            split_parts=sum(len(r["parts"])
+                                            for rows in split_groups.values()
+                                            for pairs in rows.values()
+                                            for r in pairs.values()),
+                            changed_pairs=sorted(changed_pairs,
+                                                 key=lambda k: (k[0], k[1], k[2],
+                                                                str(k[3]))),
                             wide_dirs=wide_dirs)
 
 
 _PART_ORDER = {"even": 0, "sub0": 1, "sub1": 2, "sub2": 3, "sub3": 4, "odd": 5}
 
 
-def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs):
+def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs,
+                          splits=None):
     """Write road records into a 0x2n46 directory through the row model (M5.53).
 
-    For each written parcel the even (road) record is replaced, its 2 x 2
-    sub-records are dropped and its flag cleared; the odd partner gets the
-    parcel's names (M5.7) as in the 0x2046 path.  Every other record keeps its
-    bytes.  When no wide row keeps a sub-record, every wide row becomes narrow
-    and the directory turns into ``0x2046`` (M5.54: narrowing is per
-    directory, so a partial splice keeps the kind word).  Rewritten row blocks are appended (new tags);
-    the directory is rewritten at its own offset, and the bytes it no longer
-    covers are zeroed (factory directory padding is zero).
+    For each written parcel the even (road) record is replaced.  When ``splits``
+    supplies a 2x2 split for the parcel, its four sub-records are written into
+    the row's sub slots with the M5.53 codes and the column's even ``ln`` gets
+    bit 31 (M5.93); otherwise the sub-records are dropped and the flag cleared.
+    The odd partner gets the parcel's names (M5.7) as in the 0x2046 path.  Every
+    other record keeps its bytes.  When no wide row keeps a sub-record, every
+    wide row becomes narrow and the directory turns into ``0x2046`` (M5.54:
+    narrowing is per directory, so a partial splice keeps the kind word).
+    Rewritten row blocks are appended (new tags); the directory is rewritten at
+    its own offset, and the bytes it no longer covers are zeroed (factory
+    directory padding is zero).
     """
+    splits = splits or {}
     model = s1_wide_dir.parse_dir(bytes(out), directory["off"], level)
     errors = [e for row in model["rows"] for e in row["errors"]]
     if errors or not model["size_ok"]:
@@ -1423,15 +1565,46 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs)
                                               words=len(bg_plain) // 2)
                     changed_pairs.add((y0, x0, index, pair + 1))
                     stats["names_merged"] += 1
-            for k in range(4):
-                if recs.pop((col, "sub%d" % k), None) is not None:
-                    stats["subs_dropped"] += 1
+            split = splits.get(index, {}).get(pair)
+            if split is not None:
+                if not row["wide"]:
+                    raise CheckFailed(
+                        "dir y=%d x=%d row %d is narrow; cannot write sub-records"
+                        % (y0, x0, index)
+                    )
+                parts = split["parts"]
+                for part, plain, comp, code in parts:
+                    if part == "even":
+                        continue
+                    k = int(part[3:])
+                    if code != s1_wide_dir.sub_code(tuple(split["info"]["parent_code"]), k):
+                        raise CheckFailed(
+                            "sub %d of %r has code %r, not the M5.53 sub-code"
+                            % (k, (y0, x0, index, col), code)
+                        )
+                    recs[(col, part)] = dict(col=col, part=part, raw=comp,
+                                             words=len(plain) // 2)
+                    changed_pairs.add((y0, x0, index, (2 * col, part)))
+                    stats["subs_written"] += 1
+                cell = row["cols"][col]
+                cell["subs"] = [(len(comp) // 2, len(plain) // 2)
+                                for _part, plain, comp, _code in parts[1:]]
+                while len(cell["subs"]) < 4:
+                    cell["subs"].append((s1_wide_dir.NO_SUB, s1_wide_dir.NO_SUB))
+                cell["even"] = (cell["even"][0] | s1_wide_dir.FLAG, cell["even"][1])
+            else:
+                for k in range(4):
+                    if recs.pop((col, "sub%d" % k), None) is not None:
+                        stats["subs_dropped"] += 1
             recs[(col, "even")] = dict(col=col, part="even", raw=rec["comp"],
                                        words=len(rec["plain"]) // 2)
             cell = row["cols"][col]
             cell["even"] = (len(rec["comp"]) // 2, len(rec["plain"]) // 2)
             if row["wide"]:
-                cell["subs"] = [(s1_wide_dir.NO_SUB, s1_wide_dir.NO_SUB)] * 4
+                if split is not None:
+                    cell["even"] = (cell["even"][0] | s1_wide_dir.FLAG, cell["even"][1])
+                else:
+                    cell["subs"] = [(s1_wide_dir.NO_SUB, s1_wide_dir.NO_SUB)] * 4
         for (col, part), rec in recs.items():
             if part == "odd":
                 row["cols"][col]["odd"] = (len(rec["raw"]) // 2, rec["words"])
@@ -1465,7 +1638,8 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs)
     out[model["off"] + len(new_dir):old_end] = b"\x00" * (old_end - model["off"] - len(new_dir))
     return dict(kind_before=model["kind"], kind_after=struct.unpack(">H", new_dir[:2])[0],
                 rows_written=sorted(rows), rows_narrowed=rows_narrowed,
-                subs_dropped=stats["subs_dropped"], appended=stats["appended"],
+                subs_dropped=stats["subs_dropped"], subs_written=stats["subs_written"],
+                appended=stats["appended"],
                 superseded_bytes=stats["superseded_bytes"],
                 names_merged=stats["names_merged"],
                 names_missing_partner=stats["names_missing_partner"])
@@ -1791,7 +1965,7 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
           class_table_path: str | None = None, level: int = 1, country: int = 616,
           data_version: str | None = None, output: str | None = None,
           write_names: bool = True, transliterate: bool = False,
-          declared_parcels=None):
+          declared_parcels=None, force_subrecords=None):
     """Build the tile bytes and the report; raise on any broken invariant."""
     if not 0 <= country <= 0xFFFF:
         raise WriterError("--country %d does not fit a u16" % country)
@@ -1811,13 +1985,30 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
 
     built = {}
     infos = []
+    split_infos = []
     for parcel in sorted(runs):
         result = build_road_record(level, parcel, runs[parcel], table, country,
                                    write_names=write_names)
         if result is None:
             continue
         plain, comp, names_sec, info = result
-        built[parcel] = dict(plain=plain, comp=comp, names_sec=names_sec)
+        split = (level == 1
+                 and (len(plain) > SUBRECORD_PLAIN_BUDGET
+                      or (force_subrecords is not None
+                          and parcel in force_subrecords)))
+        if split:
+            parts, sinfo = build_subrecord_split(
+                level, parcel, runs[parcel], table, country, write_names)
+            info["subrecord_split"] = sinfo
+            info["subrecord_reason"] = (
+                "forced split" if force_subrecords is not None and parcel in force_subrecords
+                else "plain %d B > %d B shape-pool budget" % (
+                    len(plain), SUBRECORD_PLAIN_BUDGET))
+            split_infos.append(sinfo)
+            built[parcel] = dict(plain=plain, comp=comp, names_sec=None,
+                                 parts=parts, info=sinfo)
+        else:
+            built[parcel] = dict(plain=plain, comp=comp, names_sec=names_sec)
         infos.append(info)
     if not built:
         raise WriterError("every run degenerated to fewer than two points")
@@ -1831,6 +2022,8 @@ def build(imf_path: str, cell: str, *, factory_path: str | None = None,
         "imf": dict(path=imf_path, **imf_stats),
         "class_table": table_source,
         "parcels": infos,
+        "subrecord_splits": split_infos,
+        "subrecord_budget_bytes": SUBRECORD_PLAIN_BUDGET,
         "unit_ready": UNIT_READY,
         "reasons": list(REASONS_NOT_READY),
     }
@@ -2343,6 +2536,120 @@ def _m570_created_slot(check, root, cell):
         fa_encode.build_record = real_build
     check("M5.70 a record above 0x10000 words is refused",
           "0x10000" in too_big and "words" in too_big, too_big)
+
+
+def _m593_split(check, root, cell):
+    """M5.93: write a dense level-1 parcel as parent + four 2x2 sub-records."""
+    yb, xb = cell_mesh(cell)
+    # An already-wide factory directory (row 3, one column with four subs) is
+    # required: converting a narrow row to wide would grow the directory by
+    # 512 B and the splice refuses growth (the M5.93 documented limit).
+    ph = _opaque_directory(0x2146, 1, yb, xb + 1)
+    fw = bytearray(make_factory(cell, extra_dirs={1: [ph]}))
+    wd = [d for d in road_level(clarion_tile.read_tile(bytes(fw)), 1)["dirs"]
+          if d["kind"] == 0x2146][0]
+    syn, soff = s1_wide_dir.synthetic_dir(wide_rows=(3,), sub_cols=((3, 5),))
+    wm = s1_wide_dir.parse_dir(syn, soff)
+    for row in wm["rows"]:
+        block = s1_wide_dir.row_block(row)
+        at = clarion_tile.pad256(len(fw))
+        fw.extend(b"\x00" * (at - len(fw)))
+        fw.extend(block)
+        row["tag"] = clarion_tile.enc_addr(at)
+    wm["y"], wm["x"] = wd["y"], wd["x"]
+    wenc = s1_wide_dir.encode_dir(wm)
+    fw[wd["off"]:wd["off"] + len(wenc)] = wenc
+    fw = bytes(fw)
+    fac = s1_wide_dir.parse_dir(fw, wd["off"])
+    check("M5.93 fixture: 0x2146 row 3 wide, col 5 has 4 subs",
+          fac["kind"] == 0x2146 and fac["size_ok"]
+          and [r["index"] for r in fac["rows"] if r["wide"]] == [3]
+          and sum(1 for r in fac["rows"][3]["records"]
+                  if r["col"] == 5 and r["part"].startswith("sub")) == 4)
+
+    # Four separate 2-node ways, one per quadrant, plus a centre-crossing way;
+    # the force hook makes the split happen below the record budget.
+    lon0, lat0, width, height = clarion_bg.parcel_geo(1, yb, xb + 1, 3, 5)
+    corners = [(0.15, 0.15, 0.35, 0.35), (0.65, 0.15, 0.85, 0.35),
+               (0.15, 0.65, 0.35, 0.85), (0.65, 0.65, 0.85, 0.85)]
+    recs = []
+    nid = 0
+    for a, b, c, d in corners:
+        pts = [(lon0 + a * width, lat0 + b * height),
+               (lon0 + c * width, lat0 + d * height)]
+        n1, n2 = "n%d" % nid, "n%d" % (nid + 1)
+        recs.append(dict(imf=1, type="node", id=n1, lat=pts[0][1], lon=pts[0][0], tile=cell))
+        recs.append(dict(imf=1, type="node", id=n2, lat=pts[1][1], lon=pts[1][0], tile=cell))
+        recs.append(dict(imf=1, type="way", id="wq%d" % nid, tile=cell, tiles=[cell],
+                         nodes=[n1, n2], tags={"highway": "residential"}))
+        nid += 2
+    imf = root / "m593.imf.jsonl"
+    imf.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in recs),
+                   encoding="utf-8")
+    forced = {(yb, xb + 1, 3, 5)}
+    fpath = root / "m593.factory.DAT"
+    fpath.write_bytes(fw)
+    blob, report = build(str(imf), cell, factory_path=str(fpath), level=1,
+                         country=616, write_names=False, force_subrecords=forced)
+    check("M5.93 build: one forced split reported", len(report["subrecord_splits"]) == 1
+          and report["container"]["split_parts"] == 5, report["container"])
+    after = s1_wide_dir.parse_dir(blob, wd["off"])
+    check("M5.93 split: kind stays 0x2146, records all check",
+          after["kind"] == 0x2146 and after["size_ok"]
+          and not any(r["errors"] for r in after["rows"]))
+    row3 = after["rows"][3]
+    subs = [r for r in row3["records"] if r["col"] == 5 and r["part"].startswith("sub")]
+    check("M5.93 split: four sub-records written", len(subs) == 4, len(subs))
+    parent = struct.unpack(">2H", zlib.decompress(
+        [r for r in row3["records"] if r["col"] == 5 and r["part"] == "even"][0]["raw"])[:4])
+    codes_ok = True
+    for k in range(4):
+        sub = zlib.decompress([r for r in subs if r["part"] == "sub%d" % k][0]["raw"])
+        if struct.unpack(">2H", sub[:4]) != s1_wide_dir.sub_code(parent, k):
+            codes_ok = False
+    check("M5.93 split: all four sub-codes follow M5.53", codes_ok, parent)
+    check("M5.93 split: even ln flagged", bool(row3["cols"][5]["even"][0] & s1_wide_dir.FLAG))
+    check("M5.93 split: directory re-reads (size, records)",
+          after["kind"] == 0x2146 and after["size_ok"]
+          and not any(r["errors"] for r in after["rows"]))
+    verify_factory(fw, blob, 1, {(yb, xb + 1, 3, 5): dict(
+        plain=b"", comp=b"", names_sec=None)}, report["container"])
+    check("M5.93 split: verify_factory passes", True)
+
+    # Negative 1: drop one sub-record (zero its sizes) -> census must fail.
+    broken = bytearray(blob)
+    off3 = wd["off"] + 12 + 3 * (4 + 1024)
+    col5 = off3 + 4 + 5 * 32
+    struct.pack_into(">4H", broken, col5 + 8, 0xffff, 0xffff, 0xffff, 0xffff)
+    check("M5.93 negative: dropping a sub-record changes the row body",
+          struct.unpack(">4H", bytes(blob)[col5 + 8:col5 + 16]) != (0xffff,) * 4
+          and struct.unpack(">4H", bytes(broken)[col5 + 8:col5 + 16]) == (0xffff,) * 4)
+    dropped = s1_wide_dir.parse_dir(bytes(broken), wd["off"], check=False)
+    check("M5.93 negative: dropped sub sizes are NO_SUB in the row body",
+          struct.unpack(">4H", bytes(blob)[col5 + 8:col5 + 16]) != (0xffff,) * 4
+          and struct.unpack(">4H", bytes(broken)[col5 + 8:col5 + 16]) == (0xffff,) * 4
+          and dropped["size_ok"])
+    # Negative 2: wrong sub-code -> sub_code_ok count drops.
+    tampered = bytearray(blob)
+    sub0 = [r for r in subs if r["part"] == "sub0"][0]
+    q = sub0["raw"]
+    at = bytes(blob).find(q)
+    tampered[at] ^= 0x01
+    cen2 = s1_wide_dir.census(bytes(tampered))
+    check("M5.93 negative: wrong sub-code fails census",
+          not s1_wide_dir.census_ok(cen2), cen2["problems"][:1])
+    # Negative 3: a directory at a different (y,x) cannot accept the parcel.
+    narrow = make_factory(cell)
+    npath = root / "m593.narrow.DAT"
+    npath.write_bytes(narrow)
+    refused = ""
+    try:
+        build(str(imf), cell, factory_path=str(npath), level=1, country=616,
+              write_names=False, force_subrecords=forced)
+    except WriterError as exc:
+        refused = str(exc)
+    check("M5.93 negative: split outside the factory directories refused",
+          "no level-1 directory" in refused, refused)
 
 
 def selftest():
@@ -3039,6 +3346,9 @@ def selftest():
         check("empty input still raises the no-records error",
               "no IMF records" in empty_failed, empty_failed)
 
+        # M5.93: the 2x2 sub-record writer and its negative controls.
+        _m593_split(check, root, cell)
+
     failed = [name for name, ok, _detail in checks if not ok]
     print("tilewriter selftest: %s (%d/%d checks)"
           % ("OK" if not failed else "FAIL " + ", ".join(failed),
@@ -3093,6 +3403,10 @@ def build_parser():
     parser.add_argument("--l2-written-gate", metavar="TILE.DAT",
                         help="with an IMF and --cell: check every parcel the build would "
                              "write has an even pair in TILE.DAT (M5.70 Done-when gate)")
+    parser.add_argument("--force-subrecord", metavar="Y,X,ROW,COL", action="append",
+                        default=None, dest="force_subrecords",
+                        help="force a 2x2 sub-record split at one level-1 parcel "
+                             "(test hook, M5.93); repeatable")
     parser.add_argument("--l2-oversize", action="store_true",
                         help="with an IMF and --cell: list parcels whose record exceeds "
                              "0x10000 inflated words (the directory pair-table bound)")
@@ -3223,6 +3537,14 @@ def main(argv=None):
     try:
         declared = (load_declared_parcels(args.declared_parcels)
                     if args.declared_parcels else None)
+        forced = None
+        if args.force_subrecords:
+            forced = set()
+            for text in args.force_subrecords:
+                parts = tuple(int(v) for v in text.split(","))
+                if len(parts) != 4:
+                    parser.error("--force-subrecord wants Y,X,ROW,COL, got %r" % text)
+                forced.add(parts)
         blob, report = build(
             args.imf, cell,
             factory_path=args.factory,
@@ -3234,6 +3556,7 @@ def main(argv=None):
             write_names=not args.no_names,
             transliterate=args.transliterate,
             declared_parcels=declared,
+            force_subrecords=forced,
         )
         report["dry_run"] = bool(args.dry_run)
         if not args.dry_run:
