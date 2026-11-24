@@ -2028,7 +2028,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7790–C-7799
 
 - [ ] **M3.40 — Who opens `REFER002`: the EV-layer opener and its read path**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m3.40-refer002-opener · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: Matrix row 24 has no reader. Before decoding (M4.85) or writing (M5.79) the EV layer, locate what opens its files and whether the reads go through the same search-type opener as `REFER001`.
