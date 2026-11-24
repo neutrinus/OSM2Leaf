@@ -5352,8 +5352,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.H39-tap-l4; named-region after-tap hash c64ff230… equal in 2 boots, != idle 985e3ddd…, empty tap unchanged; bp hits 4/2; US fallback
   - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
-- [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
-  - Status: in progress · Owner: task/m8.h40-live-window · Critical: no · Pair: solo
+- [x] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
+  - Status: done · Owner: task/m8.h40-live-window · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H4, M8.H38
   - Goal: For exploring the UI by hand: `run.sh --display gtk` (or VNC) where a mouse click is a tap and mapped keyboard keys are the hard keys.
@@ -5364,6 +5364,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the click lands at a different guest coordinate than requested (scaling error) — measured by the peer's log.
   - Claims: C-7370–C-7379
+  - Result: EXP-2026-11-24-M8.H40-live-window; L4 QMP tap frame 5102fd004631 == H39, ZOOM ILL EVENT 1, 33/33 patches
 
 - [ ] **M8.H41 — Scenario: set a destination and calculate a route at L4**
   - Status: open · Owner: — · Critical: no · Pair: required
