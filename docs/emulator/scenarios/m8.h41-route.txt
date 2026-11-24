@@ -1,0 +1,39 @@
+# M8.H41 — first routing scenario on -M ze0 (EU2011, factory card)
+#
+# Steps are tools/ze0_ui.py grammar.  A "# PHASE name" tail is a marker read
+# by tools/ze0_route_scenario.py: it records the sdcard_read_block line count
+# at that step, so the window [before_calculate:route_shown] is an event slice.
+#
+# The three GPS points were derived with `tools/coord.py cell LAT LON`:
+#   P1 50.0875,14.4214 -> B48R058R   P2 50.1000,14.5000 -> B48R058R (same tile)
+#   P3 50.1000,30.0000 -> B48R048R   (two tiles apart; R058 vs R048)
+# Touch y is flipped by the firmware: screen y -> panel (480-y) (running.md 6).
+
+# --- boot and consent -------------------------------------------------------
+wait-log Store Mgr Ready! \[DSK1:\]
+sleep-guest 2
+shot consent
+tap 277 98
+wait-log MAP_MAPOPERATION_NORMAL_MAP
+sleep-guest 2
+shot map_idle
+
+# --- two points inside one tile, then two tiles apart -----------------------
+gps 50.0875 14.4214  # P1 B48R058R
+sleep-guest 2
+shot p1
+gps 50.1000 14.5000  # P2 B48R058R (same tile)
+sleep-guest 2
+shot p2
+
+gps 50.1000 30.0000  # P3 B48R048R (two tiles apart)
+sleep-guest 2
+shot p3  # PHASE before_calculate
+
+# --- set destination and calculate -----------------------------------------
+# The map-menu / destination buttons are keyed out of the composited view
+# (M8.H42 blocked, C1v open); there is no peer step for a menu tap.  We probe
+# the documented AUI band and the map, then take a named-region final shot.
+tap 400 420  # bottom AUI band (destination/menu probe)  # PHASE calculate
+sleep-guest 3
+shot route_shown  # PHASE route_shown
