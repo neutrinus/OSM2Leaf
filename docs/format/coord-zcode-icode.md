@@ -329,7 +329,10 @@ the record/trie walker is not on the mount path. Record-walker VA UNKNOWN.
 load (C-5761), no row in either mount run; whether `Navi.exe` reads it at all is
 UNKNOWN (C-5765). Copy-only status (M3.17) is unchanged.
 
-Negative with control: EXP-2026-11-20-M3.14-zcode-icode-coord (C-2190–C-2199,
-C-5760–C-5767); the earlier EXP-2026-11-08-M3.14-reader-layout stays as the
-first pass. The layouts above stay as written; this section adds only the
-firmware-side status.
+Negative with control: EXP-2026-11-24-M3.14-zcode-coord-search-harness-missing
+(reaffirms C-5760/C-5761/C-5765; both rule-14 families fail again with fresh
+numbers and negative mutations; no ZCODE/COORD search-path read-watch harness
+exists — M3.43 blocked on M8.C1p), EXP-2026-11-20-M3.14-zcode-icode-coord
+(C-2190–C-2199, C-5760–C-5767); the earlier EXP-2026-11-08-M3.14-reader-layout
+stays as the first pass. The layouts above stay as written; this section adds
+only the firmware-side status.
