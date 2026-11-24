@@ -2,7 +2,7 @@
 """sec2_level2.py — the upper section-2 route levels 2, 4 and 5 of a generated map (M5.103).
 
 The route search runs long routes top-down (``LEV4Top``/``LEV5Top``, then
-``LEV2DSIDE``, ``LEV1DSIDE``; C-10057, C-10265).  Each upper level is the
+``LEV2DSIDE``, ``LEV1DSIDE``; C-10057, C-10375).  Each upper level is the
 graph of the main roads of the level below, on meshes that group S x S meshes
 of the level below.  Level 2 sits in the grid tile; levels 4 and 5 sit in
 ``MAPAL001/LEV3456R.DAT``.  Rules measured on the factory London tile
@@ -17,7 +17,7 @@ of the level below.  Level 2 sits in the grid tile; levels 4 and 5 sit in
   8,837 / 8,841 factory entries within +-1, level 5: 14,198 / 14,225);
 * unit 1 selector ``row << (16 - b) | col << (8 - b)`` with ``b`` = bits per
   row/col (2 for S = 4, 4 for S = 16);
-* level classes: level 2 = 1-7, 10, 11 (C-10264); level 4 and 5 hold classes
+* level classes: level 2 = 1-7, 10, 11 (C-10374); level 4 and 5 hold classes
   1-6 and 10 in the factory, with only part of classes 4-6 (largest factory
   level-4 mesh: 3,442 nodes), so the class alone does not choose them; here a
   link's rank comes from its OSM highway (``rank``: motorway and trunk reach

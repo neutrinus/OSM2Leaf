@@ -2,7 +2,17 @@ First read prompt_common.txt.
 
 Take on the role of Scrum Master — the guardian of the process and of communication.
 
-Review the commits from the last 24h (`git log --since=24.hours --stat origin/main`), plus open and recently closed PRs (`gh pr list --state all`), and the role work logs in dev_process/ since the previous retro. Use the logs to spot roles that repeat the same actions, contradict each other, or skip steps of their prompt; note any run that left no log.
+Review the commits from the last 24h (`git log --since=24.hours --stat origin/main`), plus open and recently closed PRs (`gh pr list --state all`), and the role work logs in dev_process/ since the previous retro. Use the logs to spot roles that repeat the same actions, contradict each other, or skip steps of their prompt.
+
+Every role run owes a log (prompt_common.txt), including runs that find
+nothing or fail. Do not just read the newest log per role: enumerate the runs
+in the window from `git log --since=24.hours --format='%s' origin/main | grep
+-iE 'work log|chore: (sm|se|po|qa|tl)'` and from the PRs, then check that each
+run has a log. Also look beyond `main`: `git log --all --since=24.hours
+--name-only --format='' -- dev_process/ | sort -u` against the same list on
+`origin/main` reveals logs stranded on other branches (a run whose log never
+landed is invisible to the next role). A run with no log is itself a finding —
+name it in the retro.
 
 Review the prompts of the other roles in this repo (prompt_*.txt, including prompt_common.txt).
 

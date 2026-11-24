@@ -1,0 +1,33 @@
+hw/sh4: ze0 2DG glyph blit sets the destination alpha bit for AUI text (M8.C1v).
+
+On the map screen the AUI blits its button labels into keyed DU plane 1
+(mode 0x1002, key 0x03ff) as 0xa8xxxxxx alpha glyphs from auirtdll.dll
+(emitter fn 0x03d07b20, build B 0x03cd0000). The last UI display list
+0x0e8d4c70 targeting plane 1 at 0x0ef6c400 contains 52 such 0xa8003100
+glyphs (colours 0x6f7b / 0x1084 / 0x7fff). ze0-0014's glyph() blends the
+glyph colour onto the destination but preserves dst&0x8000, so every label
+pixel is written with bit 15 clear and C-8502's colour key drops it: L4
+screen shows only the 1,502 already-opaque widget pixels, no labels.
+
+Here the glyph() writes the blended colour with the alpha (opacity) bit
+set, so the text survives the 0x03ff key in the composed screen and the
+map buttons (Map Menu / ZOOM OUT / 1-16mi / ZOOM IN) are visible over the
+map. Map-plane (0x4002) glyphs are unaffected: their plane is not keyed and
+the alpha bit is ignored on those pixels. Negative control: with this
+single OR disabled, the label pixels have bit 15 clear again and the key
+drops them (EXP-2026-11-24-M8.C1v).
+
+Signed-off-by: Claude <noreply@anthropic.com>
+
+--- a/hw/sh4/ze0_2dg.c
++++ b/hw/sh4/ze0_2dg.c
+@@ -271,6 +271,7 @@ static void glyph(Dl *d, uint16_t c, uint32_t wh, uint32_t pos)
+             uint16_t *p = &px[x - xa];
+ 
+             if (a) {
+-                *p = cpu_to_le16(blend(le16_to_cpu(*p), c, a));
++                /* AUI glyphs are opaque (C-8506, M8.C1v): set alpha bit. */
++                *p = cpu_to_le16(blend(le16_to_cpu(*p), c, a) | 0x8000);
+             }
+         }
+         address_space_write(&address_space_memory,

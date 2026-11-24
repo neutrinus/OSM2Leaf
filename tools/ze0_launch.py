@@ -108,21 +108,35 @@ def resolve_flash(flash, work, nk, dry_run=False):
 
 
 def qemu_argv(qemu, card, nk, flash, ipl, work, lines, gdb=None, stop=False,
-              icount="shift=0,sleep=off", flash_rw=False):
+              icount="shift=0,sleep=off", flash_rw=False, display="none",
+              input=None, qmp=None):
     """The QEMU command line; ``lines`` is the list of SCIF names (sci3...)."""
     mopts = ["ze0", "dbgmsg=" + NK1_DBGMSG, "nk=" + nk, "ipl-patch=" + ipl,
              "flash=" + flash]
     if flash_rw:
         mopts.append("flash-rw=on")
+    if display != "none":
+        mopts.append("gfx-display=on")
+        if input:
+            mopts.append("gfx-input=cinput")
     mopts += ["%s=c%s" % (ln, ln) for ln in lines]
     argv = [qemu, "-M", ",".join(mopts), "-kernel", card,
             "-drive", "if=sd,index=0,id=sd0,file=%s,format=raw,snapshot=on" % card]
     for ln in lines:
         argv += ["-chardev", "socket,id=c%s,path=%s,server=on,wait=off" %
                  (ln, os.path.join(work, ln + ".sock"))]
-    argv += ["-icount", icount, "-nographic",
-             "-serial", "file:" + os.path.join(work, "serial.log"),
+    if display != "none" and input:
+        argv += ["-chardev", "socket,id=cinput,path=%s,server=on,wait=off" %
+                 os.path.join(work, "input.sock")]
+    argv += ["-icount", icount]
+    if display == "none":
+        argv += ["-nographic"]
+    else:
+        argv += ["-display", display]
+    argv += ["-serial", "file:" + os.path.join(work, "serial.log"),
              "-monitor", "unix:%s,server,nowait" % os.path.join(work, "mon.sock")]
+    if qmp:
+        argv += ["-qmp", "unix:%s,server,nowait" % qmp]
     if gdb:
         argv += ["-gdb", "tcp::%d" % gdb]
     if stop:
@@ -143,7 +157,11 @@ def plan(args):
     for n in dict.fromkeys(names):
         line, build = PEERS[n]
         lines.append(line)
-        peers.append((n, build(args.workdir)))
+        pargv = build(args.workdir)
+        if n == "panel" and getattr(args, "input", False):
+            pargv += ["--input", os.path.join(args.workdir, "input.sock"),
+                      "--keymap", os.path.join(HERE, "ze0_keymap.json")]
+        peers.append((n, pargv))
     return lines, peers
 
 
@@ -170,6 +188,12 @@ def main(argv=None):
                     help="file of extra 'PHYS HEXBYTES' lines appended to the IPL "
                          "patch (emulator-only guest patches; NK1 reloads ROM image A "
                          "from the card, so lines for image A do not survive)")
+    ap.add_argument("--display", default="none",
+                    help="live display: none, vnc=HOST:N, gtk, sdl (M8.H40)")
+    ap.add_argument("--input", action="store_true",
+                    help="attach ze0-gfx input chardev to panel peer (M8.H40)")
+    ap.add_argument("--qmp", action="store_true",
+                    help="expose a QMP socket on WORK/qmp.sock (M8.H40)")
     ap.add_argument("--ui-start", action="store_true",
                     help="let the UI leave INI_STARTUP and accept touch without the "
                          "audio micom: runs ze0_uistart.py on the gdb stub until the "
@@ -195,7 +219,9 @@ def main(argv=None):
                args.card, "-o", ipl, "--nk", args.nk]
     qargv = qemu_argv(args.qemu, args.card, args.nk, args.flash, ipl,
                       args.workdir, lines, args.gdb, args.stop,
-                      flash_rw=args.flash_rw)
+                      flash_rw=args.flash_rw, display=args.display,
+                      input=args.input,
+                      qmp=os.path.join(args.workdir, "qmp.sock") if args.qmp else None)
     print("work dir: %s" % args.workdir)
     print("ipl:      %s" % " ".join(map(shlex.quote, ipl_cmd)))
     print("qemu:     %s" % " ".join(map(shlex.quote, qargv)))
@@ -274,6 +300,19 @@ def selftest():
            "socket,id=csci7,path=/w/sci7.sock,server=on,wait=off"])
     check("card is read-only", any("snapshot=on" in a for a in argv), True)
     check("gdb port", argv[argv.index("-gdb") + 1], "tcp::1240")
+    # M8.H40: live display + forwarded input + QMP socket
+    argv_live = qemu_argv("q", "card.img", "nk1.bin", "f.bin", "/w/ipl.txt", w,
+                          ["sci3"], display="vnc=127.0.0.1:7", input=True,
+                          qmp="/w/qmp.sock")
+    m_live = argv_live[argv_live.index("-M") + 1]
+    check("gfx-display on", "gfx-display=on" in m_live.split(","), True)
+    check("gfx-input chardev", "gfx-input=cinput" in m_live.split(","), True)
+    check("input chardev socket",
+          "socket,id=cinput,path=/w/input.sock,server=on,wait=off" in argv_live, True)
+    check("display arg", argv_live[argv_live.index("-display") + 1], "vnc=127.0.0.1:7")
+    check("qmp socket", argv_live[argv_live.index("-qmp") + 1],
+          "unix:/w/qmp.sock,server,nowait")
+    check("no nographic with display", "-nographic" in argv_live, False)
     check("monitor socket", argv[argv.index("-monitor") + 1],
           "unix:/w/mon.sock,server,nowait")
 
@@ -300,6 +339,15 @@ def selftest():
             check("refuse " + bad, "accepted", "refused")
         except SystemExit as exc:
             check("refuse " + bad, why in str(exc), True)
+    class A2:
+        workdir = w
+        peer = ["panel"]
+        input = True
+        display = "vnc=127.0.0.1:7"
+    lines2, peers2 = plan(A2)
+    check("panel --input wired", "--input" in peers2[0][1], True)
+    check("panel keymap wired", os.path.join(HERE, "ze0_keymap.json") in peers2[0][1], True)
+    check("input socket path", os.path.join(w, "input.sock") in peers2[0][1], True)
     check("NK1 file exists", os.path.exists(DEFAULT_NK), True)
     print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
     return 1 if fails else 0

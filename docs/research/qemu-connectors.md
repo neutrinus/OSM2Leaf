@@ -56,6 +56,8 @@ many agents can build connectors at the same time.
 | Traffic (TMC) | `fmmdrv.dll`, tuner via micon | message injection, no radio | M8.H62 | call recipe | M8.H63 |
 | Debug console | `SCI6:` | serial log today; chardev `sci6` | M8.H65 | a terminal | M8.H65 |
 | Watchdog / reset | to be found | M8.H67 | M8.H67 | log | M8.H67 |
+| On-chip DMAC | `0xff801000` (305 writes in one EU2011 boot, M8.H22 census) | shared by SD/SCIF drivers; today unmodelled | `docs/research/full-system-emulation.md` §1 | register stub for channels 0-13 + poll read-back | M8.H1 (SCIF DMA), M8.C10 (SD DMA) — standalone model unassigned |
+| Unnamed P4 blocks | `0xffc40000`, `0xffcc0000`, `0xff800000`, `0xfffec000` (M8.H22 census) | unmodelled; no name in full-system-emulation.md §1 | firmware literal scan needed first | none until named | unassigned — name from firmware before a device task |
 
 ## Tooling around the connectors
 

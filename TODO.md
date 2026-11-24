@@ -845,8 +845,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-6430–C-6439
   - Result: EXP-2026-11-24-M1.41-bluetooth-stack; paired 6 (mov #5 @0x032f1350, 6-slot mask), connected 1 (scalar GetCurrentConnectedId 0x032f3044), verdict policy in code; 282/282 selftest
 
-- [ ] **M1.42 — Decompile map of the audio stack (`Audio.exe`, `anwdrv`, `wavessi`, `DspDrv`, `MuteDrv`, `BeepDrv`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.42 — Decompile map of the audio stack (`Audio.exe`, `anwdrv`, `wavessi`, `DspDrv`, `MuteDrv`, `BeepDrv`)**
+  - Status: done · Owner: task/m1.42-audio-stack · Critical: no · Pair: solo
   - Depends: — (M4.60 is the data side: where the sounds are)
   - Goal: side track. What the SH-4 does itself and what it only asks the audio microcontroller to do over `SCI1:`: source switching, volume, mixing of guidance over media, USB/iPod/Bluetooth audio path, radio. List the message set of the `anwdrv` protocol (device `AUD`/`TNR`/`TMC`/`UPD`…: command ids, lengths).
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 IMG256 exports anwdrv.dll` prints exports.
@@ -854,6 +854,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: the page has the audio path diagram (who produces PCM, on which SSI, who mixes) and ≥ 20 `anwdrv` messages with direction and meaning or `unknown`.
   - Stop: the microcontroller's own firmware (`AudioMiconUpdate.exe` payload, V850) is out of scope.
   - Claims: C-6440–C-6449
+  - Result: EXP-2026-11-24-M1.42-audio-stack; 71 message rows >=20; anw_msgs literals=98 mapped=80; selftest 5/5
 
 - [x] **M1.43 — Decompile map of the vehicle screens (`Vehicle.exe`, `DriveComputerCC`, `EvTimerCC`, `EvNoticeCC`, `HvacCC`, `ComfortCC`)**
   - Status: done · Owner: task/m1.43-vehicle-signals · Critical: no · Pair: solo
@@ -1056,6 +1057,29 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-24-M1.59-eu-audio-transplant; TNR patch 4 B; US Audio.exe transplanted, boots to map on NK1 (-M ze0); car test open
   - Note: RBDS_CC.dll left out on purpose: EU radio screens bind RDSCC.RDSCtrl (C-10224); car test is Marek's
 
+- [x] **M1.60 — EU card on a USA unit: why FM radio only partly works after the audio patch**
+  - Status: done · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.59
+  - Goal: Marek (2026-11-24, car test of M1.59): with the audio patch the equalizer and beeps work, but FM "does not fully work". Find what limits FM: band raster (US 200 kHz odd 87.9–107.9 vs EU 100 kHz / 50 kHz from 87.5), seek thresholds, RDS vs RBDS decoding, or the EU radio screen (`RDSCC.RDSCtrl`) not matching the US `Audio.exe` messages; propose a patch.
+  - Precheck: Marek's symptom list (which stations: none / some; manual step size shown; RDS name; sound) ; the car ran the full transplant (US `Audio.exe`).
+  - Scope: US and EU `Audio.exe` (band tables, step, seek), `RDSCC.dll` vs `RBDS_CC.dll` message ids, NK1 tuner driver `TNR4:` IOCTLs (committed `firmware/unit-flash/nk1-QY7200ND.bin`); static plus `-M ze0` where the micom is not needed.
+  - Done when: an EXP naming the FM band/step tables in each `Audio.exe` and in the NK1 tuner driver, the cause matching Marek's symptoms, and a patch tool or a car test plan; claims.
+  - Stop: two sessions; no vendor bytes committed, no flash dump committed.
+  - Falsifier: the US `Audio.exe` already tunes 100 kHz steps from 87.5 MHz (then the raster is not the cause).
+  - Claims: C-10310–C-10319
+  - Result: EXP-2026-11-24-M1.60-radio-ui-tuner-path; EU radio screen and US Audio.exe use different IPC ids/queue/shared block (screen dead after transplant); tools/audio_rds_launch.py starts TNR2 (CRds) from the card; car test open; FM raster not in card or NK1 code (microcontroller)
+
+- [ ] **M1.61 — EU card on a USA unit: the US radio chain complete (RBDS_CC + US radio screens)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.60
+  - Goal: fallback if the USA unit's audio microcontroller does not serve RDS mode (car test of `audio_rds_launch.py` gives an open driver and a silent or dead tuner). Find where the radio screens live (skin forms such as `AvFMAMMain`, `ScreenStateCC` bindings), what binds a form to `RDSCC.RDSCtrl` or `RBDS_CC.RBDSCtl`, and whether the US forms + `RBDS_CC.dll` can be put on the EU card beside the M1.59 transplant.
+  - Precheck: car result of M1.60's patch is "driver opens, tuner dead" (otherwise this task is not needed).
+  - Scope: skins and forms of both 2011 cards (image A files and the card's FAT), `ScreenStateCC.dll` both builds, `RBDS_CC.dll` type library; static plus `-M ze0` form load.
+  - Done when: an EXP naming the files and records that tie the FM/AM form to its control in each build, and either a tool that swaps them on the EU card or the reason it cannot be done; claims.
+  - Stop: two sessions; no vendor bytes committed.
+  - Falsifier: the US radio form uses methods or events the EU `ScreenStateCC.dll` cannot route.
+  - Claims: C-10320–C-10329
+
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: — (serves M5.61 and M5.35: their gates run the card verifier chain on hosts we do not control; rule 17)
@@ -1135,8 +1159,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: required
   - Result: EXP-2026-11-23-H131-semantic-l2-fixture; good rc=0/21 features, mutant 0x7a02 -> tile_semantic FAIL rc=1; selftest 270/0/21 (180s)
 
-- [ ] **H140 — Workflow contract guard: CI must stay vendor-free and blocking steps must stay blocking**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **H140 — Workflow contract guard: CI must stay vendor-free and blocking steps must stay blocking**
+  - Status: done · Owner: task/h140-workflow-contract · Critical: yes · Pair: required
   - Depends: H25 (standing gate), H41/H57 (baseline policy); coordinates H84 (manual firmware-head job, open)
   - Goal: the test system's own guarantees are prose only. Nothing fails a PR if someone adds `continue-on-error: true` to a blocking step, adds a `fetch_image.py`/`IMG256` step to a PR workflow (a 7 GB download), removes `workflow_dispatch`/`schedule` from the manual firmware job, or drops `--require-image` from its realcheck step. H84's Precheck says `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints 0; today that same command matches `main-watch.yml`, so even the recorded premise is stale. QA's target says CI must use tiny synthetic fixtures, vendor checks must stay manual/weekly, and a level's PASS must not silently disappear; this guard is the machine-checkable half of those three rules.
   - Precheck: `ls tools/workflow_contract.py` reports no such file; `grep -rniE 'continue-on-error|fetch_image|files.viaaq.eu' .github/workflows/ci.yml .github/workflows/l1l2-fixtures.yml` hits only the informational Python 3.14 matrix and comments; `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml` prints `main-watch.yml`; `python3 tools/realcheck.py IMG256` prints `0 PASS, 0 FAIL, 8 SKIP` and exits 2.
@@ -1147,6 +1171,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: an injected contract break still exits 0, or the tool passes while a PR workflow contains an IMG256 fetch.
   - Claims: C-10020–C-10029
   - Pair: required
+  - Result: EXP-2026-11-24-H140-workflow-contract; 7/7 PASS exit 0, selftest 12/12, negative N1-N5 exit 1, gate selftest unchanged 20/20
 
 - [x] **H141 — Reconcile the H132-H139 block stranded on PR #639 before another H task is allocated**
   - Status: done · Owner: task/h141-reconcile-h132 · Critical: yes · Pair: required
@@ -1162,8 +1187,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: required
   - Result: dev_process/2026-11-23-2214-13-tl.log (process-only, no EXP); H132-H139 released with dated note, QA log landed on main, PR #639 closed
 
-- [ ] **H142 — Refresh the test-system map so it describes the CI that actually ships**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H142 — Refresh the test-system map so it describes the CI that actually ships**
+  - Status: done · Owner: task/h142-test-system-map · Critical: no · Pair: solo
   - Depends: —
   - Goal: `docs/research/test-system.md` is the living map the next QA/SE/PO pass reads, but its §2/§6 still describe the H25-era CI (`selftest --json`, `claims_check.py`, `todo_check.py`) and H26-era artifacts (`l1l2.json`, `l1l2.md`). origin/main now runs `tools/gate.py` (five rows with SKIP never PASS), a blocking H28 `l3check --build-corpus` job, the H41 per-file/per-feature matrix with a committed baseline, and the H117/H126 watchdog plus PR-head sweep; `test-system.md` calls all of that "planned". A stale map makes a reviewer plan work that already exists — exactly what happened to this pass's old H133-H139 plan.
   - Precheck: `grep -n 'Hard gate' docs/research/test-system.md` still names `selftest.py --json`, not `tools/gate.py`; `grep -n 'planned regression' docs/research/test-system.md` lists H28/H42/H43 as unshipped though `grep -n 'L3 synthetic corpus' .github/workflows/ci.yml` hits; `grep -n 'main_watch' docs/research/test-system.md` finds no row.
@@ -1174,6 +1199,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the doc still calls a shipped gate "planned", or names a command no file contains.
   - Claims: C-10040–C-10049
   - Pair: solo
+  - Result: EXP-2026-11-24-H142-test-system-map; 76/76 quoted commands verified; git diff --check clean; todo_check unchanged
 
 - [x] **H143 — `ze0_consent.py` chose the card build from a name `card_mapcode.py` rewrites, so a renamed EU card got the US event ids and a false PASS**
   - Status: done · Owner: task/h143-consent-detect-identity · Critical: no · Pair: solo
@@ -1188,6 +1214,34 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-10150–C-10154
   - Pair: solo
   - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
+
+- [x] **H145 — CI gate red: eu2014/eu2016 heads are unpinned, so a clean clone reports 4 missing evidence paths**
+  - Status: done · Owner: task/h145-eu2014-pinned-head · Critical: yes · Pair: required
+  - Depends: —
+  - Goal: after the M9.81/M3.16 conflict fix (33654d61) the standing gate is still red on `main`. A clean clone of `origin/main` runs `tools/claims_check.py --strict --count-check` (the `claims_check` row of `tools/gate.py`) and prints `genuine missing evidence paths: 4` — C-6961, C-6962, C-6963 (M8.G3) and C-10265 (M8.H80) cite `archive/eu2014-256.img` with no fetch command, pinned SHA or pinned-head sibling, so they fail "missing evidence" even though `tools/fetch_image.py` pins that head (`PART_PINS[("EU2014","256M")]`, C-6297). C-6297 also pins EU2016. The four rows are legitimate; the missing-pin classification is the defect.
+  - Precheck: in a depth-1 clone with no `archive/` vendor files, `python3 tools/claims_check.py --strict --count-check` prints `genuine missing evidence paths: 4` and `claims_check: FAILED` (exit 1); on a machine holding `archive/eu2014-256.img` the same command exits 0, so the defect only shows in CI. `grep -n 'PINNED_HEAD_PATHS' tools/claims_check.py` shows only head256/us256; `grep -n 'EU2014.*256M\|EU2016.*256M' tools/fetch_image.py` shows both pins.
+  - Scope: `tools/claims_check.py` only — add `archive/eu2014-256.img` and `archive/eu2016-256.img` to `PINNED_HEAD_PATHS` (in the same set as `archive/head256.img`/`archive/us256.img`, with a comment naming the C-6297 pins), update the selftest assertion for the set, and add a selftest case that a row citing `archive/eu2014-256.img` alone passes as `vendor-pin` (and the same for eu2016). Do not edit any claim row, TODO task, `fetch_image.py`, or gate semantics. Existing exemptions for `vendor-dir`, hash/fetch-bearing cells and pinned-head siblings stay unchanged.
+  - Input: `tools/claims_check.py` (`PINNED_HEAD_PATHS`, `evidence_path_class`, `path_problems`, `_run_selftest`), `tools/fetch_image.py` (`PART_PINS`, C-6297), `docs/research/claims.md` rows C-6961/C-6962/C-6963/C-10265, `docs/experiments/EXP-2026-11-21-M1.36b-rom-atlas.md`.
+  - Done when: `python3 tools/claims_check.py --selftest` passes with the new case; a depth-1 clone with no `archive/` vendor files runs `python3 tools/claims_check.py --strict --count-check` with `genuine missing evidence paths: 0` and exit 0; the same clone with C-6961's pin removed (negative control) still reports a genuine missing path, and a git-ignored `archive/` path that is not a known pin still fails; `tools/gate.py` reports `claims_check PASS`; `todo_check.py` and `board.py lost --base origin/main` pass; `selftest.py --only claims_check` passes in isolation.
+  - Stop: if `fetch_image.py` does not actually pin one of the two heads, leave that path out of the set and record the gap in the EXP rather than inventing a pin.
+  - Falsifier: `claims_check --strict --count-check` still reports `MISSING` for C-6961/62/63 or C-10265 on a clean clone, or a genuinely unpinned git-ignored path now passes silently.
+  - Claims: C-10360–C-10369
+  - Pair: required
+  - Result: EXP-2026-11-24-H145-eu2014-pinned-head; clean clone 0 missing, claims_check PASS; isolated selftest PASS
+
+- [x] **H147 — CI `ze0 patch series still applies` red: one patch has a lint-invalid name**
+  - Status: done · Owner: task/h147-patch-lint-name · Critical: yes · Pair: required
+  - Depends: —
+  - Goal: the `CI quality gate` workflow's `ze0 patch series still applies` job fails on `main` at `1612bc68` with `selftest: 88 passed, 2 failed`: both `lint real series` checks fire because `tools/qemu-ze0/patches/ze0-m223-sd-fixed-pwd.patch` is `BAD NAME` (the lint wants `ze0-NNNN-<slug>.patch` or `ze0-hNN-<slug>.patch`). The file was added by M2.23 (commit `0350cde9`) and is already on main; EXP-2026-11-24-M8.H9 O3 and its Follow-ups record the defect as pre-existing and out of that task's scope. Rename it to the next free series number `ze0-0020-sd-fixed-pwd.patch` and update all references so the job turns green.
+  - Precheck: `bash tools/qemu-ze0/build.sh --selftest` prints `selftest: 88 passed, 2 failed` with `FAIL lint real series` and `lint: BAD NAME ze0-m223-sd-fixed-pwd.patch`; `grep -rn 'ze0-m223-sd-fixed-pwd' --include='*.py' --include='*.md' .` lists the tool constant and the EXP/claim references; `ls tools/qemu-ze0/patches/ze0-00*.patch | tail -1` shows the series ends at `0019`.
+  - Scope: rename `tools/qemu-ze0/patches/ze0-m223-sd-fixed-pwd.patch` to `ze0-0020-sd-fixed-pwd.patch` (git mv, content unchanged); update `tools/ze0_sdlock_model.py:14` `PATCH` constant and every repo reference in `docs/experiments/EXP-2026-11-24-M2.23-sd-lock-emulator.md`, `docs/experiments/EXP-2026-11-24-M2.24-error-screens-l4.md`, `docs/experiments/EXP-2026-11-24-M8.H9-tcg-coverage.md` and `docs/research/claims.md`. Use `board.py` for any ledger edit. Do not change patch contents, the lint rule, other patch names, or any gate semantics.
+  - Input: `tools/qemu-ze0/build.sh` lint function (lines ~488-514), `tools/ze0_sdlock_model.py`, the four docs above, commit `0350cde9`, EXP-2026-11-24-M8.H9 O3/Follow-ups.
+  - Done when: `bash tools/qemu-ze0/build.sh --selftest` prints `0 bad` for `lint real series` and `selftest: 90 passed, 0 failed` (or the two former failures are gone); `python3 tools/ze0_sdlock_model.py --selftest` passes with the new path; no reference to `ze0-m223-sd-fixed-pwd` remains outside historical prose (EXP-2026-11-24-M8.H9's Follow-up may keep it verbatim with a 'fixed by H147' note); `python3 tools/claims_check.py --strict --count-check`, `python3 tools/todo_check.py` and `python3 tools/board.py lost --base origin/main` pass; an EXP records the before/after lint output and the SHA-256 of the renamed patch (content unchanged).
+  - Stop: if a PR that owns M2.23 renames the patch first, rebase and keep whichever name passes the lint; do not invent a second copy of the patch.
+  - Falsifier: `lint real series` still reports a BAD NAME, or the renamed patch's bytes differ from the original.
+  - Claims: C-10350–C-10359
+  - Pair: required
+  - Result: EXP-2026-11-24-H147-patch-lint-name; build.sh selftest 94/0, patch sha unchanged
 
 
 ## M2 — Map code, activation, updater
@@ -1320,8 +1374,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8050–C-8059
   - Result: EXP-2026-11-24-M2.23-sd-lock-emulator: 3 card states distinct (CMD42 LOCK+UNLOCK / LOCK-only / UNLOCK-only), launcher verdicts differ, decision VA AppLaunch.dll 0x03bca5f4 (B); C-8050..C-8059; selftest 283/0
 
-- [ ] **M2.24 — The error screens, seen: reproduce the catalogue of card errors at L4 with screenshots**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M2.24 — The error screens, seen: reproduce the catalogue of card errors at L4 with screenshots**
+  - Status: done · Owner: task/m2.24-error-screens · Critical: no · Pair: solo
   - Step: reader
   - Depends: M2.21, M8.C1f
   - Goal: M2.9 listed the error messages the firmware can show for a bad card. With a working screen, show each one in the emulator and tie it to its trigger — the reference for anyone who later sees one in the car.
@@ -1332,6 +1386,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: an error in the catalogue is unreachable by any card mutation tried.
   - Claims: C-8060–C-8069
+  - Result: EXP-2026-11-24-M2.24-error-screens-l4; 3/3 error screens drawn, 3 distinct plane hashes
 
 - [x] **M2.25 — Where do the 4 unit bytes of the SD password come from (VIN, serial, or stored)?**
   - Status: done · Owner: claude/project-thread-i59j9z · Critical: no · Pair: solo
@@ -1660,11 +1715,11 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-2200–C-2209
 
 - [ ] **M3.16 — `INTER` / `FRWAY` readers**
-  - Unblock: **M3.43** — L4 QEMU zoom-out observes the INTER/FRWAY content reader in a full-system run; re-opens this task.
-  - Status: open · Owner: — · Critical: no
+  - Unblock: M3.43
+  - Status: blocked · Owner: task/m3.16-inter-frway · Critical: no
   - Note (M3.28, 2026-11-19): openers run on the card: `0x003fbed8` with search type 4 (`INTER`) and 3 (`FRWAY`); the reads come from `0x003fc0ec` and `0x003fc518` (C-4666). The two signature searches that found nothing can be replaced by following those two functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
-  - Blocker: no content reader VA consuming the real INTER/FRWAY 12-byte table (BE `0xffff` key at +0, `length`/`offset` +6/+10) or blob fields was found in decodable build-A Navi.exe sec0 (5,553,664 B, 0 compressed exec sections, C-2128) after four halfword signature families (only `0x00392122`, a byte walker) and an L3 watch of the 11 M3.23 candidates (context reads only); consumed-field mapping unknown (C-2215–C-2219). Shared REFER001 access path is confirmed (C-2210).
+  - Blocker: No content reader VA consuming the INTER/FRWAY 12-byte BE table found: L3 read-watch of opener followers 0x003fc0ec/0x003fc518 on factory INTER001 reads only 512-B context header (+0x68/+0x7c), and mutating the first record BE u16@+6 leaves the read set unchanged; two derived signature families f5 (ctx-read pair, 3 candidates: 0x3fbf04/0x3fbf20 in opener, 0x3fec82 in REFER handler fn 0x3fec60) and f6 (type-3/type-4 dispatch, 0 candidates) give no confirmed record consumer; consumed fields UNKNOWN
   - Depends: — (M4.16c for the `ref` lead)
   - Precheck: `tools/reader_precheck.py --module Navi.exe` (M1.12) — build A
     has **0 compressed executable sections** (C-2128), so "not found" means the
@@ -1678,7 +1733,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: (H53 backfill of the Scope sentence as a field) when M3.29's per-family split hands over the INTER/FRWAY candidates, watch them in one L3 run on the factory INTER001 page; if none reads `0x1108`/`0x1110`, stay `blocked` with the watched list in an EXP — no fifth byte-signature family (H51).
   - Done when: the reader VAs and consumed fields are in `refer.md`.
   - Claims: C-2210–C-2219
-  - Result: `EXP-2026-11-20-M3.16-inter-frway.md` (blocked; done-when not met). **Layout corrected:** the 12-byte record at `0x1108`/`0x1110` is big-endian (`u16 key` +0 `0xffff`=term, `u16 0` +2, `u8 id` +4, `u8 flag` +5, `u16 length` +6, `u16 b8` +8, `u16 offset` +10), all 10 factory shards conform (`tools/inter_table.py check`, exit 0); the old LE/11-byte/+8 form is refuted 0/177 (`tools/inter_table.py refute`), C-2215/C-2216. **Reader still not found:** four halfword signature families over Navi.exe sec0 (5,553,664 B, 0 compressed exec, C-2128) give only one f3 candidate `0x00392122`, a byte `@(1,Rm)`/`0xff` walker, not the u16-key table (`tools/inter_reader_scan.py scan`, C-2217); L3 watch of the 11 M3.23 candidates on the factory INTER001 page reads only context/`+0x0`, none touches `0x1108`/`0x1110` (LCTBL `0x0040de98` positive control PASS, C-2218). Consumed fields UNKNOWN (C-2219). Earlier `refer.md` + C-2211/C-2213 updated.
+  - Result: EXP-2026-11-24-M3.16-opener-follow (negative; two derived families f5/f6)
   - Result (r2): `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (negative/blocked). Shared REFER001 access path confirmed (C-2210; `INTER0`/`FRWAY0` in volume-id table `0x00179338` ~VA `0x0017934c`/`0x00179354`, descriptor `0x14e8` `fn 0x004125a8` → `REFER001`+`INDEX003.DAT`, name-builder `fn 0x003fbed8`); two writer-inverse families found 0 candidates (C-2211). `refer.md` INTER/FRWAY sections and `claims.md` C-2210–C-2214 updated.
 
 - [ ] **M3.18 — `ICADM0nn` / `ZIPFR001` readers (H11 G2)**
@@ -2015,8 +2070,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7780–C-7789
   - Result: EXP-2026-11-24-M3.42-rcv-parcel-queue; 44-B element table + producer/consumer; signature error string -> xref (strong); C-7632 RETRACTED; C-7780-C-7789
 
-- [ ] **M3.39 — The order in which the firmware reads a tile, compared with `kiwiread`'s parse order**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M3.39 — The order in which the firmware reads a tile, compared with `kiwiread`'s parse order**
+  - Status: done · Owner: task/m3.39-tile-read-order · Critical: no · Pair: required
   - Step: reader
   - Depends: M3.42
   - Goal: If our tile is KIWI main-map data, the firmware should walk it in the specification's order: management header, then road, background and name frames by their offsets. The read-watch tools can print the firmware's order; compare.
@@ -2027,6 +2082,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the firmware reads the sections in an order that depends on the request kind only (no fixed parse order).
   - Claims: C-7790–C-7799
+  - Result: EXP-2026-11-24-M3.39; 9 tile reads, 3 runs, falsifier no-fire
 
 - [x] **M3.40 — Who opens `REFER002`: the EV-layer opener and its read path**
   - Status: done · Owner: task/m3.40-refer002-opener · Critical: no · Pair: required
@@ -2698,8 +2754,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7690–C-7699
   - Result: EXP-2026-11-22-M4.70-kiwi-bg-frame; 0/17,659 KIWI fits, synthetic control PASS, 8 claims C-7690-C-7697
 
-- [ ] **M4.71 — KIWI Name Data Frame (chapter 7.4) against tile names and section 4: name records, placement kinds, string encoding**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.71 — KIWI Name Data Frame (chapter 7.4) against tile names and section 4: name records, placement kinds, string encoding**
+  - Status: done · Owner: task/m4.71-kiwi-name-frame · Critical: no · Pair: required
   - Step: P2
   - Depends: —
   - Goal: KIWI name records carry an attribute header, a placement kind (along a line, at a point, symbol + string) and the string. Our section-4 writer leaves names empty (M5.65) and road-name placement is not understood. Test the KIWI layout on the name bytes we have.
@@ -2710,6 +2766,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the decoded strings are not the names `tools/name_strings.py` already extracts from the same tile.
   - Claims: C-7700–C-7709
+  - Result: EXP-2026-11-24-M4.71-kiwi-name-frame; 0/1872 fits, C-7700-C-7709
 
 - [x] **M4.72 — KIWI route-planning data against tile section 2 and `LEV3456R`: nodes, links, costs, upper-level links**
   - Status: done · Owner: task/m4.72-kiwi-route-planning · Critical: yes · Pair: required
@@ -2739,8 +2796,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7720–C-7729
   - Result: EXP-2026-11-23-M4.73-kiwi-guidance-junction (C-7720–C-7724); signpost stored verbatim in B48R058R section 4 (parcel a6bed6ee, name word 53), not composed from INTER/FRWAY; KIWI 8.4 predicts field kinds, not the ZE0 container; no lane field in the two Poland shards
 
-- [ ] **M4.74 — KIWI index data against `REFER001`: address, POI and category indexes (`POINT`, `ADDRE`, `ZCODE`, `ICODE`, `COORD`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.74 — KIWI index data against `REFER001`: address, POI and category indexes (`POINT`, `ADDRE`, `ZCODE`, `ICODE`, `COORD`)**
+  - Status: done · Owner: task/m4.74-kiwi-index · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: The search database is the P4 step and the least decoded family (four readers unlocated or blocked). KIWI defines index data for address and facility search. Compare its structure list with the `REFER001` families: tries, leaf pages, coordinate tables, category lists.
@@ -2751,6 +2808,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: KIWI's index is one container while ours is five unrelated files with different page formats.
   - Claims: C-7730–C-7739
+  - Result: EXP-2026-11-24-M4.74-kiwi-index (C-7730-C-7737); 6 families 0 adopt/5 partial/1 unrelated; 3/3 mutations rejected; selftests PASS; lost 0/0
 
 - [x] **M4.75 — KIWI character codes against our strings: which code set and which string form do map names use**
   - Status: done · Owner: task/m4.75-cycle10 · Critical: no · Pair: solo
@@ -3098,7 +3156,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Input: EXP-2026-11-23-M4.100-route-cost-profiles, `tools/ze0_gdb.py`, the Navi.exe decompile (`tools/ghidra/README.md`), the owner's manual (menu paths of the route settings).
   - Done when: each route setting in the UI is mapped to a request field (diff of the request struct at `0x00341134` after toggling it in L4) and to the link words it changes in the search; `w1 >> 12` per OSM road type is measured on the factory tile and used by `tools/sec2_writer.py`.
   - Falsifier: toggling a setting changes the route while the request struct and cost tables stay byte-identical.
-  - Claims: C-10260–C-10265 (renumbered twice: C-10070–C-10075 collided with M9.80, then C-10210–C-10215 with M1.58 on main)
+  - Claims: C-10370–C-10375 (renumbered three times: C-10070–C-10075 collided with M9.80, C-10210–C-10215 with M1.58, C-10260–C-10265 with M8.H80 on main)
 
 - [x] **M4.99 — Name the class-d residual of `B48R058R`: padding or a record block, and the covering span if it is real**
   - Status: done · Owner: task/m4.99-class-d-residual · Critical: no · Pair: required
@@ -3422,7 +3480,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Input: `tools/sec2_writer.py`, `tools/sec2_fields.py --level2`, EXP-2026-11-23-M5.57-sec2-writer-l4, EXP-2026-11-23-M4.98-sec2-fields-ghidra (level-2 section), `docs/format/map-tiles.md` "Level 2 and its link to level 1".
   - Done when: (1) `sec2_fields.py --level2` passes on our tile with the factory's counts of rule hits (100 %); (2) in L4 a route from the London start to a destination two or more meshes away on our card prints `LEV2DSIDE`/`LEV4Top` (or the level our card has) and draws.
   - Falsifier: the route search ignores our level 2 (same stages and result with level 2 removed).
-  - Claims: C-10060–C-10069, C-10266–C-10269
+  - Claims: C-10060–C-10069, C-10376–C-10379, C-10380–C-10384
 
 - [x] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: done · Owner: task/m5.38-card-ladder · Critical: yes · Pair: solo
@@ -3522,6 +3580,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: a generated tile whose `section4.py verify` passes but whose viewer `info` shows a place name from the neighbouring tile's bbox (then the record indexes the wrong parcel and the writer, not the test, is wrong).
   - Claims: C-6650–C-6659
   - Result: EXP-2026-11-22-M5.65-osm-section4-places; 37/37 OSM names, section4 verify OK, l2check PASS, C-6650-C-6659
+  - Note: M4.71 (EXP-2026-11-24-M4.71-kiwi-name-frame) re-checked the substituted name bytes: KIWI 7.4 adds no placement rule; same-length CP1252 d=NAME substitution stays correct (C-7700-C-7709).
 
 - [ ] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -3916,7 +3975,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-24-M5.92-capacity-probe; 8/8 probes + 2 edge runs; first failing window 68096 B (pass 67840 B); enforcing VA 0x004262f8 (0x109A0 pool), point gate 0x0041f4bc (1000); L3 only (L4 NOT RUN exit 3)
 
 - [ ] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m5.93-subrecord-writer · Critical: no · Pair: solo
   - Step: limits
   - Depends: M5.85
   - Goal: the factory keeps dense parcels as four sub-records in a wide directory row (M5.53); our writer drops them. Write them, so a dense OSM parcel keeps its detail without exceeding the record limit.
@@ -3926,6 +3985,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `s1_wide_dir.py census` accepts the written tile; an L4 screenshot of a parcel written as four sub-records shows roads in all four quarters (or the EXP proves which quarter is not read); selftest covers the split.
   - Stop: one session for the writer; L4 depends on a parcel on screen (the start-screen parcel may be forced to sub-records for the test).
   - Claims: C-8730–C-8739
+  - Blocker: L4 boot never reached Pow Off 1st Detect in 600 s; no screenshot. All four quarters READ at L3 (reply sub 3, VAs 0x404ee4/0x3f6968) via tools/m593_l3.py; LOC_map walk covers only SW group at the harness's fixed x=y=1024 position (same limit on factory card)
+  - Unblock: M8.C1p
+  - Result: EXP-2026-11-24-M5.93-subrecord-writer (writer 148/148 + census + L3 read 4/4 PASS; L4 NOT VERIFIED)
+  - Pair: required
 
 - [ ] **M5.94 — London in numbers: per-parcel OSM size against the factory records and the limits**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -4099,6 +4162,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
     opens, no dialog, card hash after the run). A reject here means the unit
     wants factory-exact compressed bytes: stop and re-plan before S2.
   - Claims: C-1150–C-1159
+  - Input: EXP-2026-11-24-M6.22-s1-emulator (L4 US S1 rehearsal)
 
 - [ ] **M6.6 — S2: the renamed POI on the US unit**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
@@ -4175,8 +4239,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-6270–C-6279
   - Note: 2026-11-23 SE rule-15 sweep: M2.20 is done and found no area gate in card B (C-6263/C-6268); Unblock reworded so the hardware test, not a done ID, is the door.
 
-- [ ] **M6.22 — Rehearse S1 in the emulator: the US card with a recompressed `POINT010`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M6.22 — Rehearse S1 in the emulator: the US card with a recompressed `POINT010`**
+  - Status: done · Owner: task/m6.22-s1-emulator · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H12
   - Goal: S1 is the first changed card for Marek's US unit (a no-op recompressed `POINT010`). Before the car, boot it on `-M ze0` next to the factory US card.
@@ -4187,6 +4251,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: one session.
   - Falsifier: the S1 card stops earlier than the factory card.
   - Claims: C-8070–C-8079
+  - Result: EXP-2026-11-24-M6.22-s1-emulator; both verdicts PASS F4 ACCEPT/OPENED + files-read diff none (13 files); neg FAIL F4
 
 - [ ] **M6.23 — Rehearse S2 in the emulator: find the renamed POI through the search screens**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -4586,8 +4651,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: AUI text and button labels reach plane 1 with bit 15 clear, so the colour key drops them; the 2DG blit that sets the opacity bit is not in ze0-0014 (raw page shows the text, screen does not)
   - Unblock: M8.C1v
 
-- [ ] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
+  - Status: done · Owner: task/m8.c1v-aui-buttons · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1n
   - Goal: M8.C1t showed the map screen with the AUI widget pixels but not the button labels: the AUI text reaches plane 1 with bit 15 clear and the colour key drops it (C-8502, C-8505). The unit makes the text opaque through a 2DG blit that ze0-0014 does not render (C-8506). Marek wants the interface (plane 1 buttons) over the map in the emulator screenshot (2026-11-22).
@@ -4598,6 +4663,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the labels come from a plane/surface that is not 2DG (e.g. a CPU blit through gdisubdrv), record that and hand it back to a plane/surface task instead of widening ze0-0014.
   - Falsifier: the labels appear only with a non-key composition (plane -n 1), never from the windowed screen - then the key/alpha rule of C-8502 is what the unit relies on and the 2DG blit is a red herring.
   - Claims: C-9920–C-9929
+  - Result: EXP-2026-11-24-M8.C1v-aui-labels-opaque; patch ze0-h47; bbox 2378 opaque/0 dropped vs 441/1010 neg
 
 - [x] **M8.C1u — 2DG area fill: water and parks drawn as rectangles (pattern texture over a stencil polygon)**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
@@ -4846,7 +4912,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.H4-display-surface (C-7010–C-7014). New patch `ze0-h04-display-surface.patch`: `ze0-gfx` (machine option `gfx-display`, default on) exposes DU planes 1-4 as a QEMU graphic console, composed like `ze0_screenshot.py compose()` and recomposed when a 2DG list ends. HMP `screendump FILE ze0-gfx` equals `ze0_screenshot.py screen` of the same instant (0/384,000 pixels differ, raw RGB SHA-256 `d2b7e70f…`); `run.sh --display SPEC`/`--vnc` show it in VNC (RFB on 5907), gtk/sdl; `--display none` is the unchanged headless default; `gfx-display=off` is the no-console control; new `tools/ze0_screencmp.py` (+5 checks). Next: M8.H40 (live mouse→touch), M8.C1t (UI plane alpha).
 
 - [ ] **M8.H5 — Start in seconds: `savevm` after boot and `run.sh --loadvm`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m8.h5-savevm · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: A boot to the idle UI takes minutes of host time (card mount about 170 s; launcher threads far longer while the audio microcontroller is absent — project notes of 2026-11-22). Every L4 experiment pays that. A snapshot taken at idle makes each later run start from it.
@@ -4857,6 +4923,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if one device cannot be saved without a redesign, record which one and deliver the snapshot for the rest only if the guest survives a load; otherwise blocked.
   - Falsifier: after `loadvm` the guest hangs or faults at the first interrupt (state missing).
   - Claims: C-7020–C-7029
+  - Blocker: QEMU SH-4 CPU vmstate_sh_cpu is .unmigratable=1 (target/sh4/cpu.c:274 in 11.1.3, :245 in 8.2.10): HMP savevm on -M ze0 fails with 'State blocked by non-migratable device cpu' before any ze0 device vmsd is consulted; no snapshot, so loadvm-to-idle <30s unmeasurable
+  - Unblock: M8.H5a
+  - Result: EXP-2026-11-24-M8.H5-savevm-blocked (negative; CPU blocker reproduced, falsifier not reached)
 
 - [x] **M8.H6 — Determinism: two boots with `-icount` give the same log and the same screen**
   - Status: done · Owner: task/m8.h6-run-determinism · Critical: no · Pair: solo
@@ -4900,8 +4969,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7050–C-7059
   - Result: EXP-2026-11-22-M8.H8-sd-block-trace; 14 files, 10523 reads / 7174 mapped, selftest 17/17, L3 overlap 6/7
 
-- [ ] **M8.H9 — Function coverage at L4 with a TCG plugin (no QEMU patch): which `Navi.exe` functions ran**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H9 — Function coverage at L4 with a TCG plugin (no QEMU patch): which `Navi.exe` functions ran**
+  - Status: done · Owner: task/m8.h9-tcg-coverage · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: Know which readers execute in a scenario without setting breakpoints: a TCG plugin records executed block addresses; the host maps them to function starts (`.pdata`) per module.
@@ -4912,6 +4981,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if plugins cost more than 5× run time, sample (every Nth block) and say so.
   - Falsifier: the mount-time readers located at L3 are absent from the L4 coverage (then L3 and L4 disagree on the path — a finding for M9).
   - Claims: C-7060–C-7069
+  - Result: EXP-2026-11-24-M8.H9; 1341 functions, 3/3 readers, POINT walker absent
 
 - [ ] **M8.H10 — Which bytes of a tile does the firmware touch: read-watch on the tile buffer at L4**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -4984,7 +5054,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7110–C-7119
 
 - [ ] **M8.H15 — Turn on the firmware's own debug output: debug zones of `Navi.exe` and the drivers**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h15-debug-zones · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: `ze0-0007` hooks the kernel debug message path, but retail modules print little. CE modules carry `dpCurSettings` zone masks (and often a registry override). Find how to enable them for `Navi.exe` map modules, `SDHC.dll`, `navdrv.dll`, `lcddrv.dll`, so a boot log names file opens, positions and errors in the vendor's words.
@@ -4995,9 +5065,12 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the retail build compiled the messages out (no format strings behind the zones), say so with the string census and stop.
   - Falsifier: setting the mask adds no line for any module.
   - Claims: C-7120–C-7129
+  - Blocker: EU2011 retail modules (builds A/B/C, 1111 sections, 0 candidates) have no DBGPARAM zone-mask record and the ROM hives have no DebugZones value, so there is no mask VA/default to set; the debug-sink hook works (142 baseline lines) but only kernel/OAL messages print
+  - Unblock: M8.H80
+  - Result: EXP-2026-11-24-M8.H15-debug-zones (negative: 0 DBGPARAM in 1111 sections, 0 skipped; selftest 9/9; baseline 142 hook hits); C-7120–C-7129
 
 - [ ] **M8.H16 — Boot the test-mode kernel (ROM image C) on `-M ze0`: the service screens as a test bench for the models**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h16-testmode-kernel · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: Image C is the kernel with `TestMode.exe` (hardware checks for GPS, touch, CAN, audio, SD). Its screens and logs would validate each peer model against the vendor's own diagnostics, and it has the `AppTimerDll` that `Speech.exe` misses on image B.
@@ -5008,6 +5081,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions.
   - Falsifier: C boots exactly like B with no extra process (then test mode is entered another way and the EXP says which).
   - Claims: C-7130–C-7139
+  - Result: EXP-2026-11-24-M8.H16-testmode-kernel (negative; falsifier fired)
+  - Blocker: TestMode.exe gated by mode_mask 0x40 in AppLaunch table of both B and C; image C boots to app launch then faults in device.exe (CAN.dll)
+  - Unblock: M8.H81
 
 - [x] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
   - Status: done · Owner: task/m8.h17-cycle10 · Critical: no · Pair: solo
@@ -5083,8 +5159,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7180–C-7189
   - Result: EXP-2026-11-22-M8.H21-demo-drive; verdict present; 149 EU / 151 US modules, switch + VAs; follow-up M8.H72
 
-- [ ] **M8.H22 — Census of unmodelled hardware accesses in one boot: what to model next, by numbers**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H22 — Census of unmodelled hardware accesses in one boot: what to model next, by numbers**
+  - Status: done · Owner: task/m8.h22-unmapped-census · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: Each missing device shows up as reads and writes to unmapped addresses. Rank them, so the next model is chosen by count and by who asks, not by guess.
@@ -5095,6 +5171,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the log is empty at idle (then every polled block is already stubbed and the table is the list of stubs).
   - Claims: C-7190–C-7199
+  - Result: EXP-2026-11-24-M8.H22-unmapped-census; 26/26 selftest, 1027 accesses/25 blocks, top 0xff801000 DMAC 305
 
 - [x] **M8.H23 — Guest profiler: where the CPU time goes (module and function histogram by PC sampling)**
   - Status: done · Owner: task/m8.h23-pc-sampler · Critical: no · Pair: solo
@@ -5124,8 +5201,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7210–C-7219
   - Result: EXP-2026-11-22-M8.H24-emulator-quickstart; 7 claims C-7210–C-7216; every page command exit 0, 382721-pixel PNG at ~20 s
 
-- [ ] **M8.H25 — Boot-time budget: from start to the idle UI, where the wall-clock minutes go**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H25 — Boot-time budget: from start to the idle UI, where the wall-clock minutes go**
+  - Status: done · Owner: task/m8.h25-boot-budget · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: Measure the phases (kernel, drivers, card mount, launcher waits, UI) in guest time and host time, with and without `-icount`, and list the three cheapest cuts.
@@ -5136,6 +5213,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: host time is dominated by one phase that no option changes (then the cut is a model, and the EXP names it).
   - Claims: C-7220–C-7229
+  - Result: EXP-2026-11-24-M8.H25-boot-budget; C-7220..C-7226; 2 configs + cut; negative mutation; run.sh --help default
 
 - [x] **M8.H26 — `run.sh --card IMG`: derive `verinf`, `mapdb`, the overlay and the `ipl-patch` from the card**
   - Status: done · Owner: task/m8.h26-card-derive · Critical: no · Pair: solo
@@ -5339,8 +5417,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.H39-tap-l4; named-region after-tap hash c64ff230… equal in 2 boots, != idle 985e3ddd…, empty tap unchanged; bp hits 4/2; US fallback
   - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
-- [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
+  - Status: done · Owner: task/m8.h40-live-window · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H4, M8.H38
   - Goal: For exploring the UI by hand: `run.sh --display gtk` (or VNC) where a mouse click is a tap and mapped keyboard keys are the hard keys.
@@ -5351,9 +5429,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the click lands at a different guest coordinate than requested (scaling error) — measured by the peer's log.
   - Claims: C-7370–C-7379
+  - Result: EXP-2026-11-24-M8.H40-live-window; L4 QMP tap frame 5102fd004631 == H39, ZOOM ILL EVENT 1, 33/33 patches
 
-- [ ] **M8.H41 — Scenario: set a destination and calculate a route at L4**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H41 — Scenario: set a destination and calculate a route at L4**
+  - Status: done · Owner: task/m8.h41-route-scenario · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: The first routing test in the full system: enter a destination by the map or by a stored point, start route calculation, capture the result. It tells which files the router opens (section 2, `LEV3456R`) on a factory card and later on ours.
@@ -5364,9 +5443,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; stop at the first screen that needs an input no peer provides and name it.
   - Falsifier: no file is read during calculation (then the graph was preloaded and the trace window must start earlier).
   - Claims: C-7380–C-7389
+  - Result: EXP-2026-11-24-M8.H41-route-scenario; 2 US-card runs equal final hash 39dae3c3...; gated SD window 122/106 events, 74 mapped B30R0E0R.DAT reads at 0xacb800-0xacc400 and 0xaf5e00-0xafe400; no destination screen reached (5 states, VAR_CALCULATE_ROUTE_FLG=0)
 
 - [ ] **M8.H42 — Screen catalogue: walk the menu tree by script and record every screen reached**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h42-screen-catalogue · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: A map of the UI (screen → how to reach it → what it needs) makes later scenarios short and shows which features work in the emulator.
@@ -5377,6 +5457,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: stop at depth 2 or thirty screens.
   - Falsifier: two runs of the walk give different hashes for the same path.
   - Claims: C-7390–C-7399
+  - Blocker: scripted walk reaches 5/15 screens on -M ze0; menu screens unreachable (AUI buttons keyed out, hard keys not injected)
+  - Unblock: M8.C1v
+  - Result: EXP-2026-11-24-M8.H42-screen-catalogue (negative; 5 screens printed by grep|sort -u, wc -l=5; byCmd=0)
 
 - [x] **M8.H43 — `anwdrv.dll`: the frame protocol with the audio microcontroller on `SCI1:` and the start-up handshake**
   - Status: done · Owner: task/m8.h43-anwdrv-frame-protocol · Critical: yes · Pair: required
@@ -5627,8 +5710,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the applications reach GPIO only through a driver that never touches the registers in a boot.
   - Claims: C-7570–C-7579
 
-- [ ] **M8.H61 — Reversing camera path: a test picture on the video input when reverse is on**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H61 — Reversing camera path: a test picture on the video input when reverse is on**
+  - Status: done · Owner: task/m8.h61-camera-path · Critical: no · Pair: solo
   - Step: model
   - Priority: low (after touch, GPS and the vehicle peer)
   - Depends: M8.H49, M8.C1f
@@ -5640,6 +5723,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; do not model a video decoder.
   - Falsifier: reverse changes nothing on the display path.
   - Claims: C-7580–C-7589
+  - Result: EXP-2026-11-24-M8.H61-camera-capture-path; verdict B needs video-capture model (register list UNKNOWN); C-7580-C-7589; N3 mutation 1ref->0ref
 
 - [x] **M8.H62 — `fmmdrv.dll` and the TMC path: where a traffic message enters, and what it looks up on the card**
   - Status: done · Owner: task/m8.h62-cycle10 · Critical: no · Pair: required
@@ -5655,8 +5739,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7590–C-7599
   - Result: EXP-2026-11-24-M8.H62-tmc-entry-point; C-7590–C-7599; injection fn 0x003bcc7c (pdata START, r4=ctx); L3 2/2 + 0x14f4 mutation control
 
-- [ ] **M8.H63 — Inject one traffic event and watch `RDSTM001`/`LCTBL001` being read**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H63 — Inject one traffic event and watch `RDSTM001`/`LCTBL001` being read**
+  - Status: done · Owner: task/m8.h63-traffic-event · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H62
   - Goal: Call the injection point of `docs/firmware/tmc-path.md` with one real location code of the EU card and record the file reads and the result — the firmware-side test a generated Polish `RDSTM001`/`LCTBL001` will have to pass.
@@ -5667,6 +5751,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the event is dropped before the lookup (no tuner state), record the gate and stop.
   - Falsifier: both codes take the same path.
   - Claims: C-7600–C-7609
+  - Result: EXP-2026-11-24-M8.H63-traffic-event-injection; C-7600-C-7609; L3 4/4 (present 2,25,1203 status 1 + 48-B place Katerina/II-605/Exit 144, absent 2,25,60000 status 4), falsifier DIFFERENT, null-context + wrong-id controls pass; reader-coverage rows 21-22
 
 - [x] **M8.H64 — First generated card at L4: the P0 card (one tile with OSM roads) against the factory card**
   - Status: done · Owner: task/m8.h64-p0-card-l4 · Critical: yes · Pair: required
@@ -5897,7 +5982,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
 
 - [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
-  - Status: open · Owner: — · Critical: no · Pair: no
+  - Status: blocked · Owner: task/m8.h20a-position-record · Critical: no · Pair: no
   - Step: reader
   - Depends: M8.H18, M8.H19
   - Goal: M8.H20 is blocked because the flash→object-store restorer of the last vehicle position is UNKNOWN (C-7167). Trace `OBJ_BackUpMgr` / `OBJDLL!OBJ_CarPos_read` back to the `FMD1:` record and derive its exact flash offset, record layout and checksum from structure or a real unit dump — never a guessed format. Report whether the saved word is `0x9c03a3c0`-style packed COORD001 and whether there is a second copy.
@@ -5908,6 +5993,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if no dump and no static derivation succeeds, stay blocked with a negative EXP and a positive control.
   - Falsifier: a candidate record whose mutation does not change the position read at init.
   - Claims: C-10130–C-10139
+  - Blocker: Exact on-flash CarPos record offset/fields UNKNOWN: globals in OBJDLL compressed/BSS .data, no real dump with a known position, L4 witness read unavailable
+  - Unblock: M1.2f
+  - Result: EXP-2026-11-24-M8.H20a-position-record (blocked, partial positive: SMST frame+checksum derived, 8/8 store sums OK, negative mutation rejects, 25 class rows; exact record offset/format UNKNOWN, M8.H20 not re-opened)
 
 - [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5936,6 +6024,42 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the EU2014 kernel prints debug text at the EU2011 VA `0x880404f4` and ends at the EU2011 final PC `0x8803d266` — then no X212 subclass is needed and this task records that instead of adding a machine.
   - Claims: C-10240–C-10246
   - Result: EXP-2026-11-24-M8.G4-aze0-machine; -M aze0 5s: 462 vs 0 wrong-VA/0 off lines, entry 0x8800f100, RAM 0x8a640000, ze0 PC 0x8803d266 unchanged; C-10240..C-10246
+
+- [ ] **M8.H80 — Obtain a checked/debug build of the ZE0 map modules to get `DBGPARAM` zone records**
+  - Status: blocked · Owner: task/m8.h80-checked-build · Critical: no · Pair: solo
+  - Step: tooling
+  - Depends: —
+  - Goal: M8.H15 found no `DBGPARAM` record and no `DebugZones` registry value in the EU2011 retail modules (builds A/B/C, 1111 sections, 0 candidates, EXP-2026-11-24-M8.H15-debug-zones). A checked build of the same sources would have `DEBUGMSG` zones compiled in; with it the zone-mask table of M8.H15 can be populated.
+  - Precheck: `python3 tools/ce_dbgzones.py archive/head256.img --image-start 0x200200 --decoded-dir DIR` prints `dbgparam_candidates 0` for the shipped image (after `cerom.py decompress --out DIR`).
+  - Scope: locate a shipped checked/debug build of `NaviMapCC.dll`/`Navi.exe`/`SDHC.dll` (update package, SDK, service manual media) or a way to build one from symbols; run `tools/ce_dbgzones.py` on it and, if records appear, add `run.sh --debug-zones FILE` that sets them. No car/bench work.
+  - Input: `tools/ce_dbgzones.py`, EXP-2026-11-24-M8.H15-debug-zones, `docs/research/sources.md`.
+  - Done when: an EXP shows at least one valid `DBGPARAM` (name + 16 zone names + mask VA) in a real image with a printed command, and either a mask-set boot that adds DBGMSG lines over the 142-line baseline or a named blocker for the missing build.
+  - Stop: if no checked build is obtainable, record the source search as a negative EXP and leave M8.H15 blocked.
+  - Falsifier: a checked build with no `DBGPARAM` and no new boot lines.
+  - Claims: C-10260–C-10269
+  - Blocker: No checked/debug ZE0 build of Navi.exe/NaviMapCC.dll (or DBGPARAM records/symbols) publicly obtainable: all four real images scan to dbgparam_candidates 0 and mirror/local/web search found no checked build
+  - Unblock: A task that obtains a checked/debug ZE0 Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) from Nissan's dealer service channel and re-runs tools/ce_dbgzones.py on it; rule 15 re-opens M8.H80 when that task merges
+  - Result: EXP-2026-11-24-M8.H80-checked-build (negative: 0 DBGPARAM in 1646 fully-scanned sections + 28 partial; 9/9 selftest, mutation 5/9; source search negative); C-10260–C-10269
+
+- [ ] **M8.H5a — Make SH-4 CPU migratable in the ze0 QEMU patch series (unblocks M8.H5)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: —
+  - Goal: upstream SH-4 `vmstate_sh_cpu` has `.unmigratable = 1` in QEMU 11.1.3 (`target/sh4/cpu.c:274`) and 8.2.10 (`cpu.c:245`), so HMP `savevm` prints `Error: State blocked by non-migratable device 'cpu'` on `-M ze0`. Make the CPU migratable in the ze0 patch series (or prove it cannot be), so `run.sh --savevm/--loadvm` of M8.H5 can be tested.
+  - Precheck: `grep -n 'unmigratable' tools/qemu-ze0/patches/*.patch` prints nothing; `python3 tools/qemu-ze0/build.sh --check-version 11.1.3` exits 0.
+  - Done when: an EXP shows `savevm t1` succeeding on `-M ze0` with a printed command, or a named blocker with the exact QEMU error.
+  - Stop: one session; do not patch upstream unrelated devices.
+  - Falsifier: `savevm` still fails with the same non-migratable error after the patch.
+  - Claims: C-10290–C-10299
+
+- [ ] **M8.H81 — Select test mode (mode_mask 0x40) in the launcher boot path (unblocks M8.H16)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `TestMode.exe` is gated by `mode_mask 0x40` in the AppLaunch table of both kernel B and C; forcing mode-7 IPL still logged `Boot System Mode = 10`. Find the launcher boot-mode selector and enter test mode so M8.H16's service screens can be reached.
+  - Precheck: `python3 tools/applaunch_table.py` prints the mode_mask rows cited in EXP-2026-11-24-M8.H16-testmode-kernel.
+  - Done when: an EXP shows a boot reaching a TestMode screen with the mode-select VA, and M8.H16 can be re-opened.
+  - Stop: one session; if the selector is in the unit flash (M6.18 dump), name that as the blocker.
+  - Falsifier: mode_mask change does not alter the launcher's mode decision.
+  - Claims: C-10300–C-10309
 
 ---
 
@@ -6703,6 +6827,19 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Blocker: Stored-copy consumer 0x00422eac (EU2011) returns one u16 selector, not a 37-name list; its k source 0x00424464->0x0041e2bc unresolved, so the Done-when '37 names returned by firmware' and 'one-word mutation changes returned list' are unreachable
   - Unblock: M4.56
   - Result: EXP-2026-11-23-M9.80-section4-names-l3.md (negative)
+
+- [ ] **M9.81 — Allocate IDs against open PRs at claim time, not at merge time**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: —
+  - Step: tooling
+  - Goal: stop the repeated claim-block renumbering that costs every parallel batch a rebase, a `board.py field`/`add-claims` renumber, a check re-run and an EXP correction. At least 11 claim-range collisions happened in the 2026-11-24 window (SM retro `docs/retro/2026-11-24.md`, Judge (a)); only 9 reached `main` as repair commits — the rest were resolved on branches. `tools/board.py next_id()` currently counts TODO, history and claims on `main` only; its own docstring says "Open PRs can hold IDs not yet on main: check them too", but the function never does.
+  - Precheck: `python3 tools/board.py next-id M9` prints `M9.81` on a clean `origin/main`; `python3 tools/board.py next-claims` prints a free block; `gh pr list --state open --json number,title,headRefName` works; `python3 tools/board.py --selftest` passes before any edit.
+  - Scope: `tools/board.py` only. Do not change task IDs to random hex: the stream/step meaning is used by `next-id <stream>`, `Depends`, `Step:` tags and `card_ladder.py steps --check`. Do not edit TODO.md task blocks except the new M9.81 block and its claim rows via `board.py`.
+  - Input: `tools/board.py` (`next_id`, `next_claims`, `op_status`, `claim`, `run_selftest`), `tools/claims_check.py` (duplicate-ID check), `docs/retro/2026-11-24.md` Judge (a), AGENTS.md `tools/board.py` command list.
+  - Done when: (1) `next-id STREAM` and `next-claims` report IDs/blocks reserved by **open PR titles and their branch TODO/claims trees** that are not yet on `origin/main`, using `gh pr list --state open` (and a documented offline fallback when `gh` is unavailable); (2) `board.py claim ID --owner BR` refuses a task whose ID is already in an open PR title not owned by BR, with an actionable error, before writing any board change — verified by a negative test that the task line is untouched; (3) `--selftest` covers both an ID and a claim block held only in an open PR (mocked or a tiny fixture), plus the happy path; (4) `python3 tools/board.py lost --base origin/main`, `todo_check.py`, `claims_check.py` all pass on a branch that uses the new allocator.
+  - Stop: if GitHub cannot be reached reliably, implement the check against a local list of reserved IDs passed by flag (e.g. `--reserved-from-prs FILE`) and mark full `gh` integration as a follow-up; do not silently return to a `main`-only view.
+  - Falsifier: `next-id`/`claim` still allocate an ID known only to be held by an open PR, or a rejected `claim` mutates the TODO line.
+  - Claims: C-10270–C-10279
 
 ## Retired leads
 

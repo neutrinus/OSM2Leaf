@@ -289,7 +289,22 @@ All five target tiles now rebuild **byte-identically**, including the dense
   kinds `0x2a46` and up (seen outside the P1 bbox) are still preserved. At L3 the firmware reads a
   spliced directory with the slot-table parser `0x00414dbc`, loading the
   `0x2046` length (C-5546); what it does with the sub-records is UNKNOWN
-  (record/sub-record decoding not covered, rule 13);
+  (record/sub-record decoding not covered, rule 13). M5.93 adds the inverse:
+   `tilewriter.py` writes a **parent plus four 2x2 sub-records** into an
+   already-wide row when a level-1 record exceeds the 68,000-B inflated
+   shape-pool budget (C-8724, M5.92) or `--force-subrecord` names a parcel.
+   The parent keeps its runs and sets bit 31 of its even `ln`; each sub is a
+   full `0x00fa` record whose code is `sub_code(parent,k)`, with points in
+   the matching half-parcel quadrant of the full 0..2047 lattice. The
+   directory size, kind and `s1_wide_dir census` counts are unchanged
+   (C-8730-C-8737). Empty quadrants emit a `(NO_SUB, NO_SUB)` placeholder so
+   the four sub-size words stay index-aligned with the subN keys (sparse-split
+   fix, C-8735). Widening a narrow row needs a 512-B relocation and is
+   refused; street names in split subs need a per-sub name-offset remap and
+   are not written (C-8730). At L3 the firmware reads all four sub-codes
+   (reply sub 3, reader VAs 0x404ee4/0x3f6968, `tools/m593_l3.py`, C-8737);
+   the `LOC_map` walk harness covers only the SW group at x=y=1024 (C-8738)
+   and L4 drawing is not verified (C-8739);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 
 Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
@@ -356,6 +371,19 @@ name-list start offset, its terminator rule and any count/length prefix are
 **not** mapped. The only documented u32 view is the parcel code at `0x00`
 (two u16 words); no other `u32` offset is interpreted. `tools/section4.py`
 prints every non-documented span as hex instead of guessing.
+
+The `d=` prefix (`0=`, `1=`, `2=` and `4=` observed) is a name-category slot,
+not a KIWI placement kind. The KIWI 7.4 Name Data Frame does **not** describe
+these records (M4.71, C-7700–C-7709, `EXP-2026-11-24-M4.71-kiwi-name-frame`):
+0 of 1,872 section-4 records on two EU2011 tiles and one US2011 tile fit the
+`SWS(u16@0)` distribution header (the first word is the parcel code, e.g.
+`0x9b1d` → `SWS=79,358` against a 152-byte record), so its management pairs,
+attribute header, `st=1/4/5/6` placement kinds and coordinates are unreachable.
+What does fit is the M4.75 string rule: `word6`/`word7` at `0x0c`/`0x0e` give a
+word offset and word count × 2, and the raw bytes are CP1252 `d=TEXT` slots;
+`tools/kiwi_name_probe.py names` agrees with `section4.scan_names` on the same
+span. Writers must keep using the ZE0 `d=` grammar here, not a KIWI attribute
+header. See the M5.65 cross-reference below.
 
 **HYPOTHESIS:** the undocumented words at `0x06..0x0f` locate or count the name
 list (offset/count/length); the tool deliberately does not use them.
@@ -428,7 +456,10 @@ other tile byte stay verbatim; `section4.py verify` and `harness.py info` read
 the result, and the no-input run is byte-identical. This is not a new grammar
 claim: name-list placement and `0x06..0x0f` remain UNKNOWN (C-546, C-2391),
 and no firmware reader of the generated names has been run (C-6659). See
-`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659.
+`EXP-2026-11-22-M5.65-osm-section4-places` and C-6650–C-6659. M4.71
+(`EXP-2026-11-24-M4.71-kiwi-name-frame`) re-checks the name bytes this writer
+substitutes: KIWI 7.4 adds no placement rule, so the same-length CP1252
+substitution stays the correct operation (C-7700–C-7709).
 
 Road names: shape header word 4 is the name offset in the **odd partner
 record's** names section. `B30R060R` has 297/1,195 named lines; `B30R048R`

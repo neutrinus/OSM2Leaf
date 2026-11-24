@@ -11,7 +11,7 @@ import argparse
 import re
 from pathlib import Path
 
-PATCH = "ze0-m223-sd-fixed-pwd.patch"
+PATCH = "ze0-0020-sd-fixed-pwd.patch"
 
 
 def check(got, want, label):
