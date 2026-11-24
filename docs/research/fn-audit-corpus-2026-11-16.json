@@ -51,8 +51,7 @@
   "tools/tmc_req_l3.py",
   "tools/vcard_l3.py",
  ],
- "summary": {"files": 45, "citations": 1085, "unique_va": 446, "start": 644, "inside": 0, "corrected": 0, "gap": 96, "leaf": 96, "ambiguous": 1, "unmapped": 344},
- "summary": {"files": 39, "citations": 1018, "unique_va": 412, "start": 617, "inside": 0, "corrected": 0, "gap": 90, "leaf": 90, "ambiguous": 1, "unmapped": 310},
+ "summary": {"files": 45, "citations": 1086, "unique_va": 446, "start": 645, "inside": 0, "corrected": 0, "gap": 96, "leaf": 96, "ambiguous": 1, "unmapped": 344},
  "rows": [
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x0003aa80", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
