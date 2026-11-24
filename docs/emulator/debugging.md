@@ -146,6 +146,13 @@ EOF
   thread, `m 0x89e41b10,4` returns `E14`. Breakpoints on P1 still work
   (TCG matches the PC). Read kernel memory with HMP `xp` and the physical
   address.
+- **User pages read as `E14` too.** gdb and HMP `gva2gpa` translate only
+  through the UTLB, and WinCE refills it in software, so most pages of a
+  stopped process look unmapped (Navi.exe heap at `0x6236a8`, the mesh grid
+  at `0x01200700`). Dump RAM at the stop with `pmemsave 0x08000000 0x8000000`
+  and `pmemsave 0x10000000 0x8000000`, then read virtual addresses with
+  `tools/ze0_vmem.py`, which walks the kernel's `SectionTable` (KData
+  `+0x31c`). On NK1, section 0 (the current process) is Navi.exe's slot 15.
 - **Old QEMU holds the port.** `Failed to find an available port`, or a
   `T02` reply and a broken pipe: `pkill -f qemu-system-sh4` first.
 - **Single-stepping goes through interrupts.** A step can land in the

@@ -784,7 +784,7 @@ def main(argv=None) -> int:
             st["lev3456"] = sec2_level2.place_lev(lm, upper)
             lev_bytes, _lst = tile_relayout.write_model(lm)
             Path(args.lev_out).write_bytes(lev_bytes)
-            st["lev3456"]["sha256"] = hashlib.sha256(lev_bytes).hexdigest()
+            st["lev3456"]["sha256"] = sha256(lev_bytes)
         st["background"] = bg_stats
         if args.level2:
             st["level2"] = dict(parcels=len(built2), odd=len(odd2), background=bg2)

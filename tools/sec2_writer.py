@@ -265,6 +265,66 @@ def free_oneway_traps(prepared: dict, bounds: dict) -> int:
     return freed
 
 
+def split_parallel(links: list) -> int:
+    """Split every link that joins the same two nodes as an earlier link.
+
+    The factory has no two links between the same pair of nodes on level 1
+    or level 2 (B48R068R: 0 of 8,527,448 level-1 link ends).  Navi.exe finds a
+    link by its far node (e.g. the candidate walk in ``0x00369dd0``), so with a
+    parallel pair (an OSM one-way pair, a loop road) the route builder can take
+    the wrong one of the two; on a London route this made a cycle in the
+    level-1 path and ``MST CAND SELECT ERROR`` (EXP M5.103).  The extra link
+    gets a node at an interior shape point (or its midpoint), and its second
+    half a new link id of the same class.  Returns the number of links split."""
+    used = collections.defaultdict(set)
+    nodes = set()
+    shared = collections.Counter()
+    for L in links:
+        used[L["cls"]].add(L["lid"])
+        nodes.add(tuple(L["pts"][0]))
+        nodes.add(tuple(L["pts"][-1]))
+        shared.update(set(tuple(p) for p in L["pts"][1:-1]))
+    nodes.update(p for p, n in shared.items() if n > 1)
+    seen = set()
+    out, split = [], 0
+    for L in links:
+        pts = [tuple(p) for p in L["pts"]]
+        a, b = pts[0], pts[-1]
+        pair = frozenset((a, b))
+        if a == b or pair not in seen:
+            seen.add(pair)
+            out.append(L)
+            continue
+        def ok(q):
+            return 0 < q[0] < EDGE and 0 < q[1] < EDGE and q not in nodes
+        inner = [i for i in range(1, len(pts) - 1) if ok(pts[i])]
+        if inner:
+            i = min(inner, key=lambda i: abs(i - (len(pts) - 1) / 2))
+            first, second = pts[:i + 1], pts[i:]
+        else:
+            mid = ((a[0] + b[0]) // 2, (a[1] + b[1]) // 2)
+            for d in ((0, 0), (1, 0), (0, 1), (-1, 0), (0, -1), (1, 1)):
+                m = (mid[0] + d[0], mid[1] + d[1])
+                if ok(m) and m not in (a, b):
+                    break
+            else:
+                out.append(L)
+                continue
+            first, second = [a, m], [m, b]
+        lid2 = max(used[L["cls"]]) + 1
+        if lid2 > 0x1FFF:
+            lid2 = L["lid"]
+        used[L["cls"]].add(lid2)
+        nodes.add(first[-1])
+        out.append(dict(L, pts=first))
+        out.append(dict(L, pts=second, lid=lid2))
+        seen.add(frozenset((first[0], first[-1])))
+        seen.add(frozenset((second[0], second[-1])))
+        split += 1
+    links[:] = out
+    return split
+
+
 def nudge_edge_nodes(graphs: dict, prepared: dict, bounds: dict) -> int:
     """Move link ends that lie on a mesh edge (x or y 0 or 0x7ff) but are not
     boundary nodes one unit inside.  The firmware treats every node with fewer
@@ -305,6 +365,7 @@ def build(graphs: dict, country: int, free_traps: bool = True, level2: int = 5):
     prepared = {}
     st = collections.Counter()
     for parcel, (code, links, unit_m) in graphs.items():
+        st["level-1 parallel links split"] += split_parallel(links)
         for L in links:
             L["length"] = metres(L["pts"], unit_m)
         order, ent = parcel_graph(links)
@@ -341,7 +402,13 @@ def build(graphs: dict, country: int, free_traps: bool = True, level2: int = 5):
     if moved:
         st["level-1 edge nodes moved inside"] = moved
         for parcel, (code, _order, _ent) in list(prepared.items()):
-            order, ent = parcel_graph(graphs[parcel][1])
+            links, unit_m = graphs[parcel][1], graphs[parcel][2]
+            n = split_parallel(links)
+            if n:
+                st["level-1 parallel links split"] += n
+                for L in links:
+                    L["length"] = metres(L["pts"], unit_m)
+            order, ent = parcel_graph(links)
             prepared[parcel] = (code, order, ent)
         bounds = find_bounds()
     if free_traps:
@@ -465,7 +532,16 @@ def selftest() -> int:
     xy, links = unit_graph(w[27:])
     assert [decode(lw[6], SCALE_W6) for lw in links[xy.index((100, 100))]] == [2142, 880], links
     assert encode(5000, SCALE_W6) == (1 << 12) | 2500 and decode(encode(80000, SCALE_W6), SCALE_W6) == 80000
-    print("sec2_writer selftest OK: framing, one-way pairing, boundary links, length encoding, one-way traps")
+    # a one-way pair and a straight third link between the same two nodes
+    par = [dict(cls=8, lid=1, pts=[(10, 10), (40, 30), (90, 10)], oneway=1),
+           dict(cls=8, lid=2, pts=[(90, 10), (50, 2), (10, 10)], oneway=1),
+           dict(cls=8, lid=3, pts=[(10, 10), (90, 10)], oneway=0)]
+    assert split_parallel(par) == 2 and len(par) == 5, par
+    ends = [frozenset((tuple(L["pts"][0]), tuple(L["pts"][-1]))) for L in par]
+    assert len(set(ends)) == 5 and sorted(L["lid"] for L in par) == [1, 2, 3, 4, 5], par
+    assert ((50, 2) in [tuple(L["pts"][-1]) for L in par]) and ((50, 10) in [tuple(L["pts"][-1]) for L in par])
+    print("sec2_writer selftest OK: framing, one-way pairing, boundary links, length encoding, one-way traps,"
+          " parallel links")
     return 0
 
 
