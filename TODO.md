@@ -1001,7 +1001,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-22-M1.51-gps-distance-rule; no distance rule found (falsifier fires); C-8250-C-8254
 
 - [ ] **M1.52 — TestMode GPS initialisation: how to seed the receiver with a Polish position and the date**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.52-cycle10 · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track for Marek's car (EXP-2026-11-22-M1.50, hypotheses H1/H1a): `TestMode.exe` writes a date and lat/lon to the GPS receiver (`CTestModeGPSInit::WriteGpsData`, US `fn 0x0003aa80`). Find the screen that calls it, the text format the technician enters, and what the `B0_A3`, `B0_A0`, `B3`, `B4` commands do, so Marek can try it on the unit.
   - Precheck: `python3 tools/sh4xref.py archive/us256.img TestMode.exe --image-start 0x5200200 --to 0x198f0` prints `fn 0x0003aa80`.
