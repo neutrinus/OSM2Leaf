@@ -1306,8 +1306,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8040–C-8049
   - Result: EXP-2026-11-24-M2.22-sdhost-dma-l4; 5 L4 boots, 4 good PASS/F5 + negative FAIL/F4 [0x28]
 
-- [ ] **M2.23 — The SD lock in the emulator: locked, unlocked and wrong-password cards**
-  - Status: in progress · Owner: task/m2.23-sd-lock-emulator · Critical: no · Pair: required
+- [x] **M2.23 — The SD lock in the emulator: locked, unlocked and wrong-password cards**
+  - Status: done · Owner: task/m2.23-sd-lock-emulator · Critical: no · Pair: required
   - Step: reader
   - Depends: M8.C1b (done)
   - Goal: On the unit the card is password-locked (CMD42) with a unit-specific password; the emulator's SD model accepts the password 'on first use'. Make the model strict enough to test the firmware's behaviour with an unlocked card and with a card locked to another unit — the question behind 'can a self-made card work without the lock'.
@@ -1318,6 +1318,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the three states give the same boot (then the lock is not checked on this path).
   - Claims: C-8050–C-8059
+  - Result: EXP-2026-11-24-M2.23-sd-lock-emulator: 3 card states distinct (CMD42 LOCK+UNLOCK / LOCK-only / UNLOCK-only), launcher verdicts differ, decision VA AppLaunch.dll 0x03bca5f4 (B); C-8050..C-8059; selftest 283/0
 
 - [ ] **M2.24 — The error screens, seen: reproduce the catalogue of card errors at L4 with screenshots**
   - Status: open · Owner: — · Critical: no · Pair: solo
