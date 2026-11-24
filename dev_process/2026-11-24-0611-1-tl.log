@@ -83,3 +83,28 @@ Still open (claim-only or in flight): M1.53 (#719, final review), M8.C1p
 (not in this batch). Remaining solos: M8.H54/M8.G2/M4.75/M4.57/M4.59 done.
 
 (outcome table appended when the remaining agents finish)
+
+merge stream continued (main 3da49f59):
+  - #719 M1.53 done (point_tree STDDLL walk via ce_module, byte-identical
+    before/after, nk_decomp 3->2) direct e8b04626.
+  - #703 M2.21 done (l4check --unit-verinf/--unit-mapdb; 7/7 mutation matrix,
+    C-ctrl self-cancel control) direct b730e8bc; added missing Follow-ups
+    heading for exp_check in merge worktree.
+  - #706 M8.C1p BLOCKED (EU flash consent, Unblock = owner's M6.18 dump;
+    US L4 validates patch mechanism; H69 verify defect fixed in round 4)
+    direct 3da49f59.
+  - #707 M4.28 was returned: reserved claims C-2685-C-2689 left on a done
+    task -> claims_check FAIL; driver fixing. NOT merged yet.
+  - Gate RED transient after M4.75 introduced 4 new fn VAs in its EXP:
+    fn_audit L3 overlay CORPUS STALE 4 new. Re-froze L3 overlay with
+    fn_audit.py --scope l3 --write-snapshot (no gate threshold changed);
+    gate 5 pass / 0 fail / 0 skip restored (commit 5eb2fc70).
+  - Disk hit 100% (1.9 GB free) during the wave; reclaimed stale tl-merge
+    worktrees and tl-tmp selftest scratch, back to 13 GB free.
+
+Still in flight (8 tasks): M5.92 #702, M3.14 #705, M4.28 #707, M1.38 #708,
+M4.78 #710, M1.52 #711, M5.95 #712, M8.H20 #720. Most plan reviews now
+resolved; drivers running experiments. M8.H79a (rule-15 follow-up) open,
+not launched this cycle.
+
+(outcome table appended when the remaining agents finish)
