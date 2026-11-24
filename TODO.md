@@ -3840,7 +3840,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8740–C-8749
 
 - [ ] **M5.95 — Z4b: built-up area from OSM building density instead of a share threshold**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m5.95-cycle10 · Critical: no · Pair: solo
   - Step: Z4
   - Depends: M5.89
   - Goal: the factory's level-1 urban fill (`0xc12b`) is a generalised built-up polygon; M5.89's `--urban-fill 0.1` copies the look with a guessed threshold (C-8695). Derive the built-up area from OSM data with a rule we can defend.
