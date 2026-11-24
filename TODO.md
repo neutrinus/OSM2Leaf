@@ -1164,7 +1164,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: dev_process/2026-11-23-2214-13-tl.log (process-only, no EXP); H132-H139 released with dated note, QA log landed on main, PR #639 closed
 
 - [ ] **H142 — Refresh the test-system map so it describes the CI that actually ships**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/h142-test-system-map · Critical: no · Pair: solo
   - Depends: —
   - Goal: `docs/research/test-system.md` is the living map the next QA/SE/PO pass reads, but its §2/§6 still describe the H25-era CI (`selftest --json`, `claims_check.py`, `todo_check.py`) and H26-era artifacts (`l1l2.json`, `l1l2.md`). origin/main now runs `tools/gate.py` (five rows with SKIP never PASS), a blocking H28 `l3check --build-corpus` job, the H41 per-file/per-feature matrix with a committed baseline, and the H117/H126 watchdog plus PR-head sweep; `test-system.md` calls all of that "planned". A stale map makes a reviewer plan work that already exists — exactly what happened to this pass's old H133-H139 plan.
   - Precheck: `grep -n 'Hard gate' docs/research/test-system.md` still names `selftest.py --json`, not `tools/gate.py`; `grep -n 'planned regression' docs/research/test-system.md` lists H28/H42/H43 as unshipped though `grep -n 'L3 synthetic corpus' .github/workflows/ci.yml` hits; `grep -n 'main_watch' docs/research/test-system.md` finds no row.
