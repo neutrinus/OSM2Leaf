@@ -885,8 +885,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: this is a map, not a rewrite; do not start re-implementing.
   - Claims: C-6480–C-6489
 
-- [ ] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
-  - Status: in progress · Owner: task/m1.48-antitheft-map · Critical: no · Pair: solo
+- [x] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
+  - Status: done · Owner: task/m1.48-antitheft-map · Critical: no · Pair: solo
   - Depends: — (M6.19 helps: the PROD record of a real unit)
   - Goal: side track, but it matters for bench work: a unit moved to another car, or powered on a bench without the car's CAN, can show the SECURE screen. Say who decides (the audio microcontroller, the SH-4, or the car's BCM), what is compared (PROD `+0xA0` 4-byte IMMO code, flag `+0x193`; LeafSDTools "DISABLE IMMO" zeroes the flag), over which link, and what stays blocked while locked.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 exports AntitheftCC.dll` prints exports; the string `ANT_RCV_SECURITY_LOCK` is found in `anwdrv.dll`.
@@ -895,6 +895,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: the page has the lock and the release sequence with the VA of each send/receive, names where the code comparison happens (or shows it is not in SH-4 code), and lists what each waiting process refuses while locked.
   - Stop: no code or PROD bytes of a real unit are committed; do not describe how to defeat the lock on a unit that is not one's own beyond what LeafSDTools already documents.
   - Claims: C-10200–C-10209
+  - Result: EXP-2026-11-24-M1.48-antitheft-map; C-10200–C-10209; 10/10 claims
 
 - [x] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
   - Status: done · Owner: task/m1.49-ui-strings · Critical: no · Pair: solo
