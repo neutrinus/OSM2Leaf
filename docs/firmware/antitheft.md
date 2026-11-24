@@ -61,12 +61,12 @@ the name literal lives; the code xref is the literal-pool load that uses it.
 
 | Step | Direction | Message | Name VA (module) | Code / send-receive site | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | MCU → SH-4 | `ANT_RCV_SECURITY_LOCK` | `0x03b8b0ec` (`anwdrv.dll` sec0); also `0x00011124` (`UpdateMng.exe` sec0) | `anwdrv.dll` receives over `ANT1:`/`SCI1:`; `CUpManager::AntiTheftThreadMain` logs the event `UPM_ANT_EVENT_SECURE_LOCK` (literal `0x000114f0`) | VERIFIED (VA + xref via `antitheft_map`/`sh4xref`) |
+| 1 | MCU → SH-4 | `ANT_RCV_SECURITY_LOCK` | `0x03b8b0ec` (`anwdrv.dll` sec0); also `0x00011124` (`UpdateMng.exe` sec0) | `anwdrv.dll` receives over `ANT1:`/`SCI1:`; `CUpManager::AntiTheftThreadMain` logs the composite `CUpManager::AntiTheftThreadMain Event[UPM_ANT_EVENT_SECURE_LOCK]` (VA `0x000114f0`, name-only literal `0x0001153c`) | VERIFIED (VA + xref via `antitheft_map`/`sh4xref`) |
 | 2 | SH-4 → MCU | `ANT_SEND_SEC_RESPONSE` | `0x00011440` / `0x000114b8` (`UpdateMng.exe` sec0) | `CUpManager::AntiTheftThreadMain` log `ANT_SEND_SEC_RESPONSE OK/NG`; handler `fn 0x000189e8`, literal loads at `0x00018c34`/`0x00018c30` | VERIFIED |
-| 3 | MCU → SH-4 | `ANT_RCV_SECURITY_RELEASE_OK` | `0x03b82c3c` (`anwdrv.dll`), `0x000110ec` (`UpdateMng.exe`) | event `UPM_ANT_EVENT_SECURE_RELEASE` (`0x00011578`); `WaitForMultipleObjects` log `0x00011608` | VERIFIED |
+| 3 | MCU → SH-4 | `ANT_RCV_SECURITY_RELEASE_OK` | `0x03b82c3c` (`anwdrv.dll`), `0x000110ec` (`UpdateMng.exe`) | composite log `…Event[UPM_ANT_EVENT_SECURE_RELEASE]` (`0x00011578`, name-only `0x000115c4`); `WaitForMultipleObjects` log `0x00011608` | VERIFIED |
 | 4 | SH-4 → MCU | `ANT_SEND_SEC_RELEASE` | `0x00011350` / `0x000113c8` (`UpdateMng.exe`) | `CUpManager::AntiTheftThreadMain` log `ANT_SEND_SEC_RELEASE OK/NG`; literals `0x00018c3c`/`0x00018c38` | VERIFIED |
 | 5 | SH-4 internal | `CApi_AntitheftUnlock()` | `0x000116d8` / `0x00011750` (`UpdateMng.exe`) | imported slot `0x220d0` → `commondll.dll!CApi_AntitheftUnlock` (rva `0x38b4`); calls at `0x00018a7a`, `0x00018af0`, `0x00018bac` | VERIFIED (`cerom.py imports`, `sh4xref --calls`) |
-| 6 | SH-4 internal | `ANTITHEFT_UNLOCKOK` event | `0x03c015c8` (`commondll.dll` sec0) | waiter `fn 0x03c068e4`, literal `0x03c0694c`, three close handles via import `0x01f7a048`; also loaded at `0x03c0126e` | VERIFIED (`sh4xref --to`) |
+| 6 | SH-4 internal | `ANTITHEFT_UNLOCKOK` event | `0x03c015c8` (`commondll.dll` sec0) | waiter `fn 0x03c068e4` calls the unresolved thunk `0x03c08ae8` (slot `0x01f7a048`) three times with the three event names `0x03c0160c` / `0x03c015f0` / `0x03c015c8` (r5 = 0/0/1); literal `0x03c0694c`; also loaded at `0x03c0126e`. `cerom.py thunks` marks the slot UNRESOLVED, so the exact API (CreateEvent-style) is unverified. | VERIFIED (`sh4xref --to`, `sh4dis`) |
 
 The `ANT_SEND_SEC_*` log names exist only in `UpdateMng.exe` (build B);
 `ANT_RCV_*` exists in both `anwdrv.dll` and `UpdateMng.exe`. The alternative
@@ -90,8 +90,11 @@ Each waiter creates/waits on `ANTITHEFT_UNLOCKOK` before proceeding:
 The HMI screens `SRT_COLD_SECURE` / `POP_SRT_COLD_ANTI_THIEF_SECURE` live in
 `ScreenStateCC.dll` (`0x2ad5644` / `0x2ad5690`), `EvNoticeCC.dll`
 (`0x24b5644` / `0x24b5690`) and `InfoBarCC.dll` (`0x2435644` / `0x2435690`);
-the `_FNR_` / `_CAS_` status pairs are in `ScreenStateCC.dll` around
-`0x2aad1e3` / `0x2aa1737` (two vehicle variants).
+the `_FNR_` / `_CAS_` status markers are in `ScreenStateCC.dll` — e.g.
+`DELAYEVENTREDIRECT_SS_INTERRUPT_REDIRECT_NAVI_EV_CC_FNR_DRIVINGRANGE_VALID`
+(`0x2aad1b0`) and `VAR_PHONE_CC_CAS_RE_REGISTRATION_TELEPHONE_DEVICE_COMPLETE`
+(`0x2aa2f28`) — consistent with two vehicle variants, but no `SECURE`-specific
+`_FNR_`/`_CAS_` pair was identified.
 
 ## 5. What could be changed / differences between builds
 
