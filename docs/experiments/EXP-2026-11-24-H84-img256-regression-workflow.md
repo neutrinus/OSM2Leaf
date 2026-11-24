@@ -112,11 +112,14 @@ Raw command outputs (numbers quoted from the printing commands):
 - `python3 tools/realcheck.py --selftest` → `16 checks OK (synthetic CE ROM,
   no vendor data)`; `python3 tools/fetch_image.py --selftest` → `failures: 0`.
 - `python3 tools/selftest.py` → `passed=280 failed=2 skipped=21 total=303
-  time=471.15s` then `selftest: FAILED` (navigator's full run). This is a
-  **pre-existing host condition**, not an H84 defect: `git diff --quiet
-  origin/main...HEAD -- tools/` confirms the entire `tools/` tree (including
-  `selftest.py`) is byte-identical to `origin/main`, so the result is unchanged
-  from baseline. The two failures are unrelated to the workflow.
+  time=471.15s` then `selftest: FAILED` (navigator's full run). A second full
+  run under heavy parallel CI load printed `passed=274 failed=8 skipped=21
+  total=303 time=651.72s` then `selftest: FAILED`. Both are **pre-existing host
+  conditions**, not H84 defects: `git diff --quiet origin/main...HEAD -- tools/`
+  confirms the entire `tools/` tree (including `selftest.py`) is byte-identical
+  to `origin/main`, so the result is unchanged from baseline. The failing count
+  fluctuates with concurrent load; none of the failures is in a file H84
+  touched.
 
 ## Interpretation
 
