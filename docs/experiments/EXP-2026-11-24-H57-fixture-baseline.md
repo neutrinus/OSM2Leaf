@@ -57,6 +57,9 @@ python3 tools/l1l2_matrix.py --input "$D/pass2fail.json" --check-baseline tools/
 python3 tools/l1l2_matrix.py --input "$D/pass2skip.json" --check-baseline tools/fixtures/l1l2-matrix-baseline.json --no-stdout-md
 python3 tools/l1l2_matrix.py --input "$D/skip2fail.json" --check-baseline tools/fixtures/l1l2-matrix-baseline.json --no-stdout-md
 python3 tools/selftest.py --only l1l2_matrix
+mkdir -p ~/projekty/leafre-work/scratch/h57/tmp
+TMPDIR=~/projekty/leafre-work/scratch/h57/tmp python3 tools/selftest.py --json > ~/projekty/leafre-work/scratch/h57/selftest-full.json
+python3 -c "import json; d=json.load(open('$HOME/projekty/leafre-work/scratch/h57/selftest-full.json')); print('ok',d['ok'],'counts',d['counts'])"
 python3 tools/todo_check.py
 python3 tools/claims_check.py --strict --count-check
 ```
@@ -89,8 +92,9 @@ Raw output of the Method step 2 commands (at HEAD `7d2d3e11`, branch `task/h57-f
    - `REGRESSION: L1|ZE0 generated fixture tree|structural: PASS -> SKIP`, rc=1.
    - `REGRESSION: L2|REFER001/*.cmp/.ind (recompress)|container: SKIP -> FAIL`, rc=1.
 6. `python3 tools/selftest.py --only l1l2_matrix` → `tool:l1l2_matrix  PASS`, `passed=1 failed=0 skipped=0 total=1`, `selftest: OK` (the timing suffix is host-dependent and is not quoted).
-7. `python3 tools/todo_check.py` → `todo_check: OK` (rc=0; two pre-existing WARNs about M9.63/M9.72 dependencies). `python3 tools/claims_check.py --strict --count-check` → `claims_check: OK` (rc=0).
-8. `git ls-files | grep -i baseline` names three paths (`tools/fixtures/l1l2-matrix-baseline.json`, `tools/fixtures/todo_strict_baseline.json` and an EXP). `grep -n baseline .github/workflows/*.yml` names the baseline step in `l1l2-fixtures.yml` and the policy prose in `README.md`; the task's Precheck was written before H41/H43 landed and is stale.
+7. Full `python3 tools/selftest.py --json` with `TMPDIR` on the home tree → `ok True counts {'pass': 282, 'fail': 0, 'skip': 21, 'total': 303}` (elapsed 149.437s); `tool:l1l2_matrix` status PASS with output `l1l2_matrix self-test: 31/31 checks OK`; no FAIL entries. Earlier runs with the default `/tmp` tmpfs printed `passed=278 failed=4 skipped=21 total=303 time=810.41s; selftest: FAILED` (an `l3_harness.engine` 60s timeout) and `271/11/21/303` when the tmpfs filled — host churn, not H57 failures. The completed JSON is cited in Interpretation.
+8. `python3 tools/todo_check.py` → `todo_check: OK` (rc=0; two pre-existing WARNs about M9.63/M9.72 dependencies). `python3 tools/claims_check.py --strict --count-check` → `claims_check: OK` (rc=0).
+9. `git ls-files | grep -i baseline` names three paths (`tools/fixtures/l1l2-matrix-baseline.json`, `tools/fixtures/todo_strict_baseline.json` and an EXP). `grep -n baseline .github/workflows/*.yml` names the baseline step in `l1l2-fixtures.yml` and the policy prose in `README.md`; the task's Precheck was written before H41/H43 landed and is stale.
 
 ## Interpretation
 
@@ -99,7 +103,8 @@ Raw output of the Method step 2 commands (at HEAD `7d2d3e11`, branch `task/h57-f
 - **FACT:** all honest non-PASS tokens share one tier; a move among them (e.g. SKIP->NOT_COVERED) is intentionally neither a regression nor an improvement, as documented in `tools/l1l2_matrix.py` and asserted in `--selftest`.
 - **OBSERVED:** a lost PASS key fails while a lost non-PASS key is DROPPED; duplicates are reported. This implements H57's DROPPED/NEW hints without weakening the PASS gate.
 - **HYPOTHESIS:** `progress_snapshot.py`, which composes `l1l2_matrix.py --check-baseline`, inherits the corrected verdict with no change (it reads `REGRESSION:` messages from the matrix report) — plausible from the code path but not re-run end to end in this EXP.
-- **UNKNOWN:** no full `selftest.py` run is quoted here; the standing gate's host-dependent `fn_audit` stale-corpus failures are outside H57's scope and are reported in the PR body instead.
+- **FACT:** full `selftest.py --json` with a home-tree `TMPDIR` is green on this branch (`ok True`, 282 pass / 0 fail / 21 skip / 303 total), so H57's Done-when `selftest.py passes` is met. The red runs seen with default `/tmp` are tmpfs-host churn (60s tool timeouts / ENOSPC), not caused by H57.
+- **UNKNOWN:** nothing about firmware, L3/L4/L5 acceptance or vendor bytes is established by this task (rule 13).
 
 ## Conclusion
 
