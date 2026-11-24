@@ -1324,7 +1324,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-24-M2.23-sd-lock-emulator: 3 card states distinct (CMD42 LOCK+UNLOCK / LOCK-only / UNLOCK-only), launcher verdicts differ, decision VA AppLaunch.dll 0x03bca5f4 (B); C-8050..C-8059; selftest 283/0
 
 - [ ] **M2.24 — The error screens, seen: reproduce the catalogue of card errors at L4 with screenshots**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m2.24-error-screens · Critical: no · Pair: solo
   - Step: reader
   - Depends: M2.21, M8.C1f
   - Goal: M2.9 listed the error messages the firmware can show for a bad card. With a working screen, show each one in the emulator and tie it to its trigger — the reference for anyone who later sees one in the car.
