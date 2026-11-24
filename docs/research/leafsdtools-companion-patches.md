@@ -101,6 +101,22 @@ Its name in the tool says "QY7XXX (AZE0, E-NV200), NOT FOR JAPAN".
   `SRT_COLD_I_AGREE_NAM` (North America), and the timer and transition
   sites found for those states. That is task M8.C1p.
 
+**Our ZE0 patch (M8.C1p, `tools/ze0_consent.py`).** It does not use a timer.
+The consent state already receives `SK_OTH_SCREEN_UNLOCK` on its own, with
+no tap, right after the screen is shown. The patch changes the event id the
+handler compares from `SK_SCT_AGREE_CLICK` to `SK_OTH_SCREEN_UNLOCK`, so the
+"I agree" path runs on that event. EU 2011: `0x08a4 → 0x088f`, two literals
+per copy (handler fn `0x02c21b0c`, state id `0x263`, and its sibling `0x264`).
+US 2011: `0x089e → 0x0889`, two per copy. Both copies of image A are patched
+and their SUM4 fixed. Verified on `-M ze0` with no tap: US card on anon flash
+(EXP-2026-11-24-M8.C1p-ze0-consent-skip), EU card prepared for a US unit on
+NK1 + the owner's flash with SRAM area 0 erased
+(EXP-2026-11-24-M8.C1p-eu-consent-l4). Not yet tested in a car.
+
+Tool versions before 2026-11-24 patched the wrong places on EU cards (wrong
+build after `card_mapcode.py`, wrong EU ids). `ze0_consent.py verify` reports
+such a card and `ze0_consent.py patch` repairs it.
+
 Other ZE0 start states for reference: `INI_STARTUP` (215),
 `SRT_COLD_ANTI_THEFT`, `SRT_COLD_OPENING_ANIMATION(_FIRST)`,
 `SRT_COLD_SECURE`, `SRT_COLD_WAITING_MAP`, `SRT_COLD_STATUS_SCREEN`.

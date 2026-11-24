@@ -115,6 +115,19 @@ That is for the car test to show.
    by hand, and `--map-code-only` skips it (that card would stop at
    `NK Version Error`).
 
+   Optional: skip the start-up consent screen ("Touch OK to accept") on
+   the same copy. Order does not matter:
+
+   ```bash
+   python3 tools/ze0_consent.py patch eu_card.img --in-place
+   python3 tools/ze0_consent.py verify eu_card.img     # verify: PASS
+   ```
+
+   It changes two 16-bit literals in each copy of image A and fixes each
+   copy's SUM4 (EXP-2026-11-24-M8.C1p-eu-consent-l4). A card patched with
+   a version before 2026-11-24 fails `verify`; run `patch` again on it.
+   The LeafSDTools Companion consent patch does not fit 2011 cards.
+
 5. Reset the navigation's saved state on the unit (area 0 of `SRAM`). See
    [Reset area 0 of the unit's SRAM](#reset-area-0-of-the-units-sram)
    below. Without it, the EU card crashed `Navi.exe` in the emulator.
