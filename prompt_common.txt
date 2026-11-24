@@ -21,6 +21,21 @@ Hard rules:
   when the task's EXP is written. Use `/tmp` only for small, short-lived files
   the same command removes (e.g. `tempfile.TemporaryDirectory` in a selftest).
   Never point a tool's work dir, card output or log at `/tmp` for a long run.
+- **Clean up `scratch/<task>/` before you mark the task done or blocked.** A
+  task is not finished while its generated cards, extracted trees, QEMU work
+  dirs and logs still consume disk (2026-11-24: stale scratch held 122 GB and
+  the root filesystem reached 100 % with 76 MB free). Delete the whole
+  directory once the EXP records the result, so every number the EXP quotes is
+  captured before the bytes go away. Keep only what another open task or a
+  reproducible EXP command still reads.
+- **Before deleting anything under `~/projekty/leafre-work/`**, check that no
+  process has it open (`lsof +D` / `ps`) and that no `docs/` or `TODO.md`
+  reference names it; an EXP command or a claim's sample path must keep
+  resolving. If the file is byte-identical to a factory image in
+  `archive/sd-images/`, replace it with a symlink to the original instead of
+  deleting the path — verify with `sha256sum` first. Large QEMU `-d` logs are
+  usually only *described* in an EXP (size quoted), not read by it: those can
+  go. Never `rm` a path a live task or claim cites.
 - Never force-push `main`. Never edit a task another agent has
   `in progress`, except to note a dependency in your own task.
 - When your task's commits are on `origin/main` (done or blocked), close its
