@@ -5892,8 +5892,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-10080–C-10089
   - Pair: required
 
-- [ ] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
-  - Status: in progress · Owner: task/m8.g4-aze0-machine · Critical: no · Pair: solo
+- [x] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
+  - Status: done · Owner: task/m8.g4-aze0-machine · Critical: no · Pair: solo
   - Step: model
   - Priority: low (first follow-up of M8.G2; part of the long-term "run any generation in QEMU" goal).
   - Depends: M8.G2 (done), M8.A11 (done)
@@ -5905,6 +5905,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the X212 kernel stops short of F0 twice with the same log, record the last debug line and stage in an EXP and set `blocked` on the M8.G2 follow-up that owns the missing device (INTEVT table M8.G5).
   - Falsifier: the EU2014 kernel prints debug text at the EU2011 VA `0x880404f4` and ends at the EU2011 final PC `0x8803d266` — then no X212 subclass is needed and this task records that instead of adding a machine.
   - Claims: C-10090–C-10099
+  - Result: EXP-2026-11-24-M8.G4-aze0-machine; -M aze0 5s: 462 vs 0 wrong-VA/0 off lines, entry 0x8800f100, RAM 0x8a640000, ze0 PC 0x8803d266 unchanged; C-10230..C-10239
 
 ---
 
