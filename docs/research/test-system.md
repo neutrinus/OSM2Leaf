@@ -149,6 +149,21 @@ not imply coverage or firmware/car acceptance.
 - L4 emulator and L5 bench results require explicit evidence/status inputs;
   dashboards must not auto-pass them.
 
+**Committed no-vendor baseline (H57).** `tools/fixtures/l1l2-matrix-baseline.json`
+is the committed expected result for the H40/H41 generated fixture, keyed by
+`level,file,feature` (H57 Scope; H104 owns the separate L1 `cardcheck`
+baseline). `python3 tools/l1l2_matrix.py --input REPORT.json --check-baseline
+tools/fixtures/l1l2-matrix-baseline.json` fails (exit 1) when a baseline PASS
+becomes FAIL/SKIP/NOT_COVERED or when a PASS key disappears from the report;
+`SKIP -> FAIL` also fails. A status rise (`FAIL -> PASS`, `SKIP -> PASS`) is
+printed as an improvement, not an error; a new key is `NEW`, a vanished
+non-PASS key is `DROPPED`, and a duplicated key is `DUPLICATE` — all printed
+without failing the gate. SKIP/NOT_COVERED/NOT_RUNNABLE are never PASS.
+Refresh the baseline only with an EXP/PR rationale (as for `l2check
+--update-golden`), never to make a failing run pass; `tools/l1l2_matrix.py
+--input REPORT.json --write-baseline PATH` writes it and the diff of that file
+is the review record.
+
 **Planned regression/gate expansions (do not treat as implemented):**
 - H28/H42/H43: richer CI artifacts/summaries and generated-fixture/L3 reporting
   (no vendor in PR path).
