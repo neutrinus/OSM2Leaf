@@ -4938,7 +4938,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H19-position-store; VSram block 0x8e is settings, not the position (pattern control negative); L3 falsifier not triggered: EU B48R058R vs B48R060R, US B38R0B0R vs B30R0E0R; coord selftest 24/24; position_store_l3 5/5 on both builds
 
 - [ ] **M8.H20 — Start the emulator at a chosen place: seed the saved position**
-  - Status: in progress · Owner: task/m8.h20-cycle10 · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m8.h20-cycle10 · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H18, M8.H19
   - Goal: Use the record of M8.H19 and the flash file of M8.H18 so `run.sh --start-position LAT,LON` boots with the map centred there — no GPS needed. First use: the four Poland tiles of the EU card.
@@ -4949,6 +4949,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the firmware rejects the record (checksum or a second copy), record the check and stop.
   - Falsifier: both boots read the same tile.
   - Claims: C-7170–C-7179
+  - Blocker: On-flash last-position record offset and checksum UNKNOWN: C-7167 refuted VSram block 0x8e, the flash->OBJDLL object-store restorer is not derivable from build A/B structure, and no unit flash dump exists on this machine
+  - Unblock: M8.H20a
+  - Result: EXP-2026-11-24-M8.H20-position-seed (negative; coord selftest 27/27; L3 tiles B48R058R vs B48R060R; 0/5 known words in anon flash; no format invented, no L4 boot)
 
 - [x] **M8.H21 — Is there a demo drive? Route simulation and other position sources inside `Navi.exe`**
   - Status: done · Owner: task/m8.h21-demo-drive · Critical: no · Pair: solo
@@ -5766,6 +5769,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: M5.100 from-zero card (SHA-256 1b5bafeb…aeb2f2da52) was reaped with scratch: 17 images >=7 GiB hashed this session, 0 match; tile 0717a913…, pinned PBF b26a178b… and intermediates deleted; stock zlib 1.3.1 unavailable, so exact rebuild cannot be confirmed. No from-zero card to boot, so no L4 file-open/screen comparison was possible
   - Unblock: A task that re-preserves the M5.100 from-zero card (rebuild tile 0717a913… from pinned PBF b26a178b… with stock zlib 1.3.1 and re-apply the M5.100 map-code patch), confirmed by sha256sum prefix 1b5bafeb…aeb2f2da52; plus M8.C1p for the EU-card consent skip so --ui-start reaches map state. Rule 15 re-opens M8.H79 when that task merges
   - Result: EXP-2026-11-23-M8.H79-from-zero-card-unavailable (negative; 0/17 card hashes match, selftests pass, bad-mmain control FAIL at F4; task falsifier untestable without the card)
+
+- [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
+  - Status: open · Owner: — · Critical: no · Pair: no
+  - Step: reader
+  - Depends: M8.H18, M8.H19
+  - Goal: M8.H20 is blocked because the flash→object-store restorer of the last vehicle position is UNKNOWN (C-7167). Trace `OBJ_BackUpMgr` / `OBJDLL!OBJ_CarPos_read` back to the `FMD1:` record and derive its exact flash offset, record layout and checksum from structure or a real unit dump — never a guessed format. Report whether the saved word is `0x9c03a3c0`-style packed COORD001 and whether there is a second copy.
+  - Precheck: `python3 tools/sh4xref.py archive/head256.img OBJDLL.dll --image-start 0x200200 --to 0x03481eb4` prints the backup-manager functions; `docs/firmware/position-store.md` says the restorer is UNKNOWN.
+  - Scope: build A (`OBJDLL.dll` backup manager, 56-byte-stride table at `0x01e54ee4`, 36-byte records at the `0x03482c68` base) and build B VSram/FMD driver; attribute every VA with `cerom.py`; `.pdata` START function boundaries; account for `jsr @Rn` indirect calls. A real unit dump may be used locally (never committed); record only its SHA-256 and offsets.
+  - Input: `tools/cerom.py`, `tools/sh4xref.py`, `tools/sh4dis.py`, `tools/ce_strfind.py`, `tools/unitflash.py`, `tools/position_store_l3.py`, a unit flash dump if available.
+  - Done when: an EXP reproduces, from a printing command, the exact flash offset(s), record fields and checksum rule of the saved position, and a negative control (corrupt one field or the checksum) shows the firmware/reader rejects it; the EXP names whether M8.H20 can then be re-opened.
+  - Stop: one session; if no dump and no static derivation succeeds, stay blocked with a negative EXP and a positive control.
+  - Falsifier: a candidate record whose mutation does not change the position read at init.
+  - Claims: C-10120–C-10129
 
 - [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
   - Status: open · Owner: — · Critical: no · Pair: required
