@@ -67,26 +67,39 @@ def load_table(path):
 
 
 def control_commands(line, state):
-    """Apply one control line and return a printable reply (M8.H7-style)."""
-    parts = line.strip().split()
-    if not parts:
-        return ""
-    cmd = parts[0].lower()
-    if cmd in ("mode", "stub") and len(parts) == 2:
+    """Apply one control line and return a printable reply (M8.H7-style).
+
+    The verbs and their replies are unchanged; only the arity/verb dispatch
+    now goes through peerlib.dispatch (M8.H77).
+    """
+    def mode(cmd, parts):
+        return cmd in ("mode", "stub") and len(parts) == 2
+
+    def set_mode(parts, state):
         if parts[1].lower() not in ("absent", "minimal"):
             return "ERR mode must be absent or minimal"
         state["mode"] = parts[1].lower()
         return "mode %s" % state["mode"]
-    if cmd == "status":
+
+    def status(cmd, parts):
+        return cmd == "status"
+
+    def get_status(parts, state):
         return "status mode=%s frames=%d tx=%d" % (
             state["mode"], state["frames"], state["tx"])
-    if cmd == "tx" and len(parts) == 2:
+
+    def tx(cmd, parts):
+        return cmd == "tx" and len(parts) == 2
+
+    def queue_tx(parts, state):
         try:
             state["queue"].append(bytes.fromhex(parts[1]))
         except ValueError:
             return "ERR tx is not hex"
         return "queued %s" % parts[1]
-    return "ERR unknown command: %s" % cmd
+
+    return peerlib.dispatch(line, [(mode, set_mode), (status, get_status),
+                                   (tx, queue_tx)], state)
 
 
 def run(args):
