@@ -257,13 +257,21 @@ qemu-system-misc gdb-multiarch`.
 ## Priorities (PO grooming 2026-11-23, 25th pass; `origin/main` `e84436f1`)
 
 **The four rule-17 numbers, first** (`python3 tools/map_signals.py --factory-root
-/home/marek/projekty/leafre-work/m5.4/card-factory`):
+/home/marek/projekty/leafre-work/m5.4/card-factory --report
+/home/marek/projekty/leafre-work/scratch/m9.76/report.json`):
 `readers: located 18 partial 1 unlocated 1` · `l3_rows: l3-running 8` ·
 `tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.29%` ·
-`card_step: P0 (cardcheck_ok=True l2check_ok=True counts.cardcheck_rc=0)`.
-**None moved — fourth consecutive cycle.** The window merged the card gate
-(M9.12), L4 readers (M9.75), the from-zero card and M9.76; the counter still
-reads a 2026-11-17 report. M9.76 is the task that can make it move.
+`card_step: P0 (cardcheck_ok=True l2check_ok=True cardcheck_rc=0 l2check_rc=0
+card_sha256=b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237)`.
+**None moved — fifth consecutive cycle.** M9.76 replaced the 2026-11-17 pin
+with a fresh report for the P0 card `b0faf119…c33237` (both gate rc values 0,
+full SHA and ladder step recorded in
+`~/projekty/leafre-work/scratch/m9.76/report.json`; EXP-2026-11-24-M9.76).
+The step stays P0 because the freshly gated card is the P0 one-tile card; a
+higher-step card must be built and gated to move it (the report's step is
+validated against `card_ladder.py steps --check`, whose board-hygiene rc is 1
+today for 7 missing + 7 bad unrelated Step tags). The other three numbers are
+byte-identical to the prior pass.
 
 **Critical path — what blocks a car card, in order:**
 
@@ -587,8 +595,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-4060–C-4069
   - Result: EXP-2026-11-22-H83-board-ref-lint; C-4060–C-4066. tools/todo_check.py --board-refs lints the first Priorities section: unresolved bold IDs, done IDs under next/then/Take first/in flight, and done IDs as a current blocker (drift, warning-only). Warnings by default, ERRORs under --strict; findings are structural and never baselined (H128). At bd92ec6a on origin/main 17b22eaf: unresolved 0 / not-next 4 (H105, M9.58/M9.60/M9.61) / drift 0 / sections 1, exit 0; --strict adds 4 board-ref ERRORs (22 total); gate 5 pass; selftest 184/0/21; todo_check selftest 80 checks. Prose half shipped; the four stale sentences are the PO's (EXP Follow-ups).
 
-- [ ] **H84 — The QA-prompt manual/weekly IMG256 regression has no workflow: add the `workflow_dispatch` + scheduled job**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **H84 — The QA-prompt manual/weekly IMG256 regression has no workflow: add the `workflow_dispatch` + scheduled job**
+  - Status: done · Owner: task/h84-img256-regression-workflow · Critical: no · Pair: required
   - Depends: H25 (the CI skeleton), H28 (the same "optional IMG256 mode" contract, which stays about `l3check`); QA 2026-11-16 12th pass found the gap
   - Goal: `prompt_qa.txt` requires that "IMG256 / vendor-firmware-head regressions run **manually or weekly by QA** (`workflow_dispatch`/scheduled, approved runner/cache, SHA-256 verified), not as default PR CI", and `tools/realcheck.py` already implements the honest exit codes (`0 PASS/FAIL run`, `2` no image, `--require-image` turns a missing slice into `FAIL` exit 1). But **no workflow file has `workflow_dispatch` or `schedule`**: `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints `0`, so the only real-bytes regression (`realcheck.py IMG256`) never runs anywhere. On this host `python3 tools/realcheck.py IMG256` prints `realcheck: 0 PASS, 0 FAIL, 8 SKIP` and exits **2** — the image is absent, which is exactly the case the policy covers with an explicit skip, not a silent gap.
   - Precheck: `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints `0`; `python3 tools/realcheck.py IMG256; echo $?` prints `2` and `0 PASS, 0 FAIL, 8 SKIP`; `python3 tools/realcheck.py IMG256 --require-image; echo $?` prints `1` with eight `FAIL … no image: …`.
@@ -598,6 +606,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: `workflow_dispatch` on a machine with the cached head runs `realcheck.py IMG256 --require-image` and the job summary says `PASS`/`FAIL` per check with the artifact; with no head it says `SKIP (no image)` and the job is neither green-as-passed nor red; the workflow never triggers on `pull_request`/`push`; `.github/workflows/README.md` documents it; `python3 tools/selftest.py` unchanged.
   - Stop: if the approved runner cannot cache or fetch the head within the job timeout (7.4 GB images are out of scope; only the 256 MiB head), ship the `workflow_dispatch` skeleton with an explicit `SKIP: no image` path and record the fetch gap in the EXP; do not vendor the head.
   - Claims: C-4070–C-4079
+  - Result: EXP-2026-11-24-H84-img256-regression-workflow; workflow_dispatch+schedule only, SKIP path, 4 mutations caught; C-4070–C-4079
 
 - [x] **H87 — `fn_audit.US_BUILD_STARTS` still calls itself the M1.22b placeholder, but M1.22b merged**
   - Status: done · Owner: task/h87-us-build-comment · Critical: no · Pair: solo
@@ -791,7 +800,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-22-M1.37-rom-changelog; per-module tables for EU2011->EU2014 and EU2014->EU2016 in docs/research/rom-changelog.md; control EU2011 vs US2011 build B = 0 changes; BT_FW.dll 100%; C-6300-C-6309
 
 - [ ] **M1.38 — Can a 2014/2016 kernel ROM start on the 2011 board? (static)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m1.38-cycle10 · Critical: no · Pair: solo
   - Depends: M1.36 (done); M6.19 helps (what the unit's own flash holds)
   - Goal: decide whether "use the newer binaries" is possible at all on Marek's `QY7200ND`: compare ROMHDR RAM windows, BSP/platform strings, the driver set (`fmmdrv` vs `fmmdrv_05`/`_07`, `FlashManager` vs `FlashManager2`, LCD, SDHC) and the launcher's unit checks between `X210` and `X212` builds B.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 <EU2014 head> romhdr` prints a ROMHDR.
@@ -799,6 +808,9 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: the EXP names at least the flash-driver selection rule (how `fmmdrv_05`/`_07` is chosen) or records it as unknown with the VA where the choice is made.
   - Claims: C-6310–C-6319
   - Stop: one static pass; if the flash-driver selection rule is not readable statically, record it as unknown with the VA where the choice is made and mark `blocked`. No card is built.
+  - Blocker: fmmdrv_05/_07 runtime selection VA not statically readable: both registry keys identical (Prefix FMM, Index 1, Order 2, ServisID 0x000060fe), neither FMM_Init (0x039a15a4 / 0x0399159c) reads a hardware ID; choice made at device registration, not in stored bytes
+  - Unblock: M8.G4
+  - Result: EXP-2026-11-24-M1.38-x212-on-x210 (negative with CETUS positive control; static table C-6310-C-6319: verdict not a static drop-in; +0x800000 RAM shift; fmmdrv -> fmmdrv_05/_07)
 
 - [x] **M1.39 — Hardware map of the head unit: CPU, RAM, flash, serial ports, buses (from the firmware)**
   - Status: done · Owner: claude/project-thread-64ftoc · Critical: no · Pair: solo
@@ -873,8 +885,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: this is a map, not a rewrite; do not start re-implementing.
   - Claims: C-6480–C-6489
 
-- [ ] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
+  - Status: done · Owner: task/m1.48-antitheft-map · Critical: no · Pair: solo
   - Depends: — (M6.19 helps: the PROD record of a real unit)
   - Goal: side track, but it matters for bench work: a unit moved to another car, or powered on a bench without the car's CAN, can show the SECURE screen. Say who decides (the audio microcontroller, the SH-4, or the car's BCM), what is compared (PROD `+0xA0` 4-byte IMMO code, flag `+0x193`; LeafSDTools "DISABLE IMMO" zeroes the flag), over which link, and what stays blocked while locked.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 exports AntitheftCC.dll` prints exports; the string `ANT_RCV_SECURITY_LOCK` is found in `anwdrv.dll`.
@@ -882,7 +894,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Hints (strings seen 2026-11-21, US256, not decompiled): the audio microcontroller side reports `ANT_RCV_SECURITY_LOCK` / `ANT_RCV_SECURITY_RELEASE_OK`, the SH-4 answers `ANT_SEND_SEC_RESPONSE` / `ANT_SEND_SEC_RELEASE`; the updater (`CUpManager::AntiTheftThreadMain`), `Audio.exe` (`CAudioAccessFunction::AntitheftFunc`), telematics (`dcc_AntiTheftProc`), USB (`UsbAntiTheftProc`) and `Vehicle.exe` (`[VCL]Antitheft Lock...`) each run a thread that waits for the unlock; the HMI has `SRT_COLD_SECURE` / `POP_SRT_COLD_ANTI_THIEF_SECURE` screens and status pairs `…_FNR_…` / `…_CAS_…` (two vehicle variants). Marek's unit has the flag at 0 and code `FF FF FF FF` (C-5202).
   - Done when: the page has the lock and the release sequence with the VA of each send/receive, names where the code comparison happens (or shows it is not in SH-4 code), and lists what each waiting process refuses while locked.
   - Stop: no code or PROD bytes of a real unit are committed; do not describe how to defeat the lock on a unit that is not one's own beyond what LeafSDTools already documents.
-  - Claims: C-6730–C-6739
+  - Claims: C-10200–C-10209
+  - Result: EXP-2026-11-24-M1.48-antitheft-map; C-10200–C-10209; 10/10 claims
 
 - [x] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
   - Status: done · Owner: task/m1.49-ui-strings · Critical: no · Pair: solo
@@ -898,8 +911,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8090–C-8099
   - Result: EXP-2026-11-23-M1.49-ui-strings; docs/firmware/ui-strings.md: UI texts are UTF-16LE blocks in substance.skn (7/2/16 blocks EU2011/US2011/EU2014), language = setting (get_lang 0x003c0228), UI font 8/18 Polish letters; verdict: replace a block (card edit) / add needs unlocated selector
 
-- [ ] **M1.53 — move `point_tree_l3`'s STDDLL section walk onto `ce_module` (with a byte-identical capture first)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.53 — move `point_tree_l3`'s STDDLL section walk onto `ce_module` (with a byte-identical capture first)**
+  - Status: done · Owner: task/m1.53-cycle10 · Critical: no · Pair: solo
   - Depends: — (M1.47 left this as its own falsifier: extend, do not fork)
   - Goal: M1.47's falsifier ("a fifth `_l3.py` that reads ROM sections through `cerom` directly and would have been wrong under the new helper") is `tools/point_tree_l3.py:161` in `Firmware.__init__`: it walks `STDDLL.dll` with its own `rom.o32` loop and calls `nk_decomp.decompress` directly (`IMAGE_SCN_COMPRESSED` at :163), which is the same decode `ce_module.module_sections(..., "STDDLL.dll")` already does (eager, since image start is `0x200200`). M1.47 deferred the move because it had no byte-identical capture of this tool on the factory image; do that capture first, then move the walk and delete the direct `nk_decomp` call (`import nk_decomp` in that method becomes unnecessary).
   - Precheck: `grep -n 'nk_decomp\|IMAGE_SCN_COMPRESSED' tools/point_tree_l3.py` prints the `:161`-`:165` loop and `grep -rln 'IMAGE_SCN_COMPRESSED' tools/*_l3.py | wc -l` prints 3; `python3 tools/point_tree_l3.py --selftest` is green before you start.
@@ -909,6 +922,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: if the tool's output differs on the factory image, keep the direct decode and record the differing bytes — do not change the tool's logic.
   - Falsifier: another `_l3.py` that still decodes a section itself after this (`vcard_l3.py:324`, out of scope by shape) — if the helper cannot express its loader-total shape, say so in the EXP rather than special-casing it.
   - Claims: C-8270–C-8279
+  - Result: EXP-2026-11-24-M1.53-point-tree-ce-module-move; byte-identical 2b736cb2...6366; nk_decomp 3->2; selftest 272/0/21
 
 - [x] **M1.54 — EU 2011 card vs US 2011 card: every difference, radio aside**
   - Status: done · Owner: claude/project-thread-xfjq5p · Critical: no · Pair: solo
@@ -988,8 +1002,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8250–C-8254
   - Result: EXP-2026-11-22-M1.51-gps-distance-rule; no distance rule found (falsifier fires); C-8250-C-8254
 
-- [ ] **M1.52 — TestMode GPS initialisation: how to seed the receiver with a Polish position and the date**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.52 — TestMode GPS initialisation: how to seed the receiver with a Polish position and the date**
+  - Status: done · Owner: task/m1.52-cycle10 · Critical: no · Pair: solo
   - Depends: —
   - Goal: side track for Marek's car (EXP-2026-11-22-M1.50, hypotheses H1/H1a): `TestMode.exe` writes a date and lat/lon to the GPS receiver (`CTestModeGPSInit::WriteGpsData`, US `fn 0x0003aa80`). Find the screen that calls it, the text format the technician enters, and what the `B0_A3`, `B0_A0`, `B3`, `B4` commands do, so Marek can try it on the unit.
   - Precheck: `python3 tools/sh4xref.py archive/us256.img TestMode.exe --image-start 0x5200200 --to 0x198f0` prints `fn 0x0003aa80`.
@@ -999,6 +1013,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session; nothing is sent to a real unit by the agent.
   - Falsifier: no caller of `0x0003aa80` is reachable from a screen (dead code).
   - Claims: C-8255–C-8259
+  - Result: EXP-2026-11-24-M1.52-testmode-gps-init; 6 frames; C-8255-C-8259; selftest 278/0; gate 5/0/0
 
 - [x] **M1.57 — EU card on Marek's unit data in `-M ze0`: does Navi take a Wrocław fix, and is the card safe for the car**
   - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
@@ -1077,8 +1092,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: required
   - Result: EXP-2026-11-22-H130-board-claim-raw-pipe; claim-body/claim-set escape raw pipes; exact-7 cell guard; 105/105 board selftests; gate 5 pass/0 fail/0 skip
 
-- [ ] **H131 — H21's "Krotoszyn fixture replacement" half: build the semantic L2 fixture the D3 test calls for**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **H131 — H21's "Krotoszyn fixture replacement" half: build the semantic L2 fixture the D3 test calls for**
+  - Status: done · Owner: task/h131-semantic-l2-fixture · Critical: yes · Pair: required
   - Depends: H21 (its `make_l2_semantic_fixtures` half; named there as the remaining piece)
   - Goal: one of the two L1/L2 semantic tests H21 specified does not exist. Its EXP names a command that builds the fixtures (`make_l2_semantic_fixtures`, cited in H21's plan text) and `tools/` has no such file, so the D3 "Krotoszyn fixture replacement" case H21 describes as a semantic L2 test cannot run — a semantic check that is written as prose is not a gate. Ship it as a real tool so the L2 layer H41/H56 report counts is honest.
   - Precheck: `ls tools/make_l2_semantic_fixtures.py` prints `No such file or directory` and `grep -rl make_l2_semantic_fixtures tools/` prints nothing on `origin/main` at this pass (record the commit); `python3 tools/l2check.py --selftest` passes, so the fixture format it must feed exists.
@@ -1089,6 +1104,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the fixture builds and `l2check --semantic-tiles` exits 0 even after the parcel is corrupted one byte (then the semantic rule is not testing the parcel, and the tool would be a placebo — say so).
   - Claims: C-8590–C-8599
   - Pair: required
+  - Result: EXP-2026-11-23-H131-semantic-l2-fixture; good rc=0/21 features, mutant 0x7a02 -> tile_semantic FAIL rc=1; selftest 270/0/21 (180s)
 
 - [ ] **H140 — Workflow contract guard: CI must stay vendor-free and blocking steps must stay blocking**
   - Status: open · Owner: — · Critical: yes · Pair: required
@@ -1129,6 +1145,20 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the doc still calls a shipped gate "planned", or names a command no file contains.
   - Claims: C-10040–C-10049
   - Pair: solo
+
+- [x] **H143 — `ze0_consent.py` chose the card build from a name `card_mapcode.py` rewrites, so a renamed EU card got the US event ids and a false PASS**
+  - Status: done · Owner: task/h143-consent-detect-identity · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `tools/ze0_consent.py` `detect()` picked the build from the image-A name in the NKOK header at NB00 `+0x16`. That name is exactly the field `card_mapcode.py set --from-nk1` rewrites in the documented EU-on-US workflow (`docs/hardware/eu-card-on-us-unit.md`), so once the card is prepared for the unit the tool takes the other market's ids (`0x089e -> 0x0889`) and rewrites two comparators that are not the consent one; `verify` then passes because it searches for the id it just wrote. The hash the old code computed is the SHA-256 of the first `0x200000` bytes, which are byte-identical on both cards (`c49b5659…`), and it was never compared. Measured on the owner's cards on 2026-11-24 (EXP-2026-11-24-H143-consent-detect-identity O2/O3).
+  - Precheck: on the pristine EU card `python3 tools/ze0_consent.py find CARD` prints `build: EU 2011 … 0x08a6 -> 0x0891`; after `python3 tools/card_mapcode.py set --image CARD --from-nk1 firmware/unit-flash/nk1-QY7200ND.bin --in-place` the pre-fix tool printed `build: US 2011 … 0x089e -> 0x0889` and patched `2 literal(s)` at `0x1405912,0x143f2c0`.
+  - Scope: `tools/ze0_consent.py` (identity from the NB00 part number at `+0x50`, a `--build eu|us` override, refusal of an unknown card, selftest cases), the EXP named in Result, one claims section, a note in `docs/hardware/eu-card-on-us-unit.md`, and this block. Do not change the consent patch mechanism, the event ids or the SUM4 rule, do not run L4 (M8.C1p owns the EU L4 question), and commit no card copy, patched ROM or vendor bytes.
+  - Input: EU 2011 card `105e2032…076307`, US 2011 card `archive/leaf_2011_usa_sddump.img` `53342430…c5383`, NK1 `firmware/unit-flash/nk1-QY7200ND.bin`, `tools/card_mapcode.py`, `tools/selftest.py`, `tools/exp_check.py`, M8.C1p EXP and its doc note in `docs/research/leafsdtools-companion-patches.md`.
+  - Done when: `python3 tools/ze0_consent.py --selftest` covers a renamed EU card (EU ids), the US card, an unknown part number (non-zero exit) and `--build`, and passes; on a scratch copy of the EU card renamed by `card_mapcode.py`, `find` prints `EU 2011` with one `0x08a6` site per copy and `patch` writes one literal per copy (`0x08a6 -> 0x0891`) with `verify: PASS`; `python3 tools/selftest.py --only ze0_consent` is PASS; `python3 tools/exp_check.py` on the EXP is clean; `claims_check --strict --count-check` and `todo_check` show no new error; `python3 tools/gate.py` shows no new failure (its `selftest` row fails on the pre-existing `refer002_add_station` scratch-zlib gap, reproduced on `origin/main`).
+  - Stop: if the card's part number turns out to change between cards of the same build (it did not on the two 2011 cards), do not invent a second key: fall back to requiring `--build` for every card and record that as the result, with the ids unchanged.
+  - Falsifier: a renamed EU card still selecting the US ids without an explicit `--build`, or `verify` reporting PASS without checking the literal it patched against the card's own build.
+  - Claims: C-10150–C-10154
+  - Pair: solo
+  - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
 
 
 ## M2 — Map code, activation, updater
@@ -1219,8 +1249,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-2880–C-2889 (was C-2630–C-2639, collision fixed by H23)
   - Result: blocked, EXP-2026-11-08-M4.24-sec2-partb-grammar. Precheck reproduced M4.23. Structural skeleton parsed for all 76 L2 + 34 L5 pairs (`[nn,mark,(nb[4]=deg<<12,ni,?,? , e[3]*deg)*nn,parcel_code]`, L2 index order, L5 permutation, `e[0]=other`/`other&0x3fff` for L5 cross-parcel 8166/8166); mark/side/nb3/e1/e2 and L5 ordering not explained by parent record, so word-for-word reproduction not achieved (done-when unmet). No C-288x claims registered.
 
-- [ ] **M2.21 — Acceptance gates in the emulator: a wrong `HDD_INFO.TXT` and a wrong map code at L4**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M2.21 — Acceptance gates in the emulator: a wrong `HDD_INFO.TXT` and a wrong map code at L4**
+  - Status: done · Owner: task/m2.21-cycle10 · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H13
   - Goal: The card-acceptance rules (M2.1–M2.19) were read statically and at L3; the car test S0–S3 is their only full check and it is expensive. `-M ze0` now runs the launcher. Reproduce the gates there: each known reject condition should stop at the predicted place.
@@ -1231,9 +1261,10 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: all mutated cards pass like the factory card (then the launcher path in the emulator skips the check: find which precondition is missing).
   - Claims: C-8030–C-8039
+  - Result: EXP-2026-11-24-M2.21-l4-acceptance-gates; 7/7 mutate->predict->L4 agree (A/B/C/C-ctrl/D/E/F); C-8030-C-8039; l4check selftest OK; full selftest 272/0
 
-- [ ] **M2.22 — Does a fully rebuilt card boot? `mkcard` output against in-place patching, at L4**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M2.22 — Does a fully rebuilt card boot? `mkcard` output against in-place patching, at L4**
+  - Status: done · Owner: task/m2.22-sdhost-dma-l4 · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H13
   - Goal: The fourth PM review ruled that test cards must be patched in place because a rebuilt card loses the volume label and has a new FAT layout. That rule costs every card-building task. Test it in the emulator: which of the differences actually matters to the firmware.
@@ -1244,6 +1275,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: (b) and (a) behave the same in the emulator while the rule says (b) fails on the unit — then the emulator lacks the check, and the EXP names the check (label read, cluster layout) to model.
   - Claims: C-8040–C-8049
+  - Result: EXP-2026-11-24-M2.22-sdhost-dma-l4; 5 L4 boots, 4 good PASS/F5 + negative FAIL/F4 [0x28]
 
 - [ ] **M2.23 — The SD lock in the emulator: locked, unlocked and wrong-password cards**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1290,6 +1322,36 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session; do not chase the Confirmation-code routine beyond locating its owner.
   - Claims: C-8330-C-8339
   - Result: EXP-2026-11-22-M2.26-navi-no-pin-formula (C-8330-C-8334). No menu number equals or maps to the PIN; Navi.exe (834 imports) has no SD-lock/CMD42/password code and never touches the PIN. Confirmation code is a separate 16-bit activation value (routine outside Navi.exe). A reseller never needs the PIN - the unit locks its own card. No serial->PIN formula found.
+
+- [x] **M2.27 — Record the type label of a second QY-7200N unit (internet photo)**
+  - Status: done · Owner: claude/project-thread-08k71f · Critical: no · Pair: solo
+  - Depends: M2.25 (PROD layout, PIN stored per unit)
+  - Goal: Keep a community photo of a 2011 unit's type label in the repo and read what its fields say about the PROD record (Unit ID, serial format, part number), as a second unit sample next to Marek's.
+  - Scope: one photo supplied by Marek on 2026-11-24, found on the internet; not Marek's unit, source unknown. No PIN on the label. No owner dump bytes in the repo.
+  - Done when: the photo is in `docs/hardware/img/`, linked and described in `docs/hardware/head-unit.md`, and an EXP maps the label fields to PROD offsets.
+  - Stop: one session.
+  - Claims: C-10120–C-10129
+  - Result: EXP-2026-11-24-M2.27-unit-type-label (C-10120–C-10124). Photo in docs/hardware/img/, described in head-unit.md. Label unit ID = PROD +0x140 (1001 + BCD serial), N# suffix = PROD +0xB0. No PIN on the label: C-8304/C-8334 still need (serial, PIN) pairs.
+
+- [x] **M2.28 — Record a third unit's type label (QY-7200N-G, May 2012)**
+  - Status: done · Owner: claude/project-thread-08k71f · Critical: no · Pair: solo
+  - Depends: M2.27 (label fields mapped to PROD)
+  - Goal: Add a second community label photo and test the M2.27 readings (unit ID = 1001 + serial; part-number suffix letter follows the model letter) on a third unit.
+  - Scope: one photo supplied by Marek on 2026-11-24; not Marek's unit (his is QY7200ND), source not recorded. No PIN on the label. No owner dump bytes in the repo.
+  - Done when: the photo is in `docs/hardware/img/`, the head-unit.md label table covers both photos, and an EXP states which M2.27 claims hold.
+  - Stop: one session.
+  - Claims: C-10140–C-10149
+  - Result: EXP-2026-11-24-M2.28-second-type-label (C-10140–C-10144). Unit ID = 1001 + serial holds on 2 of 2 labels; C-10121 (suffix letter = model letter) retracted (QY-7200N-G has 3NA1A). Still no PIN.
+
+- [x] **M2.29 — What does Settings → Other "Initialise SD card" do (PIN, format or files)?**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+  - Depends: M2.13b (SDHC CMD42 IOCTLs), M2.26 (Navi.exe has no CMD42 code)
+  - Goal: Marek (2026-11-24) found "Please insert the SD memory card to be initialised into slot A … Touch OK to start initialisation" under Settings → Other on the EU card. Trace the path from `NaviSetCC.dll` method `SDCardInitialization` to the process and driver that act, and say whether it sets the CMD42 password, formats the card, or writes files.
+  - Scope: EU 2011 image A/B/C static (cerom, sh4dis, sh4xref, strings); emulator only if static stalls. No PIN, serial or dump bytes in the repo.
+  - Done when: an EXP names each hop (caller → message/IOCTL → receiver) with VAs, and states which SD operations the path reaches.
+  - Stop: one session.
+  - Claims: C-10170–C-10179
+  - Result: EXP-2026-11-24-M2.29-sd-card-initialisation (C-10170–C-10176). Menu → Navi msg 0x841000f7 → sub-slot DSK8 card: UNLOCK + CLR_PWD with the unit PIN (PROD +0x100 via FMD1), zero-write, Part00; no SET_PWD/LOCK in image A, so it does not set the PIN. C-8331 retracted.
 
 ## M3 — Reader contract
 
@@ -1521,10 +1583,10 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: after two signature families or two slot-binding attempts fail — then `blocked` with an EXP listing the VAs tried; do not retry a byte signature (H51/C-2129).
 
 - [ ] **M3.14 — `ZCODE` / `ICODE001` / `COORD001` readers**
-  - Unblock: **M3.43** — L4 QEMU zoom-out on NK1 is the live unblocker: it generates the REFER record request and attributes the reader, which re-opens the search-path chain this task waits on. Earlier candidate list: M3.23 (2026-11-20) candidates. `ICODE` (`python3 tools/callgraph.py rank g.json --edges e.json --depth 4 --family LCTBL=0x004125a8 --family ICODE=0x003f2cc0 --family REFER=0x003fbed8`): `0x00401e94`, `0x004082cc`, `0x00402690`, `0x003f6c88`, `0x003f0c7c`, `0x00407724`, `0x003f07f8`, `0x004078e4`, `0x003f08cc`, `0x00409ba0` (3 are C-4694 loaders). `ZCODE`/`COORD` have no static anchor of their own (ctx +124 = 11/12 in `0x003fbed8`; `COORD001` unnamed): shared REFER list `0x003f0aec`, `0x003fd690`, `0x003fbbac`, `0x0040dfa8`, `0x003fdd18`, `0x0040d704`, `0x0040da3c` (C-3546). Confirm with M9.38 / M3.29.
-  - Status: open · Owner: — · Critical: yes · Pair: solo
-  - Blocker: two signature families fail in EU2011 `Navi.exe` (M3.23 candidate probe with a zero-buffer control; file-id literal scan), so no content-bound reader is located for `ZCODE0nn` or `COORD001` (`ICODE001` now has a field-to-reader map from the mount run). Done-when not met (C-5760, C-5761, C-5766).
-  - Result: EXP-2026-11-20-M3.14-zcode-icode-coord (negative for ZCODE0/COORD001, ICODE001 field map; done-when not met; C-5760–C-5767). Prior: EXP-2026-11-08-M3.14-reader-layout.
+  - Unblock: M3.43
+  - Status: blocked · Owner: task/m3.14-cycle10 · Critical: yes · Pair: solo
+  - Blocker: No content-bound reader for ZCODE0nn or COORD001: both rule-14 families re-fail (candidate probe artifacts + no id literal), and no search-path page read-watch harness exists; unblocker M3.43 (L4 QEMU zoom-out) is blocked on M8.C1p (open).
+  - Result: EXP-2026-11-24-M3.14-zcode-coord-search-harness-missing (negative; Stop rule met; C-5760/C-5761/C-5765 reaffirmed)
   - Note (M3.25, 2026-11-19): `ICODE001.DAT` and `ICADM001.DAT` are read during the mount run and the functions that load their bytes are listed in C-4694 (`datask_l3.py mount … --file REFER001`); positions are in the decompressed file.
   - Note (M3.28, 2026-11-19): openers found without M1.2f: `ZCODE` = `0x003fbed8` with search type 11/12; `ICODE001` = `0x003f2cc0`, reads through `0x003efe10`/`0x003f0400`/`0x003f2828`; `COORD001` has no name reference in `Navi.exe` at all (C-4666, C-4669, C-4677). The blocker on M1.2f no longer holds for the first two: reopen from these functions. Tools: `python3 tools/name_loaders.py openers`, `python3 tools/vcard_l3.py trace`.
   - Note (H51, 2026-11-11): do not try another byte signature. Unblock is now **M3.23** (candidate readers by call-graph reachability from the access path) confirmed by **M9.38** (which functions read the page buffer); check every VA of the earlier EXPs with `nk_decomp.py pdata` first (H52).
@@ -1674,7 +1736,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-23-H41-l1l2-progress-matrix.md; selftest 25/25; matrix 12 rows (9P/0F/1S, 2 NOT_COVERED); baseline rc=0 / PASS->FAIL rc=1 / missing-key rc=1; C-3280–C-3289
 
 - [ ] **H42 — Wire progress dashboard and L1/L2/L3/L4-emu/L5-bench status into CI artifacts/job summaries (no vendor data)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h42-cycle10 · Critical: yes
   - Depends: H27, H41, H28, H55
   - Goal: make the per-level progress signal visible on every PR/push: publish `progress.json/md` (H27 schema) plus H41 per-file/per-feature matrix as artifacts/job summaries.
   - Scope: workflow changes only (extend existing workflows or add `progress.yml` as appropriate); no vendor data, no IMG256/ROOT, no QEMU/M8 run in PR gate, no L5 bench execution. Integrate H28 L3 synthetic summary when H28 lands. Local/vendor checks listed as LOCAL-ONLY/NOT RUNNABLE, never executed in PR gate.
@@ -1962,7 +2024,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8160–C-8169
 
 - [ ] **M3.43 — L4 zoom-out on NK1: make the firmware read `FRWAY0nn`/`INTER0nn` and name the code that consumes the records**
-  - Status: blocked · Owner: task/m3.43-l4-zoomout-refer-reader · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: reader
   - Depends: — (M3.16 and M3.29 are blocked on exactly this observation; M5.100 proved the L4 zoom-out recipe works on NK1 with the committed unit flash)
   - Goal: L3 cannot deliver the REFER record request (`0x1507` undelivered, `0x14b5` never issued, EXP-2026-11-20-M3.29), so no content reader of `INTER`/`FRWAY` has ever been observed. A full-system run can generate the request through a real UI action: boot the factory EU 2011 card in QEMU with NK1, start near a motorway, zoom out through the steps where M5.100 saw level-2 map loading, watch SD/file reads for `FRWAY0nn.DAT`/`INTER0nn.DAT`, and attribute the bytes read to firmware code. Answer: does map zoom-out (or a neighbouring UI action such as route preview) make the firmware read those families, and which function consumes the 12-byte table and the blob fields?
@@ -1977,6 +2039,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Blocker: L4 UI never reaches SRT_COLD_I_AGREE on the EU 2011 card (zero flash 330 s, M6.24 anon flash 330 s); no tap injected and ze0_sdtrace maps 0/98677 SD reads to a card file
   - Unblock: M8.C1p — port the consent-screen skip to the ZE0 2011 card so --ui-start reaches the map
   - Result: EXP-2026-11-23-M3.43-l4-zoomout-refer-negative (negative, Stop rule met)
+  - Note: 2026-11-24: re-opened (rule 15) — M8.C1p done: EU card leaves consent with no tap on NK1 + owner flash with SRAM area 0 erased (EXP-2026-11-24-M8.C1p-eu-consent-l4); the anon flash still does not reach ScreenState on EU
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -2275,8 +2338,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-3760–C-3769
   - Result: EXP-2026-11-19-M4.38-lang-code-table. The codes are Navi.exe `sdl_com_hdl_get_lang` values (EU2011 fn `0x003c0228`, rows `0x00045d90`; EU2014 `0x003f3c34`/`0x00047a78`), default `3f`; Speech.exe maps the same `OBJ_Setting_readExpLanguage` setting to the `SPEECH/` dir. `02` EN-UK/BE, `03` EN-US/US, `04` FR (FR, CF), `05` GE, `06` SP, `07` IT, `08` PT, `09` EL (cross-build), `0a` DU, `0c` SV, `0d` DA, `15` FI, `16` NO (+ `01` JP, `0b` RU, `0e` ZH, `0f` KO). `tools/lang_code_table.py join`: EU 2011 7/7, US 2011 2/2, EU 2014 16/16 dirs, shifted ±1 and no-Navi-table controls fail. `14 17 18 19 1a`: no row in four builds (`rows` scan) — named as the open step; the reader of `0x18c` is not traced. `claims_check.py` OK.
 
-- [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
+  - Status: done · Owner: task/m4.28-cycle10 · Critical: no
   - Step: P4
   - Blocker: M4.27 (bit-packed POINT wider sample) unavailable in this session; M4.28 precheck not satisfied on M4.8b's 16 inflated-stream POIs — no POI with a reliably known, checkable entrance-vs-centroid/reference coordinate separation from allowed non-OSM sources identified (airports share ARP ref; building landmarks have sub-packed-unit separation, too small for the km-scale residual). Stop triggered; H1/H2 untestable. Analysis narrows C-1903 (dlat 132–6401 m, 48×, not a uniform fixed offset) but C-1904 not confirmed/narrowed-to-verdict/retracted.
   - Unblock: re-opened 2026-11-20 by M4.27 (C-2679): the +2.8 km latitude residual is explained without an entrance test — the copy-A low nibble is `11xx` (marker bits, 4-unit sub-cell), so the 1-unit reading is off by up to 15 units; with the fine fields the 16 references fit to a median of 115 m. Left to do here: update or retract C-1903/C-1904 against `tools/point_census.py refs`, and close.
@@ -2294,8 +2357,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
     or retract the bias hypothesis) with the evidence.
   - Stop: if no POI with a reliably known entrance can be identified from
     allowed sources, record the gap and stop.
-  - Claims: C-2680–C-2689
-  - Result: EXP-2026-11-08-M4.28-poi-lat-residual-r2.md (blocked). M4.27 unavailable; M4.8d done (C-2930–2935). Precheck/Stop on 16 M4.8b POIs (0/16 with citable entrance-vs-centroid coords from allowed non-OSM sources). dlat variance 132–6401 m (48×) argues against a single fixed-lat offset; C-1904 unresolved. C-2680–C-2682 added.
+  - Claims: C-2680–C-2684
+  - Result: EXP-2026-11-24-M4.28-poi-lat-residual-explained.md; point_census.py refs: median 114.6 m vs 3557.7 m, 16/16 closer, swapped 1567.9 m; C-1903/C-1904 RETRACTED -> C-2683/C-2684 OBSERVED
 
 - [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
   - Status: blocked · Owner: task/m4.29-classcode-control-r2 · Critical: no
@@ -2414,8 +2477,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the `k` that `0x00424464` returns on a factory parcel does not land on a section-4 entry start.
   - Claims: C-6030–C-6039
 
-- [ ] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
+  - Status: done · Owner: task/m4.57-cycle10 · Critical: no · Pair: solo
   - Depends: — (M1.37 helps for `Speech.exe`)
   - Goal: EU 2011 ships 7 `SPEECH/` languages, EU 2014 adds nine including `PL` (C-2495). Find out whether the language files (VR, TTS, GID) changed format between the cards and how the 2011 firmware picks a language (the `DRSTR` `0x18c` code, C-2496, and the language list in the UI).
   - Precheck: both roots have `SPEECH/`; `python3 tools/diff_years.py` lists the language sets.
@@ -2423,6 +2486,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: an EXP says `same format` / `different` / `unknown` per file kind with the differing fields, and where the 2011 build's language list lives.
   - Claims: C-6320–C-6329
   - Step: tooling
+  - Result: EXP-2026-11-24-M4.57-polish-voice; same framing GID/TTS/AGM, SVOX 4.3.0.0-2 unchanged, PL absent from 2011 Speech.exe table VA 0x32354, present in 2014 VA 0x36cf0; 15 selftests + gate 5/0/0
 
 - [x] **M4.58 — Skins: where they live and the `.skn` format (`ReleaseMain.skn`, the TFAT16 volume, `OPNG/`, ROM PNGs)**
   - Status: done · Owner: task/m4.58-skins-tfat16 · Critical: no · Pair: solo
@@ -2437,8 +2501,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Step: tooling
   - Result: EXP-2026-11-21-M4.58-skins-tfat16 (C-6500–C-6509); docs/format/skins.md lists TFAT16 (3070 entries, 3066 placeholders, 1 real .skn) and the .skn field table; skin id 1..4 -> \SystemSD2\SkinChange\001..004\Substance.skn; gate 4 pass 0 fail
 
-- [ ] **M4.59 — One changed image on the screen: the smallest skin edit that passes the checks**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M4.59 — One changed image on the screen: the smallest skin edit that passes the checks**
+  - Status: done · Owner: task/m4.59-cycle10 · Critical: no · Pair: required
   - Depends: M4.58 (where the image is and what indexes it); M1.36b
   - Unblock: M4.58 is done — the TFAT16 skin volume (3070 entries, skin id 1..4) and the .skn field table are decoded; the in-place bitmap it names is the M4.58 EXP's OPNG/ROM-A PNG. This task re-opens with that image named.
   - Goal: prove the mechanism before anyone designs a skin: replace one visible bitmap (same dimensions), fix every checksum on the way (ROM `SUM4` word sum, C-160, if the image is inside ROM A — both copies `0x200000` and `0x2000000`), and show the result is consistent offline.
@@ -2447,6 +2511,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: if the image is in a compressed section or its size cannot stay equal, record why and stop.
   - Claims: C-6400–C-6409
   - Step: tooling
+  - Result: EXP-2026-11-24-M4.59-skin-patch; skin_patch.py 12/12 selftest; 4 changed ranges; SUM4 0xcdf87db0->0xbcb5ac44 both copies; negative control fails; PNG decodes; cerom+cardcheck PASS
 
 - [ ] **M4.60 — Sounds: inventory of every sound the unit plays and where its data is (beeps, chimes, voice prompts, TTS)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2651,8 +2716,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: KIWI's index is one container while ours is five unrelated files with different page formats.
   - Claims: C-7730–C-7739
 
-- [ ] **M4.75 — KIWI character codes against our strings: which code set and which string form do map names use**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.75 — KIWI character codes against our strings: which code set and which string form do map names use**
+  - Status: done · Owner: task/m4.75-cycle10 · Critical: no · Pair: solo
   - Step: P2
   - Depends: —
   - Goal: KIWI fixes how strings are stored (code set identifiers, length forms). `LCTBL` strings, `POINT` names (byte order still open in M3.11b) and tile names each have their own decoder here. One KIWI rule might cover all three and settle Polish letters.
@@ -2663,9 +2728,10 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the same letter has different byte values in two families.
   - Claims: C-7740–C-7749
+  - Result: EXP-2026-11-24-M4.75-kiwi-string-families (C-7740–C-7747); 4 tool selftests PASS; negative mutations exit 1; todo_check/claims_check OK
 
 - [ ] **M4.76 — `kiwiread`'s OSM exporter as a class table seed: KIWI road and background types → OSM tags, inverted for our compiler**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m4.76-cycle10 · Critical: no · Pair: solo
   - Step: P1
   - Depends: M4.69
   - Goal: `kiwiread` ships `osm.c`, which writes KIWI data as OSM. Its type → tag choices, inverted, are a first OSM → Clarion class table (M5.3) — valid only for the codes M4.69 confirmed on our card.
@@ -2676,6 +2742,9 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: more than half of the codes in the inverse table do not occur in any factory tile.
   - Claims: C-7750–C-7759
+  - Blocker: Premise source false: osm.c is a render utility, osmtag() has 1 road row, M4.69 confirmed-code set empty, probe yields 7 classes not 10 with class_code LORO below null
+  - Unblock: M5.3
+  - Result: EXP-2026-11-24-M4.76-kiwi-class-seed (negative, 11 PASS selftests)
 
 - [ ] **M4.77 — A real KIWI disc image as a control: run `kiwiread` on it and on our card**
   - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
@@ -2690,8 +2759,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: `kiwiread` parses our tile without error (then our container is KIWI and M4.66–M4.71 collapse into using it as an oracle).
   - Claims: C-7760–C-7769
 
-- [ ] **M4.78 — KIWI verdict and plan: one page that says what the format buys us, and renames our fields**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.78 — KIWI verdict and plan: one page that says what the format buys us, and renames our fields**
+  - Status: done · Owner: task/m4.78-cycle10 · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M4.63, M4.64, M4.66, M4.67, M4.69
   - Goal: Close the loop for Marek's question 'is KIWI a shortcut?': gather the verdicts, decide per file family whether to adopt KIWI names and layouts, and turn each confirmed match into writer or reader work.
@@ -2702,6 +2771,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: every family ends as 'unrelated' (then the page records the negative with its controls and the lead is closed in Retired leads).
   - Claims: C-7770–C-7779
+  - Result: EXP-2026-11-24-M4.78-kiwi-verdict; 1 adopt/3 partial/6 unrelated; map_signals tile_bytes unchanged
 
 - [x] **M4.79 — `ZCODE0nn`: make the field decode reproducible (tool, census on both cards, firmware cross-check)**
   - Status: done · Owner: task/m4.79-zcode-decode · Critical: no · Pair: solo
@@ -2787,8 +2857,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7850–C-7859
   - Result: EXP-2026-11-22-M4.84-zipfr-decode; zipfr_decode census 100.0 % on EU2011/2014/2016, US2011 absent; selftest OK
 
-- [ ] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.85 — `REFER002`, the EV layer: census of the 16 files and the charging-station record**
+  - Status: done · Owner: task/m4.85-refer002-census · Critical: no · Pair: solo
   - Step: P4
   - Depends: —
   - Goal: `REFER002` holds the Leaf-specific data (charging stations with plug type and parking information). The matrix says 'EV schema xy/plug/parking undecoded'. For a Polish card this is the layer owners care about most after roads: chargers.
@@ -2799,6 +2869,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session; plug-type code meanings may stay open if the layout is done.
   - Falsifier: station positions decoded with the POI rule fall outside the card's coverage area.
   - Claims: C-7860–C-7869
+  - Result: EXP-2026-11-22-M4.85-refer002-census; tools/refer002_census.py --selftest 13/13 PASS; 16 EU files, 880 records, 11-field facility dictionary
 
 - [x] **M4.86 — What is still unexplained in a factory tile: rank the unknown bytes of `B48R058R` by structure**
   - Status: done · Owner: task/m4.86-tile-unknown · Critical: no · Pair: solo
@@ -2991,7 +3062,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Input: EXP-2026-11-23-M4.100-route-cost-profiles, `tools/ze0_gdb.py`, the Navi.exe decompile (`tools/ghidra/README.md`), the owner's manual (menu paths of the route settings).
   - Done when: each route setting in the UI is mapped to a request field (diff of the request struct at `0x00341134` after toggling it in L4) and to the link words it changes in the search; `w1 >> 12` per OSM road type is measured on the factory tile and used by `tools/sec2_writer.py`.
   - Falsifier: toggling a setting changes the route while the request struct and cost tables stay byte-identical.
-  - Claims: C-10070–C-10079
+  - Claims: C-10210–C-10219 (C-10070–C-10075 in the first M4.100 commit collided with M9.80 on main and were renumbered)
 
 - [x] **M4.99 — Name the class-d residual of `B48R058R`: padding or a record block, and the covering span if it is real**
   - Status: done · Owner: task/m4.99-class-d-residual · Critical: no · Pair: required
@@ -3518,8 +3589,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M9.67
   - Result: EXP-2026-11-22-M5.72-locmap-ref-words (in-window fix PASS, census negative)
 
-- [ ] **M5.73 — OSM tag → POI category table for the unit's category codes**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.73 — OSM tag → POI category table for the unit's category codes**
+  - Status: done · Owner: task/m5.73-poi-category-profile · Critical: no · Pair: solo
   - Step: P4
   - Depends: M4.88
   - Goal: With the category table of M4.88, define which OSM tags become which category, so the POI writer (M5.18, M5.63) has a rule set.
@@ -3529,7 +3600,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `python3 tools/profile_validate.py profiles/…` passes; a synthetic OSM fixture with one object per rule maps to the expected code (selftest); every target code exists in the M4.88 table.
   - Stop: one session.
   - Falsifier: a rule targets a code with zero records on the factory card.
-  - Claims: C-7920–C-7929
+  - Claims: C-10160–C-10168
+  - Result: EXP-2026-11-24-M5.73-poi-category-profile (C-10140-C-10149); 19 rules, 11 mapped categories
 
 - [x] **M5.74 — Water and forests from OSM: first slice of a background writer**
   - Status: done · Owner: task/m5.74-osm-background-writer · Critical: no · Pair: required
@@ -3600,8 +3672,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the estimate for Germany, made the same way from OSM, is off from the factory card's real size by more than a factor of two (then the method is not usable — the control).
   - Claims: C-7970–C-7979
 
-- [ ] **M5.79 — Charging stations from OSM into `REFER002`: feasibility and first record**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.79 — Charging stations from OSM into `REFER002`: feasibility and first record**
+  - Status: done · Owner: task/m5.79-cycle10 · Critical: no · Pair: required
   - Step: P4
   - Depends: M4.85
   - Goal: With the station record of M4.85, write one new charging station (an OSM `amenity=charging_station`) into the EV layer and read it back.
@@ -3611,7 +3683,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `tools/refer002_census.py census` on the edited tree shows one more station at the given position; L1 and L2 pass; the EXP states which index structures had to change.
   - Stop: one session; if an index is undecoded, stop with its name (a new M4 task).
   - Falsifier: the census reads the new record but an index still points to the old record count.
-  - Claims: C-7980–C-7989
+  - Claims: C-10100-C-10109
+  - Result: EXP-2026-11-24-M5.79-refer002-write-first-record (C-10100-C-10109); census 880->881 records; L1 cardcheck PASS; L2 l2check PASS; index row gap recorded
 
 - [x] **M5.80 — Names the unit cannot draw: transliteration fallback in the compiler**
   - Status: done · Owner: task/m5.80-transliteration · Critical: no · Pair: solo
@@ -3671,7 +3744,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8810–C-8819
 
 - [ ] **M5.83 — Polish names on the emulated screen: an OSM name with diacritics folded to the map font, decoded at L2 and visible at L4**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m5.83-polish-names-l4 · Critical: no · Pair: required
   - Step: P3
   - Depends: M4.87 (Polish glyph coverage, done), M5.65 (section-4 place names from OSM, done), M8.H71 (OSM tile on the emulated screen, done)
   - Goal: the three halves of "a Polish name is drawn" exist separately: M4.87 lists the map font's glyphs, C-1799 says shipped text is CP1252 with non-Latin-1 letters transliterated (`Cesk` for `Česk`), and M5.65 writes OSM place names into a factory section-4 record. Nobody has run one Polish name with `ą ć ę ł ń ó ś ź ż` from an OSM tag through the compiler and shown what the firmware actually draws — so "our names render" is an assumption, not a measured result.
@@ -3683,6 +3756,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: `fold_cp1252` says a letter is storable and the L4 screen substitutes or blanks it, or the L2 decode and the stored bytes disagree (then the writer, not the font, lost the letter — name which).
   - Claims: C-8600–C-8609
   - Pair: required
+  - Blocker: L4 label off-screen: folded name stored in Brittany factory slot, not visible from London start screen; L2 table + screenshot SHA-256 recorded
+  - Unblock: M8.H33,M8.H72
+  - Result: EXP-2026-11-24-M5.83-polish-names-l4 (L2 complete, L4 partial/Stop)
 
 - [x] **M5.84 — From-zero map plan: state review, structural limits, London rungs Z0–Z7**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
@@ -3789,8 +3865,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8710–C-8719
   - Result: Level 2 from OSM in the from-zero London tile (tile_from_zero --level2: 48 road + 49 urban/name records, 0 factory); L1 PASS; L3: firmware reads and inflates our level-2 records (sub 3, up to 230,708 B), empty parcel sub 9; level-1 L4 unchanged. Zoomed-out L4 not reachable without the flash dump → M5.99. Section 4 does not draw place labels (C-8715). EXP-2026-11-23-M5.91-level2-from-zero, C-8710–C-8716.
 
-- [ ] **M5.92 — Capacity probe: the largest record, shape and point count the firmware draws**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M5.92 — Capacity probe: the largest record, shape and point count the firmware draws**
+  - Status: done · Owner: task/m5.92-cycle10 · Critical: yes · Pair: solo
   - Step: limits
   - Depends: —
   - Goal: the real "does it fit" limit is not the factory block size (blocks can be appended, M8.H71) but the record the firmware can read. Find it before dense parcels are written.
@@ -3800,6 +3876,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: a table `size → L3 result → L4 drawn?` with the first failing size, and the VA/buffer that enforces it (or UNKNOWN with the evidence); `docs/research/osm-from-scratch.md` limit 6 updated.
   - Stop: two sessions; an L3-only result is acceptable if L4 is unavailable.
   - Claims: C-8720–C-8729
+  - Result: EXP-2026-11-24-M5.92-capacity-probe; 8/8 probes + 2 edge runs; first failing window 68096 B (pass 67840 B); enforcing VA 0x004262f8 (0x109A0 pool), point gate 0x0041f4bc (1000); L3 only (L4 NOT RUN exit 3)
 
 - [ ] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3825,8 +3902,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8740–C-8749
 
-- [ ] **M5.95 — Z4b: built-up area from OSM building density instead of a share threshold**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.95 — Z4b: built-up area from OSM building density instead of a share threshold**
+  - Status: done · Owner: task/m5.95-cycle10 · Critical: no · Pair: solo
   - Step: Z4
   - Depends: M5.89
   - Goal: the factory's level-1 urban fill (`0xc12b`) is a generalised built-up polygon; M5.89's `--urban-fill 0.1` copies the look with a guessed threshold (C-8695). Derive the built-up area from OSM data with a rule we can defend.
@@ -3836,6 +3913,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has, per parcel, factory urban share vs ours (agreement count at 10 % tolerance) for the London bbox, and an L4 screenshot of the start screen.
   - Stop: one session.
   - Claims: C-8770–C-8779
+  - Result: EXP-2026-11-24-M5.95-builtup-from-building-density; 54,261/63,987 agree at 10%, L3 sub 3, L4 shot 5bd459b6…; C-8770–C-8777
 
 - [ ] **M5.96 — Z4c: line layers (river centre lines, railways) and the red park outline**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -3899,8 +3977,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8830–C-8839
 
-- [ ] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
+  - Status: done · Owner: task/m5.102-hashutil-migration · Critical: no · Pair: solo
   - Depends: M8.H76 (done)
   - Goal: M8.H76 shipped `sha256_file`/`sha256_bytes` and migrated the eight tools it named, but seven tools added later in the same window still hash inline: `launch_area.py`, `point_add_poi.py`, `tile_from_zero.py`, `tile_provenance.py`, `tile_relayout.py`, `ze0_l3parity.py`, `ze0_uistart.py`. Their evidence stamps can drift from the shared helpers, which is the exact failure M8.H76 was filed to prevent.
   - Precheck: `grep -l 'import hashlib' tools/launch_area.py tools/point_add_poi.py tools/tile_from_zero.py tools/tile_provenance.py tools/tile_relayout.py tools/ze0_l3parity.py tools/ze0_uistart.py | wc -l` prints 7; `grep -nE '^def (sha256_file|sha256_bytes)' tools/hashutil.py` prints both; `python3 tools/hashutil.py --selftest` passes.
@@ -3911,6 +3989,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: two call sites disagree on the hex of the same bytes after the change, or a tool's JSON output changes.
   - Claims: C-9960–C-9969
   - Pair: solo
+  - Result: EXP-2026-11-24-M5.102-hashutil-seven-tools; 17/17 call-site hex equal; selftest 282 pass 0 fail
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -4099,8 +4178,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-8860–C-8869
   - Result: EXP-2026-11-23-M6.24-anonymous-unit-flash; firmware/unit-flash/*-anon.bin + NK1 boot to the map on -M ze0 with 1 load error (erased flash: 11); scan against the real dump: 0 hits for serial, PIN, password, positions
 
-- [ ] **M6.25 — Object 0A of the object store: what it is and when it is first saved**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M6.25 — Object 0A of the object store: what it is and when it is first saved**
+  - Status: done · Owner: task/m6.25-cycle10 · Critical: no · Pair: solo
   - Step: firmware
   - Depends: M6.24
   - Goal: the anonymous unit flash (M6.24) boots with one `OBJ_BackUp_Load Error`, object 0A; the real dump has none. Find the object and the event that saves it, so that the image can be made with zero load errors.
@@ -4111,6 +4190,17 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: one session.
   - Falsifier: the error stays after the object's own save path has run.
   - Claims: C-8870–C-8879
+  - Result: EXP-2026-11-24-M6.25-object-0A (C-8870-C-8879); object 0A = OBJ_SEM_ODOMETER
+
+- [x] **M6.26 — What do LeafSDTools' Write NAND sections cover, and what does it mean for us?**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+  - Depends: M6.19 (unit flash map)
+  - Goal: Marek (2026-11-24) asked whether the section buttons of LeafSDTools `Write NAND` (ALL+EEPROM, ALL OS, BL IPL, PROD, BL BASE, BL EBOOT, BL ENH, APP) tell how the unit flash is divided, and whether anything follows for this project. Read the upstream source (`developerfromjokela/leafsdtools`, GPL-3.0) and set it against `docs/hardware/unit-flash.md`.
+  - Scope: source reading only (ReadNAND, WriteNAND, WriteNAND_QY8, Flash, UserSRAM, ProdInf); no code copied; no unit write.
+  - Done when: an EXP lists each button's blocks and flash range from the source, compares them with the M6.19 map, and names what changes for the EU-card guide and the emulator.
+  - Stop: one session.
+  - Claims: C-10180–C-10189
+  - Result: EXP-2026-11-24-M6.26-leafsdtools-write-nand-sections (C-10180–C-10186). Only ALL OS and ALL+EEPROM write; ALL OS = blocks 8–0x86 incl. SRAM/VFlash, so the area-0 reset goes after it (eu-card-on-us-unit.md); section page counts confirm the M6.19 map; APP partition 0x040000–0x39FFFF.
 
 ## M7 — Scale and release (later)
 
@@ -4485,8 +4575,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8840–C-8849
   - Result: Areas are 0xe0/0xd0 stencil polygon + 0x82 32x32 pattern; texquad() stretched the pattern over the box. Patch ze0-hc1u repeats it and masks by the polygon: water and parks follow their outlines (factory 3ccbb525…, NK1 zoom on factory and from-zero cards). Older L4 hashes are box-fill renders. EXP-2026-11-23-M8.C1u-2dg-area-pattern, C-8840–C-8844.
 
-- [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
+  - Status: done · Owner: claude/project-thread-2u27o5 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1m
   - Goal: Marek (2026-11-22): the start-up consent screen and the GPS time fix are "two important and needed things". Companion's consent patch only knows the AZE0 states (`SRT_COLD_I_AGREE_TELEMA…`) and stops on the 2011 card (C-8359). Find the ZE0 equivalents and build a patch for card ROM A that skips the consent screen, in our own tool, without copying Companion code.
@@ -4496,7 +4586,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: the patched EU card on `-M ze0` logs the transition out of `SRT_COLD_I_AGREE` without `SK_SCT_AGREE_CLICK`, and the tool's selftest passes. Otherwise, the EXP names the sites found and what blocks the patch.
   - Stop: one session. No vendor bytes and no patched ROM in the repository.
   - Falsifier: the ZE0 consent state has no timer or transition site that a small patch can redirect.
-  - Claims: C-8370–C-8379
+  - Claims: C-8370–C-8379, C-10110–C-10119, C-10190–C-10196
+  - Blocker: (resolved 2026-11-24) was: EU card never reached ScreenState on anon flash; with the owner's re-shared flash it does
+  - Unblock: done (owner re-shared the flash 2026-11-24)
+  - Result: EXP-2026-11-24-M8.C1p-eu-consent-l4 (EU L4: 0 clicks, NK1 + owner flash; ids 0x08a4->0x088f; earlier EU patch was wrong) + EXP-2026-11-24-M8.C1p-ze0-consent-skip (US)
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
@@ -4572,8 +4665,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6940–C-6949
   - Result: EXP-2026-11-22-M8.G1-generations; 12 rows x 3 columns, every cell evidenced or unknown; falsifier not met (same BSP, +8 MiB RAM shift); 3 emulation differences
 
-- [ ] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
+  - Status: done · Owner: task/m8.g2-cycle10 · Critical: no · Pair: solo
   - Step: plan
   - Priority: low (after the ZE0 F5 screen, M8.C1f).
   - Depends: M8.G1
@@ -4585,6 +4678,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if M8.G1 shows ZE1 is not SH-4/CE, plan `aze0` only and mark `ze1` as a separate emulator decision for Marek.
   - Falsifier: an F0 try of the EU2014 kernel on unmodified `-M ze0` prints the same boot log as EU2011 (then no new machine is needed for AZE0, only properties).
   - Claims: C-6950–C-6959
+  - Result: EXP-2026-11-24-M8.G2-machine-types-plan; 20 device rows x 3 gens, 6 follow-ups, M8.G4 added; falsifier not met (EU2014 0 vs EU2011 423 debug lines, different final PC)
 
 - [ ] **M8.G3 — Why does Android Auto run on AZE0 units and not on ZE0? (H.264 decode, USB host, CPU, OS)**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -4809,8 +4903,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H9
   - Result: EXP-2026-11-23-M8.H11-l3-l4-parity (negative; tool + exit-3 contract + selftest only)
 
-- [ ] **M8.H12 — The US 2011 card on `-M ze0` (Marek's unit is US)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H12 — The US 2011 card on `-M ze0` (Marek's unit is US)**
+  - Status: done · Owner: task/m8.h12-cycle10 · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: All L4 work so far used the EU 2011 card. The only real unit is US, and its card carries another `Navi.exe` build (rule 14, name the build). Bring the US card to the same stage.
@@ -4821,6 +4915,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; a US-only crash inside `Navi.exe` is recorded, not debugged here.
   - Falsifier: the EU recipe works unchanged on the US card with EU constants (then nothing is build-specific and the README says so).
   - Claims: C-7090–C-7099
+  - Result: EXP-2026-11-24-M8.H12-us-card-ze0 (blocker branch: US card accepted to Launcher End !; FinishThread Error TimeOut 0 and Finish Launch Threads 0 at 900s; first US-only blocker CAuiMonitorCmn::ThreadProc::TIMEOUT!!!!! / Force PowerOff)
 
 - [x] **M8.H13 — `tools/l4check.py`: one command, card image in, L4 verdict out**
   - Status: done · Owner: — · Critical: yes · Pair: required
@@ -4875,8 +4970,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: C boots exactly like B with no extra process (then test mode is entered another way and the EXP says which).
   - Claims: C-7130–C-7139
 
-- [ ] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
+  - Status: done · Owner: task/m8.h17-cycle10 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1b (done; SD host row C10 of the peripheral table is done too)
   - Goal: The unit has a second slot for user media. With it a test can offer the firmware an update or a user file without touching the map card.
@@ -4887,6 +4982,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if port 1 uses a DMA channel the model lacks, record its number and stop.
   - Falsifier: the guest never issues a command on port 1 even with card-detect asserted.
   - Claims: C-7140–C-7149
+  - Result: EXP-2026-11-24-M8.H17-second-sd-slot; --sd2 mounts DSK8:/\UserSD (49 port-1 cmds, ch9 DMA, 9 mount notifications); baseline 0 cmds; C-7140–C-7149; selftest PASS
 
 - [x] **M8.H18 — NOR flash (`FMD1:`) backed by a host file: settings and user data survive a restart**
   - Status: done · Owner: task/m8.h18-fmd1-flash · Critical: no · Pair: required
@@ -4919,7 +5015,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H19-position-store; VSram block 0x8e is settings, not the position (pattern control negative); L3 falsifier not triggered: EU B48R058R vs B48R060R, US B38R0B0R vs B30R0E0R; coord selftest 24/24; position_store_l3 5/5 on both builds
 
 - [ ] **M8.H20 — Start the emulator at a chosen place: seed the saved position**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: blocked · Owner: task/m8.h20-cycle10 · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H18, M8.H19
   - Goal: Use the record of M8.H19 and the flash file of M8.H18 so `run.sh --start-position LAT,LON` boots with the map centred there — no GPS needed. First use: the four Poland tiles of the EU card.
@@ -4930,6 +5026,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the firmware rejects the record (checksum or a second copy), record the check and stop.
   - Falsifier: both boots read the same tile.
   - Claims: C-7170–C-7179
+  - Blocker: On-flash last-position record offset and checksum UNKNOWN: C-7167 refuted VSram block 0x8e, the flash->OBJDLL object-store restorer is not derivable from build A/B structure, and no unit flash dump exists on this machine
+  - Unblock: M8.H20a
+  - Result: EXP-2026-11-24-M8.H20-position-seed (negative; coord selftest 27/27; L3 tiles B48R058R vs B48R060R; 0/5 known words in anon flash; no format invented, no L4 boot)
 
 - [x] **M8.H21 — Is there a demo drive? Route simulation and other position sources inside `Navi.exe`**
   - Status: done · Owner: task/m8.h21-demo-drive · Critical: no · Pair: solo
@@ -5183,8 +5282,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7350–C-7359
   - Result: EXP-2026-11-22-M8.H38-panel-peer; 32/32 selftest checks; tool:ze0_peers.panel PASS
 
-- [ ] **M8.H39 — A tap changes the screen: touch injection on `-M ze0`, end to end**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M8.H39 — A tap changes the screen: touch injection on `-M ze0`, end to end**
+  - Status: done · Owner: task/m8.h39-cycle10 · Critical: yes · Pair: required
   - Step: model
   - Depends: M8.H1, M8.H38, M8.C1f
   - Goal: First interactive L4 test: tap a visible button and see the UI react.
@@ -5197,7 +5296,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7360–C-7369
   - Blocker: tap now arrives over SCI3 (M8.H35) and reaches kepdrv InputLcdTouch, but IsKeyControlNotify drops it: key-control bytes (+0xc4/+0xc5 & 0x0f) lock touch while the UI stays in INI_STARTUP (C-8440–C-8444)
   - Unblock: M8.C1n (done: the UI leaves INI_STARTUP and takes touch). The remaining gate is the key-control bytes (+0xc4/+0xc5 and 0x0f) that hold m_byKeyGuardAllKey; the tap test re-opens when that unlock is met.
-  - Result: EXP-2026-11-22-M8.H39-tap-l4 (negative); EXP-2026-11-22-M8.H35-sci3-display-link O5 (tap reaches kepdrv, locked)
+  - Result: EXP-2026-11-24-M8.H39-tap-l4; named-region after-tap hash c64ff230… equal in 2 boots, != idle 985e3ddd…, empty tap unchanged; bp hits 4/2; US fallback
   - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
 - [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
@@ -5392,7 +5491,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H53-powermonitor-static; scan --check 14/14 strings, 9/9 xrefs, 19/19 IOCTLs, 5/5 immediates, selftest 5/5
 
 - [ ] **M8.H54 — Clean shutdown at L4: ACC off, data saved to the flash file, restored at the next boot**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h54-cycle10 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.H18, M8.H53, M8.H50
   - Goal: Close the persistence loop: after an ACC-off from the vehicle peer the flash file changes, and the next boot starts from the saved state.
@@ -5403,6 +5502,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the flash file is unchanged after a completed shutdown sequence.
   - Claims: C-7510–C-7519
+  - Blocker: vcan on NK1 stalls boot before drivers (M8.H75); no ACC-off reached, flash unchanged
+  - Unblock: M8.H75
+  - Result: EXP-2026-11-24-M8.H54-shutdown-persistence-negative (negative; falsifier fired)
 
 - [x] **M8.H55 — Bluetooth module on `SCI8:`: wire protocol and what makes its start-up finish**
   - Status: done · Owner: task/m8.h55-bt-wire · Critical: no · Pair: solo
@@ -5498,8 +5600,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: reverse changes nothing on the display path.
   - Claims: C-7580–C-7589
 
-- [ ] **M8.H62 — `fmmdrv.dll` and the TMC path: where a traffic message enters, and what it looks up on the card**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H62 — `fmmdrv.dll` and the TMC path: where a traffic message enters, and what it looks up on the card**
+  - Status: done · Owner: task/m8.h62-cycle10 · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: `RDSTM001.DAT` and `LCTBL001.DAT` must be generated for Poland, and their only consumer is traffic: a TMC event carries a location code that is looked up in them. Find the entry point of a decoded TMC message (after `fmmdrv` at `0xffc55000` and the tuner path through `anwdrv`), so an event can be injected without modelling a radio.
@@ -5510,6 +5612,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; RDS group decoding is out of scope.
   - Falsifier: the traffic module takes location data only from the US `XMD` path in this build.
   - Claims: C-7590–C-7599
+  - Result: EXP-2026-11-24-M8.H62-tmc-entry-point; C-7590–C-7599; injection fn 0x003bcc7c (pdata START, r4=ctx); L3 2/2 + 0x14f4 mutation control
 
 - [ ] **M8.H63 — Inject one traffic event and watch `RDSTM001`/`LCTBL001` being read**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5743,6 +5846,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: M5.100 from-zero card (SHA-256 1b5bafeb…aeb2f2da52) was reaped with scratch: 17 images >=7 GiB hashed this session, 0 match; tile 0717a913…, pinned PBF b26a178b… and intermediates deleted; stock zlib 1.3.1 unavailable, so exact rebuild cannot be confirmed. No from-zero card to boot, so no L4 file-open/screen comparison was possible
   - Unblock: A task that re-preserves the M5.100 from-zero card (rebuild tile 0717a913… from pinned PBF b26a178b… with stock zlib 1.3.1 and re-apply the M5.100 map-code patch), confirmed by sha256sum prefix 1b5bafeb…aeb2f2da52; plus M8.C1p for the EU-card consent skip so --ui-start reaches map state. Rule 15 re-opens M8.H79 when that task merges
   - Result: EXP-2026-11-23-M8.H79-from-zero-card-unavailable (negative; 0/17 card hashes match, selftests pass, bad-mmain control FAIL at F4; task falsifier untestable without the card)
+  - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
+
+- [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
+  - Status: open · Owner: — · Critical: no · Pair: no
+  - Step: reader
+  - Depends: M8.H18, M8.H19
+  - Goal: M8.H20 is blocked because the flash→object-store restorer of the last vehicle position is UNKNOWN (C-7167). Trace `OBJ_BackUpMgr` / `OBJDLL!OBJ_CarPos_read` back to the `FMD1:` record and derive its exact flash offset, record layout and checksum from structure or a real unit dump — never a guessed format. Report whether the saved word is `0x9c03a3c0`-style packed COORD001 and whether there is a second copy.
+  - Precheck: `python3 tools/sh4xref.py archive/head256.img OBJDLL.dll --image-start 0x200200 --to 0x03481eb4` prints the backup-manager functions; `docs/firmware/position-store.md` says the restorer is UNKNOWN.
+  - Scope: build A (`OBJDLL.dll` backup manager, 56-byte-stride table at `0x01e54ee4`, 36-byte records at the `0x03482c68` base) and build B VSram/FMD driver; attribute every VA with `cerom.py`; `.pdata` START function boundaries; account for `jsr @Rn` indirect calls. A real unit dump may be used locally (never committed); record only its SHA-256 and offsets.
+  - Input: `tools/cerom.py`, `tools/sh4xref.py`, `tools/sh4dis.py`, `tools/ce_strfind.py`, `tools/unitflash.py`, `tools/position_store_l3.py`, a unit flash dump if available.
+  - Done when: an EXP reproduces, from a printing command, the exact flash offset(s), record fields and checksum rule of the saved position, and a negative control (corrupt one field or the checksum) shows the firmware/reader rejects it; the EXP names whether M8.H20 can then be re-opened.
+  - Stop: one session; if no dump and no static derivation succeeds, stay blocked with a negative EXP and a positive control.
+  - Falsifier: a candidate record whose mutation does not change the position read at init.
+  - Claims: C-10130–C-10139
 
 - [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5756,6 +5873,20 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: an off-SHA card is accepted as the rebuilt M5.100 card, or M8.H79 is re-opened without the card being present on disk.
   - Claims: C-10080–C-10089
   - Pair: required
+
+- [ ] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: model
+  - Priority: low (first follow-up of M8.G2; part of the long-term "run any generation in QEMU" goal).
+  - Depends: M8.G2 (done), M8.A11 (done)
+  - Goal: add an `AZE0` subclass of the `TYPE_ZE0_MACHINE` base in `hw/sh4/ze0.c` (same 11.1.3 patch series, no fork) with the measured X212 parameters: CE RAM window `ulRAMStart 0x8a640000` (ZE0 `0x89e40000`, +8 MiB) under the same `0x8e600000` ceiling, kernel file offset `0x3e00200` and entry `0x8800f100` from the EU2014 image TOC. Find the X212 debug-string sink VA (EU2011 `dbgmsg=0x880404f4` yields 0 lines on EU2014) and set it as the subclass default so F0 has a log.
+  - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 archive/eu2014-256.img romhdr` prints `ulRAMStart 0x8a640000`, `physlast 0x8870fb90`; an unmodified `-M ze0` 5 s EU2014 boot from `tools/qemu-ze0/run.sh` prints entry `0x8800f100`, 0 debug lines and final PC `0x8803d796` (M8.G2, C-6952).
+  - Scope: one new patch in `tools/qemu-ze0/patches/` modifying only the machine class in `hw/sh4/ze0.c` (plus its Kconfig/meson wiring if a second `defines` line is needed). Existing device models are reused unchanged. No new device model, no card change, no ZE1. The X212 debug sink VA must be obtained from the EU2014 `nk.exe` (string or OAL reference), not guessed.
+  - Input: `docs/research/qemu-machine-types.md` §1/§4, `docs/hardware/generations.md`, `tools/qemu-ze0/patches/ze0-0004-hw-sh4-ze0-builtin-loader.patch`, EXP-2026-11-24-M8.G2-machine-types-plan.
+  - Done when: a 5 s `tools/qemu-ze0/run.sh --machine aze0 --image archive/eu2014-256.img` boot prints a non-zero count of X212 debug lines on its own `dbgmsg` default, reaches an idle kernel with no CPU exception, and an EXP compares that log with the EU2011 F0 log (entry `0x8800f100`, RAM `0x8a640000`); `-M ze0` behaves byte-for-byte as before.
+  - Stop: if the X212 kernel stops short of F0 twice with the same log, record the last debug line and stage in an EXP and set `blocked` on the M8.G2 follow-up that owns the missing device (INTEVT table M8.G5).
+  - Falsifier: the EU2014 kernel prints debug text at the EU2011 VA `0x880404f4` and ends at the EU2011 final PC `0x8803d266` — then no X212 subclass is needed and this task records that instead of adding a machine.
+  - Claims: C-10090–C-10099
 
 ---
 
@@ -6274,8 +6405,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: none — reuses C-4651, C-2140–C-2147, C-6362–C-6368
   - Result: EXP-2026-11-22-M9.63-us-client-layer-survey; 4 rows; Precheck/Scope expectation overtaken by M9.61 (PR #426); M9.58 shape walk NOT RUNNABLE
 
-- [ ] **M9.64 — `main_watch` counts a green `L1/L2 synthetic fixtures` run as shadowing a red gate run: the two workflows test different things**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M9.64 — `main_watch` counts a green `L1/L2 synthetic fixtures` run as shadowing a red gate run: the two workflows test different things**
+  - Status: done · Owner: task/m9.64-main-watch-shadowing · Critical: no · Pair: required
   - Depends: — (H117 built the watchdog; this narrows its "later green" rule)
   - Goal: `.github/workflows/main-watch.yml` triggers on `workflow_run` for **both** `"CI quality gate"` and `"L1/L2 synthetic fixtures"`, but the verdict step runs `main_watch.py --branch main --workflow "CI quality gate" --limit 40`. `classify()` marks a red gate run `shadowed` whenever **any** later run in the fetched list is green — and the list it fetches is only the gate workflow, but the "shadowed" idea assumes a later green on the same workflow proves the red is stale. QA cycle 20 saw the effect on the reverse side: `44881534307` (gate, `3e41dc89`, `todo: PO 22nd pass`) is `cancelled`, and 9 cancelled runs sit in the 40-run window with only 5 shadowed reds; the two workflows are counted as if interchangeable. A red **gate** run must be covered by a later green **gate** run to be `shadowed`; a green L1/L2 run proves nothing about selftest/claims_check/todo_check. Today's tip is green so this changes no verdict, but the rule is wrong and would hide a red the day a L1/L2-only green lands after it.
   - Precheck: `grep -n 'workflow' .github/scripts/main_watch.py` shows one `--workflow` value and no cross-workflow guard in `classify()`; `python3 .github/scripts/main_watch.py --branch main` prints `0 salient, 5 shadowed, 9 cancelled, 40 runs`; `.github/workflows/main-watch.yml` `on.workflow_run.workflows` lists both workflows but the run step passes only one.
@@ -6287,6 +6418,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a red gate run reported `shadowed` whose only later green is a non-gate workflow.
   - Claims: C-6690–C-6699
   - Step: tooling
+  - Result: EXP-2026-11-22-M9.64-main-watch-cross-workflow; main_watch --selftest OK (32 checks), gate 5 pass/0 fail/0 skip
 
 - [x] **M9.65 — L3 harness: run `STDDLL` exports for `Navi.exe` import thunks (unblocks M4.55)**
   - Status: done · Owner: task/m9.65-stddll-mesh-import · Critical: yes · Pair: required
@@ -6448,8 +6580,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-9910–C-9919
   - Result: EXP-2026-11-23-M9.75-sec2-readers-l4 (L4 instead of L3: NK1 + unit flash route, gdb read watch; readers 0x003534d4 premap and 0x00358382 route search; unit-0 framing VERIFIED on 45,184 + 3,214 London records; search key (word 4 & 0xf, word 3 & 0x1fff); empty section 2 -> CALC_ERR_NBR); tools/ze0_sec2_watch.py; C-9910-C-9916. Attribute words (one-way, regulation): M4.98
 
-- [ ] **M9.76 — Make the rule-17 card number read a fresh ladder report, not the 2026-11-17 P0 pin**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M9.76 — Make the rule-17 card number read a fresh ladder report, not the 2026-11-17 P0 pin**
+  - Status: done · Owner: task/m9.76-fresh-card-step · Critical: yes · Pair: required
   - Step: P0
   - Depends: M5.38 (done), M9.12 (done), M5.88/M5.90/M5.91/M5.100 (from-zero card, done)
   - Goal: `tools/map_signals.py` prints `card_step: P0` from `~/projekty/leafre-work/m5.34/report.json` (mtime 2026-11-17 19:14Z), a factory-backed one-tile report produced before the from-zero L4 work and before M9.12/M9.75. Rule 17 defines this number as the highest card-ladder step whose gate passes; today it is a constant, so card work cannot move it. Teach the counter to read a validated step from a current gate run and publish that run.
@@ -6461,6 +6593,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a report whose gate did not pass still prints a promoted step, or the printed step disagrees with `card_ladder.py steps --check`.
   - Claims: C-9970–C-9979
   - Pair: required
+  - Note: Fresh report ../../leafre-work/scratch/m9.76/report.json for P0 card b0faf119..c33237; both gates rc=0; card_ladder steps --check rc=1 (7 missing+7 bad unrelated tags), step read from parsed P0 group
+  - Result: EXP-2026-11-24-M9.76-fresh-card-step; selftest 26/26, negative mutations 4/4, four numbers re-quoted in Priorities
 
 - [x] **M9.77 — `tools/exp_check.py`: accept named Method subheadings, still fail a missing falsifier**
   - Status: done · Owner: task/m9.77-exp-check-subheadings · Critical: no · Pair: required
@@ -6476,8 +6610,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
   - Result: EXP-2026-11-23-M9.77-exp-check-subheadings.md; M4.96 PASS, corpus 550->542, selftest 15/15
 
-- [ ] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
+  - Status: done · Owner: task/m9.78-template-defects · Critical: no · Pair: required
   - Depends: M9.77
   - Goal: the 49 EXP records added between 2026-11-23 06:20Z and 19:07Z include real gaps behind the formatter noise: a sample without a full SHA-256, a Method with no runnable commands/controls/scope, or no falsifier. A reviewer cannot reproduce those results from the repo. After M9.77 separates layout from content, repair each record that still FAILs rather than waiving the lint wholesale.
   - Precheck: `python3 tools/exp_check.py docs/experiments` still prints FAIL lines; `git log --since=2026-11-23T06:20:04Z --diff-filter=A --name-only --pretty=format: origin/main -- docs/experiments/ | grep -c 'EXP-'` prints the window size (49 at 19:13Z).
@@ -6488,9 +6622,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: an EXP is marked PASS while still lacking a full sample hash, a runnable command, a control, a counted scope or a falsifier.
   - Claims: none (record repair; no claim rows reserved until the work commits them)
   - Pair: required
+  - Result: EXP-2026-11-24-M9.78-exp-template-defects.md; 31 repaired, window 48 PASS/0 FAIL, selftest 15/15, claims_check OK
 
-- [ ] **M9.79 — Keep tool selftests off the `/tmp` tmpfs: the standing gate is red on this host**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M9.79 — Keep tool selftests off the `/tmp` tmpfs: the standing gate is red on this host**
+  - Status: done · Owner: task/m9.79-tmp-tmpfs-selftests · Critical: yes · Pair: required
   - Depends: —
   - Goal: a full `python3 tools/selftest.py` on 2026-11-23 ended with `passed=264 failed=2 skipped=21` because `tools/identity_fields.py` writes a listing to `$TMPDIR` and `tools/sdlock_pico_check.py` compiles in `tempfile.TemporaryDirectory()`, both on the 3.8 GiB `/tmp` tmpfs where this user hits `OSError: [Errno 122] Disk quota exceeded`. AGENTS.md already forbids long-lived `/tmp` scratch; the selftests must follow the same rule, otherwise a host-only file-system condition is reported as a code regression.
   - Precheck: `python3 tools/selftest.py --only identity_fields` prints `OSError: [Errno 122] Disk quota exceeded`; `--only sdlock_pico_check` prints `fatal error: error writing to /tmp/…: Przekroczony limit dyskowy`; `df -h /tmp` shows a tmpfs; `grep -n 'TMPDIR' tools/identity_fields.py` and `grep -n 'TemporaryDirectory' tools/sdlock_pico_check.py` both hit.
@@ -6501,9 +6636,10 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: a selftest still fails with EDQUOT after the change, or a scratch directory remains after a green run.
   - Claims: C-9980–C-9989
   - Pair: required
+  - Result: EXP-2026-11-23-M9.79-tmpfs-selftests (both --only PASS; full 269/0/21; gate 5 pass, 0 fail, 0 skip)
 
 - [ ] **M9.80 — Rule 13 for our generated section-4 names: read an M5.65 tile's place-name list in L3 (first slice of M9.18)**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+  - Status: blocked · Owner: task/m9.80-section4-names-l3 · Critical: yes · Pair: required
   - Depends: M5.65 (OSM names written, done), M9.53 (record block read in L3, done), M9.18 (owns the LEV3456R half; this task takes only the section-4 name list)
   - Goal: reader-coverage row 19 says a generated tile carries 37 OSM place names but "no L3/L4 run reads our generated names (rule 13)". M9.18 owns the coarse-level reader and the section-4 consumer together and has stayed unowned for two cycles; split off the name-list half so one pair can finish it in one session. Without a firmware verdict on our bytes, the name writer is accepted on L2 only.
   - Precheck: `python3 tools/board.py show M5.65 | grep -m1 Result:` names the 37/37 OSM names; `python3 tools/mount_dirs_l3.py --help` and `python3 tools/datask_l3.py --help` run; `grep -n 'name list not read' docs/research/reader-coverage.md` finds row 19's gap.
@@ -6514,6 +6650,9 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: the firmware returns the factory name list for both the generated tile and the mutant, i.e. the L3 run never reads our bytes.
   - Claims: C-9990–C-9999
   - Pair: required
+  - Blocker: Stored-copy consumer 0x00422eac (EU2011) returns one u16 selector, not a 37-name list; its k source 0x00424464->0x0041e2bc unresolved, so the Done-when '37 names returned by firmware' and 'one-word mutation changes returned list' are unreachable
+  - Unblock: M4.56
+  - Result: EXP-2026-11-23-M9.80-section4-names-l3.md (negative)
 
 ## Retired leads
 
@@ -6535,3 +6674,4 @@ Do not take these up again; each was superseded by the CE ROM TOC
 | Spare-card `HDD_INFO`/`.ind` matrices as next steps | no hardware; shrink them with M2.4/M3.3 first | M6.3 |
 | Building S1/S2 with `mkcard.py`'s fresh build | re-lays out the whole FAT and drops the root volume-label entry (200 diff ranges), so three variables change at once | M5.13 `imgpatch.py`, M5.13b |
 | `NaviStateCC` vtable hunts (EXP-27…29) | parked; COM objects come from runtime or `DllGetClassObject` with real VAs | M9 / M8.E3 if needed |
+| "KIWI is a reader / shortcut for ZE0 card files" (M4.63–M4.73 verdict) | 0/4 header checks, 0/6,000 road records, 0/17,659 background records, 0 informative address fits on two cards; only ch.1.2 `SWS` size words adopt (already in `tools/kiwi_types.py`), 3 families concept-only | M4.78 verdict page (`docs/format/kiwi-glossary.md`); M4.77 real KIWI disc is the only positive control that could re-open it |

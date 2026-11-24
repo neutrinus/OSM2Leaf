@@ -4,6 +4,11 @@ Status: **planning only**; nothing has run on a unit. This is the procedure for
 M6.5–M6.7, recorded in
 [`EXP-2026-11-06-M6.3-card-plan`](../experiments/EXP-2026-11-06-M6.3-card-plan.md).
 Rule: **one variable per card**, each stage starting from the last accepted image.
+**L4 evidence only (M2.22 / EXP-2026-11-24-M2.22):** keep patching in place as a
+unit-side precaution, but note that at L4 a fresh `mkcard` rebuild, an explicit
+label rebuild and a byte-identical in-place patch all pass F0–F5 with the same
+launcher/map verdicts, so the emulator models no label- or FAT-layout check that
+would justify the rule at this level — lifting it for the unit remains untested.
 
 ## Prerequisites
 

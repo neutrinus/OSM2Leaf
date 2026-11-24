@@ -98,6 +98,10 @@ Options:
                       need ze0-0009, M8.C1b). The size must
                       be a power of two: give a qcow2 overlay over a card
                       image (qemu-img create -f qcow2 -b CARD -F raw F 8G)
+  --sd2 FILE          -M ze0: second SD card image on SD host port 1 (-drive
+                      if=sd,index=1; same power-of-two rule as --sd). Port 1
+                      has its own SDHI and HPB-DMAC channel 9 (M8.H17). With
+                      no --sd2 the port has no card and card-detect stays off.
   --icount SPEC       pass -icount SPEC (e.g. shift=0,sleep=off: guest time
                       independent of host load, M8.B2)
   --display SPEC      -M ze0: show the guest screen through QEMU. SPEC is
@@ -341,6 +345,7 @@ SERIAL_PEERS=
 UART_INTEVT=
 DBGMSG=0x880404f4
 SD=
+SD2=
 VERINF=
 MAPDB=
 IPL_PATCH=
@@ -374,7 +379,7 @@ while [ "$#" -gt 0 ]; do
   case $_opt in
     --image | --kernel | --app | --kernel-addr | --app-addr | --entry | \
     --mem | --machine | --timeout | --workdir | --log | --qemu | --memmap | \
-    --serial | --serial-peer | --uart-intevt | --dbgmsg | --icount | --sd | --verinf | \
+    --serial | --serial-peer | --uart-intevt | --dbgmsg | --icount | --sd | --sd2 | --verinf | \
     --mapdb | --ipl-patch | --card | --display)
       if [ "$_hasval" -eq 0 ]; then
         [ "$#" -ge 2 ] || usage_error "$_opt needs a value"
@@ -423,6 +428,7 @@ while [ "$#" -gt 0 ]; do
         --dbgmsg) DBGMSG=$_val ;;
         --icount) ICOUNT=$_val ;;
         --sd) SD=$_val ;;
+        --sd2) SD2=$_val ;;
         --verinf) VERINF=$_val ;;
         --mapdb) MAPDB=$_val ;;
         --ipl-patch) IPL_PATCH=$_val ;;
@@ -498,6 +504,9 @@ ENTRY=$((ENTRY))
 
 if [ -n "$IMAGE" ] && [ ! -f "$IMAGE" ]; then
   die "no such image: $IMAGE"
+fi
+if [ -n "$SD2" ] && [ ! -f "$SD2" ]; then
+  die "no such --sd2 image: $SD2"
 fi
 if [ -n "$MEMMAP_SRC" ] && [ ! -f "$MEMMAP_SRC" ]; then
   die "no such memmap: $MEMMAP_SRC"
@@ -682,6 +691,12 @@ fi
 if [ -n "$SD" ] && [ "$MACHINE" = ze0 ]; then
   # SD host port 0 (M8.C10, ze0-0008).
   set -- "$@" -drive "if=sd,index=0,file=$SD"
+fi
+if [ -n "$SD2" ] && [ "$MACHINE" = ze0 ]; then
+  # SD host port 1 (M8.H17): card present -> card-detect asserted; HPB-DMAC
+  # channel 9 moves its data. Without --sd2 the port has no card and the
+  # driver sees card-detect off (today's behaviour).
+  set -- "$@" -drive "if=sd,index=1,file=$SD2"
 fi
 
 if [ "$GDB" -eq 1 ]; then

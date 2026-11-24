@@ -244,6 +244,14 @@ kept), so the next run extracts cleanly.
   `tools/ze0_sdhost.py dmatrace LOG --card CARD.img` compares every block
   read with the card image. See
   [`EXP-2026-11-21-M8.C1b-hpb-dmac-model.md`](../../docs/experiments/EXP-2026-11-21-M8.C1b-hpb-dmac-model.md).
+- **M8.H17 (2026-11-24):** `run.sh --sd2 FILE` puts a second card on SD host
+  port 1 (`-drive if=sd,index=1`); the port and its HPB-DMAC channel 9 were
+  already modelled (M8.C10/C1b), so no patch changed. With a small FAT16 card
+  the guest asserts card-detect, enumerates the card and mounts `DSK8:` /
+  `\UserSD` (`SYS_NOTIFY_USER_SD_CARD_MOUNT` to 9 processes); without `--sd2`
+  the boot is unchanged. `tools/ze0_sdhost.py ports LOG` reports per-port
+  card-detect and commands. See
+  [`EXP-2026-11-24-M8.H17-second-sd-slot.md`](../../docs/experiments/EXP-2026-11-24-M8.H17-second-sd-slot.md).
 - `ze0-0010` (M8.C1c): `verinf=STR` and `mapdb=LO-HI` write the unit record
   the launcher reads at kernel image header `+0x60` (map code) and
   `+0x70`/`+0x72` (map-DB window, big-endian u16); `run.sh --verinf/--mapdb`.
@@ -326,6 +334,16 @@ kept), so the next run extracts cleanly.
   purpose, because it is made against the tree with every other patch
   applied. Screen hashes taken before it are box-fill renders. See
   [`EXP-2026-11-23-M8.C1u-2dg-area-pattern.md`](../../docs/experiments/EXP-2026-11-23-M8.C1u-2dg-area-pattern.md).
+- **M8.H12 (US 2011 card):** the card is accepted on `-M ze0` with the
+  card-derived `verinf=QSD-301-100,mapdb=16-16` and a US IPL patch (kernel 81/91,
+  image A 113/151 modules) — `Store Mgr Ready!`, `Launcher End !`, no
+  `Error Proc`/`FailSafe.exe` — but the US build never prints
+  `Finish Launch Threads`: at 900 s the first US-only blocker is
+  `CAuiMonitorCmn::ThreadProc::TIMEOUT!!!!!` then
+  `Pow >> No Action at ACC-OFF? Timeout!! Force PowerOff!!!` (EU: `FinishThread
+  Error TimeOut` 10×, `Finish Launch Threads` 1). The `dbgmsg` sink is the same
+  VA (`0x880404f4`, verified on the US head). See
+  [`EXP-2026-11-24-M8.H12-us-card-ze0.md`](../../docs/experiments/EXP-2026-11-24-M8.H12-us-card-ze0.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 

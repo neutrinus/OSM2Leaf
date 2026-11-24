@@ -51,6 +51,104 @@ per `python3 tools/frway_decode.py census ROOT` (C-7837/C-7838; the older
 `REFER002` is **not** duplicate data — it carries the longer EV schema
 (xy-coordinates, plug info, parking capacity).
 
+### `REFER002` census (M4.85, EU 2011)
+
+> **Status:** `OBSERVED` (file-level census and field schema; record-body field
+> offsets still open — the shared POINT name-record grammar). Evidence:
+> EXP-2026-11-22-M4.85-refer002-census, C-7860–C-7869.
+
+`python3 tools/refer002_census.py census ROOT` reports the 16 files of the
+EU 2011 layer (426,496 B, 880 facility records; US 2011 has 2 files / 1 record):
+
+| file | zlib streams | record pages | records |
+| --- | ---: | ---: | ---: |
+| `COORD001.DAT` | 0 | 0 | 0 (projection companion, C-152) |
+| `POINT002.DAT` | 3 | 1 | 33 |
+| `POINT004.DAT` | 3 | 1 | 6 |
+| `POINT005.DAT` | 3 | 1 | 9 |
+| `POINT007.DAT` | 3 | 1 | 4 |
+| `POINT008.DAT` | 3 | 1 | 121 |
+| `POINT010.DAT` | 3 | 1 | 24 |
+| `POINT011.DAT` | 3 | 1 | 4 |
+| `POINT016.DAT` | 3 | 1 | 1 |
+| `POINT018.DAT` | 3 | 1 | 172 |
+| `POINT019.DAT` | 3 | 1 | 41 |
+| `POINT020.DAT` | 3 | 1 | 24 |
+| `POINT022.DAT` | 3 | 1 | 62 |
+| `POINT025.DAT` | 4 | 1 | 206 |
+| `POINT029.DAT` | 3 | 1 | 2 |
+| `POINT033.DAT` | 3 | 1 | 171 |
+
+Each `POINT0nn` is the `REFER001` POINT container (0x800 header, 299-cell
+directory at `0x800`, zlib pages of `0x60`/`0x68` records) but carries a
+**different field dictionary**: the *facility* dictionary has 11 fields, with
+`xy-coordinates`, `point of arrival` and `tie-up parking` where REFER001 has
+`icon code`. `plug info`, `parking capacity`, `installed facility` and
+`user limitation id` are declared in the `INFORMATION` sub-schema.
+`schema ROOT/POINT002.DAT` prints the table below (type `0x8000` coded,
+`0x6000` text in the record tail, `0x2000` trailing rest):
+
+| id | field | type | length (words) |
+| ---: | --- | --- | ---: |
+| 0 | area code | 0x8000 | 5 |
+| 1 | category | 0x8000 | 1 |
+| 2 | sub-category | 0x8000 | 1 |
+| 3 | detailed code | 0x8000 | 1 |
+| 4 | index | 0x8000 | 0 |
+| 5 | facility name | 0x6000 | 19 |
+| 6 | address | 0x6000 | 14 |
+| 7 | dndc-id | 0x2000 | 0 |
+| 8 | xy-coordinates | 0x8000 | 0 |
+| 9 | point of arrival | 0x8000 | 1 |
+| 10 | tie-up parking | 0x8000 | 1 |
+
+The field dictionary is a C-block (`ff ff u16 word-offset` to a header with
+`u16 first-word @+24`, `u16 nfields @+26`; entries chained by the `u16` at `+0`,
+`0xffff` = last, with `id @+12`, `len @+14`, `name @+16`) — the same chain the
+`fn 0x003f51e0` name accessor reads (see "Field dictionary" under POINT below).
+The record *body* field positions are **not** decoded here: the 48/88-byte name
+record grammar is still open for REFER001 too.
+
+### Writing a charging station to `REFER002` (M5.79)
+
+> **Status:** `VERIFIED` (tool, EU 2011 POINT016; C-10100–C-10109).
+> Evidence: EXP-2026-11-24-M5.79-refer002-write-first-record.
+
+`REFER002` is stored on the card as **plain uncompressed `.DAT` files**
+(`roadmap.md`; the `l2check` golden is `REFER002/COORD001.DAT`), not as
+`.cmp`/`.ind` pairs — `cmpind.py verify` on a REFER002 tree reports
+`no .ind files`.  All 880 EU 2011 facility records across the 15 POINT shards
+carry tag `0x60`; there is no `0x68` template.
+
+`tools/refer002_add_station.py` adds one record to a factory `POINT0nn.DAT`:
+
+1. inflate the name-page stream (POINT016: `0x1a00`, 112 B → 114 B);
+2. clone the factory `0x60` record verbatim (POINT016: 114 B, `len2=57`);
+3. replace **only** field 5 (`facility name`) through
+   `mutate_refer_poi.field_layout(rec, 11)`: POINT016 has `starts[5]=68`,
+   `lens[5]=10`, so the safe swap window is `rec[68:88]` — **20 bytes**.
+   The new ASCII name must have exactly that length.  Do not swap the whole
+   display text (`\x02\x11` prefix and the address at `rec[88:110]` are
+   separate fields; changing their length needs the UNKNOWN body offsets,
+   C-7866, and reproduces the M5.52/C-5117 stale-length defect);
+4. append the clone to the same inner page (114 → 228 B), recompress that one
+   stream with stock zlib 1.3.1 (factory L6/m8/w15), and require it to fit
+   before the next aligned stream (POINT016: 137 B in a 256 B slot at
+   `0x1b00`).  All other bytes, including the `.DAT` logical size, are kept.
+
+The census then reads one more record (POINT016 1→2, tree 880→881).  The
+only per-record index observed is the **24-byte-per-record stream at
+`0x1108`**: POINT016 has one 24-B row, and on all 15 shards the stream length
+divided by 24 equals the record count.  There is **no separate count field**,
+so this writer does not change the index (the task's literal falsifier — a
+stale numeric count — does not fire).  The new record therefore has **no
+index row**: this is a real gap, not a pass of index writing.  The row's last
+word is the 0-based record ordinal; words 0–5 are a per-record name key that
+is not found verbatim in the record body and remains UNKNOWN (new M4 task).  L1 (`cardcheck`) and L2 (`l2check`) pass on the edited
+tree; the position is inherited from the host record (no OSM coordinate is
+written), and the row-24 firmware opener is still unlocated (M3.29), so no
+L3/L4/L5 acceptance is claimed.
+
 ## `POINT0nn` — POIs
 
 - The field dictionary is inside each file: plain ASCII names with per-field

@@ -197,6 +197,31 @@ included (M4.22 re-run, C-5282).
 `TTS` payloads contain RIFF/WAV and zlib streams. These are out of scope for
 the map compiler.
 
+### Cross-year format check (M4.57, EXP-2026-11-24-M4.57-polish-voice)
+
+The three kinds keep the **same archive framing** on EU 2011 and EU 2014; only
+field values and entry sets change. `tools/speech_years.py` prints the numbers
+(`describe`, `compare`, `langs`, `--selftest`):
+
+| Kind | GID | TTS | AGM |
+| --- | --- | --- | --- |
+| Framing | same (16-digit serial, u32 size/hdr/flags/count, 24 B entries) | same | same |
+| 2011 → 2014 | serial `0000102020100524`→`0000302420140919`, size 9,729,912→14,868,920, flags 46,104→0 | serial `0000200020100524`→`0000300720120423`, 9→10 entries (extra `TSP00500.BIN`), hdr 248→272 | 9→18 entries, hdr 248→464, names renumbered (`RSPA0001.ACM`→`RSP00000.ACM`) |
+| Verdict | `same` framing | `same` framing | `same` framing |
+
+The SVOX TTS stamp is identical across the years: `MAJVERS 5`, `MINVERS 0`,
+`REV 0`, `SOFTWID 41003`, `LINGWID 0`, `TAVERS 4.3.0.0-2`; only `USRTIMESTAMP`
+changes. The embedded `TSP00400.WAV` is a 44-byte RIFF/WAVE PCM mono 22,050 Hz
+16-bit sample on both. Whether a 2011 `Speech.exe` actually *decodes* 2014
+prompt bytes is `unknown` (no L3/L4 run).
+
+The 2011 build's language list is a UTF-16LE name table in `Speech.exe` sec0
+at VA `0x00032354` (10 names at 8-byte stride: `CF US JP SP PT DU IT GE FR BE`,
+terminated by `ffff ffff` at `0x000323a4`); `PL` is absent. EU 2014's build
+holds the same form at VA `0x00036cf0` with 20 names including `PL`. A stock
+2011 `Speech.exe` therefore has no built-in selector for a 2014 `SPEECH/PL`
+set.
+
 ## Licensing
 
 Icons, images and voice data are vendor assets. Do not commit or redistribute

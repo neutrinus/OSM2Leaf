@@ -98,3 +98,45 @@ navigator catches worth keeping: M2.22 CMP.LST would fail L1 -> TTS byte;
   pre-rebase SHA in EXP.
 
 (outcome table appended below)
+
+final state (2026-11-24): origin/main 70688933. Gate 5 pass / 0 fail / 0 skip
+  with home-tree TMPDIR; board lost 0/0; todo_check/claims_check OK. All 10 batch
+  worktrees and branches removed. Only the three unrelated stale drafts (#523,
+  #501, #472) remain open; PR #639 closed.
+
+outcome table (batch 9 — 10 tasks, 10 pairs, 20 subagents = 2T - S with S=0):
+| Task | Mode | Subagents | Rounds | Outcome | PR | EXP |
+| --- | --- | --- | --- | --- | --- | --- |
+| M9.77 | pair (driver + navigator) | 2 | 1 plan + final | done | #698 / 8ac92da2 | EXP-2026-11-23-M9.77-exp-check-subheadings |
+| H56 | pair | 2 | 2 | done | #696 / 6d53e0f7 | EXP-2026-11-23-H56-progress-snapshot |
+| M8.H79 | pair | 2 | 2 | blocked (card gone; Unblock M8.H79a + M8.C1p) | #693 / a60d15bc | EXP-2026-11-23-M8.H79-from-zero-card-unavailable |
+| M4.99 | pair | 2 | 2 | done (direct push, PR #700 auto-closed) | #700 / 4e627e36 | EXP-2026-11-23-M4.99-class-d-residual |
+| M9.76 | pair | 2 | 1 | done | #692 / e4ac1fc3 | EXP-2026-11-24-M9.76-fresh-card-step |
+| H131 | pair | 2 | 2 | done | #695 / 6a949c2a | EXP-2026-11-23-H131-semantic-l2-fixture |
+| M9.80 | pair | 2 | 3 | blocked (single-selector reader; Unblock M4.56) | #694 / b2b12658 | EXP-2026-11-23-M9.80-section4-names-l3 |
+| M9.79 | pair | 2 | 3 | done | #691 / 37b63bf5 | EXP-2026-11-23-M9.79-tmpfs-selftests |
+| M5.83 | pair | 2 | 2 | blocked (label off-screen; Unblock M8.H33/M8.H72) | #699 / fe12f55e | EXP-2026-11-24-M5.83-polish-names-l4 |
+| M2.22 | pair | 2 | 3 | done | #697 / 70688933 | EXP-2026-11-24-M2.22-sdhost-dma-l4 |
+| H141 | TL-owned (no subagent) | 0 | n/a | done (release note + QA log) | #701 / 4e002c08 | dev_process/2026-11-23-2214-13-tl.log |
+
+TL-owned H141 released H132-H139 (claim ranges collided with M5.86-M5.92:
+8 strict errors); landed cycle-20 QA log; opened M8.H79a for rule 15.
+
+Merge notes: #698, #696, #693, #692, #695, #694, #691, #699, #697 merged via
+gh pr merge --squash after CI green and local board checks. #700 conflicted on
+claims.md; resolved by ID with board.py resolve in a scratch worktree, verified
+(board lost 0/0, todo/claims OK, map_signals/tile_unknown selftests PASS), and
+pushed directly as 4e627e36; PR auto-recognised the squash. Two concurrent EXPs
+(M5.83, M2.22) used '### 4. Scope / corpus', which M9.77's stricter exp_check
+(no longer in their branch base) would not normalise to 'scope'; renamed to
+'### 4. Scope' in the merge worktrees with a one-line commit each, leaving
+EXPs otherwise untouched. A root-filesystem-full event (100%, from concurrent
+card builds) was cleared by deleting stale tl-tmp selftest scratch and letting
+drivers reap their own intermediates; no gate result was faked. ci_gate_repro
+showed a 60 s load-timeout flake in full-selftest runs under ~20 agents; it
+passed in isolation (45-59 s) and never masked a real defect.
+
+handoff: three blocked tasks need their unblockers — M8.H79a (card re-preserve,
+open, paired) + M8.C1p for M8.H79; M4.56 for M9.80; M8.H33/M8.H72 for M5.83.
+The four old drafts (#523, #501, #472) still need their owners/TL queue pass.
+Gate is green on main; next role should pick open tasks from the refreshed board.

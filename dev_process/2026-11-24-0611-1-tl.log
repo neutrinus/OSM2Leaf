@@ -1,0 +1,197 @@
+role: TL (team lead), cycle 10 driver. Model: opencode/hy4-flash-free
+start: 2026-11-24 06:11 UTC
+end: (in progress)
+origin/main at start: 49a551c9
+
+inputs read: prompt_common.txt, prompt_tl.txt, AGENTS.md, TODO.md rules 1-17
+  and Priorities, dev_process/2026-11-23-2214-13-tl.log (batch 9 outcome),
+  open PR list.
+
+queue clearing: no non-draft PRs open. Three stale DRAFTs remain from prior
+  owners: #523 (M4.85), #501 (M9.62), #472 (M9.64) — all ~1 day old.
+  Whether to release them (rule 8 / ghost claims) is decided below.
+
+(task selection, manifest, outcome table appended below)
+
+queue clearing (done):
+  - #523 M4.85 and #472 M9.64 were stale DRAFTs with complete work and green
+    CI. Verified each in a scratch worktree, resolved stale-base conflicts:
+    #523 needed a stale full second '# TODO' copy removed (board.py resolve
+    kept both), claims by ID, reader-coverage HEAD row 23 + PR row 24 kept;
+    merged direct as 76462480. #472 needed main_watch.py selftest blocks
+    unioned (47 checks), per-workflow verdicts merged with H126 PR sweep,
+    YAML validated, claims by ID, EXP tool-only Sample waiver normalised for
+    post-M9.77 exp_check; merged direct as 21e370df.
+  - #501 M9.62 was a ghost claim (45 h, claim commit only, task still open
+    Owner: — on main) — closed with a rule-8 comment.
+  - main after queue: 21e370df, gate 5 pass / 0 fail / 0 skip with TMPDIR.
+
+task selection (26 tasks; 20 pairs + 6 solos = 46 subagents):
+  - Eligible set recomputed fresh from origin/main: open, deps done, unowned,
+    local runner. Critical first: M5.92, M8.H39, M2.21, M3.14, H42.
+  - Greedy disjoint-file selection (generic shared citations excluded); 26
+    tasks fit. Skipped: non-Claude/hardware tasks, tasks with undone deps,
+    tasks sharing files with a selected task.
+  - PAIRS (20): M5.92, M8.H39, M2.21, M3.14, H42, M1.38, M4.28, M8.C1p,
+    M1.52, M4.78, M5.95, M6.25, M8.H68a, M4.76, M5.79, M8.H12, M9.78,
+    M1.53, M8.H20, M8.H62. High-risk fields (firmware/L3/L4/writer/claims/
+    gate) paired even where Pair: solo (M3.14, M5.92, M1.38, etc.).
+  - SOLOS (6): M4.57, M4.59, M4.75, M8.G2, M8.H17, M8.H54 — small
+    docs/selftest-covered tools, no gate/claim/firmware/L4 exposure. TL is
+    the only reviewer and applies both mandatory checks.
+  - All 26 worktrees created with wt from origin/main, archive symlinks
+    verified. Brief: ~/projekty/leafre-work/scratch/dev_assignments_cycle10.md.
+
+(dynamic manifest: PR numbers and subagent session IDs in the message log;
+outcome table appended as results arrive)
+
+merge stream (2026-11-24, in progress) — 12 merges so far:
+  - #714 M4.76 BLOCKED (pair converged: KIWI exporter premise refuted;
+    Unblock M5.3) direct 6617b3a6.
+  - #709 H42 done (progress.yml CI artifacts; navigator round-2 APPROVE after
+    rebase; EXP headings added in merge worktree) 8ac92da2... actually e0fa9633.
+  - #725 M8.G2 done (device x generation table, M8.G4 follow-up) direct 084327fe.
+  - #726 M8.H54 BLOCKED (vcan NK1 stall, Unblock M8.H75) direct 396e728d.
+  - #704 M8.H39 done (L4 tap, US fallback TL-approved; board-done false alarm
+    from missing ref) direct 07e5a640.
+  - #727 M8.H17 done (--sd2 second SD slot) direct ce0c2eb0.
+  - #721 M8.H62 done (TMC path injection fn 0x003bcc7c). NOTE: an accidental
+    push of the claim commit set M8.H62 back to 'in progress'; corrected by a
+    clean remerge (kept the done block, resolved the duplicate-board conflict)
+    direct 9ebf6ea2. Lesson: never push a rebase conflict resolution blindly.
+  - #716 M5.79 done (REFER002 first record; duplicate C-10096 from stale
+    conflict resolved by ID, kept M8.H39's row) direct 47214694.
+  - #723 M4.75 done (KIWI string family table) direct 5567ea68.
+  - #722 M4.57 done (Polish voice framing) direct 1b3aee83.
+  - #717 M8.H12 done (US card boots to Launcher End, US-only blocker named)
+    direct e9bb3f20.
+  - #724 M4.59 done (skin_patch.py; CI zlib cross-version fix after RED on
+    py3.11/3.13) direct c869990d.
+  main now c869990d. All merges verified: board lost 0/0, todo/claims/exp_check
+  OK; stale-base conflicts resolved with board.py resolve (never hand-edited).
+  Several PRs could not be GitHub-merged (stale base) so verified content was
+  pushed directly to main and the PR closed/recognised as merged.
+
+Recurring merge-time defect: concurrent EXPs written against pre-M9.77
+exp_check use '### 4. Scope / corpus' or non-canonical 'none (...)' Sample
+waivers, or omit Conclusion/Overtaken/Reproduction headings — fixed in the
+merge worktree with one-line doc commits, no evidence altered.
+
+Still open (claim-only or in flight): M1.53 (#719, final review), M8.C1p
+(#706), M1.38 (#708), M4.78 (#710), M1.52 (#711), M5.95 (#712), M3.14
+(#705), M5.92 (#702), M2.21 (#703), M4.28 (#707), M8.H20 (#720), plus M8.H79a
+(not in this batch). Remaining solos: M8.H54/M8.G2/M4.75/M4.57/M4.59 done.
+
+(outcome table appended when the remaining agents finish)
+
+merge stream continued (main 3da49f59):
+  - #719 M1.53 done (point_tree STDDLL walk via ce_module, byte-identical
+    before/after, nk_decomp 3->2) direct e8b04626.
+  - #703 M2.21 done (l4check --unit-verinf/--unit-mapdb; 7/7 mutation matrix,
+    C-ctrl self-cancel control) direct b730e8bc; added missing Follow-ups
+    heading for exp_check in merge worktree.
+  - #706 M8.C1p BLOCKED (EU flash consent, Unblock = owner's M6.18 dump;
+    US L4 validates patch mechanism; H69 verify defect fixed in round 4)
+    direct 3da49f59.
+  - #707 M4.28 was returned: reserved claims C-2685-C-2689 left on a done
+    task -> claims_check FAIL; driver fixing. NOT merged yet.
+  - Gate RED transient after M4.75 introduced 4 new fn VAs in its EXP:
+    fn_audit L3 overlay CORPUS STALE 4 new. Re-froze L3 overlay with
+    fn_audit.py --scope l3 --write-snapshot (no gate threshold changed);
+    gate 5 pass / 0 fail / 0 skip restored (commit 5eb2fc70).
+  - Disk hit 100% (1.9 GB free) during the wave; reclaimed stale tl-merge
+    worktrees and tl-tmp selftest scratch, back to 13 GB free.
+
+Still in flight (8 tasks): M5.92 #702, M3.14 #705, M4.28 #707, M1.38 #708,
+M4.78 #710, M1.52 #711, M5.95 #712, M8.H20 #720. Most plan reviews now
+resolved; drivers running experiments. M8.H79a (rule-15 follow-up) open,
+not launched this cycle.
+
+(outcome table appended when the remaining agents finish)
+
+merge stream final additions (main 148f485d):
+  - #707 M4.28 done (marker-bit residual; C-1903/1904 RETRACTED, C-2683/84
+    OBSERVED) direct d599b93a. NOTE: that commit was an accidental MERGE commit
+    whose staged claims.md was discarded; main then failed claims_check with
+    RESERVED C-2683..C-2689. Repaired in 69e55c8e (restored real C-1903/04/
+    2683/84) and 9d60509d (dropped 5 surplus RESERVED rows) -> claims_check OK.
+    Lesson: a worktree with a leftover merge must be fully reset before commit;
+    always run claims_check on main after every merge.
+  - #708 M1.38 BLOCKED (X212 not a drop-in on X210; Unblock M8.G4) direct
+    a13c05c1; C-6315 evidence pinned with EU2016 head SHA in the merge tree.
+  - #710 M4.78 done (KIWI verdict: only SWS adopted; kiwi_verdict_check.py with
+    3 negative mutations) direct 7125c4e0.
+  - #720 M8.H20 BLOCKED (on-flash position record format UNKNOWN; follow-up
+    M8.H20a + C-10120-C-10129) direct eed1ae0b.
+  - #712 M5.95 done (building-density built-up rule; landuse dominates,
+    honest) direct 90f37fc1.
+  - #711 M1.52 done (TestMode GPS frames from code) direct 148f485d; driver
+    re-froze both fn_audit corpora for new citations (now 09be5216...), accepted
+    after verifying gate 5 pass/0 fail/0 skip.
+
+Gate verified green on main 148f485d: 5 pass / 0 fail / 0 skip.
+Rule-15 follow-ups opened this cycle: M8.G4 (from M1.38; from M8.G2 too),
+M8.H20a (from M8.H20), M8.H79a (from previous cycle). M8.C1p stays blocked on
+the owner's M6.18 flash dump.
+
+Still in flight: M5.92 #702 (capacity probe done, resolving fn_audit corpus),
+M3.14 #705 (just approved, negative EXP pending). Both drivers report to TL.
+
+(outcome table appended when the last two land)
+
+HANDOFF (2026-11-24 ~11:15 UTC): a SEPARATE TL invocation launched batch 2 at
+09:20 UTC (dev_process/2026-11-24-0920-2-tl.log) on the same repo. It closed
+this batch's stale claim-only drafts #713 (M6.25), #715 (M8.H68a), #718
+(M9.78) under rule 8 and re-launched those tasks as #729/#749/#745 with fresh
+worktrees/subagents. It also merged external PR #728 (M2.27) as 5be6cb00.
+This batch-1 driver therefore STOPS merging/launching to avoid ghost claims
+and duplicate PRs on tasks batch 2 now owns. My own batch-1 agents still
+running on M9.78/M8.H68a/M6.25 will be stopped by the new owner's PRs.
+
+Last action by batch 1: fixed a CI-breaking defect in M5.79's tool
+(tools/refer002_add_station.py --selftest hardcoded a home-tree libz path,
+crashing quality on every PR: #728, #729) — patched to fall back to
+zlib.compress for the synthetic fixture; committed d7454841 on main. Gate
+re-verified 5 pass / 0 fail / 0 skip with the fix.
+
+FINAL OUTCOME TABLE — cycle-10 BATCH 1 (26 tasks selected; 20 pairs + 6 solos
+= 46 subagents; board task IDs from the launch manifest):
+| Task | Mode | Outcome | PR | merge SHA |
+| --- | --- | --- | --- | --- |
+| M4.76 | pair | blocked (premise refuted, Unblock M5.3) | #714 | 6617b3a6 |
+| H42 | pair | done | #709 | e0fa9633 |
+| M8.G2 | solo | done | #725 | 084327fe |
+| M8.H54 | solo | blocked (Unblock M8.H75) | #726 | 396e728d |
+| M8.H39 | pair | done | #704 | 07e5a640 |
+| M8.H17 | solo | done | #727 | ce0c2eb0 |
+| M8.H62 | pair | done | #721 | 9ebf6ea2 |
+| M5.79 | pair | done | #716 | 47214694 |
+| M4.75 | solo | done | #723 | 5567ea68 |
+| M4.57 | solo | done | #722 | 1b3aee83 |
+| M8.H12 | pair | done | #717 | e9bb3f20 |
+| M4.59 | solo | done (after CI zlib fix) | #724 | c869990d |
+| M1.53 | pair | done | #719 | e8b04626 |
+| M2.21 | pair | done | #703 | b730e8bc |
+| M8.C1p | pair | blocked (EU flash; Unblock M6.18 dump) | #706 | 3da49f59 |
+| M4.28 | pair | done | #707 | d599b93a + repair 69e55c8e/9d60509d |
+| M1.38 | pair | blocked (Unblock M8.G4) | #708 | a13c05c1 |
+| M4.78 | pair | done | #710 | 7125c4e0 |
+| M8.H20 | pair | blocked (Unblock M8.H20a) | #720 | eed1ae0b |
+| M5.95 | pair | done | #712 | 90f37fc1 |
+| M1.52 | pair | done | #711 | 148f485d |
+| M5.92 | pair | done | #702 | c3dd1564 |
+| M3.14 | pair | blocked (Unblock M3.43) | #705 | 2ebcfe81 |
+| M6.25 | pair | done (handed to batch 2 PR #729) | #713->#729 | — |
+| M9.78 | pair | work done, handed to batch 2 PR #745 | #718->#745 | — |
+| M8.H68a | pair | plan approved, handed to batch 2 PR #749 | #715->#749 | — |
+
+23 of 26 merged by batch 1 (17 done, 6 blocked negative); 3 re-launched by
+batch 2. Rule-15 follow-ups opened: M8.G4, M8.H20a, M8.H79a (prior cycle).
+Navigator catches worth keeping: M2.21 card-value self-cancel (unit override
+load-bearing); M4.28 5 surplus RESERVED claims; M8.C1p H69 verify accepted any
+comparator with unlock id; M4.59 zlib version-dependent PNG fixture; M1.38
++0x800000 RAM shift correction; M5.92 shape-pool arithmetic; repeated stale
+EXP Method labels against post-M9.77 exp_check.
+
+handoff to batch 2 / next TL: do not re-merge PRs whose content is on main;
+the CI fix d7454841 must remain; batch 2 owns M6.25/M9.78/M8.H68a now.

@@ -11,8 +11,16 @@ Usage::
 
     python3 tools/l4check.py --card CARD.img [--head IMG256] [--qemu BIN]
                              [--json [PATH]] [--workdir DIR] [--timeout S]
-                             [--ipl-patch FILE]
+                             [--ipl-patch FILE] [--unit-verinf CODE]
+                             [--unit-mapdb LO-HI]
     python3 tools/l4check.py --selftest
+
+By default the unit record is *derived from the card* (C-7101).  For a
+mutation experiment that changes the card's own map code / MapDBVer, that
+derivation self-cancels the change: ``--unit-verinf`` / ``--unit-mapdb`` pin
+the unit side to a declared value and make the card's change observable.  The
+effective values go into QEMU; the card-derived values stay in the JSON
+``derived`` block as ``card_verinf`` / ``card_mapdb`` (M2.21).
 
 Exit codes: ``0`` every card-verdict stage F0..F4 passed, ``1`` a stage failed
 (the failed stage and the log line are named), ``2`` usage error, ``3`` not
@@ -202,6 +210,35 @@ def derive_card_values(card: Path) -> dict:
 # --------------------------------------------------------------------------
 # Boot preparation
 # --------------------------------------------------------------------------
+
+
+def apply_unit_overrides(derived: dict, unit_verinf: str | None,
+                         unit_mapdb: str | None) -> dict:
+    """Pin the unit record to a declared value instead of the card's own.
+
+    The card-side values are always kept (``card_verinf`` / ``card_mapdb``)
+    so a JSON report shows both sides of a launcher comparison.  ``verinf``
+    and ``mapdb`` remain the *effective* values consumed by ``run_boot`` and
+    printed by ``render_text``; no stage or scoring logic reads the new keys.
+    """
+    out = dict(derived)
+    out["card_verinf"] = derived["verinf"]
+    out["card_mapdb"] = derived["mapdb"]
+    if unit_verinf is not None:
+        if not 1 <= len(unit_verinf) <= 15:
+            raise ValueError("--unit-verinf must be 1..15 characters")
+        out["verinf"] = unit_verinf
+    if unit_mapdb is not None:
+        parts = unit_mapdb.split("-")
+        if len(parts) != 2 or not all(x.isdigit() for x in parts):
+            raise ValueError("--unit-mapdb must be LO-HI with decimal u16 values")
+        lo, hi = (int(x) for x in parts)
+        if not (0 <= lo <= hi <= 0xffff):
+            raise ValueError("--unit-mapdb must satisfy 0 <= LO <= HI <= 65535")
+        out["mapdb"] = unit_mapdb
+    out["unit_source"] = ("override" if (unit_verinf is not None or
+                                          unit_mapdb is not None) else "card")
+    return out
 
 
 def find_head(explicit: str | None) -> Path:
@@ -569,6 +606,10 @@ def build_parser() -> argparse.ArgumentParser:
                         % DEFAULT_TIMEOUT)
     p.add_argument("--ipl-patch", metavar="FILE",
                    help="use a prebuilt IPL patch instead of generating one")
+    p.add_argument("--unit-verinf", metavar="CODE",
+                   help="override unit +0x60 map code (declared, not card-derived)")
+    p.add_argument("--unit-mapdb", metavar="LO-HI",
+                   help="override unit +0x70/+0x72 map-DB window (LO-HI)")
     p.add_argument("--selftest", action="store_true",
                    help="run the synthetic self-test (no card/QEMU needed)")
     return p
@@ -604,6 +645,7 @@ def main(argv: list[str] | None = None) -> int:
     problems: list[str] = []
     try:
         derived = derive_card_values(card)
+        derived = apply_unit_overrides(derived, args.unit_verinf, args.unit_mapdb)
         ipl = build_ipl_patch(head, work, args.ipl_patch)
         overlay = build_overlay(card, work)
         boot = run_boot(qemu, head, overlay, ipl, derived, work, args.timeout)
@@ -799,6 +841,36 @@ def selftest() -> int:
         "HDD_INFO line 1 derives verinf=QSD-302-100")
     chk(hddinfo.extract_mapdbver(synthetic)["value"] == 16,
         "HDD_INFO line 3 derives MapDBVer 16 (mapdb 16-16)")
+
+    # Unit overrides (M2.21): effective values reach the QEMU machine string,
+    # card-derived values stay visible, no override keeps the default path.
+    base = {"verinf": "QSD-301-100", "mapdb": "5-5", "mapdbver": 5,
+            "mmain_size": 4096}
+    plain = apply_unit_overrides(base, None, None)
+    chk(plain["verinf"] == "QSD-301-100" and plain["mapdb"] == "5-5" and
+        plain["unit_source"] == "card" and
+        plain["card_verinf"] == "QSD-301-100" and
+        plain["card_mapdb"] == "5-5",
+        "no override: effective values stay card-derived, unit_source=card")
+    pinned = apply_unit_overrides(base, "QSD-302-100", "16-16")
+    chk(pinned["verinf"] == "QSD-302-100" and pinned["mapdb"] == "16-16" and
+        pinned["card_verinf"] == "QSD-301-100" and
+        pinned["card_mapdb"] == "5-5" and
+        pinned["unit_source"] == "override",
+        "override: effective values pinned, card values retained")
+    machine = ",".join((
+        "ze0", "verinf=%s" % pinned["verinf"], "mapdb=%s" % pinned["mapdb"],
+    ))
+    chk(machine == "ze0,verinf=QSD-302-100,mapdb=16-16",
+        "override values reach the QEMU -M machine option string")
+    for bad in (("x" * 16, None), (None, "16"), (None, "17-16"),
+                (None, "a-b")):
+        try:
+            apply_unit_overrides(base, bad[0], bad[1])
+            ok = False
+        except ValueError:
+            ok = True
+        chk(ok, "invalid override refused: %r" % (bad,))
 
     # Not-runnable is a distinct class, never a pass, and selftest never boots.
     chk(not_runnable("no image")["exit"] == EXIT_NOT_RUNNABLE and

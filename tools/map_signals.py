@@ -22,10 +22,11 @@ owns the definition:
 * ``tile_bytes`` -> ``clarion_tile.read_tile`` (``tools/ze0-viewer/tools_ze0``)
                     plus the union-of-container-spans arithmetic from the
                     Priorities snippet.
-* ``card_step``  -> the M5.34 run report's ``cardcheck_ok``/``l2check_ok``
-                    booleans, printed **beside** ``counts.cardcheck_rc`` so a
-                    disagreement is visible (QA 16th pass) and never resolved
-                    silently.
+* ``card_step``  -> a fresh report's validated ``step`` (P0..P4), read only
+                    when ``cardcheck_ok``/``l2check_ok`` and both gate rc values
+                    agree, checked against ``card_ladder.py steps --check``.
+                    A report without a valid step is ``NOT RUN`` / ``none``,
+                    never a promoted number (M9.76).
 
 Usage::
 
@@ -52,7 +53,8 @@ JSON keys (the portable contract the Priorities block cites):
     readers   -> {"located", "partial", "unlocated"}
     l3_rows   -> {"l3-running"}
     tile_bytes-> {"tiles": {name: percent}, "status"}
-    card_step -> {"cardcheck_ok", "l2check_ok", "cardcheck_rc", "step"}
+    card_step -> {"cardcheck_ok", "l2check_ok", "cardcheck_rc", "l2check_rc",
+                  "card_sha256", "step", "status", "disagree", "reason"}
 """
 
 from __future__ import annotations
@@ -60,6 +62,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -74,6 +77,8 @@ DEFAULT_REPORT = Path.home() / "projekty" / "leafre-work" / "m5.34" / "report.js
 
 TILE_NAMES = ("B28R070R", "B30R048R", "B48R058R")
 SIGNALS = ("readers", "l3_rows", "tile_bytes", "card_step")
+CARD_STEPS = ("P0", "P1", "P2", "P3", "P4")
+SHA256_RE = re.compile(r"[0-9a-fA-F]{64}\Z")
 
 
 def _not_run(reason: str) -> dict:
@@ -249,38 +254,93 @@ def signal_tile_bytes(factory_root: Path, names: tuple[str, ...] = TILE_NAMES) -
 
 
 # --------------------------------------------------------------------------
-# card_step: M5.34 report booleans beside counts.cardcheck_rc
+# card_step: a validated ladder step from a fresh gate report (M9.76)
 # --------------------------------------------------------------------------
 
 
-def card_step_from_report(report: dict) -> dict:
-    """P0 iff cardcheck_ok and l2check_ok, with counts.cardcheck_rc printed beside.
+def ladder_steps() -> dict:
+    """Return the step groups from ``card_ladder.py steps --check``.
 
-    The two can disagree (QA 16th pass); this prints both and never resolves
-    the disagreement silently.  ``step`` is the Priorities expression verbatim.
+    The summary rc is *not* the oracle: today the board has unrelated missing
+    and bad Step tags, so ``--check`` exits 1 while the step grouping is still
+    valid.  We parse the ``P0 (N): ...`` lines and fail only when those are
+    absent or unusable.  ``None`` means the ladder could not be read.
     """
-    has_ok = "cardcheck_ok" in report and "l2check_ok" in report
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(TOOLS / "card_ladder.py"), "steps", "--check"],
+            capture_output=True, text=True, cwd=str(ROOT))
+    except Exception:
+        return None
+    if proc.returncode not in (0, 1):
+        return None
+    groups: dict[str, list[str]] = {}
+    for line in proc.stdout.splitlines():
+        match = re.match(r"^(P[0-4]) \(\d+\): (.*)$", line)
+        if match:
+            groups[match.group(1)] = match.group(2).split()
+    return groups or None
+
+
+def card_step_from_report(report: dict, ladder: dict | None = None) -> dict:
+    """Return the report's validated ladder step, never a guessed promotion.
+
+    A step is printed only when all of the following hold: the report has a
+    ``step`` in P0..P4; ``cardcheck_ok``/``l2check_ok`` are both True; the
+    printed ``cardcheck_rc`` and ``l2check_rc`` both agree with those booleans
+    (0 for True); the card has a full SHA-256; and the step appears in the
+    ``card_ladder.py steps --check`` grouping.  Otherwise ``status`` is
+    ``NOT RUN`` and ``step`` is ``none``.  An rc/ok disagreement sets
+    ``disagree`` so it is visible beside the number, never resolved silently.
+    """
     cardcheck_ok = report.get("cardcheck_ok")
     l2check_ok = report.get("l2check_ok")
     counts = report.get("counts") or {}
-    cardcheck_rc = counts.get("cardcheck_rc")
+    cardcheck_rc = counts.get("cardcheck_rc", report.get("cardcheck_rc"))
+    l2check_rc = counts.get("l2check_rc", report.get("l2check_rc"))
+    card_sha256 = report.get("card_sha256")
+    if not isinstance(card_sha256, str):
+        card = report.get("card")
+        card_sha256 = card.get("sha256") if isinstance(card, dict) else None
+    if not isinstance(card_sha256, str) or not SHA256_RE.fullmatch(card_sha256):
+        card_sha256 = None
+    step = report.get("step")
     result = {
         "cardcheck_ok": cardcheck_ok,
         "l2check_ok": l2check_ok,
         "cardcheck_rc": cardcheck_rc,
-        "step": "P0" if (cardcheck_ok and l2check_ok) else "none",
+        "l2check_rc": l2check_rc,
+        "card_sha256": card_sha256,
+        "step": step if step in CARD_STEPS else "none",
+        "status": "LOCAL",
+        "disagree": False,
+        "reported_step": step,
+        "ladder_available": ladder is not None,
     }
-    # Surface a "booleans true but rc != 0" (or the reverse) instead of
-    # letting the P0 line imply agreement.
+    reasons = []
+    if step not in CARD_STEPS:
+        reasons.append(f"no valid step (P0..P4) in report: {step!r}")
+    if cardcheck_ok is not True or l2check_ok is not True:
+        reasons.append("cardcheck_ok/l2check_ok not both true")
+    if card_sha256 is None:
+        reasons.append("report has no full card_sha256")
+    ok_rcs = isinstance(cardcheck_rc, int) and isinstance(l2check_rc, int) \
+        and cardcheck_rc == 0 and l2check_rc == 0
     result["disagree"] = (
         isinstance(cardcheck_ok, bool) and isinstance(cardcheck_rc, int)
         and cardcheck_ok != (cardcheck_rc == 0)
+    ) or (
+        isinstance(l2check_ok, bool) and isinstance(l2check_rc, int)
+        and l2check_ok != (l2check_rc == 0)
     )
-    if not has_ok:
+    if not ok_rcs:
+        reasons.append(f"gate rc values not both 0: cardcheck_rc={cardcheck_rc!r} l2check_rc={l2check_rc!r}")
+    if ladder is not None and step not in ladder:
+        reasons.append(f"step {step!r} not in card_ladder.py steps --check groups")
+    if reasons:
         result["status"] = "NOT RUN"
-        result["reason"] = "report has no cardcheck_ok/l2check_ok keys"
-    else:
-        result["status"] = "LOCAL"
+        result["reason"] = "; ".join(reasons)
+        result["step"] = "none"
     return result
 
 
@@ -293,7 +353,7 @@ def signal_card_step(report_path: Path) -> dict:
         return _not_run(f"report is not JSON: {exc}")
     if not isinstance(report, dict):
         return _not_run("report JSON is not an object")
-    result = card_step_from_report(report)
+    result = card_step_from_report(report, ladder_steps())
     result["report"] = str(report_path)
     return result
 
@@ -328,7 +388,8 @@ def _fmt_card(sig: dict) -> str:
         return f"card_step: NOT RUN ({sig.get('reason', 'unavailable')})"
     return (f"card_step: {sig['step']} "
             f"(cardcheck_ok={sig['cardcheck_ok']} l2check_ok={sig['l2check_ok']} "
-            f"counts.cardcheck_rc={sig['cardcheck_rc']}"
+            f"cardcheck_rc={sig['cardcheck_rc']} l2check_rc={sig['l2check_rc']} "
+            f"card_sha256={sig['card_sha256']}"
             f"{' DISAGREE' if sig.get('disagree') else ''})")
 
 
@@ -351,8 +412,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="factory card root holding MAPAL001/*.DAT "
                              "(default: $OSM2LEAF_FACTORY_ROOT or the host path)")
     parser.add_argument("--report", type=Path, default=None,
-                        help="M5.34 run report JSON (default: $OSM2LEAF_M5_34_REPORT "
-                             "or the host path)")
+                        help="validated ladder report JSON "
+                             "(default: $OSM2LEAF_M5_34_REPORT or the host path)")
     parser.add_argument("--json", nargs="?", const="-", default=None, metavar="PATH",
                         help="write JSON to PATH (or stdout with no PATH)")
     parser.add_argument("--selftest", action="store_true",
@@ -519,19 +580,56 @@ def selftest() -> int:
             and absent_tiles.get("reason") == "no factory tiles",
             "absent factory root is tile_bytes NOT RUN (no factory tiles)")
 
-        # card_step: stub reports, both the agreeing and the disagreeing shape.
-        agree = card_step_from_report(
-            {"cardcheck_ok": True, "l2check_ok": True, "counts": {"cardcheck_rc": 0}})
-        chk(agree["step"] == "P0" and not agree["disagree"],
-            "stub report true/true rc=0 -> P0, no disagreement")
-        disagree = card_step_from_report(
-            {"cardcheck_ok": True, "l2check_ok": True, "counts": {"cardcheck_rc": 1}})
-        chk(disagree["step"] == "P0" and disagree["disagree"] is True,
-            "booleans true but rc=1 prints DISAGREE and is not hidden")
-        chk(disagree["cardcheck_rc"] == 1, "counts.cardcheck_rc is printed beside the booleans")
-        fail = card_step_from_report(
-            {"cardcheck_ok": False, "l2check_ok": True, "counts": {"cardcheck_rc": 0}})
-        chk(fail["step"] == "none", "any false boolean -> step none")
+        # card_step: validated reports. A synthetic ladder keeps this test
+        # independent of the board's unrelated missing/bad Step tags.
+        ladder = {s: [f"M9.{i}"] for i, s in enumerate(CARD_STEPS)}
+
+        def report(step="P0", cc_ok=True, l2_ok=True, cc_rc=0, l2_rc=0,
+                   sha="a" * 64, with_step=True):
+            r = {"cardcheck_ok": cc_ok, "l2check_ok": l2_ok,
+                 "counts": {"cardcheck_rc": cc_rc, "l2check_rc": l2_rc},
+                 "card_sha256": sha}
+            if with_step:
+                r["step"] = step
+            return r
+
+        agree = card_step_from_report(report(), ladder)
+        chk(agree["status"] == "LOCAL" and agree["step"] == "P0" and not agree["disagree"],
+            "report P0, true/true, rc 0/0, full sha -> P0 LOCAL, no disagreement")
+        p1 = card_step_from_report(report(step="P1"), ladder)
+        chk(p1["status"] == "LOCAL" and p1["step"] == "P1",
+            "report P1 with true/true rc 0/0 -> P1 (positive control: the number moves)")
+        no_step = card_step_from_report(report(with_step=False), ladder)
+        chk(no_step["status"] == "NOT RUN" and no_step["step"] == "none",
+            "missing step key -> NOT RUN/none, never P0 (stale-report shape)")
+        false_ok = card_step_from_report(report(cc_ok=False), ladder)
+        chk(false_ok["status"] == "NOT RUN" and false_ok["step"] == "none",
+            "false cardcheck_ok -> NOT RUN/none, no promotion")
+        false_l2 = card_step_from_report(report(l2_ok=False), ladder)
+        chk(false_l2["status"] == "NOT RUN" and false_l2["step"] == "none",
+            "false l2check_ok -> NOT RUN/none, no promotion")
+        cc_disagree = card_step_from_report(report(cc_ok=True, cc_rc=1), ladder)
+        chk(cc_disagree["disagree"] is True and cc_disagree["status"] == "NOT RUN",
+            "booleans true but cardcheck_rc=1 -> DISAGREE flag, NOT RUN")
+        chk(cc_disagree["cardcheck_rc"] == 1, "cardcheck_rc is printed beside the booleans")
+        l2_disagree = card_step_from_report(report(l2_ok=True, l2_rc=1), ladder)
+        chk(l2_disagree["disagree"] is True and l2_disagree["status"] == "NOT RUN",
+            "booleans true but l2check_rc=1 -> DISAGREE flag, NOT RUN")
+        bad_step = card_step_from_report(report(step="P7"), ladder)
+        chk(bad_step["status"] == "NOT RUN" and bad_step["step"] == "none",
+            "step outside P0..P4 -> NOT RUN/none")
+        ladder_disagree = card_step_from_report(report(step="P2"),
+                                                {s: [] for s in ("P0", "P1", "P3", "P4")})
+        chk(ladder_disagree["status"] == "NOT RUN" and ladder_disagree["step"] == "none",
+            "step absent from ladder groups -> NOT RUN/none")
+        no_sha = card_step_from_report(report(sha=None), ladder)
+        chk(no_sha["status"] == "NOT RUN" and no_sha["step"] == "none",
+            "report without full card_sha256 -> NOT RUN/none")
+        nested = report(sha="b" * 64)
+        nested.pop("card_sha256")
+        nested["card"] = {"sha256": "b" * 64}
+        chk(card_step_from_report(nested, ladder)["status"] == "LOCAL",
+            "card.sha256 nested shape is accepted as the full hash")
         missing_report = signal_card_step(tmp / "nope.json")
         chk(missing_report.get("status") == "NOT RUN", "absent report is card_step NOT RUN")
 

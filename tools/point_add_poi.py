@@ -23,7 +23,7 @@ encoder's own control: ``check_factory_encoder`` must reproduce all old pages.
 from __future__ import annotations
 
 import argparse
-import hashlib
+import hashutil
 import json
 import struct
 import sys
@@ -38,6 +38,8 @@ import point_census as pc
 import point_pair_regen as regen
 import point_move_poi as mrp_move
 import zlibinfo
+
+sha256 = hashutil.sha256_bytes
 
 TOOL = "tools/point_add_poi.py"
 TASK = "M5.82"
@@ -507,8 +509,8 @@ def run_add(args) -> int:
     elif args.control == "break-index":
         report["control"] = "break-index"
     c, i = write_out(cmp_path, Path(args.outdir), blob, out, enc)
-    report["sha256_cmp"] = hashlib.sha256(c.read_bytes()).hexdigest()
-    report["sha256_ind"] = hashlib.sha256(i.read_bytes()).hexdigest()
+    report["sha256_cmp"] = sha256(c.read_bytes())
+    report["sha256_ind"] = sha256(i.read_bytes())
     print(f"placed {report['name']!r} at {report['lat']:.7f},{report['lon']:.7f} "
           f"as record {report['ordinal']} (cell {report['cell']})")
     print(f"name chain {report['relocate']['old_base']:#x} -> "

@@ -139,6 +139,40 @@ This agrees with the firmware side of the 2011 unit in kind (CAN through a
 sub-microcontroller, a video input for the camera, a telematics unit beside
 the head unit), but no pin number here is claimed for the 2011 connector.
 
+## Type labels (community pictures, not Marek's unit)
+
+Two pictures supplied by Marek on 2026-11-24. Both show the type label on
+the case of **someone else's** unit; neither is Marek's (`QY7200ND`), and the
+authors and sources are not recorded. Readings and PROD mapping:
+[`EXP-2026-11-24-M2.27-unit-type-label`](../experiments/EXP-2026-11-24-M2.27-unit-type-label.md)
+(C-10120–C-10124) and
+[`EXP-2026-11-24-M2.28-second-type-label`](../experiments/EXP-2026-11-24-M2.28-second-type-label.md)
+(C-10140–C-10144).
+
+![Type label of a QY-7200N-B unit, March 2011](img/unit-label-QY-7200N-B.jpg)
+
+![Type label of a QY-7200N-G unit, May 2012, with a US/Canada map card](img/unit-label-QY-7200N-G.jpg)
+
+| Label field | Unit 1 (March 2011) | Unit 2 (May 2012) | Where it lives in the unit |
+| --- | --- | --- | --- |
+| `車載機 ID` (on-board unit ID) | `100100004058` | `100100019744` | PROD `+0x140`: `10 01` + serial in BCD (C-10120, holds on both, C-10140) |
+| `SERIAL NO.` | `0004058` | `0019744` | PROD `+0x050`, 4 BCD bytes |
+| `MODEL NO.` | `QY-7200N-B` | `QY-7200N-G` | PROD `+0x040`, without dashes (Marek: `QY7200ND`) |
+| `N #` (Nissan part number) | `25915 3NA0B` | `25915 3NA1A` | suffix at PROD `+0x0B0` (Marek: `3NA0D`); the suffix letter does **not** follow the model letter (C-10141, retracts C-10121) |
+| Large mark | `Z7` | `ZA` | meaning unknown |
+| `MANUFACTURED` | `NCL MARCH 2011` | `NCL MAY 2012` | Clarion, Saitama, made in Japan |
+| Bluetooth | QD ID `B014872`, module `BTU-3588` | same | lead for the Bluetooth chip (C-10123) |
+| FCC / IC | `SJ2QY7200` / `419C-7200` (as read; small print) | `SJ2QY7200` / `419C-QY7200` | one FCC ID for the whole family; FCC filings may hold internal photos |
+| Label number | `276-0925-00` | `276-0925-06` | same label part, revision `-00` → `-06` |
+| Other | `PART NAME` `CONT ASSY-NAVIGATION`, 12 V 15 A max, `LF` (lead-free), Windows CE licence note (MSLGP) | same | |
+
+The second picture also shows the Nissan **U.S./CANADA** map card (SDHC
+class 4) next to the label, so unit 2 is a North American unit.
+
+There is **no SD PIN** on either label. The two (serial, unit ID) pairs are
+more samples of the serial format, but without the PIN they do not test
+whether the PIN is derived from the serial (M2.25 C-8304, M2.26 C-8334).
+
 ## I2C map (static)
 
 Static evidence only; no chip names assigned without board/photo (M1.40 stop rule).
@@ -200,6 +234,8 @@ uncompressed sections; they remain open.
 
 - The exact SoC part and the chips on the board (flash, RAM, Bluetooth
   module, GPS, audio DSP). A photo of the opened unit would settle most of it.
+  The FCC ID on the type label (`SJ2QY7200`) is a lead: FCC filings often
+  include internal photos.
 - Where the debug serial (`SCI6:`) comes out, and whether the retail kernel
   prints on it.
 - Concrete I2C slave addresses, GPIO bit roles, DCB framing, and active
