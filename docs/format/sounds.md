@@ -14,7 +14,7 @@ This page answers two questions: *where does each sound's data live*, and
 
 | # | Source | Data location | Container | Sample rate | Which module opens it | Replaceable as data |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Recorded guidance prompts (`GID`) | Card `SPEECH/<lang>/GID/Sxx00000.GID`, 9.2–14.1 MB (23 files, EU2011+US2011) | Vendor indexed-record archive, no RIFF/WAVE; codec unknown | unknown | `Speech.exe` (SVOX `CTtsSvox`) | unknown |
+| 1 | Recorded guidance prompts (`GID`) | Card `SPEECH/<lang>/GID/Sxx00000.GID`, 9.2–14.1 MB (27 files total, EU2011+US2011) | Vendor indexed-record archive, no RIFF/WAVE; codec unknown | unknown | `Speech.exe` (SVOX `CTtsSvox`) | unknown |
 | 2 | TTS / SVOX voice (`TTS`) | Card `SPEECH/<lang>/TTS/Txx00000.TTS`, 16–18 MB (EU2011) | SVOX vendor archive; carries one 44-byte RIFF/WAVE PCM test sample + compressed `*.BIN` entries | 22,050 Hz, mono, 16-bit for the 44-byte header sample | `Speech.exe` | no |
 | 3 | Voice recognition acoustics (`VR`/`AGM`) | Card `SPEECH/<lang>/VR/Vxx00000.AGM`, 0.68–2.29 MB (EU2011) | SVOX vendor archive of `RSPA0001.ACM`-style acoustic model entries | unknown | `Speech.exe` | no |
 | 4 | Voice choice (`GetCustomVoiceNo` / `SetCustomVoiceNo`, `GuidanceVoiceAtt`) | Code + settings, no dedicated sound file | — | — | `Audio.exe`, `SystemCC.dll`, `AuiMonitoringCC.dll`, … (10 modules each) | unknown |
