@@ -683,6 +683,26 @@ is not the same record form. See
 `EXP-2026-11-08-M3.16-inter-frway-readers-r2.md` (C-2210–C-2214) and
 `EXP-2026-11-20-M3.16-inter-frway.md` (C-2215–C-2219).
 
+### Opener follow-up (M3.16 r3, negative)
+
+**FACT (access path):** the shared REFER name-builder `fn 0x003fbed8` loads the
+7-entry family table at `0x001792c4` (`POINT0`, `.DAT`, `ADDRE0`, `FRWAY0`,
+`INTER0`, `LCTBL0`, `ZCODE0`); its one-call-away read issuers are exactly
+`fn 0x003fc0ec` (INTER) and `fn 003fc518` (FRWAY) — all CODE/sec0 (C-10270).
+
+**FACT (negative):** an L3 read-watch of those two followers on the factory
+`INTER001` page (39,936 B, `inter_table.py check` = OK) sees only context-header
+reads (`+0x68` name id at pcs `0x003fc146`/`0x003fc534`/`0x003fc65e`, `+0x7c`
+family word at `0x003fc142`/`0x003fc65c`); none lands at the `0x1108`/`0x1110`
+table. The LCTBL reader `0x0040de98` control reads 6 guest words on the same
+page (`result: PASS`), so the negative is a result, not a broken watch. Two
+signature families derived from these L3 observations (ctx-read pair,
+family dispatch) give 3 and 0 candidates; the only non-opener hit
+`0x003fec82` (fn `0x003fec60`) is a u16-key walker reached from REFER message
+handlers, not from an INTER/FRWAY opener. **No content-reader VA or consumed
+field is established** (C-10271–C-10273). See
+`EXP-2026-11-24-M3.16-opener-follow.md`; Unblock remains **M3.43**.
+
 ## `FRWAY0nn` — freeways/routes
 
 - Same 12-byte big-endian table (corrected layout above): an 8-byte block
