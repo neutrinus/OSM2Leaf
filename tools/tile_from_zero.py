@@ -502,7 +502,7 @@ def from_zero(template: bytes, built: dict, pad: bool = True, odd: dict | None =
     if sec2:
         import sec2_writer
         st.update({"sec2_" + k: v for k, v in sec2_writer.place(m, sec2).items()})
-        st["records"] += len(sec2)
+        st["records"] += sum(2 if k[0] == "L2" else 1 for k in sec2)
     if built2 or odd2:
         st.update(place(m, built2 or {}, odd2, level=2))
     st = dict(st)
