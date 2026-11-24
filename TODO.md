@@ -1303,6 +1303,15 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8330-C-8339
   - Result: EXP-2026-11-22-M2.26-navi-no-pin-formula (C-8330-C-8334). No menu number equals or maps to the PIN; Navi.exe (834 imports) has no SD-lock/CMD42/password code and never touches the PIN. Confirmation code is a separate 16-bit activation value (routine outside Navi.exe). A reseller never needs the PIN - the unit locks its own card. No serial->PIN formula found.
 
+- [ ] **M2.27 — Record the type label of a second QY-7200N unit (internet photo)**
+  - Status: in progress · Owner: claude/project-thread-08k71f · Critical: no · Pair: solo
+  - Depends: M2.25 (PROD layout, PIN stored per unit)
+  - Goal: Keep a community photo of a 2011 unit's type label in the repo and read what its fields say about the PROD record (Unit ID, serial format, part number), as a second unit sample next to Marek's.
+  - Scope: one photo supplied by Marek on 2026-11-24, found on the internet; not Marek's unit, source unknown. No PIN on the label. No owner dump bytes in the repo.
+  - Done when: the photo is in `docs/hardware/img/`, linked and described in `docs/hardware/head-unit.md`, and an EXP maps the label fields to PROD offsets.
+  - Stop: one session.
+  - Claims: C-10120–C-10129
+
 ## M3 — Reader contract
 
 - [x] **M3.2b — Find the `.cmp` chunk reader by walking up from `inflate`**
