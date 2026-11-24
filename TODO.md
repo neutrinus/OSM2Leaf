@@ -2023,7 +2023,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8160–C-8169
 
 - [ ] **M3.43 — L4 zoom-out on NK1: make the firmware read `FRWAY0nn`/`INTER0nn` and name the code that consumes the records**
-  - Status: blocked · Owner: task/m3.43-l4-zoomout-refer-reader · Critical: yes · Pair: required
+  - Status: open · Owner: — · Critical: yes · Pair: required
   - Step: reader
   - Depends: — (M3.16 and M3.29 are blocked on exactly this observation; M5.100 proved the L4 zoom-out recipe works on NK1 with the committed unit flash)
   - Goal: L3 cannot deliver the REFER record request (`0x1507` undelivered, `0x14b5` never issued, EXP-2026-11-20-M3.29), so no content reader of `INTER`/`FRWAY` has ever been observed. A full-system run can generate the request through a real UI action: boot the factory EU 2011 card in QEMU with NK1, start near a motorway, zoom out through the steps where M5.100 saw level-2 map loading, watch SD/file reads for `FRWAY0nn.DAT`/`INTER0nn.DAT`, and attribute the bytes read to firmware code. Answer: does map zoom-out (or a neighbouring UI action such as route preview) make the firmware read those families, and which function consumes the 12-byte table and the blob fields?
@@ -2038,6 +2038,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Blocker: L4 UI never reaches SRT_COLD_I_AGREE on the EU 2011 card (zero flash 330 s, M6.24 anon flash 330 s); no tap injected and ze0_sdtrace maps 0/98677 SD reads to a card file
   - Unblock: M8.C1p — port the consent-screen skip to the ZE0 2011 card so --ui-start reaches the map
   - Result: EXP-2026-11-23-M3.43-l4-zoomout-refer-negative (negative, Stop rule met)
+  - Note: 2026-11-24: re-opened (rule 15) — M8.C1p done: EU card leaves consent with no tap on NK1 + owner flash with SRAM area 0 erased (EXP-2026-11-24-M8.C1p-eu-consent-l4); the anon flash still does not reach ScreenState on EU
 
 ## M4 — Data formats (no firmware or hardware needed)
 
@@ -4562,8 +4563,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8840–C-8849
   - Result: Areas are 0xe0/0xd0 stencil polygon + 0x82 32x32 pattern; texquad() stretched the pattern over the box. Patch ze0-hc1u repeats it and masks by the polygon: water and parks follow their outlines (factory 3ccbb525…, NK1 zoom on factory and from-zero cards). Older L4 hashes are box-fill renders. EXP-2026-11-23-M8.C1u-2dg-area-pattern, C-8840–C-8844.
 
-- [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
-  - Status: blocked · Owner: task/m8.c1p-cycle10 · Critical: no · Pair: solo
+- [x] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
+  - Status: done · Owner: claude/project-thread-2u27o5 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1m
   - Goal: Marek (2026-11-22): the start-up consent screen and the GPS time fix are "two important and needed things". Companion's consent patch only knows the AZE0 states (`SRT_COLD_I_AGREE_TELEMA…`) and stops on the 2011 card (C-8359). Find the ZE0 equivalents and build a patch for card ROM A that skips the consent screen, in our own tool, without copying Companion code.
@@ -4573,10 +4574,10 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: the patched EU card on `-M ze0` logs the transition out of `SRT_COLD_I_AGREE` without `SK_SCT_AGREE_CLICK`, and the tool's selftest passes. Otherwise, the EXP names the sites found and what blocks the patch.
   - Stop: one session. No vendor bytes and no patched ROM in the repository.
   - Falsifier: the ZE0 consent state has no timer or transition site that a small patch can redirect.
-  - Claims: C-8370–C-8379
-  - Blocker: EU card never creates AuiApp/ScreenState on -M ze0 with any available unit flash, so the patched-EU zero-click consent transition cannot be logged
-  - Unblock: Re-preserve the owner's real unit flash (M6.18 dc2b30df...) used by M1.57 and re-run the zero-click assertion
-  - Result: EXP-2026-11-24-M8.C1p-ze0-consent-skip (negative EU L4; US patch mechanism VERIFIED with 0 clicks); 9 EU boots, 0 consent
+  - Claims: C-8370–C-8379, C-10110–C-10119, C-10190–C-10196
+  - Blocker: (resolved 2026-11-24) was: EU card never reached ScreenState on anon flash; with the owner's re-shared flash it does
+  - Unblock: done (owner re-shared the flash 2026-11-24)
+  - Result: EXP-2026-11-24-M8.C1p-eu-consent-l4 (EU L4: 0 clicks, NK1 + owner flash; ids 0x08a4->0x088f; earlier EU patch was wrong) + EXP-2026-11-24-M8.C1p-ze0-consent-skip (US)
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
@@ -5833,6 +5834,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: M5.100 from-zero card (SHA-256 1b5bafeb…aeb2f2da52) was reaped with scratch: 17 images >=7 GiB hashed this session, 0 match; tile 0717a913…, pinned PBF b26a178b… and intermediates deleted; stock zlib 1.3.1 unavailable, so exact rebuild cannot be confirmed. No from-zero card to boot, so no L4 file-open/screen comparison was possible
   - Unblock: A task that re-preserves the M5.100 from-zero card (rebuild tile 0717a913… from pinned PBF b26a178b… with stock zlib 1.3.1 and re-apply the M5.100 map-code patch), confirmed by sha256sum prefix 1b5bafeb…aeb2f2da52; plus M8.C1p for the EU-card consent skip so --ui-start reaches map state. Rule 15 re-opens M8.H79 when that task merges
   - Result: EXP-2026-11-23-M8.H79-from-zero-card-unavailable (negative; 0/17 card hashes match, selftests pass, bad-mmain control FAIL at F4; task falsifier untestable without the card)
+  - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
 
 - [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
   - Status: open · Owner: — · Critical: no · Pair: no

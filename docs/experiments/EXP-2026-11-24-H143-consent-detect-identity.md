@@ -18,7 +18,8 @@
   `card_mapcode.py`, `selftest.py`; git HEAD `5be6cb00`.
 - **Claims:** C-10140–C-10144
 - **Supersedes:** none
-- **Superseded by:** none
+- **Superseded by:** EXP-2026-11-24-M8.C1p-eu-consent-l4 for the EU event ids
+  (`0x08a6→0x0891` is the wrong handler; real EU ids `0x08a4→0x088f`)
 
 ## Question
 
