@@ -2424,8 +2424,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the `k` that `0x00424464` returns on a factory parcel does not land on a section-4 entry start.
   - Claims: C-6030–C-6039
 
-- [ ] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
-  - Status: in progress · Owner: task/m4.57-cycle10 · Critical: no · Pair: solo
+- [x] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
+  - Status: done · Owner: task/m4.57-cycle10 · Critical: no · Pair: solo
   - Depends: — (M1.37 helps for `Speech.exe`)
   - Goal: EU 2011 ships 7 `SPEECH/` languages, EU 2014 adds nine including `PL` (C-2495). Find out whether the language files (VR, TTS, GID) changed format between the cards and how the 2011 firmware picks a language (the `DRSTR` `0x18c` code, C-2496, and the language list in the UI).
   - Precheck: both roots have `SPEECH/`; `python3 tools/diff_years.py` lists the language sets.
@@ -2433,6 +2433,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: an EXP says `same format` / `different` / `unknown` per file kind with the differing fields, and where the 2011 build's language list lives.
   - Claims: C-6320–C-6329
   - Step: tooling
+  - Result: EXP-2026-11-24-M4.57-polish-voice; same framing GID/TTS/AGM, SVOX 4.3.0.0-2 unchanged, PL absent from 2011 Speech.exe table VA 0x32354, present in 2014 VA 0x36cf0; 15 selftests + gate 5/0/0
 
 - [x] **M4.58 — Skins: where they live and the `.skn` format (`ReleaseMain.skn`, the TFAT16 volume, `OPNG/`, ROM PNGs)**
   - Status: done · Owner: task/m4.58-skins-tfat16 · Critical: no · Pair: solo
