@@ -257,3 +257,64 @@ Navigator session IDs (in launch order):
   ses_df1d86d34fferr2A3jKlPCfVqS, ses_df1d86d33ffeVko07Il1CdhLtM
 
 (outcome table appended below)
+
+ROUND 2 OUTCOME TABLE — 21 tasks, 41 subagents (20 pairs + 1 solo H142;
+  2T-S = 42-1 = 41). All task PRs merged to origin/main; external drafts
+  #793/#796 belong to other owners and were left open.
+  Task    Mode  Rounds Outcome  PR     EXP
+  H140    pair  1      done     #784   EXP-...-workflow-contract
+  H142    solo  TL     done     #774   (docs/research/test-system.md)
+  M1.42   pair  1      done     #777   EXP-...-audio-stack
+  M2.24   pair  2      done     #773   EXP-...-error-screens-l4
+  M3.39   pair  2      done     #775   EXP-...-tile-read-order
+  M4.71   pair  2      done     #776   EXP-...-kiwi-name-frame
+  M4.74   pair  2      done     #772   EXP-...-kiwi-index
+  M5.93   pair  3      blocked  #780   EXP-...-subrecord-writer (Unblock M8.C1p)
+  M6.22   pair  3      done     #779   EXP-...-s1-emulator
+  M8.C1v  pair  1      done     #778   EXP-...-aui-glyph-alpha
+  M8.H5   pair  2      blocked  #781   EXP-...-savevm-blocked (Unblock M8.H5a)
+  M8.H9   pair  1      done     #783   EXP-...-tcg-coverage
+  M8.H16  pair  4      blocked  #785   EXP-...-testmode-kernel (Unblock M8.H81)
+  M8.H22  pair  2      done     #782   EXP-...-unmapped-census
+  M8.H25  pair  3      done     #786   EXP-...-boot-budget
+  M8.H40  pair  3      done     #791   EXP-...-live-window
+  M8.H41  pair  3      done     #792   EXP-...-route-scenario
+  M8.H61  pair  2      done     #788   EXP-...-camera-capture-path
+  M8.H80  pair  2      blocked  #787   EXP-...-checked-build (Unblock M8.H81)
+  M8.H20a pair  2      blocked  #790   EXP-...-position-record (Unblock M1.2f)
+  M3.16   pair  2      blocked  #789   EXP-...-opener-follow (Unblock M3.43)
+
+  Totals: 14 done, 7 blocked, 0 returned. 51 tasks overall across both rounds
+  (30 + 21), 98 subagents launched (57 + 41). Blocked tasks name Unblock IDs;
+  new tasks M8.H5a, M8.H81 added via board.py add-task so no ghost refs.
+
+Defects navigators caught in round 2 (SM input):
+  - M8.H5: QEMU SH-4 CPU unmigratable=1 makes savevm impossible -> blocked.
+  - M8.H9: POINT walker 0x003f5194 is a pdata GAP; function-start negative
+    control would be vacuous; driver switched to raw-block check.
+  - M3.16: bare probe reads only 512-B context header, not the 0x1108 table.
+  - M8.H41: literal Done when passed but no destination/route was calculated;
+    honest caveat in EXP, no routing claim.
+  - M5.93: sparse-split bug shifting sub sizes into wrong slots; L4 timeout
+    -> blocked with negative EXP and Unblock M8.C1p.
+  - M4.71: KIWI 7.4 name frame does not fit ZE0 section 4 (0/1872).
+  - H140: false positives from echo/comment IMG256 mentions avoided.
+
+TL-only fixes after round 2:
+  - Repeated fn_audit snapshot re-freezes (DOCS BASE + L3 overlay), no gate
+    threshold changed.
+  - claims_check count mismatch C-7194 (26 vs 22) and stale EXP names;
+    restored M5.73/M5.73 EXPs lost to earlier cleanup; normalized M2.24
+    git-ignored screenshot evidence to hash-only references.
+  - Fixed a real tool bug: inter_l3_probe.py --selftest returned 1 on PASS
+    (inverted exit code).
+  - Added M8.H5a/M8.H81 task blocks to resolve new ghost Unblock refs.
+  - Rebased/pushed main after each merge; cleared /tmp tmpfs quota repeatedly;
+    removed all TL worktrees and scratch/M5.93 (21 GB).
+  - Final gate on origin/main ea44c062: 5 pass / 0 fail / 0 skip.
+  - Rebase on main done at user request 2026-11-24 ~17:20Z; CI quality gate
+    on main was red before the fixes above, local gate green after.
+
+Handoff: no free tasks from the selected batch remain. Remaining open tasks
+include the patched ones' Unblock targets (M8.H5a, M8.H81, M8.C1p, M3.43,
+M1.2f) and 4 London-PBF tasks skipped here (PBF absent on this host).
