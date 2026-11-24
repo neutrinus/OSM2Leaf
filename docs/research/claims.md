@@ -7208,32 +7208,17 @@ into three printed classes.
 ## M2.28 — Second unit type label (C-10140–C-10149)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
+| C-10140 | The unit-ID rule of C-10120 (`車載機 ID` = `1001` + 8-digit serial = PROD `+0x140`) holds on a second labelled unit (`100100019744` / `0019744`); 2 of 2 labels. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
+| C-10141 | PROD `+0xB0` holds the 5-character suffix of the Nissan part number `25915-xxxxx` (`N #` on the label); its letter does not follow the model letter (`QY-7200N-G` ↔ `3NA1A`). Supersedes: C-10121. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
+| C-10142 | A third unit (internet photo, not the owner's): model `QY-7200N-G`, part `25915-3NA1A`, manufactured May 2012, serial `0019744`, mark `ZA`, shown with a U.S./Canada map card. | OBSERVED | H | EXP-2026-11-24-M2.28-second-type-label |
+| C-10143 | The Bluetooth module (`BTU-3588`, QD ID `B014872`) and FCC ID (`SJ2QY7200`) are the same on the March 2011 and May 2012 labels; the label part moves from `276-0925-00` to `-06`. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
+| C-10144 | Serials may be one counter for the `QY-7200N` family (0004058 in March 2011, 0019744 in May 2012); two points cannot separate this from per-model counters. | HYPOTHESIS | L | EXP-2026-11-24-M2.28-second-type-label |
 
-## H143 — consent tool card identity (C-10140–C-10144)
+## H143 — consent tool card identity (C-10150–C-10154)
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
-<<<<<<< ours
-| C-10140 | The unit-ID rule of C-10120 (`車載機 ID` = `1001` + 8-digit serial = PROD `+0x140`) holds on a second labelled unit (`100100019744` / `0019744`); 2 of 2 labels. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
-=======
-| C-10140 | The Clarion part number in the NB00 `NKOK` header (`+0x50`) identifies the 2011 card build: `470-2824-34` = EU 2011 (`X210ECNI.158`), `470-2818-33` = US 2011 (`X210NBNI.147`). The build name at `+0x16` is rewritten by `card_mapcode.py set --from-nk1` (that is its purpose), and the SHA-256 of the first `0x200000` bytes — the "head hash" the old `ze0_consent.py` computed — is identical on both cards (`c49b5659…832137`). | VERIFIED | H | EXP-2026-11-24-H143-consent-detect-identity O1; `python3 tools/ze0_consent.py find` on both cards prints the part number; `sha256sum` of bytes `0..0x1fffff` of both images |
->>>>>>> theirs
-<<<<<<< ours
-| C-10141 | PROD `+0xB0` holds the 5-character suffix of the Nissan part number `25915-xxxxx` (`N #` on the label); its letter does not follow the model letter (`QY-7200N-G` ↔ `3NA1A`). Supersedes: C-10121. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
-=======
-| C-10141 | On the ZE0 2011 cards the consent comparator has one site per image-A copy for the EU id (`mov.w` at `0x13ebdde` / `0x31ebdde` → literal `0x08a6` at `0x13ebf3e` / `0x31ebf3e`) and two per copy for the US id (`0x1479a9a`, `0x147a1b4` and `+0x2000000`, agree `0x089e`). A wrong-id scan can still find 1–4 shaped sites, so the count alone cannot choose the build. | VERIFIED | H | EXP-2026-11-24-H143 O3, O4; `python3 tools/ze0_consent.py find …` on the EU and US 2011 cards |
->>>>>>> theirs
-<<<<<<< ours
-| C-10142 | A third unit (internet photo, not the owner's): model `QY-7200N-G`, part `25915-3NA1A`, manufactured May 2012, serial `0019744`, mark `ZA`, shown with a U.S./Canada map card. | OBSERVED | H | EXP-2026-11-24-M2.28-second-type-label |
-=======
-| C-10142 | Before H143 `ze0_consent.py detect()` chose the build from the NKOK build name alone (it computed the first-`0x200000`-byte hash and never compared it), so on a card renamed by `card_mapcode.py` it applied the other market's ids: the EU card renamed to `X210NBNI.147` was patched at two unrelated comparators (`0x1405912`, `0x143f2c0` and `+0x2000000`, `0x089e -> 0x0889`) and `verify` printed PASS on its own write. | VERIFIED | H | EXP-2026-11-24-H143 O2 (reproducible with `--build us`, which now needs the explicit override) |
->>>>>>> theirs
-<<<<<<< ours
-| C-10143 | The Bluetooth module (`BTU-3588`, QD ID `B014872`) and FCC ID (`SJ2QY7200`) are the same on the March 2011 and May 2012 labels; the label part moves from `276-0925-00` to `-06`. | OBSERVED | M | EXP-2026-11-24-M2.28-second-type-label |
-=======
-| C-10143 | `ze0_consent.py` identifies the card by the NB00 part number, reports a header name that differs from the detected build as the launcher rename (not a reason to change ids), accepts `--build eu|us` for a card whose part number is unknown, and refuses an unknown card (non-zero exit) instead of guessing. | VERIFIED (tool) | H | EXP-2026-11-24-H143 O5; `python3 tools/ze0_consent.py --selftest` → `PASS (0 failure(s))`, 23 checks incl. renamed EU → EU ids and unknown part refused |
->>>>>>> theirs
-<<<<<<< ours
-| C-10144 | Serials may be one counter for the `QY-7200N` family (0004058 in March 2011, 0019744 in May 2012); two points cannot separate this from per-model counters. | HYPOTHESIS | L | EXP-2026-11-24-M2.28-second-type-label |
-=======
-| C-10144 | On the EU card renamed by `card_mapcode.py`, the fixed tool patches exactly one literal per copy (`0x08a6 -> 0x0891`) and recomputes `SUM4` to `0xcde37db0`; `verify` passes. The consent patch and the map-code/build-name patch are independent: the name field at `+0x16` is outside the `SUM4` range `[base+0x200, base+0x200+length)`. | VERIFIED | H | EXP-2026-11-24-H143 O3; `python3 tools/ze0_consent.py verify CARD.img` |
->>>>>>> theirs
+| C-10150 | The Clarion part number in the NB00 `NKOK` header (`+0x50`) identifies the 2011 card build: `470-2824-34` = EU 2011 (`X210ECNI.158`), `470-2818-33` = US 2011 (`X210NBNI.147`). The build name at `+0x16` is rewritten by `card_mapcode.py set --from-nk1` (that is its purpose), and the SHA-256 of the first `0x200000` bytes — the "head hash" the old `ze0_consent.py` computed — is identical on both cards (`c49b5659…832137`). | VERIFIED | H | EXP-2026-11-24-H143-consent-detect-identity O1; `python3 tools/ze0_consent.py find` on both cards prints the part number; `sha256sum` of bytes `0..0x1fffff` of both images |
+| C-10151 | On the ZE0 2011 cards the consent comparator has one site per image-A copy for the EU id (`mov.w` at `0x13ebdde` / `0x31ebdde` → literal `0x08a6` at `0x13ebf3e` / `0x31ebf3e`) and two per copy for the US id (`0x1479a9a`, `0x147a1b4` and `+0x2000000`, agree `0x089e`). A wrong-id scan can still find 1–4 shaped sites, so the count alone cannot choose the build. | VERIFIED | H | EXP-2026-11-24-H143 O3, O4; `python3 tools/ze0_consent.py find …` on the EU and US 2011 cards |
+| C-10152 | Before H143 `ze0_consent.py detect()` chose the build from the NKOK build name alone (it computed the first-`0x200000`-byte hash and never compared it), so on a card renamed by `card_mapcode.py` it applied the other market's ids: the EU card renamed to `X210NBNI.147` was patched at two unrelated comparators (`0x1405912`, `0x143f2c0` and `+0x2000000`, `0x089e -> 0x0889`) and `verify` printed PASS on its own write. | VERIFIED | H | EXP-2026-11-24-H143 O2 (reproducible with `--build us`, which now needs the explicit override) |
+| C-10153 | `ze0_consent.py` identifies the card by the NB00 part number, reports a header name that differs from the detected build as the launcher rename (not a reason to change ids), accepts `--build eu|us` for a card whose part number is unknown, and refuses an unknown card (non-zero exit) instead of guessing. | VERIFIED (tool) | H | EXP-2026-11-24-H143 O5; `python3 tools/ze0_consent.py --selftest` → `PASS (0 failure(s))`, 23 checks incl. renamed EU → EU ids and unknown part refused |
+| C-10154 | On the EU card renamed by `card_mapcode.py`, the fixed tool patches exactly one literal per copy (`0x08a6 -> 0x0891`) and recomputes `SUM4` to `0xcde37db0`; `verify` passes. The consent patch and the map-code/build-name patch are independent: the name field at `+0x16` is outside the `SUM4` range `[base+0x200, base+0x200+length)`. | VERIFIED | H | EXP-2026-11-24-H143 O3; `python3 tools/ze0_consent.py verify CARD.img` |

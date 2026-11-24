@@ -1154,7 +1154,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: `python3 tools/ze0_consent.py --selftest` covers a renamed EU card (EU ids), the US card, an unknown part number (non-zero exit) and `--build`, and passes; on a scratch copy of the EU card renamed by `card_mapcode.py`, `find` prints `EU 2011` with one `0x08a6` site per copy and `patch` writes one literal per copy (`0x08a6 -> 0x0891`) with `verify: PASS`; `python3 tools/selftest.py --only ze0_consent` is PASS; `python3 tools/exp_check.py` on the EXP is clean; `claims_check --strict --count-check` and `todo_check` show no new error; `python3 tools/gate.py` shows no new failure (its `selftest` row fails on the pre-existing `refer002_add_station` scratch-zlib gap, reproduced on `origin/main`).
   - Stop: if the card's part number turns out to change between cards of the same build (it did not on the two 2011 cards), do not invent a second key: fall back to requiring `--build` for every card and record that as the result, with the ids unchanged.
   - Falsifier: a renamed EU card still selecting the US ids without an explicit `--build`, or `verify` reporting PASS without checking the literal it patched against the card's own build.
-  - Claims: C-10140–C-10144
+  - Claims: C-10150–C-10154
   - Pair: solo
   - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
 
