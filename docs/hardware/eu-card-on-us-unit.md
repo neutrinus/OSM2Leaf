@@ -166,6 +166,12 @@ areas stay as they are: car position backup, history, Bluetooth, and VFlash
 the firmware default `http://biz.nissan-gev.com/…` in VFlash. Area 0 holds
 no URL.
 
+**Order matters.** LeafSDTools `Write NAND` → `ALL OS` also writes `SRAM`
+and `VFlash` from the `nand_….bin` file (blocks 8–`0x86`, M6.26). If you
+flash NK1 patches with `ALL OS`, do it **first**, and reset area 0 after it.
+Otherwise erase area 0 in the NAND file as well: bytes `0x400000`–`0x45FFFF`
+of that file.
+
 **Tool.** LeafSDTools, menu `SRAM` (`LeafSDTools/UserSRAM.cpp`
 upstream):
 

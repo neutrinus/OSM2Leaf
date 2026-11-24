@@ -4179,6 +4179,16 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-8870–C-8879
   - Result: EXP-2026-11-24-M6.25-object-0A (C-8870-C-8879); object 0A = OBJ_SEM_ODOMETER
 
+- [x] **M6.26 — What do LeafSDTools' Write NAND sections cover, and what does it mean for us?**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+  - Depends: M6.19 (unit flash map)
+  - Goal: Marek (2026-11-24) asked whether the section buttons of LeafSDTools `Write NAND` (ALL+EEPROM, ALL OS, BL IPL, PROD, BL BASE, BL EBOOT, BL ENH, APP) tell how the unit flash is divided, and whether anything follows for this project. Read the upstream source (`developerfromjokela/leafsdtools`, GPL-3.0) and set it against `docs/hardware/unit-flash.md`.
+  - Scope: source reading only (ReadNAND, WriteNAND, WriteNAND_QY8, Flash, UserSRAM, ProdInf); no code copied; no unit write.
+  - Done when: an EXP lists each button's blocks and flash range from the source, compares them with the M6.19 map, and names what changes for the EU-card guide and the emulator.
+  - Stop: one session.
+  - Claims: C-10180–C-10189
+  - Result: EXP-2026-11-24-M6.26-leafsdtools-write-nand-sections (C-10180–C-10186). Only ALL OS and ALL+EEPROM write; ALL OS = blocks 8–0x86 incl. SRAM/VFlash, so the area-0 reset goes after it (eu-card-on-us-unit.md); section page counts confirm the M6.19 map; APP partition 0x040000–0x39FFFF.
+
 ## M7 — Scale and release (later)
 
 - [ ] **M7.1** Full Dolnośląskie run, size budget.
