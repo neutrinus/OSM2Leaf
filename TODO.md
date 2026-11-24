@@ -2019,8 +2019,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7780–C-7789
   - Result: EXP-2026-11-24-M3.42-rcv-parcel-queue; 44-B element table + producer/consumer; signature error string -> xref (strong); C-7632 RETRACTED; C-7780-C-7789
 
-- [ ] **M3.39 — The order in which the firmware reads a tile, compared with `kiwiread`'s parse order**
-  - Status: in progress · Owner: task/m3.39-tile-read-order · Critical: no · Pair: required
+- [x] **M3.39 — The order in which the firmware reads a tile, compared with `kiwiread`'s parse order**
+  - Status: done · Owner: task/m3.39-tile-read-order · Critical: no · Pair: required
   - Step: reader
   - Depends: M3.42
   - Goal: If our tile is KIWI main-map data, the firmware should walk it in the specification's order: management header, then road, background and name frames by their offsets. The read-watch tools can print the firmware's order; compare.
@@ -2031,6 +2031,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the firmware reads the sections in an order that depends on the request kind only (no fixed parse order).
   - Claims: C-7790–C-7799
+  - Result: EXP-2026-11-24-M3.39; 9 tile reads, 3 runs, falsifier no-fire
 
 - [x] **M3.40 — Who opens `REFER002`: the EV-layer opener and its read path**
   - Status: done · Owner: task/m3.40-refer002-opener · Critical: no · Pair: required
