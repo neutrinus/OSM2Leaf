@@ -5355,7 +5355,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7380–C-7389
 
 - [ ] **M8.H42 — Screen catalogue: walk the menu tree by script and record every screen reached**
-  - Status: in progress · Owner: task/m8.h42-screen-catalogue · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h42-screen-catalogue · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: A map of the UI (screen → how to reach it → what it needs) makes later scenarios short and shows which features work in the emulator.
@@ -5366,6 +5366,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: stop at depth 2 or thirty screens.
   - Falsifier: two runs of the walk give different hashes for the same path.
   - Claims: C-7390–C-7399
+  - Blocker: scripted walk reaches 5/15 screens on -M ze0; menu screens unreachable (AUI buttons keyed out, hard keys not injected)
+  - Unblock: M8.C1v
+  - Result: EXP-2026-11-24-M8.H42-screen-catalogue (negative; 5 screens printed by grep|sort -u, wc -l=5; byCmd=0)
 
 - [x] **M8.H43 — `anwdrv.dll`: the frame protocol with the audio microcontroller on `SCI1:` and the start-up handshake**
   - Status: done · Owner: task/m8.h43-anwdrv-frame-protocol · Critical: yes · Pair: required
