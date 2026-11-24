@@ -2040,7 +2040,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8150–C-8159
 
 - [ ] **M3.41 — Which code draws background polygons: the renderer's reader of the odd-partner record**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m3.41-background-polygons · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The road path of the renderer is known (`LOC_map` walk, M9.58/M9.67). The background path (water, forest) is not, and a background writer (M5.74) needs its acceptance rules.
