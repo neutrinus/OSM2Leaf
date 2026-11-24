@@ -60,7 +60,7 @@ Method and measurements: docs/experiments/EXP-2026-11-23-M8.H11-l3-l4-parity.md
 from __future__ import annotations
 
 import argparse
-import hashlib
+import hashutil
 import json
 import os
 import struct
@@ -107,7 +107,7 @@ class NotRunnable(Exception):
 
 
 def sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+    return hashutil.sha256_bytes(data)
 
 
 def swap16(data: bytes) -> bytes:

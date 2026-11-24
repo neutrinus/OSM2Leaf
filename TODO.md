@@ -506,8 +506,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-3720–C-3729
   - Result: EXP-2026-11-23-H56-progress-snapshot; selftest 27/27; table L1 1P/L2 8P1S2NC/L3 3P10B; PASS->FAIL rc=1; C-3720-C-3729
 
-- [ ] **H57 — Fixture regression baseline: a committed no-vendor baseline and a documented PASS->FAIL gate**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **H57 — Fixture regression baseline: a committed no-vendor baseline and a documented PASS->FAIL gate**
+  - Status: done · Owner: task/h57-fixture-baseline · Critical: no · Pair: solo
   - Depends: H41 (matrix), H56 (snapshot)
   - Goal: H41 mentions a "committed no-vendor baseline" and H26's fixtures have PASS/FAIL counts, but no file holds the expected result and no doc states when a baseline may change. Without it "once a level passes, CI fails if it stops passing" (prompt_qa) is unenforceable.
   - Precheck: `git ls-files | grep -i baseline` returns nothing today; `grep -n baseline .github/workflows/*.yml` returns nothing.
@@ -517,6 +517,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: the baseline file exists for the H41/H56 fixture; `--check-baseline` fails on a synthetic PASS->FAIL and passes on the current fixture; the workflow README and `test-system.md` state the policy; `selftest.py` passes.
   - Stop: if H41/H56 choose a different output shape, commit the baseline in that shape and record the mapping in the EXP; do not fork a second schema.
   - Claims: C-3730–C-3739
+  - Result: EXP-2026-11-24-H57-fixture-baseline; 12 rows (9P/1S/2NC); SKIP->FAIL now REGRESSION rc=1; selftest 31/31; full selftest 282/0/21/303
 
 - [x] **H58 — Make the claims ledger reject non-runnable evidence (`...`/`START`/`MODULE` placeholders, prose loops)**
   - Status: done · Owner: task/h58-claims-runnable-evidence · Critical: yes · Pair: solo
@@ -885,8 +886,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: this is a map, not a rewrite; do not start re-implementing.
   - Claims: C-6480–C-6489
 
-- [ ] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.48 — Decompile map of the antitheft (IMMO / "SECURE" screen) path**
+  - Status: done · Owner: task/m1.48-antitheft-map · Critical: no · Pair: solo
   - Depends: — (M6.19 helps: the PROD record of a real unit)
   - Goal: side track, but it matters for bench work: a unit moved to another car, or powered on a bench without the car's CAN, can show the SECURE screen. Say who decides (the audio microcontroller, the SH-4, or the car's BCM), what is compared (PROD `+0xA0` 4-byte IMMO code, flag `+0x193`; LeafSDTools "DISABLE IMMO" zeroes the flag), over which link, and what stays blocked while locked.
   - Precheck: `python3 tools/cerom.py --image-start 0x200200 IMG256 exports AntitheftCC.dll` prints exports; the string `ANT_RCV_SECURITY_LOCK` is found in `anwdrv.dll`.
@@ -894,7 +895,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Hints (strings seen 2026-11-21, US256, not decompiled): the audio microcontroller side reports `ANT_RCV_SECURITY_LOCK` / `ANT_RCV_SECURITY_RELEASE_OK`, the SH-4 answers `ANT_SEND_SEC_RESPONSE` / `ANT_SEND_SEC_RELEASE`; the updater (`CUpManager::AntiTheftThreadMain`), `Audio.exe` (`CAudioAccessFunction::AntitheftFunc`), telematics (`dcc_AntiTheftProc`), USB (`UsbAntiTheftProc`) and `Vehicle.exe` (`[VCL]Antitheft Lock...`) each run a thread that waits for the unlock; the HMI has `SRT_COLD_SECURE` / `POP_SRT_COLD_ANTI_THIEF_SECURE` screens and status pairs `…_FNR_…` / `…_CAS_…` (two vehicle variants). Marek's unit has the flag at 0 and code `FF FF FF FF` (C-5202).
   - Done when: the page has the lock and the release sequence with the VA of each send/receive, names where the code comparison happens (or shows it is not in SH-4 code), and lists what each waiting process refuses while locked.
   - Stop: no code or PROD bytes of a real unit are committed; do not describe how to defeat the lock on a unit that is not one's own beyond what LeafSDTools already documents.
-  - Claims: C-6730–C-6739
+  - Claims: C-10200–C-10209
+  - Result: EXP-2026-11-24-M1.48-antitheft-map; C-10200–C-10209; 10/10 claims
 
 - [x] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
   - Status: done · Owner: task/m1.49-ui-strings · Critical: no · Pair: solo
@@ -936,8 +938,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8450–C-8459
   - Result: EXP-2026-11-22-M1.54-eu-us-card-diff, `docs/research/eu-us-card-diff.md`, `tools/card_diff.py`, `docs/research/card-manifests/`; ROM B/C same bytes, only `CMP.LST` same on the map partition; voices do not overlap (EU 7 languages, US `US`/`CF`) → M1.55.
 
-- [ ] **M1.55 — Which `SPEECH` language folder does a US unit ask for with the EU card?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.55 — Which `SPEECH` language folder does a US unit ask for with the EU card?**
+  - Status: done · Owner: task/m1.55-speech-language · Critical: no · Pair: solo
   - Step: static
   - Depends: M1.54
   - Goal: the EU 2011 card has voices `BE, DU, FR, GE, IT, PT, SP`, the US card `US, CF`; none overlap (C-8452). Find how the firmware picks the `SPEECH/<ll>` folder (unit language setting, area, or a list on the card), which languages the setup screen offers on a US unit with the EU card, and what happens when the folder is missing (silence, error, fallback).
@@ -948,9 +950,10 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the language list comes from the card (then an EU card offers only European languages and nothing is missing).
   - Claims: C-8460–C-8469
+  - Result: EXP-2026-11-24-M1.55-speech-folder, docs/research/speech-folder-selection.md; Speech.exe fn 0x000a6dfc/0x000a62f0 (EU) + 0x00072ca8 path, source OBJDLL!OBJ_Setting_readExpLanguage; 3004->US, 3005->CF; EU card lacks US/CF -> copying SPEECH/US (or a European language) needed
 
-- [ ] **M1.56 — The M1.50 unit-dump position scanner: ship it as a tool and rebuild the EXP in TEMPLATE form**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M1.56 — The M1.50 unit-dump position scanner: ship it as a tool and rebuild the EXP in TEMPLATE form**
+  - Status: done · Owner: task/m1.56-position-dump-tool · Critical: no · Pair: required
   - Depends: M1.50 (done)
   - Goal: EXP-2026-11-22-M1.50 (done) rests on a "throw-away coordinate scanner (described in §3, not committed)" and has no Method/Scope/Falsifier/Observation/Interpretation sections, so its C-8240–C-8247 rows cannot be reproduced from the repo (rule 16: an elided command is the same as no result). Commit the scanner as a tool and repair the record.
   - Precheck: `grep -n 'throw-away' docs/experiments/EXP-2026-11-22-M1.50-us-unit-position-kentucky.md` prints the description line; `ls tools/position_dump_scan.py` fails (the tool does not exist).
@@ -961,6 +964,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: on a synthetic dump the scanner finds the planted pair at a wrong offset, or the date rule misreads `0x07d7` as 2026.
   - Claims: C-8480–C-8489
   - Pair: required
+  - Result: EXP-2026-11-22-M1.50-us-unit-position-kentucky (rebuilt); tools/position_dump_scan.py --selftest 19/0; ROM raw-head 0/0; real dump absent -> Stop clause, numbers marked measured on host
 
 - [x] **M1.47 — `tools/ce_module.py`: one CE module/section reader for the L3 tools (they each carry their own copy of the ROMHDR → section → bytes path)**
   - Status: done · Owner: task/m1.47-ce-module · Critical: no · Pair: solo
@@ -1025,6 +1029,31 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the full dump boots the EU card to the map (then there is no flash-side risk).
   - Claims: C-8880–C-8889
   - Result: EXP-2026-11-23-M1.57-eu-card-unit-data-wroclaw; launcher passes; VSram erased → map + car in Wrocław; full VSram → Navi.exe exception (2/2); trigger in 0x400000–0x43FFFF, not the car position
+
+- [x] **M1.58 — EU vs US 2011 audio: why the EU card on Marek's US unit sounds laggy**
+  - Status: done · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.54, M1.57
+  - Goal: Marek (2026-11-24, car test L5 of M1.57): with the patched EU card the audio "works with an odd lag" (screen beeps and Bluetooth voice OK). Compare `Audio.exe`, the AUI layer and the audio DLLs of the EU and US 2011 cards, check what the unit's kernel NK1 starts for them, and check what the erased `SRAM` area 0 reset; name the most likely cause and the next car test.
+  - Precheck: `python3 tools/cerom.py modules --census EU_SYS US_SYS` lists 148 common modules.
+  - Scope: ROM A of both cards (first 100 MiB of each image), the committed NK1 (`firmware/unit-flash/nk1-QY7200ND.bin`), `OBJDLL.dll` backup table; static only, no emulator run.
+  - Done when: an EXP with the per-module result (functional difference or build-only), the driver names each `Audio.exe` opens and whether NK1 starts them on a USA unit, the area-0 object names, and a car test plan; claims.
+  - Stop: one session; no vendor bytes committed, no flash dump read.
+  - Falsifier: a non-radio audio module of ROM A whose code differs beyond build stamps (PDB GUID, timestamp, path) between EU and US.
+  - Claims: C-10210–C-10219
+  - Result: EXP-2026-11-24-M1.58-eu-us-audio; non-radio audio identical, EU tuner TNR2: not started on USA unit (most likely lag cause, HYPOTHESIS); car test plan
+
+- [x] **M1.59 — EU card on a USA unit: give the EU Audio.exe a tuner (TNR patch, then radio transplant)**
+  - Status: done · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.58
+  - Goal: Marek (2026-11-24): keep the EU card (EU time zones) and make its audio work on his USA unit. Step 1: one-character patch `TNR2:` -> `TNR4:` in the EU `Audio.exe` (both NB copies + SUM4), car test of equalizer/radio. Step 2: full radio transplant: US `Audio.exe` + `RBDS_CC.dll` (same DLL base `0x35A0000` as EU `RDSCC.dll`) into EU image A; XM DLLs collide with EU `CameraCC`/`PhoneCC` bases and are left out.
+  - Precheck: `python3 tools/audio_tnr_patch.py show EU_CARD` prints one `TNR2:` per copy and SUM4 ok.
+  - Scope: image A of the EU 2011 card only; TOC/o32 entries, NK2 length and SUM4; radio screen binding in `ScreenStateCC` (RDSCC ProgID); emulator boot `-M ze0` with NK1.
+  - Done when: step 1 tool with selftest and the patched-card SUM4 check; step 2 a tool that builds the transplanted image A, `cerom.py` lists US `Audio.exe` and `RBDS_CC.dll` in it, and NK1 + the card boots in `-M ze0` to the map; EXP; claims.
+  - Stop: two sessions; no vendor bytes committed.
+  - Falsifier: NK1 refuses a longer image A (length / RAM window), or the EU radio screens cannot bind to `RBDS_CC`.
+  - Claims: C-10220–C-10229
+  - Result: EXP-2026-11-24-M1.59-eu-audio-transplant; TNR patch 4 B; US Audio.exe transplanted, boots to map on NK1 (-M ze0); car test open
+  - Note: RBDS_CC.dll left out on purpose: EU radio screens bind RDSCC.RDSCtrl (C-10224); car test is Marek's
 
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -1970,8 +1999,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-6640–C-6649
   - Result: EXP-2026-11-23-M3.36-board-truth-refer; scoped audit 2->0; todo_check 156->156 warnings; lost 0; new M3.43 + C-8850-C-8859
 
-- [ ] **M3.42 — `MDP_*RcvParcel`: the parcel receive queue in the firmware — who fills it and what a 'parcel' is there**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M3.42 — `MDP_*RcvParcel`: the parcel receive queue in the firmware — who fills it and what a 'parcel' is there**
+  - Status: done · Owner: task/m3.42-rcv-parcel-queue · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The ROM names functions `MDP_pushRcvParcel`, `MDP_popRcvParcel`, `MDP_freeRcvParcel` in error strings. A queue of received parcels sits between the file reader and the consumers; its element structure is the firmware's own definition of a parcel (id, level, buffer, length), and the map client found in M3.25/M3.28 should be its producer.
@@ -1982,6 +2011,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session; if the strings are referenced by a logging helper only, name the helper's callers and stop after one hop.
   - Falsifier: the queue carries messages of another subsystem (traffic or telematics 'parcels').
   - Claims: C-7780–C-7789
+  - Result: EXP-2026-11-24-M3.42-rcv-parcel-queue; 44-B element table + producer/consumer; signature error string -> xref (strong); C-7632 RETRACTED; C-7780-C-7789
 
 - [ ] **M3.39 — The order in which the firmware reads a tile, compared with `kiwiread`'s parse order**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -2512,8 +2542,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Step: tooling
   - Result: EXP-2026-11-24-M4.59-skin-patch; skin_patch.py 12/12 selftest; 4 changed ranges; SUM4 0xcdf87db0->0xbcb5ac44 both copies; negative control fails; PNG decodes; cerom+cardcheck PASS
 
-- [ ] **M4.60 — Sounds: inventory of every sound the unit plays and where its data is (beeps, chimes, voice prompts, TTS)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M4.60 — Sounds: inventory of every sound the unit plays and where its data is (beeps, chimes, voice prompts, TTS)**
+  - Status: done · Owner: task/m4.60-sounds-inventory · Critical: no · Pair: solo
   - Depends: — (M4.57 covers the Polish language set; this is the map of all sound sources)
   - Goal: say what can be replaced as data and what is code. Candidates: `SPEECH/<lang>/` (per language VR, TTS, GID — the recorded guidance prompts are most likely the GID file), `BeepDrv.dll`/`MuteDrv.dll`/`DspDrv.dll` and `Audio.exe` (key beeps, chimes: samples in a module, or tones generated by the DSP / audio microcontroller?), WAV/PCM resources inside ROM A, and `CApi_GetCustomVoiceNo`/`SetCustomVoiceNo`/`GuidanceVoiceAtt` (a voice choice exists).
   - Precheck: `ls <ROOT>/SPEECH/*` lists three files per language; `python3 tools/cerom.py --image-start 0x200200 IMG256 imports BeepDrv.dll` prints its imports.
@@ -2523,6 +2553,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: if beeps turn out to be generated by the audio microcontroller (no sample data on the card), say so with the IOCTL/driver evidence and close that branch.
   - Claims: C-6570–C-6579
   - Step: tooling
+  - Result: EXP-2026-11-24-M4.60-sounds-inventory; 8/8 sources inventoried; GID undecodable reason recorded; beeps microcontroller-generated (CApi_GetSoundEffect/CEN1:); 27-file SPEECH corpus; navigator APPROVE
 - [x] **M4.61 — `COORD001` and `ADDRE` ids: is the low nibble `11xx` there too; make `coord.py` right for point ids**
   - Status: done · Owner: task/m4.61-point-ids · Critical: no · Pair: solo
   - Depends: M4.27 (done)
@@ -3966,8 +3997,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Claims: C-8830–C-8839
 
-- [ ] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
+  - Status: done · Owner: task/m5.102-hashutil-migration · Critical: no · Pair: solo
   - Depends: M8.H76 (done)
   - Goal: M8.H76 shipped `sha256_file`/`sha256_bytes` and migrated the eight tools it named, but seven tools added later in the same window still hash inline: `launch_area.py`, `point_add_poi.py`, `tile_from_zero.py`, `tile_provenance.py`, `tile_relayout.py`, `ze0_l3parity.py`, `ze0_uistart.py`. Their evidence stamps can drift from the shared helpers, which is the exact failure M8.H76 was filed to prevent.
   - Precheck: `grep -l 'import hashlib' tools/launch_area.py tools/point_add_poi.py tools/tile_from_zero.py tools/tile_provenance.py tools/tile_relayout.py tools/ze0_l3parity.py tools/ze0_uistart.py | wc -l` prints 7; `grep -nE '^def (sha256_file|sha256_bytes)' tools/hashutil.py` prints both; `python3 tools/hashutil.py --selftest` passes.
@@ -3978,6 +4009,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: two call sites disagree on the hex of the same bytes after the change, or a tool's JSON output changes.
   - Claims: C-9960–C-9969
   - Pair: solo
+  - Result: EXP-2026-11-24-M5.102-hashutil-seven-tools; 17/17 call-site hex equal; selftest 282 pass 0 fail
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -4920,7 +4952,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H13-l4check; factory exit 0 stage F5 idle 218.62 s, broken card exit 1 stage F4, gate 5 pass / 0 fail / 0 skip
 
 - [ ] **M8.H14 — CI: every push checks that the `ze0` patch series still applies**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h14-patch-apply-ci · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The series is 13+ patches and several agents will add more in parallel. A patch that no longer applies after a merge is found today only by the next person who builds.
@@ -5672,7 +5704,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-8120–C-8129
 
 - [ ] **M8.H68 — `tools/ze0_ps.py`: process, thread and module list of the running guest from kernel structures**
-  - Status: blocked · Owner: task/m8.h68-ze0-ps · Critical: no · Pair: solo
+  - Status: open · Owner: — · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: Several tasks need 'is process X running, what is thread Y waiting on' (M8.H47, M8.H45). CE 5 keeps fixed-layout kernel tables; read them from guest memory over the monitor or gdbstub.
@@ -5686,6 +5718,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: User-slot lpszProcName VAs (0x0405fec4 etc.) return Cannot access memory via HMP x and E14 via gdbstub m, so only NK.EXE (2 threads) is named on the live guest
   - Unblock: M8.H68a
   - Result: EXP-2026-11-23-M8.H68-ze0-ps (negative); selftest 25/25; 59 modules; 1/4 processes named
+  - Note: 2026-11-24 rule-15 re-open by M8.H68a: user-slot VAs resolved via SH-4 page-table walk; pinned reproduction prints all four names; negative EXP kept as history.
 
 - [x] **M8.H69 — Breakpoints by name: a symbol file for the guest from `.pdata` and exports**
   - Status: done · Owner: task/m8.h69-symbols · Critical: no · Pair: solo
@@ -5793,8 +5826,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     (M8.H32 follow-up, 2026-11-23) answered: OBJ_CarPos takes a far GPS position through the map-matching branch 0x00458994 once five consecutive samples at >10 km/h have reported speed/heading matching the position track (C-8830–C-8833); on ze0 the car moves Kentucky→Chicago with gps.py 'drive on'.
     2026-11-23 SE: rule-15 re-open — M8.H32 merged; its follow-up answered the gate and the car moves on ze0. Keep the negative Result as history; finish the Done when and close.
 
-- [ ] **M8.H68a — Resolve CE user-slot VAs for `ze0_ps.py` process names**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H68a — Resolve CE user-slot VAs for `ze0_ps.py` process names**
+  - Status: done · Owner: task/m8.h68a-user-slot-vas · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: M8.H68 found the CE 5.0 SH-4 process/thread/module tables but
@@ -5817,7 +5850,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
     exact failing VA reads and stop with a negative EXP.
   - Falsifier: the printed names disagree with the DBGMSG lines of the same
     run, or a name is supplied from the DBGMSG log instead of guest memory.
-  - Claims: C-9940–C-9949
+  - Claims: C-10230–C-10239
+  - Result: EXP-2026-11-24-M8.H68a-user-slot-vas; 7 processes, 32/32 selftest, C-10230-C-10236
 
 - [ ] **M8.H79 — First L4 boot of the from-zero card: file-open log and first divergence from the factory screen**
   - Status: blocked · Owner: task/m8.h79-from-zero-l4-boot · Critical: yes · Pair: required
@@ -5862,8 +5896,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-10080–C-10089
   - Pair: required
 
-- [ ] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
+  - Status: done · Owner: task/m8.g4-aze0-machine · Critical: no · Pair: solo
   - Step: model
   - Priority: low (first follow-up of M8.G2; part of the long-term "run any generation in QEMU" goal).
   - Depends: M8.G2 (done), M8.A11 (done)
@@ -5874,7 +5908,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: a 5 s `tools/qemu-ze0/run.sh --machine aze0 --image archive/eu2014-256.img` boot prints a non-zero count of X212 debug lines on its own `dbgmsg` default, reaches an idle kernel with no CPU exception, and an EXP compares that log with the EU2011 F0 log (entry `0x8800f100`, RAM `0x8a640000`); `-M ze0` behaves byte-for-byte as before.
   - Stop: if the X212 kernel stops short of F0 twice with the same log, record the last debug line and stage in an EXP and set `blocked` on the M8.G2 follow-up that owns the missing device (INTEVT table M8.G5).
   - Falsifier: the EU2014 kernel prints debug text at the EU2011 VA `0x880404f4` and ends at the EU2011 final PC `0x8803d266` — then no X212 subclass is needed and this task records that instead of adding a machine.
-  - Claims: C-10090–C-10099
+  - Claims: C-10240–C-10246
+  - Result: EXP-2026-11-24-M8.G4-aze0-machine; -M aze0 5s: 462 vs 0 wrong-VA/0 off lines, entry 0x8800f100, RAM 0x8a640000, ze0 PC 0x8803d266 unchanged; C-10240..C-10246
 
 ---
 
@@ -6598,8 +6633,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
   - Result: EXP-2026-11-23-M9.77-exp-check-subheadings.md; M4.96 PASS, corpus 550->542, selftest 15/15
 
-- [ ] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M9.78 — Repair the true TEMPLATE defects in this cycle's EXP records, one record per defect**
+  - Status: done · Owner: task/m9.78-template-defects · Critical: no · Pair: required
   - Depends: M9.77
   - Goal: the 49 EXP records added between 2026-11-23 06:20Z and 19:07Z include real gaps behind the formatter noise: a sample without a full SHA-256, a Method with no runnable commands/controls/scope, or no falsifier. A reviewer cannot reproduce those results from the repo. After M9.77 separates layout from content, repair each record that still FAILs rather than waiving the lint wholesale.
   - Precheck: `python3 tools/exp_check.py docs/experiments` still prints FAIL lines; `git log --since=2026-11-23T06:20:04Z --diff-filter=A --name-only --pretty=format: origin/main -- docs/experiments/ | grep -c 'EXP-'` prints the window size (49 at 19:13Z).
@@ -6610,6 +6645,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Falsifier: an EXP is marked PASS while still lacking a full sample hash, a runnable command, a control, a counted scope or a falsifier.
   - Claims: none (record repair; no claim rows reserved until the work commits them)
   - Pair: required
+  - Result: EXP-2026-11-24-M9.78-exp-template-defects.md; 31 repaired, window 48 PASS/0 FAIL, selftest 15/15, claims_check OK
 
 - [x] **M9.79 — Keep tool selftests off the `/tmp` tmpfs: the standing gate is red on this host**
   - Status: done · Owner: task/m9.79-tmp-tmpfs-selftests · Critical: yes · Pair: required

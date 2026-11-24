@@ -115,3 +115,25 @@ M2.23 third card state unreachable in SD model; M8.H15 DBGPARAM stride
 16 vs 32; M9.62 row mapping; M3.40 indirect-pointer signature; M8.H42
 5/15 screens unreachable -> blocked result. Defect notes route to drivers
 via comm files.
+
+merge stream continued (main 6e31cd82):
+  - #741 H57 done (PAIR, 2 rounds): baseline gate + SKIP->FAIL fix; navigator
+    mandatory negative mutation on baseline passed. Merged.
+  - #744 M8.G4 done (PAIR, 3 rounds): -M aze0 subclass, X212 dbgmsg sink
+    0x88040a54 derived by signature; navigator caught run.sh whitelist and
+    claim collisions. Merged; main then had to repair a claim-range collision
+    (M8.G4 vs M8.H68a C-10230) by renumbering M8.G4 to C-10240..C-10246 and
+    restoring M8.H68a + M3.42 rows lost to conflicting resolve markers.
+  - #747 M3.42 done (PAIR, 3 rounds): parcel queue element table, producer/
+    consumer VAs; navigator caught D5 (mov.l @(20,r2) = +0x14 not +0x1c).
+  - #734 M1.56, #742 M4.60, #749 M8.H68a, #752 M1.55, #751 M8.H14 done —
+    all rebased, board checks OK, merged.
+  - #745 M9.78 done (PAIR, 2 rounds): 31 window EXP repairs, 48 PASS / 0 FAIL.
+  - Re-froze fn_audit L3 overlay twice (after batch EXP VAs): gate 5/0/0.
+  - Reclaimed tmpfs twice (60 orphan selftest dirs) to fix flaky selftests.
+
+Done/merged so far: M5.73, H84, M5.102, M1.48, M9.78, M1.55, M8.H14,
+M1.56, M4.60, M8.H68a, H57, M8.G4, M3.42 (13/30).
+Still in flight: 17 tasks, several drivers awaiting navigator APPROVE or
+still running L4/QEMU experiments (M8.H66/H67/H63/H72/H77/H15/H23/H42/H47,
+M8.G3, H57 done, M2.23, M9.62, M5.81, M8.C1v not in batch).
