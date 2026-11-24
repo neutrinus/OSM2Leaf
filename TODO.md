@@ -3721,7 +3721,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-22-M5.80-transliteration; 18-letter selftest, tile names 4/0, 5 claims C-7990-C-7994
 
 - [ ] **M5.81 — Section-1 record decoder: replay the M4.79–M4.84 field censuses on the real card**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.81-section1-census-replay · Critical: no · Pair: required
   - Depends: M4.79 (done), M4.80 (done), M4.81 (done), M4.82 (done), M4.83 (done), M4.84 (done), M4.93 (done)
   - Goal: six per-field decoders landed in one window (`zcode_decode.py`, `icode_decode.py`, `inter_decode.py`, `frway_decode.py`, `icadm_decode.py`, `zipfr_decode.py`, 460–750 lines each), each with `census ROOT`. `--selftest` proves the grammar on a synthetic vector but not that the tool walks a factory tile; a decoder that passes its fixture and reads no real shard is the EXP-2026-11-06-H5 defect one level up. One replay command per decoder, on the EU and US card, with the counts the EXP quotes.
   - Precheck: `for t in zcode icode inter frway icadm zipfr; do python3 tools/${t}_decode.py --selftest; done` all pass; `python3 tools/zcode_decode.py census <EU tree>` prints a table (state the byte total in the EXP).
