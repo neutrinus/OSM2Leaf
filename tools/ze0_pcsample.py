@@ -231,6 +231,7 @@ def sample(monitor, n: int, interval: float, resolver: Resolver,
            save_path: str | None = None) -> dict:
     counts: collections.Counter = collections.Counter()
     provenance: collections.Counter = collections.Counter()
+    mod_provenance: dict[str, str] = {}
     pcs: list[int] = []
     blocks: list[str] = []
     read = parsed = 0
@@ -250,6 +251,7 @@ def sample(monitor, n: int, interval: float, resolver: Resolver,
         fn = resolver.fn_at(pc, mod, prov)
         counts[(mod, fn)] += 1
         provenance[prov] += 1
+        mod_provenance.setdefault(mod, prov)
         if interval and i < n - 1:
             time.sleep(interval)
     if save_path and blocks:
@@ -257,7 +259,7 @@ def sample(monitor, n: int, interval: float, resolver: Resolver,
             for i, block in enumerate(blocks):
                 fh.write("=== SAMPLE %d ===\n%s\n" % (i, block))
     return dict(read=read, parsed=parsed, pcs=pcs, counts=counts,
-                provenance=provenance)
+                provenance=provenance, mod_provenance=mod_provenance)
 
 
 def report(result: dict, top: int, label: str, as_json: bool) -> None:
@@ -276,8 +278,7 @@ def report(result: dict, top: int, label: str, as_json: bool) -> None:
             "functions": [
                 {"count": c, "pct": round(100.0 * c / total, 2),
                  "module": mod, "fn": "0x%08x" % fn if fn else None,
-                 "provenance": max((p for (m, _f), p in result["provenance"].items()
-                                    if m == mod), default="?")}
+                 "provenance": result["mod_provenance"].get(mod, "?")}
                 for (mod, fn), c in rows[:top]
             ],
             "modules": [{"count": c, "pct": round(100.0 * c / total, 2),
