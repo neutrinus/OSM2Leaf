@@ -31,63 +31,17 @@ import socket
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import peerlib  # noqa: E402  (shared SLIP framing and control loop)
+
 # From BT_FW.dll build B, fn 0x035c9374 (wired by M8.H55, C-7523).
-END, ESC, ESC_END, ESC_ESC = 0xc0, 0xdb, 0xdc, 0xdd
+END, ESC, ESC_END, ESC_ESC = peerlib.END, peerlib.ESC, peerlib.ESC_END, peerlib.ESC_ESC
 
 
-def escape(data):
-    """SLIP stuff a payload; the firmware stores 0xc0/0xdb verbatim."""
-    out = bytearray()
-    for b in data:
-        if b == END:
-            out += bytes((ESC, ESC_END))
-        elif b == ESC:
-            out += bytes((ESC, ESC_ESC))
-        else:
-            out.append(b)
-    return bytes(out)
-
-
-def unescape(data):
-    """Inverse of escape(); an unknown escape sequence keeps the ESC byte."""
-    out = bytearray()
-    i = 0
-    while i < len(data):
-        b = data[i]
-        if b == ESC and i + 1 < len(data):
-            nxt = data[i + 1]
-            if nxt == ESC_END:
-                out.append(END)
-            elif nxt == ESC_ESC:
-                out.append(ESC)
-            else:
-                out.append(b)
-                i += 1
-                continue
-            i += 2
-        else:
-            out.append(b)
-            i += 1
-    return bytes(out)
-
-
-def frame(payload):
-    """One BCSP/SLIP frame with END delimiters on both sides."""
-    return bytes((END,)) + escape(payload) + bytes((END,))
-
-
-def frames(stream, carry=None):
-    """Split a byte stream on 0xc0; return (complete payloads, partial tail)."""
-    carry = bytearray() if carry is None else bytearray(carry)
-    out = []
-    for b in stream:
-        if b == END:
-            if carry:
-                out.append(unescape(bytes(carry)))
-                carry.clear()
-        else:
-            carry.append(b)
-    return out, carry
+escape = peerlib.escape
+unescape = peerlib.unescape
+frame = peerlib.frame
+frames = peerlib.split
 
 
 class Table:
