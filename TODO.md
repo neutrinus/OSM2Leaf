@@ -2662,7 +2662,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7730–C-7739
 
 - [ ] **M4.75 — KIWI character codes against our strings: which code set and which string form do map names use**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.75-cycle10 · Critical: no · Pair: solo
   - Step: P2
   - Depends: —
   - Goal: KIWI fixes how strings are stored (code set identifiers, length forms). `LCTBL` strings, `POINT` names (byte order still open in M3.11b) and tile names each have their own decoder here. One KIWI rule might cover all three and settle Polish letters.
