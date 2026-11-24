@@ -88,7 +88,7 @@ Raw output of the Method step 2 commands (at HEAD `7d2d3e11`, branch `task/h57-f
    - `REGRESSION: L1|ZE0 generated fixture tree|structural: PASS -> FAIL`, rc=1.
    - `REGRESSION: L1|ZE0 generated fixture tree|structural: PASS -> SKIP`, rc=1.
    - `REGRESSION: L2|REFER001/*.cmp/.ind (recompress)|container: SKIP -> FAIL`, rc=1.
-6. `python3 tools/selftest.py --only l1l2_matrix` → `tool:l1l2_matrix  PASS  0.20s`, `passed=1 failed=0 skipped=0 total=1 time=0.20s`, `selftest: OK`.
+6. `python3 tools/selftest.py --only l1l2_matrix` → `tool:l1l2_matrix  PASS`, `passed=1 failed=0 skipped=0 total=1`, `selftest: OK` (the timing suffix is host-dependent and is not quoted).
 7. `python3 tools/todo_check.py` → `todo_check: OK` (rc=0; two pre-existing WARNs about M9.63/M9.72 dependencies). `python3 tools/claims_check.py --strict --count-check` → `claims_check: OK` (rc=0).
 8. `git ls-files | grep -i baseline` names three paths (`tools/fixtures/l1l2-matrix-baseline.json`, `tools/fixtures/todo_strict_baseline.json` and an EXP). `grep -n baseline .github/workflows/*.yml` names the baseline step in `l1l2-fixtures.yml` and the policy prose in `README.md`; the task's Precheck was written before H41/H43 landed and is stale.
 

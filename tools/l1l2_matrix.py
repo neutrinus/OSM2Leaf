@@ -18,9 +18,9 @@ Usage::
     python3 tools/l1l2_matrix.py --input matrix.json --check-baseline tools/fixtures/l1l2-matrix-baseline.json
     python3 tools/l1l2_matrix.py --input matrix.json --write-baseline PATH
 
-Exit code: 1 on a runnable FAIL, a baseline REGRESSION (including a lost
-PASS key) or a duplicated baseline key; 0 otherwise. DROPPED/NEW/IMPROVEMENT
-are printed but do not fail. No vendor bytes, no firmware acceptance claim.
+Exit code: 1 on a runnable FAIL or a baseline REGRESSION (including a lost
+PASS key); 0 otherwise. DROPPED/NEW/DUPLICATE/IMPROVEMENT are printed but do
+not fail. No vendor bytes, no firmware acceptance claim.
 """
 
 from __future__ import annotations
