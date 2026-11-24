@@ -35,7 +35,7 @@ own unit.
 | 1 | unit | back up the flash and `SRAM` | LeafSDTools |
 | 2 | PC | read the unit's map code and build name | `card_mapcode.py unit` |
 | 3 | PC | consent skip on the EU card (optional) | `ze0_consent.py` |
-| 4 | PC | audio patch on the EU card | `audio_tnr_patch.py` or `audio_transplant.py` |
+| 4 | PC | US `Audio.exe` transplanted into the EU card | `audio_transplant.py` |
 | 5 | PC | map code and build name on the EU card | `card_mapcode.py set` |
 | 6 | unit | GPS time fix in NK1 (optional, fixes the clock) | LeafSDTools Companion + `Write NAND` → `ALL OS` |
 | 7 | unit | erase area 0 of `SRAM`, **after** step 6 | LeafSDTools `RESTORE SRAM` |
@@ -125,15 +125,17 @@ is only partly working (M1.58). Languages were not checked.
    LeafSDTools Companion consent patch does not fit 2011 cards.
 
 4. **Audio.** The EU `Audio.exe` opens the RDS tuner `TNR2:`, which a USA
-   unit never starts. Without a patch the equalizer does not react. Pick
-   one variant (M1.59):
+   unit never starts. Without a patch the equalizer does not react. Use
+   the transplant, which was tested in the car on 2026-11-24. It appends the
+   US `Audio.exe` to image A (M1.59):
 
    ```bash
-   # small: point the EU Audio.exe at the RBDS tuner (4 bytes)
-   python3 tools/audio_tnr_patch.py patch eu_card.img --in-place
-   # or larger: append the US Audio.exe to image A
+   python3 tools/audio_transplant.py plan  eu_card.img us_card_head.img   # no writes
    python3 tools/audio_transplant.py apply eu_card.img us_card_head.img --in-place
    ```
+
+   An untested alternative is the 4-byte `audio_tnr_patch.py patch
+   eu_card.img --in-place` (EU `Audio.exe` pointed at `TNR4:`).
 
    Run this after step 3 and before step 5. FM radio still does not fully
    work with either variant.
