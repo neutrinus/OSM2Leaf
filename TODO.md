@@ -907,7 +907,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-23-M1.49-ui-strings; docs/firmware/ui-strings.md: UI texts are UTF-16LE blocks in substance.skn (7/2/16 blocks EU2011/US2011/EU2014), language = setting (get_lang 0x003c0228), UI font 8/18 Polish letters; verdict: replace a block (card edit) / add needs unlocated selector
 
 - [ ] **M1.53 — move `point_tree_l3`'s STDDLL section walk onto `ce_module` (with a byte-identical capture first)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.53-cycle10 · Critical: no · Pair: solo
   - Depends: — (M1.47 left this as its own falsifier: extend, do not fork)
   - Goal: M1.47's falsifier ("a fifth `_l3.py` that reads ROM sections through `cerom` directly and would have been wrong under the new helper") is `tools/point_tree_l3.py:161` in `Firmware.__init__`: it walks `STDDLL.dll` with its own `rom.o32` loop and calls `nk_decomp.decompress` directly (`IMAGE_SCN_COMPRESSED` at :163), which is the same decode `ce_module.module_sections(..., "STDDLL.dll")` already does (eager, since image start is `0x200200`). M1.47 deferred the move because it had no byte-identical capture of this tool on the factory image; do that capture first, then move the walk and delete the direct `nk_decomp` call (`import nk_decomp` in that method becomes unnecessary).
   - Precheck: `grep -n 'nk_decomp\|IMAGE_SCN_COMPRESSED' tools/point_tree_l3.py` prints the `:161`-`:165` loop and `grep -rln 'IMAGE_SCN_COMPRESSED' tools/*_l3.py | wc -l` prints 3; `python3 tools/point_tree_l3.py --selftest` is green before you start.
