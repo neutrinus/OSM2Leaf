@@ -4586,8 +4586,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: AUI text and button labels reach plane 1 with bit 15 clear, so the colour key drops them; the 2DG blit that sets the opacity bit is not in ze0-0014 (raw page shows the text, screen does not)
   - Unblock: M8.C1v
 
-- [ ] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
-  - Status: in progress · Owner: task/m8.c1v-aui-buttons · Critical: no · Pair: solo
+- [x] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
+  - Status: done · Owner: task/m8.c1v-aui-buttons · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1n
   - Goal: M8.C1t showed the map screen with the AUI widget pixels but not the button labels: the AUI text reaches plane 1 with bit 15 clear and the colour key drops it (C-8502, C-8505). The unit makes the text opaque through a 2DG blit that ze0-0014 does not render (C-8506). Marek wants the interface (plane 1 buttons) over the map in the emulator screenshot (2026-11-22).
@@ -4598,6 +4598,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the labels come from a plane/surface that is not 2DG (e.g. a CPU blit through gdisubdrv), record that and hand it back to a plane/surface task instead of widening ze0-0014.
   - Falsifier: the labels appear only with a non-key composition (plane -n 1), never from the windowed screen - then the key/alpha rule of C-8502 is what the unit relies on and the 2DG blit is a red herring.
   - Claims: C-9920–C-9929
+  - Result: EXP-2026-11-24-M8.C1v-aui-labels-opaque; patch ze0-h47; bbox 2378 opaque/0 dropped vs 441/1010 neg
 
 - [x] **M8.C1u — 2DG area fill: water and parks drawn as rectangles (pattern texture over a stencil polygon)**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
