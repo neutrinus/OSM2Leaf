@@ -1,0 +1,21 @@
+# M8.H40 recorded QMP input session: consent unlock + ZOOM IN tap on the US card.
+# Every event goes through the ze0-gfx display console (device=ze0-gfx) and the
+# M8.H40 input-forward chardev -> panel peer -> SCI3 display-unit link, the same
+# path M8.H39 used. Run with:
+#   python3 tools/ze0_input.py run docs/emulator/scenarios/live-tap.txt \
+#     --qmp WORK/qmp.sock --hmp WORK/mon.sock --panel-log WORK/panel.log \
+#     --shot-dir SHOTS --log WORK/serial.log
+# The guest must be started with `ze0_launch.py --display vnc=... --input --qmp
+# --ui-start`: the --touch-unlock bridge arms the join patch (M8.C1n) so the
+# first touch clears the key guard; uistart.log prints "touch unlocked".
+# Consent OK at panel (277,98); ZOOM IN at panel (765,70).
+# abs qwords: (277,98) -> (0x2c60,0x1a30); (765,70) -> (0x7a8d,0x12b5).
+wait-log ANTITHEFT_CC_NTF_COMP_OK
+wait-log AUI Initialize Complete
+abs 277 98
+click
+wait-log SK_SCT_AGREE_CLICK
+wait-log MAP_MAPOPERATION_NORMAL_MAP::CompleteShowScreen
+abs 765 70
+click
+shot after-tap

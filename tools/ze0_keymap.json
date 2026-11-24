@@ -1,0 +1,13 @@
+{
+  "_comment": "QEMU QKeyCode -> CE virtual key for the M8.H40 live-window key path. Names MAP/MENU/DEST/ZOOM are owner's-manual wording (OBSERVED); the finer 0x17..0x1a assignment is a HYPOTHESIS per docs/firmware/keys.md. Verified raw->VK pairs are in section 3.1; qcode names are QEMU's, not firmware strings.",
+  "_source": "docs/firmware/keys.md section 3.1 (table 0x01f421b4, KeyType 3); QEMU qapi/ui.json QKeyCode",
+  "qcode_to_vk": {
+    "ret": 13,
+    "enter": 13,
+    "esc": 27,
+    "m": 23,
+    "menu": 24,
+    "d": 25,
+    "z": 26
+  }
+}

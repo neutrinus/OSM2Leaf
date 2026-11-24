@@ -4609,8 +4609,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: AUI text and button labels reach plane 1 with bit 15 clear, so the colour key drops them; the 2DG blit that sets the opacity bit is not in ze0-0014 (raw page shows the text, screen does not)
   - Unblock: M8.C1v
 
-- [ ] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.C1v — Map screen with the AUI buttons in the emulator screenshot: display link up and touch reaching the AUI**
+  - Status: done · Owner: task/m8.c1v-aui-buttons · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1n
   - Goal: M8.C1t showed the map screen with the AUI widget pixels but not the button labels: the AUI text reaches plane 1 with bit 15 clear and the colour key drops it (C-8502, C-8505). The unit makes the text opaque through a 2DG blit that ze0-0014 does not render (C-8506). Marek wants the interface (plane 1 buttons) over the map in the emulator screenshot (2026-11-22).
@@ -4621,6 +4621,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the labels come from a plane/surface that is not 2DG (e.g. a CPU blit through gdisubdrv), record that and hand it back to a plane/surface task instead of widening ze0-0014.
   - Falsifier: the labels appear only with a non-key composition (plane -n 1), never from the windowed screen - then the key/alpha rule of C-8502 is what the unit relies on and the 2DG blit is a red herring.
   - Claims: C-9920–C-9929
+  - Result: EXP-2026-11-24-M8.C1v-aui-labels-opaque; patch ze0-h47; bbox 2378 opaque/0 dropped vs 441/1010 neg
 
 - [x] **M8.C1u — 2DG area fill: water and parks drawn as rectangles (pattern texture over a stencil polygon)**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
@@ -5374,8 +5375,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.H39-tap-l4; named-region after-tap hash c64ff230… equal in 2 boots, != idle 985e3ddd…, empty tap unchanged; bp hits 4/2; US fallback
   - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
-- [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
+  - Status: done · Owner: task/m8.h40-live-window · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H4, M8.H38
   - Goal: For exploring the UI by hand: `run.sh --display gtk` (or VNC) where a mouse click is a tap and mapped keyboard keys are the hard keys.
@@ -5386,6 +5387,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: the click lands at a different guest coordinate than requested (scaling error) — measured by the peer's log.
   - Claims: C-7370–C-7379
+  - Result: EXP-2026-11-24-M8.H40-live-window; L4 QMP tap frame 5102fd004631 == H39, ZOOM ILL EVENT 1, 33/33 patches
 
 - [ ] **M8.H41 — Scenario: set a destination and calculate a route at L4**
   - Status: open · Owner: — · Critical: no · Pair: required
@@ -5937,7 +5939,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
 
 - [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
-  - Status: open · Owner: — · Critical: no · Pair: no
+  - Status: blocked · Owner: task/m8.h20a-position-record · Critical: no · Pair: no
   - Step: reader
   - Depends: M8.H18, M8.H19
   - Goal: M8.H20 is blocked because the flash→object-store restorer of the last vehicle position is UNKNOWN (C-7167). Trace `OBJ_BackUpMgr` / `OBJDLL!OBJ_CarPos_read` back to the `FMD1:` record and derive its exact flash offset, record layout and checksum from structure or a real unit dump — never a guessed format. Report whether the saved word is `0x9c03a3c0`-style packed COORD001 and whether there is a second copy.
@@ -5948,6 +5950,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session; if no dump and no static derivation succeeds, stay blocked with a negative EXP and a positive control.
   - Falsifier: a candidate record whose mutation does not change the position read at init.
   - Claims: C-10130–C-10139
+  - Blocker: Exact on-flash CarPos record offset/fields UNKNOWN: globals in OBJDLL compressed/BSS .data, no real dump with a known position, L4 witness read unavailable
+  - Unblock: M1.2f
+  - Result: EXP-2026-11-24-M8.H20a-position-record (blocked, partial positive: SMST frame+checksum derived, 8/8 store sums OK, negative mutation rejects, 25 class rows; exact record offset/format UNKNOWN, M8.H20 not re-opened)
 
 - [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
   - Status: open · Owner: — · Critical: no · Pair: required

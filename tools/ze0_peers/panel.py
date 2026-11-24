@@ -393,6 +393,82 @@ class Out:
                 obj.close()
 
 
+
+class InputBridge:
+    """Decode ze0-gfx forwarded QMP input lines into panel commands (M8.H40).
+
+    The QEMU side emits one command per line on a chardev:
+
+        abs x PIXEL
+        abs y PIXEL
+        btn left down|up
+        key QCODE down|up
+
+    ``abs`` stores the last position; a left-button ``down`` turns the two
+    axes into a ``tap X Y`` on the same SCI3 path as M8.H39.  A ``key`` is
+    mapped from the QEMU qcode through the keymap file to the CE virtual key
+    and emitted as ``key 0xNN``.  ``feed()`` returns zero or more panel
+    command strings; ``log`` records the decoded coordinates so the falsifier
+    (a click landing at the wrong guest pixel) is measured, not asserted.
+    """
+    def __init__(self, keymap=None, log=None):
+        import json
+        self.x = self.y = None
+        self.log = log
+        self.keymap = {}
+        if keymap:
+            with open(keymap, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            self.keymap = data.get("qcode_to_vk", data)
+
+    def _say(self, text):
+        if self.log:
+            print("input: %s" % text, file=self.log, flush=True)
+
+    def feed(self, line):
+        parts = line.strip().split()
+        if not parts:
+            return []
+        cmd = parts[0].lower()
+        if cmd == "abs" and len(parts) == 3 and parts[1] in ("x", "y"):
+            try:
+                value = int(parts[2], 10)
+            except ValueError:
+                raise PanelError("bad abs value %r" % parts[2])
+            if not 0 <= value <= (SCREEN_W if parts[1] == "x" else SCREEN_H):
+                raise PanelError("abs %s %d out of range" % (parts[1], value))
+            if parts[1] == "x":
+                self.x = value
+            else:
+                self.y = value
+            self._say("%s=%d" % (parts[1], value))
+            return []
+        if cmd == "btn" and len(parts) == 3 and parts[1] == "left" and \
+                parts[2] in ("down", "up"):
+            if parts[2] == "up":
+                return []
+            if self.x is None or self.y is None:
+                raise PanelError("btn down before abs x/y")
+            # Encode the SAME record M8.H39 used; SCI3 frame follows in
+            # touch_frame_payload().  Decode it back here for the log so the
+            # falsifier measures the guest coordinate that will be injected.
+            rec = encode_sample(self.x, self.y, "1")
+            payload = touch_frame_payload(rec)
+            _, dx, dy, st = struct.unpack(">BHHs", payload)
+            self._say("tap x=%d y=%d st=%s frame=%s" %
+                      (dx, dy, st.decode("ascii"), payload.hex()))
+            return ["tap %d %d" % (self.x, self.y)]
+        if cmd == "key" and len(parts) == 3 and parts[2] in ("down", "up"):
+            if parts[2] == "up":
+                return []
+            if parts[1].lower() not in self.keymap:
+                raise PanelError("unknown qcode %r" % parts[1])
+            vk = self.keymap[parts[1].lower()]
+            self._say("key %s -> 0x%02x" % (parts[1], vk))
+            return ["key 0x%02x" % vk]
+        raise PanelError("unknown input line %r" % line.strip())
+
+
 def emit(events, out):
     state = {"events": []}
     for after_ms, event in events:
@@ -449,6 +525,32 @@ def run(args):
     if getattr(args, "sci3", None):
         link = Sci3Link(args.sci3, log=sys.stdout)
 
+    bridge = None
+    input_sock = None
+    input_buf = ""
+    if getattr(args, "input", None):
+        bridge = InputBridge(keymap=getattr(args, "keymap", None),
+                             log=sys.stdout)
+        input_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        deadline = time.time() + 30.0
+        while True:
+            try:
+                input_sock.connect(args.input)
+                break
+            except OSError:
+                if time.time() > deadline:
+                    raise
+                time.sleep(0.2)
+        input_sock.setblocking(False)
+
+    def apply_input(line):
+        """One forwarded ze0-gfx line -> zero or more panel commands."""
+        cmds = bridge.feed(line)
+        answers = []
+        for c in cmds:
+            answers.append(apply(c))
+        return answers
+
     def apply(line):
         if line.strip().lower().startswith("frame "):
             # raw SCI3 payload, e.g. a key frame "frame 3401" (M8.H35)
@@ -479,18 +581,34 @@ def run(args):
     try:
         for line in args.commands or []:
             apply(line)
-        deadline = None if (args.forever or link is not None) else 0.0
-        while (ctrl is not None or link is not None) and (deadline is None or True):
+        deadline = None if (args.forever or link is not None or
+                            input_sock is not None) else 0.0
+        while (ctrl is not None or link is not None or
+               input_sock is not None) and (deadline is None or True):
             socks = [ctrl] if ctrl is not None else []
             if link is not None:
                 link.pump(0.0)
                 socks.append(link.sock)
+            if input_sock is not None:
+                socks.append(input_sock)
             ready, _, _ = select.select(socks, [], [], 0.1)
             if link is not None and link.sock in ready:
                 link.pump(0.0)
-            if ctrl is None or ctrl not in ready:
-                ready = []
-            if ready:
+            if input_sock is not None and input_sock in ready:
+                data = input_sock.recv(4096)
+                if not data:
+                    raise ConnectionError("ze0-gfx input peer closed")
+                input_buf += data.decode("utf-8", "replace")
+                while "\n" in input_buf:
+                    line, input_buf = input_buf.split("\n", 1)
+                    if line.strip():
+                        try:
+                            apply_input(line)
+                        except PanelError as exc:
+                            errors.append(str(exc))
+                            print("panel: input ERR %s" % exc)
+            ctrl_ready = ctrl is not None and ctrl in ready
+            if ctrl_ready:
                 conn, _ = ctrl.accept()
                 with conn:
                     data = conn.recv(4096).decode("utf-8", "replace")
@@ -507,6 +625,8 @@ def run(args):
             print("panel: sci3 driver commands %d, ACKs %d, NAKs %d" %
                   (len(link.unit.seen), link.unit.acks, link.unit.naks))
             link.sock.close()
+        if input_sock is not None:
+            input_sock.close()
         out.close()
     return 1 if errors else 0
 
@@ -618,6 +738,41 @@ def selftest():
           anw_frames.build_frame(touch_frame_payload(
               encode_sample(16, 240, "0"))).hex()[:14], "10025100101000")
 
+    # InputBridge (M8.H40): decode forwarded ze0-gfx QMP input lines.
+    bridge = InputBridge()
+    check("abs x stores", bridge.feed("abs x 765"), [])
+    check("abs y stores", bridge.feed("abs y 70"), [])
+    check("btn down -> tap", bridge.feed("btn left down"), ["tap 765 70"])
+    check("btn up emits nothing", bridge.feed("btn left up"), [])
+    check("btn before abs refused", rejected(
+        lambda: InputBridge().feed("btn left down")), True)
+    check("bad abs refused", rejected(lambda: InputBridge().feed("abs x 900")), True)
+    check("unknown qcode refused", rejected(
+        lambda: InputBridge().feed("key NOPE down")), True)
+    b2 = InputBridge()
+    b2.feed("abs x 765")
+    b2.feed("abs y 70")
+    # The decoded SCI3 frame must carry the same BE coordinates as H39.
+    rec = encode_sample(765, 70, "1")
+    frame = touch_frame_payload(rec)
+    _, dx, dy, st = struct.unpack(">BHHs", frame)
+    check("decoded x", dx, 765)
+    check("decoded y", dy, 70)
+    check("decoded frame", frame.hex(), "5102fd004631")
+    # keymap: qcode -> VK (a synthetic map, not firmware truth)
+    import tempfile as _tf
+    import json as _json
+    with _tf.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+        _json.dump({"qcode_to_vk": {"a": 0x0d, "m": 0x17}}, fh)
+        kp = fh.name
+    try:
+        kb = InputBridge(keymap=kp)
+        check("key a -> VK", kb.feed("key a down"), ["key 0x0d"])
+        check("key m -> VK", kb.feed("key m down"), ["key 0x17"])
+        check("key up emits nothing", kb.feed("key m up"), [])
+    finally:
+        os.unlink(kp)
+
     print("selftest: %s (%d failure(s))" % ("PASS" if not fails else "FAIL", fails))
     return 1 if fails else 0
 
@@ -629,6 +784,10 @@ def main(argv=None):
     ap.add_argument("--out", default="-",
                     help="event stream: '-' stdout, PATH file, unix:PATH socket")
     ap.add_argument("--control", help="AF_UNIX control socket for ze0_ui.py")
+    ap.add_argument("--input", metavar="PATH",
+                    help="AF_UNIX socket of ze0-gfx forwarded QMP input (M8.H40)")
+    ap.add_argument("--keymap", metavar="PATH",
+                    help="qcode->VK JSON for --input key events (M8.H40)")
     ap.add_argument("--sci3", metavar="PATH",
                     help="QEMU chardev socket of sci3: act as the display unit "
                          "(handshake + touch frames, M8.H35)")
