@@ -357,6 +357,17 @@ def selftest() -> int:
         check("fn serial_scif", hex(r.fn_at(0x0398e8a2, "serial_scif.dll", "live")),
               "0x398e888")
         check("counts top", res["counts"].most_common(1)[0][1], 2)
+        # JSON report must not crash (D7) and must quote the same counts.
+        import io
+        import contextlib
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            report(res, 10, "selftest", True)
+        doc = json.loads(buf.getvalue())
+        check("json read", doc["read"], 4)
+        check("json parsed", doc["parsed"], 3)
+        check("json attributed", doc["attributed"], 3)
+        check("json provenance serial", doc["functions"][-1]["provenance"], "live")
         # Negative mutation: drop the valid sample -> parsed goes 3 -> 2.
         bad = cap.replace("pc=0x0398e8a2 sr=0x50000000", "pc=0xZZZZZZZZ sr=0x50000000")
         with open(path, "w") as fh:
@@ -375,6 +386,22 @@ def selftest() -> int:
     return 1 if fails else 0
 
 
+def load_modules(path: str):
+    """Load modules from a saved ``ze0_ps.py --json`` snapshot (D8).
+
+    Accepts the JSON object's ``modules`` list or a bare list; each item is
+    ``{name, vbase, vsize}`` with VAs as 0x-prefixed strings or integers.
+    """
+    data = json.load(open(path))
+    items = data.get("modules", []) if isinstance(data, dict) else data
+    out = []
+    for m in items:
+        vb = int(m["vbase"], 0)
+        vs = int(m["vsize"], 0)
+        out.append((m["name"], vb, vs))
+    return out
+
+
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -386,6 +413,8 @@ def main(argv=None) -> int:
                     help="seconds between samples (default 0.05)")
     ap.add_argument("--modules-from-ps", action="store_true",
                     help="read the live module table via ze0_ps.py")
+    ap.add_argument("--modules", metavar="FILE",
+                    help="replay a saved ze0_ps.py --json module list (or a list of {name,vbase,vsize})")
     ap.add_argument("--image", metavar="IMG",
                     help="firmware image for module/pdata attribution")
     ap.add_argument("--cache", metavar="DIR", help="pdata decode cache directory")
@@ -407,6 +436,8 @@ def main(argv=None) -> int:
         monitor = HmpMonitor(args.monitor)
     else:
         monitor = ReplayMonitor(load_capture(args.file))
+    if args.modules:
+        mods = load_modules(args.modules)
     resolver = Resolver(args.image, mods, args.cache)
     try:
         result = sample(monitor, args.n, args.interval, resolver, args.save)
