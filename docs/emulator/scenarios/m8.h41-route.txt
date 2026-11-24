@@ -11,9 +11,12 @@
 
 # --- boot and consent -------------------------------------------------------
 wait-log Store Mgr Ready! \[DSK1:\]
+wait-log AUI Initialize Complete!!!
+wait-log SRT_COLD_I_AGREE_NAM::CompleteShowScreen
 sleep-guest 2
 shot consent
 tap 277 98
+sleep-guest 3
 wait-log MAP_MAPOPERATION_NORMAL_MAP
 sleep-guest 2
 shot map_idle
