@@ -5355,7 +5355,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7380–C-7389
 
 - [ ] **M8.H42 — Screen catalogue: walk the menu tree by script and record every screen reached**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h42-screen-catalogue · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: A map of the UI (screen → how to reach it → what it needs) makes later scenarios short and shows which features work in the emulator.
