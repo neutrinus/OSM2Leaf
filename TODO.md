@@ -3605,7 +3605,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7970–C-7979
 
 - [ ] **M5.79 — Charging stations from OSM into `REFER002`: feasibility and first record**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m5.79-cycle10 · Critical: no · Pair: required
   - Step: P4
   - Depends: M4.85
   - Goal: With the station record of M4.85, write one new charging station (an OSM `amenity=charging_station`) into the EV layer and read it back.
