@@ -1,0 +1,95 @@
+role: TL (team lead). Model: opencode/hy4-flash-free
+start: 2026-11-24 09:20 UTC
+end: (in progress)
+origin/main at start: 90f37fc13ae57ce5c2e5533585077351c4599cf2
+
+inputs read: prompt_common.txt, prompt_tl.txt, AGENTS.md, TODO.md rules 1-17
+  and Priorities, dev_process/2026-11-24-0611-1-tl.log (cycle-10 batch 1 state),
+  open PR list, git worktree list.
+
+environment note: /tmp tmpfs was at HARD quota 3095M/3095M causing git
+  "Quota exceeded" (os error 122); cleared 57 orphaned ze0_card_selftest_*
+  dirs (~3 GB) + stale files, now 3.7 GB free. Root fs 8.2 GB free.
+  All subagents must use home-tree scratch, never /tmp.
+
+(queue clearing + task selection + outcome table appended below)
+
+queue clearing (done):
+  - Non-draft PR #723 (M4.75) and #706 (M8.C1p) had their content already
+    squashed to main by the prior TL run (5567ea68, 3da49f59); closed both
+    with comments naming the squash SHAs.
+  - Non-draft PR #728 (M2.27, external thread) was real work on a stale base.
+    Rebased three times onto a moving main, used board.py resolve by ID on
+    claims.md, and moved M8.H20a's reserved claim block C-10120..C-10129 to
+    C-10130..C-10139 with board.py field (M2.27 owns C-10120..C-10129).
+    Gate 4 pass/0 fail/1 skip (fn_audit skip in scratch), todo/claims/lost OK;
+    pushed to main as 5be6cb00, closed #728, deleted its branch.
+  - Three DRAFT ghosts #713 (M6.25), #715 (M8.H68a), #718 (M9.78) had only
+    the claim commit, task back to open on main; closed under rule 8 and
+    deleted their remote branches.
+  - Reclaimed 22 merged/stale cycle-10 worktrees so new worktrees fit.
+  - main 5be6cb00 gate: 5 pass / 0 fail / 0 skip (fn_audit PASS with image).
+  - No open PRs remain.
+
+task selection (30 tasks; 27 pairs + 3 solos = 57 subagents):
+  - Eligible set recomputed fresh on origin/main: 53 open tasks with all deps
+    done; 0 Critical. Filtered out non-Claude runner tasks, London-PBF tasks
+    (M5.93/M5.94/M5.96/M5.98/M5.101), 7 GiB rebuild tasks (M8.H79a), and
+    tasks whose output file collides with another selected task
+    (M4.71/M4.74/H142 dropped for map-tiles.md/refer.md/test-system.md).
+  - PAIRS (27): M1.41, M1.48, M1.55, M1.56(req), M3.42(req), M3.40(req),
+    M3.41(req), M4.60, M5.81(req), M6.25, M8.H66, M8.H67, M8.H63(req),
+    M9.62(req), M9.78(req), H57, H84(req), M8.H14, M8.H77(req), M8.G4,
+    M2.23(req), M8.H72(req), M8.H42, M8.H47, M8.H15, M8.H68a.
+    High-risk fields (firmware search, format writers, L3/L4 inputs,
+    claims.md, standing-gate pass/fail, CI) paired even where Pair: solo.
+  - SOLOS (3): M5.102 (hashutil refactor, selftest-covered exit check),
+    M5.73 (POI profile file), M8.G3 (public-source research doc).
+    None touches a gate, assertion, snapshot or a blocked claim's evidence.
+  - M8.H63 writes its L3 target as an EXP recipe (not a second l3check.py
+    edit) to stay disjoint from M9.62 which owns tools/l3check.py.
+
+(manifest + outcome table appended as results arrive)
+
+manifest (task -> branch, worktree, driver session, navigator session, mode):
+  M1.41  task/m1.41-bluetooth-stack        ses_df2feb54cffdWqna1EBmKeKX8R / ses_df2fe153effeHPlQu5WXkaFHk1  pair
+  M1.48  task/m1.48-antitheft-map           ses_df2feb54affevRRpL7LEXrysME / ses_df2fe153effdAh5lQuvdnI4BQo  pair
+  M1.55  task/m1.55-speech-language         ses_df2feb54affdQROH8aPIIr2tI9 / ses_df2fe153effc3tJLKhIcoRmYeB  pair
+  M1.56  task/m1.56-position-dump-tool      ses_df2feb546ffdF5iAXXHiNrsbCb / ses_df2fe1539ffdHzDZLcpbcifvvR  pair(req)
+  M3.42  task/m3.42-rcv-parcel-queue        ses_df2feb53affd6fdZxMkiw2v62k / ses_df2fe1533ffezL7cO1Vvh5wzYB  pair(req)
+  M3.40  task/m3.40-refer002-opener         ses_df2feb538ffdc6ByC7TnfFvYM1 / ses_df2fe1532ffdpbh067ztOPDSv2  pair(req)
+  M3.41  task/m3.41-background-polygons     ses_df2feb531ffe1LCZYUk03I2TQ2 / ses_df2fe152cffeH5gy7MBEcYqEUG  pair(req)
+  M4.60  task/m4.60-sounds-inventory        ses_df2feb530ffeOROX4402FL1P9h / ses_df2fe152bffeJDHdcR8l2e1DTQ  pair
+  M5.81  task/m5.81-section1-census-replay  ses_df2feb52fffesSu1Y6woAQtsYh / ses_df2fe152bffdt8WTafV27GB4ch  pair(req)
+  M5.102 task/m5.102-hashutil-migration     ses_df2feb52fffdALTNGbUxdy46qa / none  SOLO
+  M5.73  task/m5.73-poi-category-profile    ses_df2fe8406ffdyleGZDD6xH3qs9 / none  SOLO
+  M6.25  task/m6.25-object-0a               ses_df2fe8405ffeTOD59gcMATMGXy / ses_df2fe152affeFJJL9IumGZinQe  pair
+  M8.H66 task/m8.h66-scif-rx-path           ses_df2fe8405ffdrHMGhigvQhs4eJ / ses_df2fdd753ffdWbY3Ch39Uqt8Dq  pair
+  M8.H67 task/m8.h67-watchdog-reset         ses_df2fe8401ffdE9DsQw25wLY5vl / ses_df2fdd752ffeeAWllQI80QCOHU  pair
+  M8.H63 task/m8.h63-traffic-event          ses_df2fe83f0ffe0QtQRGqJFwC6Hx / ses_df2fdd752ffdNEvE85ivkJ94F0  pair(req)
+  M9.62  task/m9.62-l3-runs-manifest        ses_df2fe83eeffeqKKZrHvW8UMZaT / ses_df2fdd74fffdrTGgYF8u582P2U  pair(req)
+  M9.78  task/m9.78-template-defects        ses_df2fe83dfffcnk2nVRNYcKeC7e / ses_df2fdd749ffdNw0fYaBrB31kkI  pair(req)
+  H57    task/h57-fixture-baseline           ses_df2fe83ddffejc1Kl8tgcYEYdX / ses_df2fdd747ffdOnAGg7xdh17KM3  pair(gate)
+  H84    task/h84-img256-regression-workflow ses_df2fe83dcffdLxZJ4AmSaD1Cn2 / ses_df2fdd740ffeFm7fswcQdXP2QJ  pair(req)
+  M8.H14 task/m8.h14-patch-apply-ci         ses_df2fe83dbffeP2YI5UbYdBw9xC / ses_df2fdd740ffd7HN2CD7wsXtfET  pair(CI)
+  M8.H77 task/m8.h77-peerlib                ses_df2fe5604ffdHKb5VgmrlhFeBE / ses_df2fdd73fffeHLEeB3YS4EapXf  pair(req)
+  M8.G4  task/m8.g4-aze0-machine            ses_df2fe5603ffetraFw6dYk2L2a1 / ses_df2fdd73effeq47VtqE4HUO0xO  pair
+  M2.23  task/m2.23-sd-lock-emulator        ses_df2fe5603ffdRZvz2WGTySgX48 / ses_df2fda0a4ffdYrwTVnv17bXQQ7  pair(req)
+  M8.H72 task/m8.h72-route-simulation       ses_df2fe5600ffdAFK6xv0h806jb3 / ses_df2fda0a4ffcLTwmjbDPS0g6Z8  pair(req)
+  M8.H42 task/m8.h42-screen-catalogue       ses_df2fe55fbffdPJIMHnu09m6o7c / ses_df2fda0a3ffe1YtHuBkk5LG6Kb  pair
+  M8.H47 task/m8.h47-apptimerdll            ses_df2fe55f9ffdBQa529A0b02cTL / ses_df2fda09effe4NJt334VGhL5Dd  pair
+  M8.H15 task/m8.h15-debug-zones            ses_df2fe55dbffeoqpiQ8TQh4fbHx / ses_df2fda099ffeGRR55vqamkLBG7  pair
+  M8.H68a task/m8.h68a-user-slot-vas        ses_df2fe55daffeEuCCuc9ooXZSNi / ses_df2fda098ffeF4dAeswQykQwBY  pair
+  M8.G3  task/m8.g3-android-auto            ses_df2fe55d9ffem39L1k7n7OQqx6 / none  SOLO
+  M8.H23 task/m8.h23-pc-sampler             ses_df2fe55d9ffdadJ1QVmdwiAoxi / ses_df2fda097ffekCocRVvIAdq2X2  pair
+
+Total subagents launched: 57 (30 drivers + 27 navigators) = 2T - S with T=30, S=3.
+All 30 worktrees created from origin/main 5be6cb00, archive symlinks verified.
+Skipped as not runnable here: M5.93/M5.94/M5.96/M5.98/M5.101 (London PBF absent),
+M8.H79a (7 GiB from-zero rebuild + stock zlib unavailable), M1.52/M3.14/M4.28/
+M4.57/M4.59/M4.75/M4.76/M4.78/M5.79/M5.92/M5.95/M1.38/M8.H12/M8.H17/M8.H20/
+M8.H39/M8.H54/M8.H62/M8.C1p/M8.G2/H42/M9.62-old (already done/blocked and merged
+this cycle) and non-Claude-runner tasks. H142/M4.71/M4.74 dropped for output-file
+collisions with other selected tasks (test-system.md / map-tiles.md / refer.md).
+
+(outcome table appended as results arrive)
