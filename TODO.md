@@ -4818,7 +4818,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.H11-l3-l4-parity (negative; tool + exit-3 contract + selftest only)
 
 - [ ] **M8.H12 — The US 2011 card on `-M ze0` (Marek's unit is US)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h12-cycle10 · Critical: no · Pair: required
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: All L4 work so far used the EU 2011 card. The only real unit is US, and its card carries another `Navi.exe` build (rule 14, name the build). Bring the US card to the same stage.
