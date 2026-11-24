@@ -5366,8 +5366,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7370–C-7379
   - Result: EXP-2026-11-24-M8.H40-live-window; L4 QMP tap frame 5102fd004631 == H39, ZOOM ILL EVENT 1, 33/33 patches
 
-- [ ] **M8.H41 — Scenario: set a destination and calculate a route at L4**
-  - Status: in progress · Owner: task/m8.h41-route-scenario · Critical: no · Pair: required
+- [x] **M8.H41 — Scenario: set a destination and calculate a route at L4**
+  - Status: done · Owner: task/m8.h41-route-scenario · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: The first routing test in the full system: enter a destination by the map or by a stored point, start route calculation, capture the result. It tells which files the router opens (section 2, `LEV3456R`) on a factory card and later on ours.
@@ -5378,6 +5378,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; stop at the first screen that needs an input no peer provides and name it.
   - Falsifier: no file is read during calculation (then the graph was preloaded and the trace window must start earlier).
   - Claims: C-7380–C-7389
+  - Result: EXP-2026-11-24-M8.H41-route-scenario; 2 US-card runs equal final hash 39dae3c3...; gated SD window 122/106 events, 74 mapped B30R0E0R.DAT reads at 0xacb800-0xacc400 and 0xaf5e00-0xafe400; no destination screen reached (5 states, VAR_CALCULATE_ROUTE_FLG=0)
 
 - [ ] **M8.H42 — Screen catalogue: walk the menu tree by script and record every screen reached**
   - Status: blocked · Owner: task/m8.h42-screen-catalogue · Critical: no · Pair: solo
