@@ -1243,6 +1243,29 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: required
   - Result: EXP-2026-11-24-H147-patch-lint-name; build.sh selftest 94/0, patch sha unchanged
 
+- [x] **H148 — Re-read osm2clarion (now with QY7 support), compare with our results, propose contributions and assess the project's direction**
+  - Status: done · Owner: claude/project-thread-ctv13b · Critical: yes · Pair: solo
+  - Depends: — (owner request 2026-11-24)
+  - Goal: the owner asked what we can give osm2clarion from what we learned, and whether continuing this project still makes sense. `docs/research/sources.md` still calls it QY8-only prior art; its tree gained `X08-02-00` support on 2026-11-11.
+  - Scope: read-only clone into an empty directory outside the repository, no upstream code executed, nothing sent upstream (no issue, PR or message); one comparison page, one EXP, the `sources.md` row, follow-up tasks.
+  - Input: `https://github.com/albertbm/osm2clarion`, `docs/format/*.md`, `docs/research/claims.md`, `docs/research/osm-from-scratch.md`.
+  - Done when: `docs/research/osm2clarion-comparison.md` exists with a side-by-side table, a contribution list marked as not sent, and a direction assessment; `python3 tools/gate.py` has no FAIL.
+  - Stop: one session.
+  - Falsifier: the upstream tree has no `X08-02` format object (then the old note stands).
+  - Claims: C-10370–C-10379
+  - Result: EXP-2026-11-24-H148-osm2clarion-comparison (C-10370–C-10376): upstream now writes X08-02 (QY7) in area mode; comparison, contribution list (not sent) and direction assessment in docs/research/osm2clarion-comparison.md; follow-ups M5.104, H149
+
+- [ ] **H149 — `tools/ze0-viewer` pins an upstream osm2clarion commit that no longer exists**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: — (found by H148)
+  - Goal: `tools/ze0-viewer/tools_ze0/PROVENANCE.md` and `setup.sh` name commit `07fbf78d049e7765db887818e77419ffc3dd499a`; upstream rewrote its history and `git cat-file -t 07fbf78d…` fails in a fresh clone, so the audit/regenerate path cannot run. Upstream now reads `X08-02-00` natively, which the vendored patch was written to add.
+  - Precheck: in a fresh clone of `https://github.com/albertbm/osm2clarion`, `git cat-file -t 07fbf78d049e7765db887818e77419ffc3dd499a` prints `fatal`.
+  - Scope: `tools/ze0-viewer/` (`setup.sh`, `PROVENANCE.md`, `README.md`), `docs/format/ze0-tools.md`. Either re-pin to a current commit and drop the parts of `ze0-tools.patch` upstream now covers, or state that the checked-in copy is frozen and remove the regenerate step.
+  - Done when: `bash tools/ze0-viewer/setup.sh` exits 0 on a clean host, or the docs say the copy is frozen and no command references the missing commit; `python3 tools/gate.py` has no FAIL.
+  - Stop: one session; if re-pinning breaks `harness.py`, freeze and file the port separately.
+  - Falsifier: the old commit is reachable again upstream.
+  - Claims: C-10390–C-10399
+
 
 ## M2 — Map code, activation, updater
 
@@ -4079,6 +4102,18 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-9960–C-9969
   - Pair: solo
   - Result: EXP-2026-11-24-M5.102-hashutil-seven-tools; 17/17 call-site hex equal; selftest 282 pass 0 fail
+
+- [ ] **M5.104 — Build an osm2clarion area-mode card for Dolnośląskie on the EU 2011 base and boot it in `-M ze0`**
+  - Status: open · Owner: — · Critical: yes · Pair: solo
+  - Step: P2
+  - Depends: H148 (comparison; `docs/research/osm2clarion-comparison.md` §5)
+  - Goal: decide by measurement whether osm2clarion's QY7 area mode reaches this project's goal faster than our own writers. Their profile targets the 2014 card `QSD-357-101`; ours is `QSD-309-101` (same `X08-02-00` format, other database).
+  - Scope: a new profile for Poland/Dolnośląskie outside or inside our tree (their code stays a pinned external clone, read before it is run); `uv run build.py --profile … --base EU2011.img`; boot in `-M ze0`; record every refusal of the build and of the unit. No upstream PR in this task.
+  - Input: `https://github.com/albertbm/osm2clarion` at `458f5f0d` or later, `docs/emulator/README.md`, `profiles/dolnoslaskie-test.toml`, the `download.openstreetmap.fr` Dolnośląskie extract, `tools/datask_l3.py`.
+  - Done when: either an L4 screenshot of Wrocław roads drawn from their card plus one computed route (`NAVI_ROUTE_CC_NTF_DISPLAY_ROUTE` on serial), or a negative EXP naming the first step that fails and the bytes it fails on.
+  - Stop: two sessions. If their build refuses the 2011 base, record the assertion and try the 2014 base (`QSD-357-101`) with its own ROMs noted as not bootable in `-M ze0`.
+  - Falsifier: the card boots but draws no roads in the built area while `datask_l3.py` reads our own tile there.
+  - Claims: C-10380–C-10389
 
 ## M6 — L5 bench/car: hardware and safety
 

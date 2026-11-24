@@ -41,7 +41,7 @@ hosts, not a validation of the vendor data.
 
 | Source | What it is | Type | Status / note |
 | --- | --- | --- | --- |
-| <https://github.com/albertbm/osm2clarion> | Closest prior art: QY8x Clarion format, tile grid, zlib record tree, `DRSTR001`, `REFER001`, `LEV3456R` | reference | Prior art for the QY8x family, not ZE0 proof. Not re-opened 2026-11-05. |
+| <https://github.com/albertbm/osm2clarion> | Closest prior art and, since 2026-11-11, a working compiler for both families: QY8 (`X08-03-00`) and QY7 (`X08-02-00`, the ZE0 format); tile grid, zlib record tree, `DRSTR001`, `REFER001` writers, `LEV3456R`, routing graph | reference | Re-read 2026-11-24 at `458f5f0d` (H148): see [`osm2clarion-comparison.md`](osm2clarion-comparison.md). Its statements about units are theirs, not reproduced here. |
 | <https://www.drive2.com/l/676021531272284166/> | ZE0/QY7 teardown, full map tree, `VER_INFO`, "Different map code" | HYPOTHESIS | Secondary teardown; not reproduced by us. |
 | <https://4pda.to/forum/index.php?showtopic=808016&st=120> | `NAVI VERSION NG`, firmware offsets, `SUM4`, PROD block | HYPOTHESIS | Secondary forum evidence; not reproduced by us. |
 | <https://github.com/developerfromjokela/leafsdtools/issues/3> | Report of a US unit booting EU map files | HYPOTHESIS | Secondary report; C-080 says it was not reproduced. |
