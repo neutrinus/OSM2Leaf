@@ -4499,7 +4499,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: Areas are 0xe0/0xd0 stencil polygon + 0x82 32x32 pattern; texquad() stretched the pattern over the box. Patch ze0-hc1u repeats it and masks by the polygon: water and parks follow their outlines (factory 3ccbb525…, NK1 zoom on factory and from-zero cards). Older L4 hashes are box-fill renders. EXP-2026-11-23-M8.C1u-2dg-area-pattern, C-8840–C-8844.
 
 - [ ] **M8.C1p — Consent screen: skip `SRT_COLD_I_AGREE` on the ZE0 2011 card (port of LeafSDTools Companion `agree_qy7`)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.c1p-cycle10 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1m
   - Goal: Marek (2026-11-22): the start-up consent screen and the GPS time fix are "two important and needed things". Companion's consent patch only knows the AZE0 states (`SRT_COLD_I_AGREE_TELEMA…`) and stops on the 2011 card (C-8359). Find the ZE0 equivalents and build a patch for card ROM A that skips the consent screen, in our own tool, without copying Companion code.
@@ -4510,6 +4510,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session. No vendor bytes and no patched ROM in the repository.
   - Falsifier: the ZE0 consent state has no timer or transition site that a small patch can redirect.
   - Claims: C-8370–C-8379
+  - Blocker: EU card never creates AuiApp/ScreenState on -M ze0 with any available unit flash, so the patched-EU zero-click consent transition cannot be logged
+  - Unblock: Re-preserve the owner's real unit flash (M6.18 dc2b30df...) used by M1.57 and re-run the zero-click assertion
+  - Result: EXP-2026-11-24-M8.C1p-ze0-consent-skip (negative EU L4; US patch mechanism VERIFIED with 0 clicks); 9 EU boots, 0 consent
 
 - [x] **M8.D1 — Decision gate after F1: continue to F2/F3?**
   - Status: done · Owner: task/m8.d1-decision-after-f1 · Critical: no · Pair: solo
