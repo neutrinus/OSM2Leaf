@@ -62,6 +62,7 @@ DRY_RUN=0
 VERIFY_ONLY=0
 SELFTEST=0
 CHECK_VERSION=0
+LINT_PATCHES=0
 
 usage() {
   cat <<'EOF'
@@ -89,6 +90,9 @@ Options:
                      version and says so; the verdict line is printed last.
   --from-git         clone the pinned tag instead of using the release tarball
   --url-base URL     download base (default https://download.qemu.org)
+  --lint-patches     check patch names only (docs/research/qemu-connectors.md
+                     rule 3): ze0-NNNN-/ze0-hNN-, unique numbers. Exit 0 clean,
+                     1 malformed or duplicate. No network, no files written.
   --force            remove the source and build trees, re-extract, rebuild
   --dry-run          print every command; write nothing, download nothing
   --verify-only      skip fetch/configure/build; check --qemu for -M ze0
@@ -179,6 +183,7 @@ while [ $# -gt 0 ]; do
     --check-version) [ $# -ge 2 ] || usage_error "--check-version needs a value"; VERSION="$2"; CHECK_VERSION=1; shift 2 ;;
     --from-git)   FROM_GIT=1; shift ;;
     --url-base)   [ $# -ge 2 ] || usage_error "--url-base needs a value"; URL_BASE="${2%/}"; shift 2 ;;
+    --lint-patches) LINT_PATCHES=1; shift ;;
     --force)      FORCE=1; shift ;;
     --dry-run)    DRY_RUN=1; shift ;;
     --verify-only) VERIFY_ONLY=1; shift ;;
@@ -462,6 +467,47 @@ configure_and_build() {
 }
 
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Patch-name lint (docs/research/qemu-connectors.md rule 3)
+# --------------------------------------------------------------------------
+# A new connector patch must be ze0-NNNN-<slug>.patch or ze0-hNN-<slug>.patch;
+# a number can be used once per namespace (N vs H are separate namespaces).
+# Names that predate the rule are grandfathered by an exact allowlist, so a
+# NEW non-conforming name fails.  Print every violation, then a verdict.
+lint_patch_names() {
+  local dir="$1" p base key bad=0 seen=0
+  local -A keys=()
+  local legacy=" 0002-sh4-ze0-boot-stubs.patch m8a4-0001-hw-sh4-add-sh4-ccn-device.patch m8a4-0002-hw-sh4-build-sh4-ccn.patch m8a4-0003-hw-sh4-sh7750-use-sh4-ccn.patch ze0-hc1u-2dg-area-pattern.patch "
+  for p in "$dir"/*.patch; do
+    [ -f "$p" ] || continue
+    base="$(basename "$p")"
+    case " $legacy " in
+      *" $base "*) printf 'lint: legacy   %s\n' "$base"; continue ;;
+    esac
+    case "$base" in
+      ze0-[0-9][0-9][0-9][0-9]-*) key="N:${base#ze0-}" ;;
+      ze0-h[0-9][0-9]-*)          key="H:${base#ze0-h}" ;;
+      *)
+        printf 'lint: BAD NAME %s (want ze0-NNNN-<slug>.patch or ze0-hNN-<slug>.patch)\n' "$base"
+        bad=$((bad + 1))
+        continue
+        ;;
+    esac
+    # Compare only the leading number, not the slug.
+    key="${key%%-*}"
+    if [ -n "${keys[$key]:-}" ]; then
+      printf 'lint: DUPLICATE %s (number %s already used by %s)\n' "$base" "$key" "${keys[$key]}"
+      bad=$((bad + 1))
+    else
+      keys[$key]="$base"
+      seen=$((seen + 1))
+    fi
+  done
+  note "lint: $seen numbered, $bad bad, $(printf '%s' "$legacy" | wc -w | tr -d ' ') legacy-allowed"
+  [ "$bad" -eq 0 ] || return 1
+  return 0
+}
+
 # --check-version: apply the series, build nothing
 # --------------------------------------------------------------------------
 # Answers the only cheap question a version bump has: does this QEMU release
@@ -714,6 +760,31 @@ selftest() {
     st_ok "check-version plan configures/builds nothing"
   fi
 
+  # --- 6b. patch-name lint: real series, duplicates, malformed stems --------
+  st_run "lint real series" 0 -- "$SELF" --lint-patches \
+    --patch-dir "$HERE/patches"
+  st_contains "lint real series" "0 bad"
+  st_contains "lint real series" "legacy-allowed"
+  local lint="$tmp/lint-patches" lint_bad="$tmp/lint-bad"
+  mkdir -p "$lint" "$lint_bad"
+  for n in 0001 0002 0015; do
+    : > "$lint/ze0-$n-lint.patch"
+    : > "$lint_bad/ze0-$n-lint.patch"
+  done
+  : > "$lint/ze0-h01-lint.patch"
+  st_run "lint clean names" 0 -- "$SELF" --lint-patches --patch-dir "$lint"
+  st_contains "lint clean names" "0 bad"
+  # Duplicate the N:0001 key with a different slug; H:01 is separate.
+  : > "$lint/ze0-0001-duplicate.patch"
+  st_run "lint duplicate number" 1 -- "$SELF" --lint-patches \
+    --patch-dir "$lint"
+  st_contains "lint duplicate number" "DUPLICATE"
+  st_contains "lint duplicate number" "1 bad"
+  : > "$lint_bad/ze0-h4x-lint.patch"
+  st_run "lint malformed name" 1 -- "$SELF" --lint-patches \
+    --patch-dir "$lint_bad"
+  st_contains "lint malformed name" "BAD NAME"
+
   # --- 7. the -M ze0 check really passes and really fails ------------------
   st_run "verify fake ze0" 0 -- "$SELF" --verify-only --srcdir "$tmp/cache" \
     --qemu "$tmp/bin/qemu-system-sh4"
@@ -882,6 +953,11 @@ selftest() {
 # --------------------------------------------------------------------------
 # Main
 # --------------------------------------------------------------------------
+if [ "$LINT_PATCHES" -eq 1 ]; then
+  lint_patch_names "$PATCH_DIR"
+  exit $?
+fi
+
 if [ "$SELFTEST" -eq 1 ]; then
   selftest
   exit $?
