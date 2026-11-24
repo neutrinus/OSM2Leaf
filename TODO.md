@@ -5506,8 +5506,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: reverse changes nothing on the display path.
   - Claims: C-7580–C-7589
 
-- [ ] **M8.H62 — `fmmdrv.dll` and the TMC path: where a traffic message enters, and what it looks up on the card**
-  - Status: in progress · Owner: task/m8.h62-cycle10 · Critical: no · Pair: required
+- [x] **M8.H62 — `fmmdrv.dll` and the TMC path: where a traffic message enters, and what it looks up on the card**
+  - Status: done · Owner: task/m8.h62-cycle10 · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: `RDSTM001.DAT` and `LCTBL001.DAT` must be generated for Poland, and their only consumer is traffic: a TMC event carries a location code that is looked up in them. Find the entry point of a decoded TMC message (after `fmmdrv` at `0xffc55000` and the tuner path through `anwdrv`), so an event can be injected without modelling a radio.
@@ -5518,6 +5518,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions; RDS group decoding is out of scope.
   - Falsifier: the traffic module takes location data only from the US `XMD` path in this build.
   - Claims: C-7590–C-7599
+  - Result: EXP-2026-11-24-M8.H62-tmc-entry-point; C-7590–C-7599; injection fn 0x003bcc7c (pdata START, r4=ctx); L3 2/2 + 0x14f4 mutation control
 
 - [ ] **M8.H63 — Inject one traffic event and watch `RDSTM001`/`LCTBL001` being read**
   - Status: open · Owner: — · Critical: no · Pair: required
