@@ -3807,8 +3807,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8710–C-8719
   - Result: Level 2 from OSM in the from-zero London tile (tile_from_zero --level2: 48 road + 49 urban/name records, 0 factory); L1 PASS; L3: firmware reads and inflates our level-2 records (sub 3, up to 230,708 B), empty parcel sub 9; level-1 L4 unchanged. Zoomed-out L4 not reachable without the flash dump → M5.99. Section 4 does not draw place labels (C-8715). EXP-2026-11-23-M5.91-level2-from-zero, C-8710–C-8716.
 
-- [ ] **M5.92 — Capacity probe: the largest record, shape and point count the firmware draws**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M5.92 — Capacity probe: the largest record, shape and point count the firmware draws**
+  - Status: done · Owner: task/m5.92-cycle10 · Critical: yes · Pair: solo
   - Step: limits
   - Depends: —
   - Goal: the real "does it fit" limit is not the factory block size (blocks can be appended, M8.H71) but the record the firmware can read. Find it before dense parcels are written.
@@ -3818,6 +3818,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: a table `size → L3 result → L4 drawn?` with the first failing size, and the VA/buffer that enforces it (or UNKNOWN with the evidence); `docs/research/osm-from-scratch.md` limit 6 updated.
   - Stop: two sessions; an L3-only result is acceptable if L4 is unavailable.
   - Claims: C-8720–C-8729
+  - Result: EXP-2026-11-24-M5.92-capacity-probe; 8/8 probes + 2 edge runs; first failing window 68096 B (pass 67840 B); enforcing VA 0x004262f8 (0x109A0 pool), point gate 0x0041f4bc (1000); L3 only (L4 NOT RUN exit 3)
 
 - [ ] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
   - Status: open · Owner: — · Critical: no · Pair: solo
