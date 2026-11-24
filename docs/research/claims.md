@@ -7364,13 +7364,45 @@ into three printed classes.
 ## M8.H68a — CE user-slot VAs for ze0_ps process names
 | ID | Claim | Status | Confidence | Evidence |
 | --- | --- | --- | --- | --- |
+
+## M8.G4 — -M aze0 F0 with X212 RAM/entry/dbgmsg parameters (C-10230–C-10239)
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+<<<<<<< ours
 | C-10230 | On the live idle EU2011 kernel-B guest, `PROCESS.lpszProcName` (+0x20) user-slot VAs translate to guest physical via the SH-4 two-level page tables rooted at KData `aInfo[7]` = `0x89e418a0`: L1 = `[TTB + ((va>>25)&0x7f)*4]`, L2 = `[L1phys + ((va>>16)&0x1ff)*4]`, PTE = `[L2phys + 12 + ((va>>10)&0x3c)]`; `reg = PTE-1`, `sz = (reg>>8)&3`, `phys = (reg & 0x1fffffff & ~MASK[sz]) | (va & MASK[sz])` with `MASK = [0x3ff,0xfff,0xffff,0x3fffff]`. This is the SH-4 MMU layout in flycast's WinCE hack, validated against live bytes, not a fitted delta. | VERIFIED | H | EXP-2026-11-24-M8.H68a-user-slot-vas Observations; `ze0_gdb.py xp ... 0x09e41b1c 4`; scratch `probe_chain.py` |
+=======
+| C-10230 | The EU2014/X212 kernel debug-string sink is at VA 0x88040a54 in nk.exe, derived by an exact 20-byte LE signature match against the known EU2011 sink 0x880404f4; the 20 bytes are identical, both functions take the UTF-16 string in r4, call AstLog with L"%s" and test two gate words, and sh4xref lists three caller pools for each. | OBSERVED | H | EXP-2026-11-24-M8.G4-aze0-machine; sh4dis.py, exact signature scan |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10231 | Live anchor: `0x0405fec4 -> 0x0c2daec4` decodes UTF-16 `filesys.exe` (xp words `00690066 0065006c 00790073 002e0073 00780065 00000065`), matching the independent H68 physical RAM scan; other VAs resolve `0x0602fec0 -> 0x0c28bec0 device.exe`, `0x080bfec4 -> 0x0c082ec4 gwes.exe`, `0x0a03fecc -> 0x0bf36ecc CPF.exe`, `0x0d56fec8 -> 0x0b272ec8 Navi.exe`, `0x1003fec0 -> 0x0adb0ec0 SystemExe.exe` (all sz=1, 4 KiB pages). | VERIFIED | H | EXP-2026-11-24-M8.H68a-user-slot-vas Observations; `scratch/M8.H68a/probe_chain.py`; `ze0_gdb.py xp ... 0x0c2daec4 6` |
+=======
+| C-10231 | EU2014 ROMHDR build B prints physfirst 0x88000000, physlast 0x8870fb90, ulRAMStart 0x8a640000, ulRAMEnd 0x8e600000; kernel entry 0x8800f100 is the nk.exe e32_vbase+e32_entryrva from the image TOC; the RAM window moves +8 MiB vs EU2011 under the same ceiling. | VERIFIED | H | EXP-2026-11-24-M8.G4-aze0-machine; cerom.py romhdr + loader info |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10232 | With the page-table walk enabled, `python3 tools/ze0_ps.py --monitor SOCK --no-modules --threads` on idle EU2011 prints 7 processes with names and thread counts: NK.EXE 2, filesys.exe 3, device.exe 79 (varies with boot), gwes.exe 4, CPF.exe 6, Navi.exe 43, SystemExe.exe 8; ptb_walks=384 and zero READ ERROR lines. The four names required by M8.H68 are all present. | VERIFIED | H | EXP-2026-11-24-M8.H68a-user-slot-vas Observations; `tools/ze0_ps.py --monitor .../hmp.sock --no-modules --threads`; JSON `ptb_walks` / `errors` |
+=======
+| C-10232 | A new QOM subclass TYPE_AZE0_MACHINE derived from TYPE_ZE0_MACHINE keeps the -M ze0 defaults and overrides only the dbgmsg sink (0x88040a54) and the documented X212 RAM window; -M ze0 keeps the same entry 0x8800ebd0, kernel image size 7215268 B and final PC 0x8803d266 as before the patch. | VERIFIED | H | EXP-2026-11-24-M8.G4-aze0-machine; ze0-0019 patch + 5 s ze0 boot |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10233 | Negative control `--no-ptb` reproduces the M8.H68 baseline exactly: 1 process (NK.EXE, 2 threads) and 6 `READ ERROR ... no virtual mapping` lines for slots 1-5 and 7 at VAs `0x0405fec4`, `0x0602fec0`, `0x080bfec4`, `0x0a03fecc`, `0x0d56fec8`, `0x1003fec0`. | VERIFIED | H | EXP-2026-11-24-M8.H68a-user-slot-vas Observations; `ze0_ps.py --monitor SOCK --no-ptb --no-modules` |
+=======
+| C-10233 | A 5 s -M aze0 boot of archive/eu2014-256.img with its own dbgmsg default prints 462 kernel debug lines (time-dependent count), reaches an idle kernel with no CPU exception line, entry 0x8800f100 and final PC 0x8803d796. | VERIFIED | H | EXP-2026-11-24-M8.G4-aze0-machine; run.sh --machine aze0 stdout |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10234 | Live negative mutation: zeroing the section word at `0x09e418b8` (slot 6, used by Navi.exe's `0x0d56fec8`) in a wrapping reader copy makes `Navi.exe` disappear from the process list and records `U0 VA 0x0d56fec8: invalid level-1 entry 0x00000000`; the other six names are unchanged. No DBGMSG log is ever a name source. | VERIFIED | H | EXP-2026-11-24-M8.H68a-user-slot-vas Observations; scratch `M8.H68a/negctrl_live.py` (BEFORE/AFTER/ERRORS/PASS) |
+=======
+| C-10234 | Falsifier not met: unmodified -M ze0 on EU2014 prints 0 debug lines at the EU2011 VA 0x880404f4; -M aze0 with dbgmsg=0x880404f4 also prints 0 lines, proving the sink is X212-specific. | VERIFIED | H | EXP-2026-11-24-M8.G4-aze0-machine; run.sh wrong-VA and ze0 boots |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10235 | `tools/ze0_ps.py --selftest` prints `checks: 32, failures: 0` / `ze0_ps selftest: OK`; 25 original checks plus 7 new ones (U0 translate, name decode, walk count, negative L1/L2/PTE zero, corrupt section base); `python3 tools/selftest.py --only ze0_ps` prints `tool:ze0_ps PASS`. | VERIFIED (tool) | H | EXP-2026-11-24-M8.H68a-user-slot-vas Observations; `ze0_ps.py --selftest`; `selftest.py --only ze0_ps` |
+=======
+| C-10235 | Negative controls: -M aze0 --dbgmsg off passes dbgmsg=0 and prints 0 debug lines; the mandatory mutation of the committed patch (AZE0 VA 0x88040a54 -> 0x880404f4, rebuilt) drops the boot from 462 lines to 3 non-sink lines; restoring the source rebuilds the original binary SHA-256 bece86fd9c2a80d5d1f45400554f01b3edc65bf219bfd88660549fb13e91e4ea. | VERIFIED | H | EXP-2026-11-24-M8.G4-aze0-machine; mutated binary boot + sha256sum |
+>>>>>>> theirs
+<<<<<<< ours
 | C-10236 | Claim-ID collision resolved: this task's TODO block claims C-9940-C-9949, but those are occupied by M4.8b (`claims.md:6737-6749`) and M3.14 (`TODO.md:2077`); C-10090-C-10099 are M8.H39. `board.py next-claims` printed C-10230-C-10149, which this PR uses for all seven rows and sets as the task's `Claims:` field via `board.py field`. | VERIFIED | H | EXP-2026-11-24-M8.H68a-user-slot-vas Interpretation; `python3 tools/board.py next-claims`; `grep -n 'C-9940\|C-10090' docs/research/claims.md TODO.md` |
+=======
+| C-10236 | run.sh accepts --machine aze0: --dry-run constructs -M aze0,kernel-off=0x3e00200,app-off=0x200200 with no dbgmsg override (machine class default), --dbgmsg off passes dbgmsg=0 and -M ze0 still passes dbgmsg=0x880404f4. | VERIFIED | H | EXP-2026-11-24-M8.G4-aze0-machine; run.sh --dry-run |
+>>>>>>> theirs
 
 ## H57 — Fixture regression baseline (C-3730–C-3739)
 | ID | Claim | Status | Confidence | Evidence |
@@ -7384,3 +7416,6 @@ into three printed classes.
 | C-3736 | `python3 tools/selftest.py --only l1l2_matrix` prints `tool:l1l2_matrix  PASS  0.20s`, `passed=1 failed=0 skipped=0 total=1 time=0.20s`, `selftest: OK` on this branch. A full `python3 tools/selftest.py --json` with `TMPDIR` on the home tree is green: `ok True counts {'pass': 282, 'fail': 0, 'skip': 21, 'total': 303}`; red runs with the default `/tmp` are tmpfs host churn (60s timeouts / ENOSPC), not H57. | VERIFIED (tool) | H | EXP-2026-11-24-H57-fixture-baseline; `python3 tools/selftest.py --only l1l2_matrix` |
 | C-3737 | The workflow already gates the baseline: `.github/workflows/l1l2-fixtures.yml` runs `python3 tools/l1l2_matrix.py --input l1l2-matrix.json --check-baseline tools/fixtures/l1l2-matrix-baseline.json`; `.github/workflows/README.md` §`l1l2-fixtures.yml` states the H41/H43 regression policy, including PASS→FAIL/PASS→SKIP and that a rise is not an error. H57 leaves these intact. | VERIFIED (docs) | H | EXP-2026-11-24-H57-fixture-baseline; `grep -n baseline .github/workflows/*.yml` and `grep -n 'Regression policy' .github/workflows/README.md` |
 | C-3738 | `docs/research/test-system.md` §6 now documents the committed baseline, the `--check-baseline` gate, the monotone tier semantics (PASS > honest non-PASS > FAIL), the DROPPED/NEW/DUPLICATE informational outcomes and the rule that the baseline is refreshed only with an EXP/PR rationale, never to make a failure pass. | VERIFIED (docs) | H | EXP-2026-11-24-H57-fixture-baseline; `docs/research/test-system.md` §6 "Committed no-vendor baseline (H57)" |
+| C-10237 | The QEMU patch series has 31 patches after adding ze0-0019 (was 30 in M8.G2); the build applies every patch in sorted order and both -M ze0 and -M aze0 appear in -M help, still on the single QEMU 11.1.3 pin. | VERIFIED | H | EXP-2026-11-24-M8.G4-aze0-machine; ls patches/*.patch | wc -l; -M help |
+| C-10238 | The X212 gate words 0x8a6623d0/0x8a6623d4 sit in the AZE0 CE RAM window starting 0x8a640000, analogous to EU2011 0x89e613b0/0x89e613b4 in the 0x89e40000 window; sh4dis.py prints the same two-word gate test at the new sink and the hypothetical 0x8a6613b0 has 0 hits. | OBSERVED | H | EXP-2026-11-24-M8.G4-aze0-machine; sh4dis.py pool scan |
+| C-10239 | Scope: one new QEMU patch (hw/sh4/ze0.c only), one run.sh machine option, one EXP, 10 claim rows and the M8.G4 board line; no new device model, no card change, no ZE1, no vendor bytes committed. | OBSERVED | H | EXP-2026-11-24-M8.G4-aze0-machine; git diff --stat origin/main |
