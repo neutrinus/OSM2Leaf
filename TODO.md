@@ -5083,7 +5083,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7190–C-7199
 
 - [ ] **M8.H23 — Guest profiler: where the CPU time goes (module and function histogram by PC sampling)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h23-pc-sampler · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: M8.C1e found a spinning driver thread by sampling the PC by hand about 20 times. Make it a tool: it tells why a boot is slow and which thread waits for which device.
