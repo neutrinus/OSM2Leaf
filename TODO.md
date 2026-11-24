@@ -5893,7 +5893,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Pair: required
 
 - [ ] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.g4-aze0-machine · Critical: no · Pair: solo
   - Step: model
   - Priority: low (first follow-up of M8.G2; part of the long-term "run any generation in QEMU" goal).
   - Depends: M8.G2 (done), M8.A11 (done)
