@@ -5365,7 +5365,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7370–C-7379
 
 - [ ] **M8.H41 — Scenario: set a destination and calculate a route at L4**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h41-route-scenario · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H39, M8.H7
   - Goal: The first routing test in the full system: enter a destination by the map or by a stored point, start route calculation, capture the result. It tells which files the router opens (section 2, `LEV3456R`) on a factory card and later on ours.
