@@ -2324,11 +2324,6 @@ Corpus: Navi.exe build A, `IMG256`/`head256.img` SHA-256 `92aa525d…` (`--image
 | C-2682 | M4.8b latitude residuals (n=16, all positive) are not magnitude-consistent: `dlat` ranges 132–6401 m (median 2763 m, 48× spread) while `dlon` (52742) centres near zero. This is inconsistent with a single fixed latitude transform/storage offset as the sole cause, and compatible with (but does not prove) per-POI stored-point semantics and/or grid/feature-placement effects. Does not determine entrance vs centroid; refines, does not retract, C-1903/C-1904. | OBSERVED | M | EXP-2026-11-08-M4.28-poi-lat-residual-r2; EXP-2026-11-08-M4.8b-transform-proof |
 | C-2683 | The +2.8 km POI latitude residual of M4.8b (C-1903) tracks neither a public entrance nor a centroid: it is copy A's low nibble `11xx` read as a 1-unit coordinate (marker bits + a 2-bit sub-cell index, C-2679). The fine-position formula reduces the median error on the 16 references from 3557.7 m to 114.6 m (16/16 closer; swapped-field control 1567.9 m). Supersedes: C-1903. | OBSERVED | M | EXP-2026-11-24-M4.28-poi-lat-residual-explained; `python3 tools/point_census.py refs --us DIR --eu DIR --refs docs/experiments/EXP-2026-11-08-M4.8b-poi-refs.tsv` |
 | C-2684 | The M4.8 done-when 'within a few metres' is met when the in-record fine fields are read: on the 16 M4.8b references the fine model gives median 114.6 m, max 2159.1 m, 8 within 100 m (1-unit reading: median 3557.7 m, max 6790.0 m, 0 within 100 m). C-1904's 'no metre-level position' is overturned; the firmware reader is still unlocated (M3.34, rule 13). Supersedes: C-1904. | OBSERVED | M | EXP-2026-11-24-M4.28-poi-lat-residual-explained; `python3 tools/point_census.py refs --us DIR --eu DIR --refs docs/experiments/EXP-2026-11-08-M4.8b-poi-refs.tsv` |
-| C-2685 | RESERVED (M4.28). | — | — | — |
-| C-2686 | RESERVED (M4.28). | — | — | — |
-| C-2687 | RESERVED (M4.28). | — | — | — |
-| C-2688 | RESERVED (M4.28). | — | — | — |
-| C-2689 | RESERVED (M4.28). | — | — | — |
 
 ## H26 — L1/L2 synthetic fixture CI pipeline (C-2760–C-2769)
 | ID | Claim | Status | Trust | Evidence |
