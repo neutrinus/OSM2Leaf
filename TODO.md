@@ -4707,8 +4707,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-6950–C-6959
   - Result: EXP-2026-11-24-M8.G2-machine-types-plan; 20 device rows x 3 gens, 6 follow-ups, M8.G4 added; falsifier not met (EU2014 0 vs EU2011 423 debug lines, different final PC)
 
-- [ ] **M8.G3 — Why does Android Auto run on AZE0 units and not on ZE0? (H.264 decode, USB host, CPU, OS)**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M8.G3 — Why does Android Auto run on AZE0 units and not on ZE0? (H.264 decode, USB host, CPU, OS)**
+  - Status: done · Owner: task/m8.g3-android-auto · Critical: no · Pair: solo
   - Step: research
   - Priority: low (curiosity of Marek, 2026-11-22; also tells whether the ZE0 unit could ever do phone projection).
   - Depends: M8.G1 (helps; can start in parallel)
@@ -4721,6 +4721,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: an H.264 decoder module or VPU driver is found in the ZE0 2011 ROMs too (then the decoder is not the reason).
   - Claims: C-6960–C-6969
   - Note: Marek, 2026-11-22: lead https://www.youtube.com/watch?v=BO-hEO0uR3A (not opened from the Claude sandbox, youtube.com is blocked). Russian groups once distributed modified SD card images that unlocked Android Auto on AZE0, so the feature is probably present in the AZE0 firmware and only switched off. First check: compare such an image (if Marek finds one) with the factory EU2014/2016 card: which ROM A module or registry/config byte differs. Do not commit vendor bytes.
+  - Result: EXP-2026-11-24-M8.G3-android-auto-ze0-vs-aze0; falsifier met (0 H.264/AA hits in 12 segments); 10 claims C-6960-C-6969; 8 URLs
 
 - [x] **M8.H1 — Every serial channel of `-M ze0` is a named host chardev, RX and TX**
   - Status: done · Owner: task/m8.h1-serial-chardevs · Critical: yes · Pair: required
