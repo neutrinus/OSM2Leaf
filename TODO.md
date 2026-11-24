@@ -4872,7 +4872,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.H13-l4check; factory exit 0 stage F5 idle 218.62 s, broken card exit 1 stage F4, gate 5 pass / 0 fail / 0 skip
 
 - [ ] **M8.H14 — CI: every push checks that the `ze0` patch series still applies**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h14-patch-apply-ci · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The series is 13+ patches and several agents will add more in parallel. A patch that no longer applies after a merge is found today only by the next person who builds.
