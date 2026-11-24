@@ -952,7 +952,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-24-M1.55-speech-folder, docs/research/speech-folder-selection.md; Speech.exe fn 0x000a6dfc/0x000a62f0 (EU) + 0x00072ca8 path, source OBJDLL!OBJ_Setting_readExpLanguage; 3004->US, 3005->CF; EU card lacks US/CF -> copying SPEECH/US (or a European language) needed
 
 - [ ] **M1.56 — The M1.50 unit-dump position scanner: ship it as a tool and rebuild the EXP in TEMPLATE form**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m1.56-position-dump-tool · Critical: no · Pair: required
   - Depends: M1.50 (done)
   - Goal: EXP-2026-11-22-M1.50 (done) rests on a "throw-away coordinate scanner (described in §3, not committed)" and has no Method/Scope/Falsifier/Observation/Interpretation sections, so its C-8240–C-8247 rows cannot be reproduced from the repo (rule 16: an elided command is the same as no result). Commit the scanner as a tool and repair the record.
   - Precheck: `grep -n 'throw-away' docs/experiments/EXP-2026-11-22-M1.50-us-unit-position-kentucky.md` prints the description line; `ls tools/position_dump_scan.py` fails (the tool does not exist).
