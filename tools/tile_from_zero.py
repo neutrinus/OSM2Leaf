@@ -244,8 +244,11 @@ def load_building_stats(path: str | None) -> dict:
     if not path:
         return {}
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
-    key = "parcels" if "parcels" in raw else "buildings"
-    return {tuple(int(v) for v in k.split(",")): val for k, val in raw[key].items()}
+    if "parcels" in raw:
+        raw = raw["parcels"]
+    elif "buildings" in raw:
+        raw = raw["buildings"]
+    return {tuple(int(v) for v in k.split(",")): val for k, val in raw.items()}
 
 
 def built_up_share(parcel, by_kind, buildings, level=1):
