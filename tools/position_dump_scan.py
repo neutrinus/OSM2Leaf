@@ -187,8 +187,9 @@ def scan_rom(data, lat=REF_LAT, lon=REF_LON, tol_deg=0.02):
             continue
         dla = la / UNITS_PER_DEG - lat
         dlo = -lo / UNITS_PER_DEG - lon
-        if in_us_box(lat + dla, lon + dlo):
-            tolerance.append((off * 8, round(lat + dla, 6), round(lon + dlo, 6)))
+        # The F8 tolerance pass was box-free: it found mixed-sign pairs
+        # outside the US. Keep the US box only in the vflash scan.
+        tolerance.append((off * 8, round(lat + dla, 6), round(lon + dlo, 6)))
     return {"exact_hits": len(exact), "exact_detail": exact,
             "tolerance_pairs": len(tolerance),
             "tolerance_detail": tolerance[:10], "tol_deg": tol_deg,
