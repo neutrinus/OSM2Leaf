@@ -4990,7 +4990,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.H15-debug-zones (negative: 0 DBGPARAM in 1111 sections, 0 skipped; selftest 9/9; baseline 142 hook hits); C-7120–C-7129
 
 - [ ] **M8.H16 — Boot the test-mode kernel (ROM image C) on `-M ze0`: the service screens as a test bench for the models**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h16-testmode-kernel · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: Image C is the kernel with `TestMode.exe` (hardware checks for GPS, touch, CAN, audio, SD). Its screens and logs would validate each peer model against the vendor's own diagnostics, and it has the `AppTimerDll` that `Speech.exe` misses on image B.
