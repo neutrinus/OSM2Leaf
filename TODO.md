@@ -4580,7 +4580,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-22-M8.G1-generations; 12 rows x 3 columns, every cell evidenced or unknown; falsifier not met (same BSP, +8 MiB RAM shift); 3 emulation differences
 
 - [ ] **M8.G2 — Plan: one QEMU machine type per generation (`ze0`, `aze0`, `ze1`), shared parts vs differences**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.g2-cycle10 · Critical: no · Pair: solo
   - Step: plan
   - Priority: low (after the ZE0 F5 screen, M8.C1f).
   - Depends: M8.G1
