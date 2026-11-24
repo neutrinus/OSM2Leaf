@@ -268,7 +268,7 @@ def selftest() -> int:
     words[10] = 0x0009
     check("f6 misses without cmp/eq #3", not f6(words, 0))
     print("selftest:", "PASS" if not fails else "FAIL (%d)" % fails)
-    return 0 if fails else 1
+    return 1 if fails else 0
 
 
 def build_parser() -> argparse.ArgumentParser:

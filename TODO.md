@@ -1192,8 +1192,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: solo
   - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
 
-- [ ] **H146 — CI selftest red: inter_l3_probe inverts its exit code and C-7194's selftest count is unpinned**
-  - Status: in progress · Owner: task/h146-selftest-gate-fixes · Critical: yes · Pair: required
+- [x] **H146 — CI selftest red: inter_l3_probe inverts its exit code and C-7194's selftest count is unpinned**
+  - Status: done · Owner: task/h146-selftest-gate-fixes · Critical: yes · Pair: required
   - Depends: —
   - Goal: the standing `CI quality gate` on `origin/main` `007d6cd3` still has two failures. (1) `tools/inter_l3_probe.py --selftest` prints `selftest: PASS` but exits 1: its last line is `return 0 if fails else 1`, the inverse of every other tool (`return 1 if fails else 0`), so `selftest.py` reports `tool:inter_l3_probe FAIL`. (2) `claims_check --strict --count-check` reports `COUNT C-7194 claims 26, tools/ze0_unmapped.py prints 22 (57146bb7)`: the M8.H22 EXP last moved with the tool at `57146bb7` (22 checks), and the later tool-only commit `1322037e` raised it to 26 without moving the record. The earlier ghost-`Unblock` half (M8.H5a/M8.H81) is already fixed upstream in `007d6cd3`.
   - Precheck: `python3 tools/inter_l3_probe.py --selftest` prints `selftest: PASS` and exits 1; `python3 tools/claims_check.py --strict --count-check` prints `count mismatches: 1` naming C-7194; `gh run view 45442631393 --log-failed` names `tool:inter_l3_probe FAIL` and `COUNT C-7194`.
@@ -1204,6 +1204,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: `inter_l3_probe --selftest` still exits 1 on PASS, a failing check exits 0, or `count mismatches` remains above 0.
   - Claims: C-10340–C-10349
   - Pair: required
+  - Result: EXP-2026-11-24-H146-selftest-gate-fixes; inter_l3_probe exit 0/1, claims_check 0 mismatches
 
 
 ## M2 — Map code, activation, updater
