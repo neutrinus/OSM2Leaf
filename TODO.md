@@ -3604,8 +3604,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the estimate for Germany, made the same way from OSM, is off from the factory card's real size by more than a factor of two (then the method is not usable — the control).
   - Claims: C-7970–C-7979
 
-- [ ] **M5.79 — Charging stations from OSM into `REFER002`: feasibility and first record**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.79 — Charging stations from OSM into `REFER002`: feasibility and first record**
+  - Status: done · Owner: task/m5.79-cycle10 · Critical: no · Pair: required
   - Step: P4
   - Depends: M4.85
   - Goal: With the station record of M4.85, write one new charging station (an OSM `amenity=charging_station`) into the EV layer and read it back.
@@ -3615,7 +3615,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `tools/refer002_census.py census` on the edited tree shows one more station at the given position; L1 and L2 pass; the EXP states which index structures had to change.
   - Stop: one session; if an index is undecoded, stop with its name (a new M4 task).
   - Falsifier: the census reads the new record but an index still points to the old record count.
-  - Claims: C-7980–C-7989
+  - Claims: C-10100-C-10109
+  - Result: EXP-2026-11-24-M5.79-refer002-write-first-record (C-10100-C-10109); census 880->881 records; L1 cardcheck PASS; L2 l2check PASS; index row gap recorded
 
 - [x] **M5.80 — Names the unit cannot draw: transliteration fallback in the compiler**
   - Status: done · Owner: task/m5.80-transliteration · Critical: no · Pair: solo
