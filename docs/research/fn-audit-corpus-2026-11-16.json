@@ -56,6 +56,7 @@
  ],
  "summary": {"files": 47, "citations": 1106, "unique_va": 448, "start": 651, "inside": 0, "corrected": 0, "gap": 98, "leaf": 98, "ambiguous": 1, "unmapped": 356},
  "summary": {"files": 47, "citations": 1112, "unique_va": 448, "start": 659, "inside": 0, "corrected": 0, "gap": 96, "leaf": 96, "ambiguous": 1, "unmapped": 356},
+ "summary": {"files": 48, "citations": 1116, "unique_va": 448, "start": 661, "inside": 0, "corrected": 0, "gap": 98, "leaf": 98, "ambiguous": 1, "unmapped": 356},
  "rows": [
   {"file": "TODO.md", "va": "0x003ad440", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
   {"file": "TODO.md", "va": "0x003ad680", "kind": "fn", "class": "START", "true_start": null, "class_sha256": "c4c0e5641ff7083adc1cfe6f7002ddad65394791daca5dcbdbee7172ad852161"},
