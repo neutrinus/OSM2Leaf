@@ -4990,8 +4990,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M8.H80
   - Result: EXP-2026-11-24-M8.H15-debug-zones (negative: 0 DBGPARAM in 1111 sections, 0 skipped; selftest 9/9; baseline 142 hook hits); C-7120–C-7129
 
-- [ ] **M8.H16 — Boot the test-mode kernel (ROM image C) on `-M ze0`: the service screens as a test bench for the models**
-  - Status: in progress · Owner: task/m8.h16-testmode-kernel · Critical: no · Pair: solo
+- [x] **M8.H16 — Boot the test-mode kernel (ROM image C) on `-M ze0`: the service screens as a test bench for the models**
+  - Status: done · Owner: task/m8.h16-testmode-kernel · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1d (done)
   - Goal: Image C is the kernel with `TestMode.exe` (hardware checks for GPS, touch, CAN, audio, SD). Its screens and logs would validate each peer model against the vendor's own diagnostics, and it has the `AppTimerDll` that `Speech.exe` misses on image B.
@@ -5002,6 +5002,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: two sessions.
   - Falsifier: C boots exactly like B with no extra process (then test mode is entered another way and the EXP says which).
   - Claims: C-7130–C-7139
+  - Result: EXP-2026-11-24-M8.H16-testmode-kernel (C boots to app launch, no TestMode.exe: mode_mask 0x40 gate in BOTH kernels; device.exe CAN.dll fault; full test-item->driver->peer table); C-7130–C-7139
 
 - [x] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
   - Status: done · Owner: task/m8.h17-cycle10 · Critical: no · Pair: solo
