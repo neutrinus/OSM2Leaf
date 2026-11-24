@@ -2425,7 +2425,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-6030–C-6039
 
 - [ ] **M4.57 — Polish voice: can the 2011 `Speech.exe` use the `SPEECH/` set of the EU 2014 card?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m4.57-cycle10 · Critical: no · Pair: solo
   - Depends: — (M1.37 helps for `Speech.exe`)
   - Goal: EU 2011 ships 7 `SPEECH/` languages, EU 2014 adds nine including `PL` (C-2495). Find out whether the language files (VR, TTS, GID) changed format between the cards and how the 2011 firmware picks a language (the `DRSTR` `0x18c` code, C-2496, and the language list in the UI).
   - Precheck: both roots have `SPEECH/`; `python3 tools/diff_years.py` lists the language sets.
