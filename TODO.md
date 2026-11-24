@@ -5937,7 +5937,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-24-M8.G4-aze0-machine; -M aze0 5s: 462 vs 0 wrong-VA/0 off lines, entry 0x8800f100, RAM 0x8a640000, ze0 PC 0x8803d266 unchanged; C-10240..C-10246
 
 - [ ] **M8.H80 — Obtain a checked/debug build of the ZE0 map modules to get `DBGPARAM` zone records**
-  - Status: in progress · Owner: task/m8.h80-checked-build · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h80-checked-build · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: M8.H15 found no `DBGPARAM` record and no `DebugZones` registry value in the EU2011 retail modules (builds A/B/C, 1111 sections, 0 candidates, EXP-2026-11-24-M8.H15-debug-zones). A checked build of the same sources would have `DEBUGMSG` zones compiled in; with it the zone-mask table of M8.H15 can be populated.
@@ -5948,6 +5948,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if no checked build is obtainable, record the source search as a negative EXP and leave M8.H15 blocked.
   - Falsifier: a checked build with no `DBGPARAM` and no new boot lines.
   - Claims: C-10260–C-10269
+  - Blocker: No checked/debug ZE0 build of Navi.exe/NaviMapCC.dll (or DBGPARAM records/symbols) publicly obtainable: all four real images scan to dbgparam_candidates 0 and mirror/local/web search found no checked build
+  - Unblock: A task that obtains a checked/debug ZE0 Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) from Nissan's dealer service channel and re-runs tools/ce_dbgzones.py on it; rule 15 re-opens M8.H80 when that task merges
+  - Result: EXP-2026-11-24-M8.H80-checked-build (negative: 0 DBGPARAM in 1646 fully-scanned sections + 28 partial; 9/9 selftest, mutation 5/9; source search negative); C-10260–C-10269
 
 ---
 
