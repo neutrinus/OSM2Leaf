@@ -168,9 +168,9 @@ then returns fields of the RAM copy at `0x89E439B8`.
 | `+0x060` | unit half of the SD PIN, 4 bytes | never recorded |
 | `+0x090` | 8 bytes returned by the same IOCTL; meaning unknown | |
 | `+0x0A0` | IMMO code | `FF FF FF FF` |
-| `+0x0B0` | 5 characters: suffix of the Nissan part number `25915-xxxxx` printed as `N #` on the type label (C-10121) | |
+| `+0x0B0` | 5 characters: suffix of the Nissan part number `25915-xxxxx` printed as `N #` on the type label (C-10141) | |
 | `+0x100` | SD PIN as sent in CMD42, 16 bytes | never recorded |
-| `+0x140` | 6 bytes: unit ID = `10 01` + serial (BCD), printed as `車載機 ID` on the type label (C-10120, [photo](head-unit.md#type-label-community-picture-not-mareks-unit)) | |
+| `+0x140` | 6 bytes: unit ID = `10 01` + serial (BCD), printed as `車載機 ID` on the type label (C-10120, [photos](head-unit.md#type-labels-community-pictures-not-mareks-unit)) | |
 | `+0x180`, `+0x190` | 4 bytes each; `+0x193` is the IMMO check flag | flag `00` |
 | `+0x2D0` | u16 sum of bytes `+0x000..+0x2CF` | verifies |
 

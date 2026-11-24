@@ -1317,14 +1317,15 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-10120–C-10129
   - Result: EXP-2026-11-24-M2.27-unit-type-label (C-10120–C-10124). Photo in docs/hardware/img/, described in head-unit.md. Label unit ID = PROD +0x140 (1001 + BCD serial), N# suffix = PROD +0xB0. No PIN on the label: C-8304/C-8334 still need (serial, PIN) pairs.
 
-- [ ] **M2.28 — Record a third unit's type label (QY-7200N-G, May 2012)**
-  - Status: in progress · Owner: claude/project-thread-08k71f · Critical: no · Pair: solo
+- [x] **M2.28 — Record a third unit's type label (QY-7200N-G, May 2012)**
+  - Status: done · Owner: claude/project-thread-08k71f · Critical: no · Pair: solo
   - Depends: M2.27 (label fields mapped to PROD)
   - Goal: Add a second community label photo and test the M2.27 readings (unit ID = 1001 + serial; part-number suffix letter follows the model letter) on a third unit.
   - Scope: one photo supplied by Marek on 2026-11-24; not Marek's unit (his is QY7200ND), source not recorded. No PIN on the label. No owner dump bytes in the repo.
   - Done when: the photo is in `docs/hardware/img/`, the head-unit.md label table covers both photos, and an EXP states which M2.27 claims hold.
   - Stop: one session.
   - Claims: C-10140–C-10149
+  - Result: EXP-2026-11-24-M2.28-second-type-label (C-10140–C-10144). Unit ID = 1001 + serial holds on 2 of 2 labels; C-10121 (suffix letter = model letter) retracted (QY-7200N-G has 3NA1A). Still no PIN.
 
 ## M3 — Reader contract
 
