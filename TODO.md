@@ -6412,8 +6412,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6360–C-6369
   - Result: EXP-2026-11-21-M9.61-us-build-eu-card; 4 runs, 236/236 US pairs, 28/28-32/32 reads SAME
 
-- [ ] **M9.62 — One L3 number: a manifest of every card-level L3 run with its pinned verdict, and one command that re-runs it**
-  - Status: in progress · Owner: task/m9.62-l3-runs-manifest · Critical: no · Pair: required
+- [x] **M9.62 — One L3 number: a manifest of every card-level L3 run with its pinned verdict, and one command that re-runs it**
+  - Status: done · Owner: task/m9.62-l3-runs-manifest · Critical: no · Pair: required
   - Step: tooling
   - Depends: M9.60 (its row runner and exit codes; this task extends the row list beyond the three gate rows)
   - Goal: three tools give three L3 counts on the same commit (`ae2cb0c`, 2026-11-20): `python3 tools/l3check.py --build-corpus` prints `runnable=1/11`, `python3 tools/progress_report.py --run-tools` prints `"pass_firmware": 4`, `python3 tools/map_signals.py l3_rows` prints `l3-running 8`. The rows run in separate scripts (`ls tools/*_l3.py | wc -l` prints 16), each with its own arguments and verdict text, and nothing re-runs them together: an engine change that breaks one is found only when someone repeats that EXP (M9.36 did it by hand for 47 runs). This is the weekly/manual vendor-image regression the QA prompt asks for, for L3.
@@ -6424,6 +6424,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if a row cannot be reduced to one command with a stable verdict line, list it as `MANUAL` with its EXP and count it separately — never as PASS.
   - Falsifier: a `l3-running` matrix row with no manifest entry after this task.
   - Claims: C-6370–C-6379
+  - Result: EXP-2026-11-24-M9.62-l3-runs-manifest; 9/9 rows PASS, 246.86 s; count 9=9; gate 5/0/0
 
 - [x] **M9.63 — US-build map client on an EU card: record what already runs at L3, so M9.61 is one small PR**
   - Status: done · Owner: task/m9.63-us-client-boundary · Critical: yes · Pair: required
