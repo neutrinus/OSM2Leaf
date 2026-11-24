@@ -1317,14 +1317,15 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-10120–C-10129
   - Result: EXP-2026-11-24-M2.27-unit-type-label (C-10120–C-10124). Photo in docs/hardware/img/, described in head-unit.md. Label unit ID = PROD +0x140 (1001 + BCD serial), N# suffix = PROD +0xB0. No PIN on the label: C-8304/C-8334 still need (serial, PIN) pairs.
 
-- [ ] **M2.28 — What does Settings → Other "Initialise SD card" do (PIN, format or files)?**
-  - Status: in progress · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
+- [x] **M2.28 — What does Settings → Other "Initialise SD card" do (PIN, format or files)?**
+  - Status: done · Owner: claude/project-thread-93mdt3 · Critical: no · Pair: solo
   - Depends: M2.13b (SDHC CMD42 IOCTLs), M2.26 (Navi.exe has no CMD42 code)
   - Goal: Marek (2026-11-24) found "Please insert the SD memory card to be initialised into slot A … Touch OK to start initialisation" under Settings → Other on the EU card. Trace the path from `NaviSetCC.dll` method `SDCardInitialization` to the process and driver that act, and say whether it sets the CMD42 password, formats the card, or writes files.
   - Scope: EU 2011 image A/B/C static (cerom, sh4dis, sh4xref, strings); emulator only if static stalls. No PIN, serial or dump bytes in the repo.
   - Done when: an EXP names each hop (caller → message/IOCTL → receiver) with VAs, and states which SD operations the path reaches.
   - Stop: one session.
   - Claims: C-10140–C-10149
+  - Result: EXP-2026-11-24-M2.28-sd-card-initialisation (C-10140–C-10146). Menu → Navi msg 0x841000f7 → sub-slot DSK8 card: UNLOCK + CLR_PWD with the unit PIN (PROD +0x100 via FMD1), zero-write, Part00; no SET_PWD/LOCK in image A, so it does not set the PIN. C-8331 retracted.
 
 ## M3 — Reader contract
 
