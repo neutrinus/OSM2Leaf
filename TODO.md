@@ -5511,7 +5511,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7580–C-7589
 
 - [ ] **M8.H62 — `fmmdrv.dll` and the TMC path: where a traffic message enters, and what it looks up on the card**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h62-cycle10 · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: `RDSTM001.DAT` and `LCTBL001.DAT` must be generated for Poland, and their only consumer is traffic: a TMC event carries a location code that is looked up in them. Find the entry point of a decoded TMC message (after `fmmdrv` at `0xffc55000` and the tuner path through `anwdrv`), so an event can be injected without modelling a radio.
