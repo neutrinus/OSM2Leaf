@@ -1215,6 +1215,19 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: solo
   - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
 
+- [ ] **H145 — CI gate red: eu2014/eu2016 heads are unpinned, so a clean clone reports 4 missing evidence paths**
+  - Status: in progress · Owner: task/h145-eu2014-pinned-head · Critical: yes · Pair: required
+  - Depends: —
+  - Goal: after the M9.81/M3.16 conflict fix (33654d61) the standing gate is still red on `main`. A clean clone of `origin/main` runs `tools/claims_check.py --strict --count-check` (the `claims_check` row of `tools/gate.py`) and prints `genuine missing evidence paths: 4` — C-6961, C-6962, C-6963 (M8.G3) and C-10265 (M8.H80) cite `archive/eu2014-256.img` with no fetch command, pinned SHA or pinned-head sibling, so they fail "missing evidence" even though `tools/fetch_image.py` pins that head (`PART_PINS[("EU2014","256M")]`, C-6297). C-6297 also pins EU2016. The four rows are legitimate; the missing-pin classification is the defect.
+  - Precheck: in a depth-1 clone with no `archive/` vendor files, `python3 tools/claims_check.py --strict --count-check` prints `genuine missing evidence paths: 4` and `claims_check: FAILED` (exit 1); on a machine holding `archive/eu2014-256.img` the same command exits 0, so the defect only shows in CI. `grep -n 'PINNED_HEAD_PATHS' tools/claims_check.py` shows only head256/us256; `grep -n 'EU2014.*256M\|EU2016.*256M' tools/fetch_image.py` shows both pins.
+  - Scope: `tools/claims_check.py` only — add `archive/eu2014-256.img` and `archive/eu2016-256.img` to `PINNED_HEAD_PATHS` (in the same set as `archive/head256.img`/`archive/us256.img`, with a comment naming the C-6297 pins), update the selftest assertion for the set, and add a selftest case that a row citing `archive/eu2014-256.img` alone passes as `vendor-pin` (and the same for eu2016). Do not edit any claim row, TODO task, `fetch_image.py`, or gate semantics. Existing exemptions for `vendor-dir`, hash/fetch-bearing cells and pinned-head siblings stay unchanged.
+  - Input: `tools/claims_check.py` (`PINNED_HEAD_PATHS`, `evidence_path_class`, `path_problems`, `_run_selftest`), `tools/fetch_image.py` (`PART_PINS`, C-6297), `docs/research/claims.md` rows C-6961/C-6962/C-6963/C-10265, `docs/experiments/EXP-2026-11-21-M1.36b-rom-atlas.md`.
+  - Done when: `python3 tools/claims_check.py --selftest` passes with the new case; a depth-1 clone with no `archive/` vendor files runs `python3 tools/claims_check.py --strict --count-check` with `genuine missing evidence paths: 0` and exit 0; the same clone with C-6961's pin removed (negative control) still reports a genuine missing path, and a git-ignored `archive/` path that is not a known pin still fails; `tools/gate.py` reports `claims_check PASS`; `todo_check.py` and `board.py lost --base origin/main` pass.
+  - Stop: if `fetch_image.py` does not actually pin one of the two heads, leave that path out of the set and record the gap in the EXP rather than inventing a pin.
+  - Falsifier: `claims_check --strict --count-check` still reports `MISSING` for C-6961/62/63 or C-10265 on a clean clone, or a genuinely unpinned git-ignored path now passes silently.
+  - Claims: C-10290–C-10299
+  - Pair: required
+
 
 ## M2 — Map code, activation, updater
 
