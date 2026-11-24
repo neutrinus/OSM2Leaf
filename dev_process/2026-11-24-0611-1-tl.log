@@ -44,3 +44,42 @@ task selection (26 tasks; 20 pairs + 6 solos = 46 subagents):
 
 (dynamic manifest: PR numbers and subagent session IDs in the message log;
 outcome table appended as results arrive)
+
+merge stream (2026-11-24, in progress) — 12 merges so far:
+  - #714 M4.76 BLOCKED (pair converged: KIWI exporter premise refuted;
+    Unblock M5.3) direct 6617b3a6.
+  - #709 H42 done (progress.yml CI artifacts; navigator round-2 APPROVE after
+    rebase; EXP headings added in merge worktree) 8ac92da2... actually e0fa9633.
+  - #725 M8.G2 done (device x generation table, M8.G4 follow-up) direct 084327fe.
+  - #726 M8.H54 BLOCKED (vcan NK1 stall, Unblock M8.H75) direct 396e728d.
+  - #704 M8.H39 done (L4 tap, US fallback TL-approved; board-done false alarm
+    from missing ref) direct 07e5a640.
+  - #727 M8.H17 done (--sd2 second SD slot) direct ce0c2eb0.
+  - #721 M8.H62 done (TMC path injection fn 0x003bcc7c). NOTE: an accidental
+    push of the claim commit set M8.H62 back to 'in progress'; corrected by a
+    clean remerge (kept the done block, resolved the duplicate-board conflict)
+    direct 9ebf6ea2. Lesson: never push a rebase conflict resolution blindly.
+  - #716 M5.79 done (REFER002 first record; duplicate C-10096 from stale
+    conflict resolved by ID, kept M8.H39's row) direct 47214694.
+  - #723 M4.75 done (KIWI string family table) direct 5567ea68.
+  - #722 M4.57 done (Polish voice framing) direct 1b3aee83.
+  - #717 M8.H12 done (US card boots to Launcher End, US-only blocker named)
+    direct e9bb3f20.
+  - #724 M4.59 done (skin_patch.py; CI zlib cross-version fix after RED on
+    py3.11/3.13) direct c869990d.
+  main now c869990d. All merges verified: board lost 0/0, todo/claims/exp_check
+  OK; stale-base conflicts resolved with board.py resolve (never hand-edited).
+  Several PRs could not be GitHub-merged (stale base) so verified content was
+  pushed directly to main and the PR closed/recognised as merged.
+
+Recurring merge-time defect: concurrent EXPs written against pre-M9.77
+exp_check use '### 4. Scope / corpus' or non-canonical 'none (...)' Sample
+waivers, or omit Conclusion/Overtaken/Reproduction headings — fixed in the
+merge worktree with one-line doc commits, no evidence altered.
+
+Still open (claim-only or in flight): M1.53 (#719, final review), M8.C1p
+(#706), M1.38 (#708), M4.78 (#710), M1.52 (#711), M5.95 (#712), M3.14
+(#705), M5.92 (#702), M2.21 (#703), M4.28 (#707), M8.H20 (#720), plus M8.H79a
+(not in this batch). Remaining solos: M8.H54/M8.G2/M4.75/M4.57/M4.59 done.
+
+(outcome table appended when the remaining agents finish)
