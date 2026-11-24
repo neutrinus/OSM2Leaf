@@ -21,6 +21,20 @@ rationale, never a change made to make a failure pass. H43 consumes this same
 baseline file and `level,file,feature` key — no second schema and no second
 `--check-baseline`. No firmware acceptance claim (rule 13), no vendor data.
 
+## `progress.yml` — per-level progress dashboard on every PR/push (H42)
+
+Runs on `pull_request` and `push` to `main` (Python 3.11, **blocking**, one job).
+It is self-contained: a cross-job artifact hand-off with `ci.yml` /
+`l1l2-fixtures.yml` is fragile, so this job runs the offline chain itself and
+publishes the result rather than relying on another job's output.
+
+- Step 1 runs `python3 tools/progress_snapshot.py --out artifacts/snapshot --json progress.json --md progress.md`. The tool composes `l1l2_fixtures.py` (H26), `l1l2_matrix.py` (H41), `l3check.py --build-corpus --json PATH` (H28/H55) and `progress_report.py` (H27, schema `osm2leaf.progress_report/v3`). The exit is propagated unchanged: `0` no runnable FAIL/regression, `1` a runnable FAIL, a baseline regression, an `l3check` non-zero exit (including rc=3 `NO_RUNNABLE`) or a tool/parse error. No `continue-on-error`.
+- Step 2 reads **the emitted files** and writes the job summary: the per-level table from `progress.md` (`level / runnable PASS / FAIL / SKIP / NOT_COVERED / NOT_RUNNABLE / BLOCKED / verdict`, schema `osm2leaf.progress_snapshot/v1`); the H41 per-file/per-feature matrix from `artifacts/snapshot/matrix.json` (`level,file,feature,status` — per-feature rows are **not** in `progress.json`, so a missing/unparseable matrix is a named failure); L3 firmware-proof PASS vs synthetic/harness PASS separation (rule 13) from the snapshot's `firmware_proof_passes` / `synthetic_passes_not_firmware_proof`; explicit **NOT RUN** rows for L4 emulator (M8) and L5 car/bench (M6); and a distinct **LOCAL-ONLY / NOT RUNNABLE — not run in CI, vendor data required** section (`realcheck IMG256`, golden `ROOT`, full 194 `REFER001`, real `LEV3456R`, QEMU/M8, L5 car).
+- The publisher fails loudly when the snapshot schema is not `osm2leaf.progress_snapshot/v1`, the five level rows are missing/misordered, L4/L5 are not explicit `NOT RUN`, any row has a runnable FAIL, `exit_code != 0`, a baseline regression or any snapshot problem is present. A `l3check` rc=3 problem is labelled **`NO RUNNABLE TARGETS (RED)`** — never a green SKIP, never a PASS. The honest summary is written before the failure so a red run still publishes its true status.
+- Step 3 uploads `progress.json`, `progress.md`, the snapshot log and the intermediate `artifacts/snapshot/{l1l2,matrix,l3,progress-report}.json` as the `progress-h42` artifact.
+
+**No vendor data.** No IMG256/full card tree, no `ROOT`/golden image, no network fetch, no QEMU build and no L5 bench execution in this workflow. Local/vendor checks are listed only. Level mapping effective 2026-11-09: L3=firmware fragments, L4=full-system emulator (M8), L5=bench/car (M6). SKIP / NOT_COVERED / NOT_RUNNABLE / BLOCKED / NOT RUN are never counted as PASS (rule 13); no card acceptance claim is made.
+
 ## `main-watch.yml` — gate verdict on `main` (H117)
 
 The `push` run of `ci.yml` is cancelled by the next push, so a red gate could
