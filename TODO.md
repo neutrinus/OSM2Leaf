@@ -5694,8 +5694,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: two channels of the same driver instance use different mechanisms with no configuration value selecting them.
   - Claims: C-8110–C-8119
 
-- [ ] **M8.H67 — Watchdog and reset on `-M ze0` (row C22): who kicks what, and what a reset request looks like**
-  - Status: in progress · Owner: task/m8.h67-watchdog-reset · Critical: no · Pair: solo
+- [x] **M8.H67 — Watchdog and reset on `-M ze0` (row C22): who kicks what, and what a reset request looks like**
+  - Status: done · Owner: task/m8.h67-watchdog-reset · Critical: no · Pair: solo
   - Step: model
   - Depends: —
   - Goal: Nothing models a watchdog; a guest that resets itself today shows up as an unexplained hang or restart. Find the watchdog (SoC WDT or the microcontroller's), the kick path, and the software reset path (used after updates and on fatal errors).
@@ -5705,7 +5705,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: an EXP with the kick and reset paths (VAs) and, when on-chip, a boot log line per kick and a clean QEMU reset on a reset request (`-no-reboot` exits with a message).
   - Stop: one session.
   - Falsifier: no periodic write to any timer-like register exists outside TMU.
-  - Claims: C-8120–C-8129
+  - Claims: C-10247–C-10252
+  - Result: EXP-2026-11-24-M8.H67-watchdog-reset; software WDT (no on-chip kick) C-10247–C-10252; wdt_scan --check PASS 9/9 strings, 4/4 xrefs, 15/15 methods, 3/3 ioctls; selftest 283/0; no L4 clause (not on-chip)
 
 - [ ] **M8.H68 — `tools/ze0_ps.py`: process, thread and module list of the running guest from kernel structures**
   - Status: open · Owner: — · Critical: no · Pair: solo
