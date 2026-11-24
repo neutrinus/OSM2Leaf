@@ -67,6 +67,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cerom import CERom  # noqa: E402
+import hashutil  # noqa: E402
 
 APP_OFF = 0x200200          # card ROM image A (NB00 + 0x200 header)
 MODULE = "ScreenStateCC.dll"
@@ -205,9 +206,8 @@ def cmd_run(a) -> int:
 
 
 def check_nk1(path: str) -> None:
-    import hashlib
     data = open(path, "rb").read()
-    if hashlib.sha256(data).hexdigest() != NK1_SHA256:
+    if hashutil.sha256_bytes(data) != NK1_SHA256:
         raise SystemExit("ze0_uistart: --touch-unlock knows only NK1 %s" % NK1_SHA256[:16])
     off = NK1_KEPDRV_TEXT[1] + NK1_IS_KEY_CONTROL_NOTIFY - NK1_KEPDRV_TEXT[0]
     if data[off:off + 16] != NK1_IS_KEY_CONTROL_PROLOGUE:

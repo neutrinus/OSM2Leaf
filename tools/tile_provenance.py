@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import argparse
 import collections
-import hashlib
+import hashutil
 import json
 import sys
 import zlib
@@ -36,6 +36,8 @@ if str(HERE) not in sys.path:
 
 import tile_relayout  # noqa: E402
 
+sha256 = hashutil.sha256_bytes
+
 HEADER = tile_relayout.TABLE1_OFF
 
 
@@ -45,10 +47,10 @@ def record_key(raw: bytes) -> str:
         obj = zlib.decompressobj()
         plain = obj.decompress(raw)
         if obj.eof:
-            return "z:" + hashlib.sha256(plain).hexdigest()
+            return "z:" + sha256(plain)
     except zlib.error:
         pass
-    return "r:" + hashlib.sha256(raw.rstrip(b"\0")).hexdigest()
+    return "r:" + sha256(raw.rstrip(b"\0"))
 
 
 def records(m: dict):
@@ -79,8 +81,8 @@ def provenance(factory: bytes, generated: bytes) -> dict:
                 records=sum(r["total"] for r in rows),
                 container_constant_bytes=same_header,
                 header_bytes=HEADER,
-                factory_sha256=hashlib.sha256(factory).hexdigest(),
-                generated_sha256=hashlib.sha256(generated).hexdigest())
+                factory_sha256=sha256(factory),
+                generated_sha256=sha256(generated))
 
 
 def render(rep: dict) -> str:
