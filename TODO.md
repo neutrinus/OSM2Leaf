@@ -4892,8 +4892,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7050–C-7059
   - Result: EXP-2026-11-22-M8.H8-sd-block-trace; 14 files, 10523 reads / 7174 mapped, selftest 17/17, L3 overlap 6/7
 
-- [ ] **M8.H9 — Function coverage at L4 with a TCG plugin (no QEMU patch): which `Navi.exe` functions ran**
-  - Status: in progress · Owner: task/m8.h9-tcg-coverage · Critical: no · Pair: required
+- [x] **M8.H9 — Function coverage at L4 with a TCG plugin (no QEMU patch): which `Navi.exe` functions ran**
+  - Status: done · Owner: task/m8.h9-tcg-coverage · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: Know which readers execute in a scenario without setting breakpoints: a TCG plugin records executed block addresses; the host maps them to function starts (`.pdata`) per module.
@@ -4904,6 +4904,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if plugins cost more than 5× run time, sample (every Nth block) and say so.
   - Falsifier: the mount-time readers located at L3 are absent from the L4 coverage (then L3 and L4 disagree on the path — a finding for M9).
   - Claims: C-7060–C-7069
+  - Result: EXP-2026-11-24-M8.H9; 1341 functions, 3/3 readers, POINT walker absent
 
 - [ ] **M8.H10 — Which bytes of a tile does the firmware touch: read-watch on the tile buffer at L4**
   - Status: open · Owner: — · Critical: no · Pair: required
