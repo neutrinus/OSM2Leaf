@@ -1192,8 +1192,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: solo
   - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
 
-- [ ] **H146 — CI selftest red: inter_l3_probe inverts its exit code and two Unblock IDs are ghosts**
-  - Status: in progress · Owner: task/h146-selftest-gate-fixes · Critical: yes · Pair: required
+- [x] **H146 — CI selftest red: inter_l3_probe inverts its exit code and two Unblock IDs are ghosts**
+  - Status: done · Owner: task/h146-selftest-gate-fixes · Critical: yes · Pair: required
   - Depends: —
   - Goal: the standing `CI quality gate` on `origin/main` `f98a617f` has `selftest FAIL` with two named failures. (1) `tools/inter_l3_probe.py --selftest` prints `selftest: PASS` but exits 1: its last line is `return 0 if fails else 1`, the inverse of every other tool (`return 1 if fails else 0`). (2) `tools/todo_check.py --selftest` checks the real `TODO.md` for `dep_classes['ghost'] == 0`; in a clean clone it reports 2 ghosts — `M8.H5: Unblock references ghost task ID 'M8.H5a'` and `M8.H16: Unblock references ghost task ID 'M8.H81'` — because those unblock task blocks live only on open PR branches and were never added to the board on `main`. Locally in the primary checkout the selftest passes because later local work happens to contain them, so the defect only shows in CI.
   - Precheck: in a clean clone of `origin/main`, `python3 tools/inter_l3_probe.py --selftest` prints `selftest: PASS` and exits 1; `python3 tools/selftest.py --only todo_check` exits 1 with `AssertionError: {'archived': 48, 'ghost': 2, 'blocked': 38}`; `gh run view 45442631393 --log-failed` names `tool:inter_l3_probe FAIL` and `tool:todo_check FAIL` under `selftest`.
@@ -1204,6 +1204,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: `inter_l3_probe --selftest` still exits 1 on PASS, a failing check exits 0, or a clean clone still reports any ghost reference.
   - Claims: C-10300–C-10309
   - Pair: required
+  - Result: EXP-2026-11-24-H146-selftest-gate-fixes; inter_l3_probe exit 0/1, todo_check selftest 80 checks, claims_check 0 mismatches
 
 
 ## M2 — Map code, activation, updater
@@ -5982,6 +5983,39 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Blocker: No checked/debug ZE0 build of Navi.exe/NaviMapCC.dll (or DBGPARAM records/symbols) publicly obtainable: all four real images scan to dbgparam_candidates 0 and mirror/local/web search found no checked build
   - Unblock: A task that obtains a checked/debug ZE0 Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) from Nissan's dealer service channel and re-runs tools/ce_dbgzones.py on it; rule 15 re-opens M8.H80 when that task merges
   - Result: EXP-2026-11-24-M8.H80-checked-build (negative: 0 DBGPARAM in 1646 fully-scanned sections + 28 partial; 9/9 selftest, mutation 5/9; source search negative); C-10260–C-10269
+
+- [ ] **M8.H5a — SH-4 CPU migration format for QEMU `-M ze0` (unblocks M8.H5)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Step: tooling
+  - Depends: —
+  - Goal: M8.H5 could not take a `savevm` snapshot of `-M ze0` because
+    upstream QEMU's `vmstate_sh_cpu` is `.unmigratable = 1` (both 11.1.3
+    and 8.2.10, EXP-2026-11-24-M8.H5-savevm-blocked). A real SH-4 CPU
+    migration format is required before snapshots can exist at all.
+  - Scope: a QEMU patch replacing `vmstate_sh_cpu` with a real vmsd for
+    `CPUSH4State` (core/user-visible registers, MMU/TLB state, FPU status)
+    with `post_load` re-deriving TB flags, `movcal_backup_tail` and float
+    rounding; negative mutation must make `savevm` fail again.
+  - Input: `tools/qemu-ze0/patches/`, `~/.cache/qemu-ze0/qemu-11.1.3/target/sh4/`.
+  - Done when: HMP `savevm t1` on `-M ze0` with a qcow2 SD overlay prints
+    no `Error:` line and `info snapshots` lists `t1`; a mutated build
+    (`.unmigratable = 1` restored) fails again; EXP quotes both outputs.
+  - Falsifier: `savevm` still prints `State blocked by non-migratable device
+    'cpu'` after the patch.
+  - Claims: C-10310–C-10319
+
+- [ ] **M8.H81 — Select boot mode 7/9 at L4 so `TestMode.exe` launches on `-M ze0`**
+  - Status: open · Owner: — · Critical: no
+  - Step: model
+  - Depends: M8.H16 (blocked; names this task as `Unblock`)
+  - Goal: M8.H16 found that `TestMode.exe` is gated by `AppLaunch.dll`'s `mode_mask 0x40` in BOTH kernels B and C, and the boot logs `AppLch:: Boot System Mode = 0`. Make the launcher select mode 7 (mask `0x40`) or mode 9 (`0xffff`, Service Tool Mode) so the C image actually starts test mode and the service screens can validate the peer models.
+  - Precheck: `python3 tools/applaunch_table.py archive/head256.img --image-start 0x5200200 select --area 0x30 --mode 7 | grep -i TestMode` prints record #106 with mode_mask 0x40; a C boot log greps `Boot System Mode = 0` (`grep -a -m1`).
+  - Scope: EU2011 image C (`0x5200200`); find where `CApi_GetBootMode` (commondll.dll export #18, VA `0x03be3b60` in C) gets the mode from `KernelIoControl 0x01013018`, and set it in the kernel OAL or the IPL patch (image C's `ipl-C.txt` poke to commondll alone logged `Boot System Mode = 10` and must not be retried as-is). Then boot with `tools/qemu-ze0/run.sh --kernel 0x5200200`. Excluded: L5 hardware, new QEMU device models.
+  - Input: EXP-2026-11-24-M8.H16-testmode-kernel O7/O8, `tools/applaunch_table.py`, `tools/cerom.py`, `tools/ze0_ipl.py`, `tools/qemu-ze0/run.sh`.
+  - Done when: a C boot log on `-M ze0` prints a boot mode of 7 or 9 and a `TestMode.exe` process or the `Clarion Testmode` title, with an EXP naming the exact poke/flag and the stage reached.
+  - Stop: two sessions; if the mode is latched in the OAL before commondll.dll loads and cannot be set via ipl-patch, record the blocker and the VA that holds it.
+  - Falsifier: mode 7/9 selected but no TestMode process appears — then another gate exists and the EXP names it.
+  - Claims: C-10320–C-10329
 
 ---
 
