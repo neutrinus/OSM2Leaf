@@ -4846,7 +4846,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Result: EXP-2026-11-23-M8.H4-display-surface (C-7010–C-7014). New patch `ze0-h04-display-surface.patch`: `ze0-gfx` (machine option `gfx-display`, default on) exposes DU planes 1-4 as a QEMU graphic console, composed like `ze0_screenshot.py compose()` and recomposed when a 2DG list ends. HMP `screendump FILE ze0-gfx` equals `ze0_screenshot.py screen` of the same instant (0/384,000 pixels differ, raw RGB SHA-256 `d2b7e70f…`); `run.sh --display SPEC`/`--vnc` show it in VNC (RFB on 5907), gtk/sdl; `--display none` is the unchanged headless default; `gfx-display=off` is the no-console control; new `tools/ze0_screencmp.py` (+5 checks). Next: M8.H40 (live mouse→touch), M8.C1t (UI plane alpha).
 
 - [ ] **M8.H5 — Start in seconds: `savevm` after boot and `run.sh --loadvm`**
-  - Status: open · Owner: — · Critical: no · Pair: required
+  - Status: in progress · Owner: task/m8.h5-savevm · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: A boot to the idle UI takes minutes of host time (card mount about 170 s; launcher threads far longer while the audio microcontroller is absent — project notes of 2026-11-22). Every L4 experiment pays that. A snapshot taken at idle makes each later run start from it.
