@@ -197,6 +197,11 @@ included (M4.22 re-run, C-5282).
 `TTS` payloads contain RIFF/WAV and zlib streams. These are out of scope for
 the map compiler.
 
+The full offline inventory of every sound the unit plays (card `SPEECH/`
+prompts, TTS/AGM voice data, and the beep/chime DSP/microcontroller branch),
+with a per-source `replaceable as data` verdict, is in `docs/format/sounds.md`
+(M4.60, EXP-2026-11-24-M4.60).
+
 ### Cross-year format check (M4.57, EXP-2026-11-24-M4.57-polish-voice)
 
 The three kinds keep the **same archive framing** on EU 2011 and EU 2014; only
