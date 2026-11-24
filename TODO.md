@@ -4168,7 +4168,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Note: 2026-11-23 SE rule-15 sweep: M2.20 is done and found no area gate in card B (C-6263/C-6268); Unblock reworded so the hardware test, not a done ID, is the door.
 
 - [ ] **M6.22 — Rehearse S1 in the emulator: the US card with a recompressed `POINT010`**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m6.22-s1-emulator · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H12
   - Goal: S1 is the first changed card for Marek's US unit (a no-op recompressed `POINT010`). Before the car, boot it on `-M ze0` next to the factory US card.
