@@ -39,7 +39,7 @@ are printed.
 from __future__ import annotations
 
 import argparse
-import hashlib
+import hashutil
 import json
 import struct
 import sys
@@ -53,6 +53,8 @@ for _p in (HERE / "ze0-viewer" / "tools_ze0", HERE):
 
 import clarion_tile  # noqa: E402
 import s1_wide_dir  # noqa: E402
+
+sha256 = hashutil.sha256_bytes
 
 TABLE1_OFF = clarion_tile.TABLE1_OFF
 SECT_OFF = clarion_tile.SECT_OFF
@@ -335,7 +337,7 @@ def coverage(d: bytes, m: dict) -> dict:
 def signature(d: bytes) -> dict:
     """Offset-free description of a tile, for ``compare``."""
     m = read_model(d)
-    out = dict(header=hashlib.sha256(_header_wo_sections(m["header"])).hexdigest(), sections=[])
+    out = dict(header=sha256(_header_wo_sections(m["header"])), sections=[])
     for sec in m["sections"]:
         S = dict(id=sec["id"], count=sec["count"], levels=[])
         for L in sec["levels"]:
@@ -343,7 +345,7 @@ def signature(d: bytes) -> dict:
             for dm in L["dirs"]:
                 LL["dirs"].append(dict(box=list(dm["box"]), head=_dir_head(dm),
                                        units=[[u["live"], None if u["live"] else u["tag"],
-                                               hashlib.sha256(b"".join(u["recs"])).hexdigest(),
+                                               sha256(b"".join(u["recs"])),
                                                len(u["recs"])] for u in dm["units"]]))
             S["levels"].append(LL)
         out["sections"].append(S)
@@ -365,18 +367,18 @@ def _header_wo_sections(h: bytes) -> bytes:
 
 def _dir_head(dm: dict) -> list:
     if dm["model"] == "s4wide":
-        return [dm["head"].hex(), hashlib.sha256(b"".join(r["body"] for r in dm["rows"])).hexdigest()]
+        return [dm["head"].hex(), sha256(b"".join(r["body"] for r in dm["rows"]))]
     if dm["model"] == "wide":
         w = dm["wm"]
         bodies = [s1_wide_dir.encode_body(r["cols"], r["wide"]).hex() for r in w["rows"]]
         return [w["kind"], list(w["ab"]), w["y"], w["x"], w["typ"],
-                hashlib.sha256("".join(bodies).encode()).hexdigest()]
+                sha256("".join(bodies).encode())]
     D = dm["D"]
     bodies = b"".join(D["slots"][i]["body"] if i in D["slots"]
                       else D.get("empty_bodies", {}).get(i, b"")
                       for i in range(D.get("nslots", clarion_tile.SLOTS)))
     return [D["kind"], list(D["ab"]), D["y"], D["x"], D["typ"],
-            hashlib.sha256(bodies + D.get("tail", b"")).hexdigest()]
+            sha256(bodies + D.get("tail", b""))]
 
 
 def compare(a: bytes, b: bytes) -> list[str]:
@@ -579,7 +581,7 @@ def main(argv=None) -> int:
             print("tile_relayout: FAIL %s" % exc)
             return 1
         Path(args.out).write_bytes(out)
-        st["sha256"] = hashlib.sha256(out).hexdigest()
+        st["sha256"] = sha256(out)
         moved = st["tables"] + st["dirs"] + st["blocks"] - st["same_offset"]
         st["moved"] = moved
         if args.json:
@@ -601,7 +603,7 @@ def main(argv=None) -> int:
             out = tilewriter.pad_directory_reads(out)
         Path(args.out).write_bytes(out)
         print("empty: tables=%d dirs=%d records=%d size=%d B sha256 %s"
-              % (st["tables"], st["dirs"], st["records"], len(out), hashlib.sha256(out).hexdigest()))
+              % (st["tables"], st["dirs"], st["records"], len(out), sha256(out)))
         return 0
     if args.cmd == "compare":
         diffs = compare(Path(args.a).read_bytes(), Path(args.b).read_bytes())
