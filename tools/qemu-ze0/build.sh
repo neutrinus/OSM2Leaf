@@ -800,7 +800,19 @@ selftest() {
   st_contains "missing qemu binary" "no qemu-system-sh4 at"
 
   # --- 8. network-needed message (file:// negative control) ----------------
-  if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
+  # The full build refuses with "missing build tool" before it reaches the
+  # fetch on a runner without meson/ninja/cc, which would be a different
+  # failure.  Only run this case where the build tools exist; otherwise SKIP
+  # with a reason (SKIP is never PASS, but this case tests only the fetch).
+  build_tools_ok=1
+  for need in tar make meson ninja python3; do
+    command -v "$need" >/dev/null 2>&1 || build_tools_ok=0
+  done
+  if ! command -v cc >/dev/null 2>&1 && ! command -v gcc >/dev/null 2>&1; then
+    build_tools_ok=0
+  fi
+  if [ "$build_tools_ok" -eq 1 ] \
+     && { command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; }; then
     st_run "network needed" 3 -- env HOME="$tmp/home" "$SELF" \
       --srcdir "$tmp/cache-net" --url-base "file://$tmp/no-such-mirror"
     st_contains "network needed" "NETWORK NEEDED"
@@ -811,7 +823,7 @@ selftest() {
       st_fail "network needed left a tarball behind"
     fi
   else
-    printf 'skip network-needed check (no curl/wget)\n'
+    printf 'skip network-needed check (needs build tools and curl/wget)\n'
   fi
 
   # --- 8b. --check-version exit codes: green 0, red 4, verdict last --------
