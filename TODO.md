@@ -2287,8 +2287,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-3760–C-3769
   - Result: EXP-2026-11-19-M4.38-lang-code-table. The codes are Navi.exe `sdl_com_hdl_get_lang` values (EU2011 fn `0x003c0228`, rows `0x00045d90`; EU2014 `0x003f3c34`/`0x00047a78`), default `3f`; Speech.exe maps the same `OBJ_Setting_readExpLanguage` setting to the `SPEECH/` dir. `02` EN-UK/BE, `03` EN-US/US, `04` FR (FR, CF), `05` GE, `06` SP, `07` IT, `08` PT, `09` EL (cross-build), `0a` DU, `0c` SV, `0d` DA, `15` FI, `16` NO (+ `01` JP, `0b` RU, `0e` ZH, `0f` KO). `tools/lang_code_table.py join`: EU 2011 7/7, US 2011 2/2, EU 2014 16/16 dirs, shifted ±1 and no-Navi-table controls fail. `14 17 18 19 1a`: no row in four builds (`rows` scan) — named as the open step; the reader of `0x18c` is not traced. `claims_check.py` OK.
 
-- [ ] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
-  - Status: open · Owner: — · Critical: no
+- [x] **M4.28 — Explain the POI latitude residual (+2.8 km) on a known entrance**
+  - Status: done · Owner: task/m4.28-cycle10 · Critical: no
   - Step: P4
   - Blocker: M4.27 (bit-packed POINT wider sample) unavailable in this session; M4.28 precheck not satisfied on M4.8b's 16 inflated-stream POIs — no POI with a reliably known, checkable entrance-vs-centroid/reference coordinate separation from allowed non-OSM sources identified (airports share ARP ref; building landmarks have sub-packed-unit separation, too small for the km-scale residual). Stop triggered; H1/H2 untestable. Analysis narrows C-1903 (dlat 132–6401 m, 48×, not a uniform fixed offset) but C-1904 not confirmed/narrowed-to-verdict/retracted.
   - Unblock: re-opened 2026-11-20 by M4.27 (C-2679): the +2.8 km latitude residual is explained without an entrance test — the copy-A low nibble is `11xx` (marker bits, 4-unit sub-cell), so the 1-unit reading is off by up to 15 units; with the fine fields the 16 references fit to a median of 115 m. Left to do here: update or retract C-1903/C-1904 against `tools/point_census.py refs`, and close.
@@ -2306,8 +2306,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
     or retract the bias hypothesis) with the evidence.
   - Stop: if no POI with a reliably known entrance can be identified from
     allowed sources, record the gap and stop.
-  - Claims: C-2680–C-2689
-  - Result: EXP-2026-11-08-M4.28-poi-lat-residual-r2.md (blocked). M4.27 unavailable; M4.8d done (C-2930–2935). Precheck/Stop on 16 M4.8b POIs (0/16 with citable entrance-vs-centroid coords from allowed non-OSM sources). dlat variance 132–6401 m (48×) argues against a single fixed-lat offset; C-1904 unresolved. C-2680–C-2682 added.
+  - Claims: C-2680–C-2684
+  - Result: EXP-2026-11-24-M4.28-poi-lat-residual-explained.md; point_census.py refs: median 114.6 m vs 3557.7 m, 16/16 closer, swapped 1567.9 m; C-1903/C-1904 RETRACTED -> C-2683/C-2684 OBSERVED
 
 - [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
   - Status: blocked · Owner: task/m4.29-classcode-control-r2 · Critical: no
