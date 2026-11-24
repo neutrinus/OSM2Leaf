@@ -5908,8 +5908,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Done when: a 5 s `tools/qemu-ze0/run.sh --machine aze0 --image archive/eu2014-256.img` boot prints a non-zero count of X212 debug lines on its own `dbgmsg` default, reaches an idle kernel with no CPU exception, and an EXP compares that log with the EU2011 F0 log (entry `0x8800f100`, RAM `0x8a640000`); `-M ze0` behaves byte-for-byte as before.
   - Stop: if the X212 kernel stops short of F0 twice with the same log, record the last debug line and stage in an EXP and set `blocked` on the M8.G2 follow-up that owns the missing device (INTEVT table M8.G5).
   - Falsifier: the EU2014 kernel prints debug text at the EU2011 VA `0x880404f4` and ends at the EU2011 final PC `0x8803d266` — then no X212 subclass is needed and this task records that instead of adding a machine.
-  - Claims: C-10090–C-10099
-  - Result: EXP-2026-11-24-M8.G4-aze0-machine; -M aze0 5s: 462 vs 0 wrong-VA/0 off lines, entry 0x8800f100, RAM 0x8a640000, ze0 PC 0x8803d266 unchanged; C-10230..C-10239
+  - Claims: C-10240–C-10246
+  - Result: EXP-2026-11-24-M8.G4-aze0-machine; -M aze0 5s: 462 vs 0 wrong-VA/0 off lines, entry 0x8800f100, RAM 0x8a640000, ze0 PC 0x8803d266 unchanged; C-10240..C-10246
 
 ---
 
