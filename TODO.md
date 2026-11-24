@@ -1999,8 +1999,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-6640–C-6649
   - Result: EXP-2026-11-23-M3.36-board-truth-refer; scoped audit 2->0; todo_check 156->156 warnings; lost 0; new M3.43 + C-8850-C-8859
 
-- [ ] **M3.42 — `MDP_*RcvParcel`: the parcel receive queue in the firmware — who fills it and what a 'parcel' is there**
-  - Status: in progress · Owner: task/m3.42-rcv-parcel-queue · Critical: no · Pair: required
+- [x] **M3.42 — `MDP_*RcvParcel`: the parcel receive queue in the firmware — who fills it and what a 'parcel' is there**
+  - Status: done · Owner: task/m3.42-rcv-parcel-queue · Critical: no · Pair: required
   - Step: reader
   - Depends: —
   - Goal: The ROM names functions `MDP_pushRcvParcel`, `MDP_popRcvParcel`, `MDP_freeRcvParcel` in error strings. A queue of received parcels sits between the file reader and the consumers; its element structure is the firmware's own definition of a parcel (id, level, buffer, length), and the map client found in M3.25/M3.28 should be its producer.
@@ -2011,6 +2011,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session; if the strings are referenced by a logging helper only, name the helper's callers and stop after one hop.
   - Falsifier: the queue carries messages of another subsystem (traffic or telematics 'parcels').
   - Claims: C-7780–C-7789
+  - Result: EXP-2026-11-24-M3.42-rcv-parcel-queue; 44-B element table + producer/consumer; signature error string -> xref (strong); C-7632 RETRACTED; C-7780-C-7789
 
 - [ ] **M3.39 — The order in which the firmware reads a tile, compared with `kiwiread`'s parse order**
   - Status: open · Owner: — · Critical: no · Pair: required
