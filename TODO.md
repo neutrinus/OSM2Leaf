@@ -5970,6 +5970,26 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: A task that obtains a checked/debug ZE0 Navi.exe/NaviMapCC.dll build (or its DBGPARAM records/symbols) from Nissan's dealer service channel and re-runs tools/ce_dbgzones.py on it; rule 15 re-opens M8.H80 when that task merges
   - Result: EXP-2026-11-24-M8.H80-checked-build (negative: 0 DBGPARAM in 1646 fully-scanned sections + 28 partial; 9/9 selftest, mutation 5/9; source search negative); C-10260–C-10269
 
+- [ ] **M8.H5a — Make SH-4 CPU migratable in the ze0 QEMU patch series (unblocks M8.H5)**
+  - Status: open · Owner: — · Critical: no · Pair: required
+  - Depends: —
+  - Goal: upstream SH-4 `vmstate_sh_cpu` has `.unmigratable = 1` in QEMU 11.1.3 (`target/sh4/cpu.c:274`) and 8.2.10 (`cpu.c:245`), so HMP `savevm` prints `Error: State blocked by non-migratable device 'cpu'` on `-M ze0`. Make the CPU migratable in the ze0 patch series (or prove it cannot be), so `run.sh --savevm/--loadvm` of M8.H5 can be tested.
+  - Precheck: `grep -n 'unmigratable' tools/qemu-ze0/patches/*.patch` prints nothing; `python3 tools/qemu-ze0/build.sh --check-version 11.1.3` exits 0.
+  - Done when: an EXP shows `savevm t1` succeeding on `-M ze0` with a printed command, or a named blocker with the exact QEMU error.
+  - Stop: one session; do not patch upstream unrelated devices.
+  - Falsifier: `savevm` still fails with the same non-migratable error after the patch.
+  - Claims: C-10290–C-10299
+
+- [ ] **M8.H81 — Select test mode (mode_mask 0x40) in the launcher boot path (unblocks M8.H16)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: —
+  - Goal: `TestMode.exe` is gated by `mode_mask 0x40` in the AppLaunch table of both kernel B and C; forcing mode-7 IPL still logged `Boot System Mode = 10`. Find the launcher boot-mode selector and enter test mode so M8.H16's service screens can be reached.
+  - Precheck: `python3 tools/applaunch_table.py` prints the mode_mask rows cited in EXP-2026-11-24-M8.H16-testmode-kernel.
+  - Done when: an EXP shows a boot reaching a TestMode screen with the mode-select VA, and M8.H16 can be re-opened.
+  - Stop: one session; if the selector is in the unit flash (M6.18 dump), name that as the blocker.
+  - Falsifier: mode_mask change does not alter the launcher's mode decision.
+  - Claims: C-10300–C-10309
+
 ---
 
 ## M9 — L3 toolkit: run firmware functions against our data
