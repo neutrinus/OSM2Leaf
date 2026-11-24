@@ -2675,7 +2675,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7740–C-7749
 
 - [ ] **M4.76 — `kiwiread`'s OSM exporter as a class table seed: KIWI road and background types → OSM tags, inverted for our compiler**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m4.76-cycle10 · Critical: no · Pair: solo
   - Step: P1
   - Depends: M4.69
   - Goal: `kiwiread` ships `osm.c`, which writes KIWI data as OSM. Its type → tag choices, inverted, are a first OSM → Clarion class table (M5.3) — valid only for the codes M4.69 confirmed on our card.
@@ -2686,6 +2686,9 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: more than half of the codes in the inverse table do not occur in any factory tile.
   - Claims: C-7750–C-7759
+  - Blocker: Premise source false: osm.c is a render utility, osmtag() has 1 road row, M4.69 confirmed-code set empty, probe yields 7 classes not 10 with class_code LORO below null
+  - Unblock: M5.3
+  - Result: EXP-2026-11-24-M4.76-kiwi-class-seed (negative, 11 PASS selftests)
 
 - [ ] **M4.77 — A real KIWI disc image as a control: run `kiwiread` on it and on our card**
   - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
