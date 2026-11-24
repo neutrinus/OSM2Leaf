@@ -5132,8 +5132,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7210–C-7219
   - Result: EXP-2026-11-22-M8.H24-emulator-quickstart; 7 claims C-7210–C-7216; every page command exit 0, 382721-pixel PNG at ~20 s
 
-- [ ] **M8.H25 — Boot-time budget: from start to the idle UI, where the wall-clock minutes go**
-  - Status: in progress · Owner: task/m8.h25-boot-budget · Critical: no · Pair: solo
+- [x] **M8.H25 — Boot-time budget: from start to the idle UI, where the wall-clock minutes go**
+  - Status: done · Owner: task/m8.h25-boot-budget · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: Measure the phases (kernel, drivers, card mount, launcher waits, UI) in guest time and host time, with and without `-icount`, and list the three cheapest cuts.
@@ -5144,6 +5144,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: host time is dominated by one phase that no option changes (then the cut is a model, and the EXP names it).
   - Claims: C-7220–C-7229
+  - Result: EXP-2026-11-24-M8.H25-boot-budget; C-7220..C-7226; 2 configs + cut; negative mutation; run.sh --help default
 
 - [x] **M8.H26 — `run.sh --card IMG`: derive `verinf`, `mapdb`, the overlay and the `ipl-patch` from the card**
   - Status: done · Owner: task/m8.h26-card-derive · Critical: no · Pair: solo
