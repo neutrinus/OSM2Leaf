@@ -799,7 +799,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-22-M1.37-rom-changelog; per-module tables for EU2011->EU2014 and EU2014->EU2016 in docs/research/rom-changelog.md; control EU2011 vs US2011 build B = 0 changes; BT_FW.dll 100%; C-6300-C-6309
 
 - [ ] **M1.38 — Can a 2014/2016 kernel ROM start on the 2011 board? (static)**
-  - Status: in progress · Owner: task/m1.38-cycle10 · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m1.38-cycle10 · Critical: no · Pair: solo
   - Depends: M1.36 (done); M6.19 helps (what the unit's own flash holds)
   - Goal: decide whether "use the newer binaries" is possible at all on Marek's `QY7200ND`: compare ROMHDR RAM windows, BSP/platform strings, the driver set (`fmmdrv` vs `fmmdrv_05`/`_07`, `FlashManager` vs `FlashManager2`, LCD, SDHC) and the launcher's unit checks between `X210` and `X212` builds B.
   - Precheck: `python3 tools/cerom.py --image-start 0x3e00200 <EU2014 head> romhdr` prints a ROMHDR.
@@ -807,6 +807,9 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: the EXP names at least the flash-driver selection rule (how `fmmdrv_05`/`_07` is chosen) or records it as unknown with the VA where the choice is made.
   - Claims: C-6310–C-6319
   - Stop: one static pass; if the flash-driver selection rule is not readable statically, record it as unknown with the VA where the choice is made and mark `blocked`. No card is built.
+  - Blocker: fmmdrv_05/_07 runtime selection VA not statically readable: both registry keys identical (Prefix FMM, Index 1, Order 2, ServisID 0x000060fe), neither FMM_Init (0x039a15a4 / 0x0399159c) reads a hardware ID; choice made at device registration, not in stored bytes
+  - Unblock: M8.G4
+  - Result: EXP-2026-11-24-M1.38-x212-on-x210 (negative with CETUS positive control; static table C-6310-C-6319: verdict not a static drop-in; +0x800000 RAM shift; fmmdrv -> fmmdrv_05/_07)
 
 - [x] **M1.39 — Hardware map of the head unit: CPU, RAM, flash, serial ports, buses (from the firmware)**
   - Status: done · Owner: claude/project-thread-64ftoc · Critical: no · Pair: solo
