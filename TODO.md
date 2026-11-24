@@ -4882,8 +4882,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: C boots exactly like B with no extra process (then test mode is entered another way and the EXP says which).
   - Claims: C-7130–C-7139
 
-- [ ] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
-  - Status: in progress · Owner: task/m8.h17-cycle10 · Critical: no · Pair: solo
+- [x] **M8.H17 — Second SD slot on `-M ze0` (`DSK8:`, `\UserSD`)**
+  - Status: done · Owner: task/m8.h17-cycle10 · Critical: no · Pair: solo
   - Step: model
   - Depends: M8.C1b (done; SD host row C10 of the peripheral table is done too)
   - Goal: The unit has a second slot for user media. With it a test can offer the firmware an update or a user file without touching the map card.
@@ -4894,6 +4894,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if port 1 uses a DMA channel the model lacks, record its number and stop.
   - Falsifier: the guest never issues a command on port 1 even with card-detect asserted.
   - Claims: C-7140–C-7149
+  - Result: EXP-2026-11-24-M8.H17-second-sd-slot; --sd2 mounts DSK8:/\UserSD (49 port-1 cmds, ch9 DMA, 9 mount notifications); baseline 0 cmds; C-7140–C-7149; selftest PASS
 
 - [x] **M8.H18 — NOR flash (`FMD1:`) backed by a host file: settings and user data survive a restart**
   - Status: done · Owner: task/m8.h18-fmd1-flash · Critical: no · Pair: required

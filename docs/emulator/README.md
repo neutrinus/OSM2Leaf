@@ -223,7 +223,7 @@ names the record.
 | Vehicle CAN (`UAT3:`) | not yet | M8.H50 |
 | Bluetooth (`SCI8:`) | not yet | M8.H56 |
 | USB host | not yet | M8.H57 |
-| Second SD slot | not yet | M8.H17 |
+| Second SD slot (`run.sh --sd2`) | works — port 1 card mounts `DSK8:` / `\UserSD` | EXP-2026-11-24-M8.H17 |
 | NOR flash / saved position | not yet | M8.H18 |
 | Live screen in a host window | works — VNC/gtk via `run.sh --display` (M8.H4) | EXP-2026-11-23-M8.H4 |
 | UI layer (buttons, status bar) | not yet — plane 2 is fully colour-keyed | EXP-2026-11-22-M8.C1f O6 |

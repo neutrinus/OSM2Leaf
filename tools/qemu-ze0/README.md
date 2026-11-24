@@ -244,6 +244,14 @@ kept), so the next run extracts cleanly.
   `tools/ze0_sdhost.py dmatrace LOG --card CARD.img` compares every block
   read with the card image. See
   [`EXP-2026-11-21-M8.C1b-hpb-dmac-model.md`](../../docs/experiments/EXP-2026-11-21-M8.C1b-hpb-dmac-model.md).
+- **M8.H17 (2026-11-24):** `run.sh --sd2 FILE` puts a second card on SD host
+  port 1 (`-drive if=sd,index=1`); the port and its HPB-DMAC channel 9 were
+  already modelled (M8.C10/C1b), so no patch changed. With a small FAT16 card
+  the guest asserts card-detect, enumerates the card and mounts `DSK8:` /
+  `\UserSD` (`SYS_NOTIFY_USER_SD_CARD_MOUNT` to 9 processes); without `--sd2`
+  the boot is unchanged. `tools/ze0_sdhost.py ports LOG` reports per-port
+  card-detect and commands. See
+  [`EXP-2026-11-24-M8.H17-second-sd-slot.md`](../../docs/experiments/EXP-2026-11-24-M8.H17-second-sd-slot.md).
 - `ze0-0010` (M8.C1c): `verinf=STR` and `mapdb=LO-HI` write the unit record
   the launcher reads at kernel image header `+0x60` (map code) and
   `+0x70`/`+0x72` (map-DB window, big-endian u16); `run.sh --verinf/--mapdb`.
