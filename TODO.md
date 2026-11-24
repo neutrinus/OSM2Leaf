@@ -4091,6 +4091,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
     opens, no dialog, card hash after the run). A reject here means the unit
     wants factory-exact compressed bytes: stop and re-plan before S2.
   - Claims: C-1150–C-1159
+  - Input: EXP-2026-11-24-M6.22-s1-emulator (L4 US S1 rehearsal)
 
 - [ ] **M6.6 — S2: the renamed POI on the US unit**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
@@ -4167,8 +4168,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-6270–C-6279
   - Note: 2026-11-23 SE rule-15 sweep: M2.20 is done and found no area gate in card B (C-6263/C-6268); Unblock reworded so the hardware test, not a done ID, is the door.
 
-- [ ] **M6.22 — Rehearse S1 in the emulator: the US card with a recompressed `POINT010`**
-  - Status: in progress · Owner: task/m6.22-s1-emulator · Critical: no · Pair: solo
+- [x] **M6.22 — Rehearse S1 in the emulator: the US card with a recompressed `POINT010`**
+  - Status: done · Owner: task/m6.22-s1-emulator · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H12
   - Goal: S1 is the first changed card for Marek's US unit (a no-op recompressed `POINT010`). Before the car, boot it on `-M ze0` next to the factory US card.
@@ -4179,6 +4180,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: one session.
   - Falsifier: the S1 card stops earlier than the factory card.
   - Claims: C-8070–C-8079
+  - Result: EXP-2026-11-24-M6.22-s1-emulator; both verdicts PASS F4 ACCEPT/OPENED + files-read diff none (13 files); neg FAIL F4
 
 - [ ] **M6.23 — Rehearse S2 in the emulator: find the renamed POI through the search screens**
   - Status: open · Owner: — · Critical: no · Pair: required
