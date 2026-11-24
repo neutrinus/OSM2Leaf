@@ -88,6 +88,37 @@ before the final `KernelIoControl(0x01013000)` with code 3.
 | Operation-control module wait | `0x1388` = 5000 ms | `0x039d5e0e` |
 | Video line poll | `0x32` = 50 ms | `0x039d4fb0` |
 
+## Watchdog and software reset (M8.H67, static)
+
+Build B's watchdog is a **software** monitor in `PowerMonitor.dll`, not a
+periodic write to an on-chip WDT register. `StartThreads` (`0x039d6d2c`)
+creates the `C.WdtMonitor` object through `C.WdtMonitor::Init 0x039d71ac`
+→ `Start 0x039d71d8`, which creates `EVENT_WDT_STOP` (string `0x039d4038`) and
+`EVENT_WDT_START` (string `0x039d40c8`) and starts a thread through
+`0x039d7340`. The monitor thread `WdtClearThread 0x039d706c` compares a
+return value with the literal `0x0102` at `0x039d7192`; when equal it calls
+`KernelIoControl(0x01013048)` (pool `0x039d719c`, load `0x039d70ee`), and on
+non-equal returns waits `0x0bb8` ms (3000, load `0x039d715e`). `vt+0x000` is
+`WdtStart 0x039d6f90` (pool `0x039d1c10`); the `125<<2 = 500` immediate at
+`0x039d7018` has unknown units. `vt+0x2f8` is `Init 0x039d55e8`, which calls
+monitor setup `0x039d6fc4` at `0x039d57d6`.
+
+The four candidate WDT register pages (`0xffffff80/84/88`, `0xfff80000`) have
+**zero** literal words in the `PowerMonitor.dll` code section (`wdt_scan.py
+--check`); `0xfff80000` belongs to the display unit (C-6920) and is named by
+`IOLIB.dll`, not this module. The kernel's only timer literal in the scoped
+range is TMU0 (`nk.exe 0x88004d00` → `0xffd80000`). Method, counts and
+controls: EXP-2026-11-24-M8.H67-watchdog-reset.md.
+
+The reset request is an OAL KernelIoControl, not a WDT write:
+`POW_IOControl 0x039d5e64` (export #3) compares IOCTL `0x8013200c` (pool
+`0x039d5f3c`, load `0x039d5e92`) → `SystemResetThread 0x039d5ca8` →
+`AccOffProc (0x039d56f4, reason 4)` via `vt+0x344` (pool `0x039d5cf6`) →
+`PowerOFF_Sequence 0x039d6428` → `KernelIoControl 0x039d6494` with
+`IOCTL_HAL_POWER_SEQUENSE 0x01013000` (pool `0x039d6500`, load `0x039d64a4`),
+logging `KernelIoControl[IOCTL_HAL_POWER_SEQUENSE]` at `0x039d2cc4`.
+No micon frame is visible in this module.
+
 ## What is **not** established
 
 - **No flash-write instruction was found in the ACC-off path of this module.**
