@@ -9,7 +9,7 @@ recomputes the ``SUM4`` u32 word sum (C-160) in both copies of the card's image
 A container (``0x200000`` and ``0x2000000``).  Nothing else is written.
 
 The replacement is synthetic: the original IDAT is decompressed, the RGB
-samples are inverted, and the result is recompressed with a zlib stream padded
+samples are set to black, and the result is recompressed with a zlib stream padded
 to the original IDAT length (a non-final stored deflate tail plus a final empty
 stored block).  Then the IHDR/IDAT/IEND chunk CRCs are recomputed.  The total
 PNG length is unchanged, so the ROM section offsets and the SUM4 range stay
@@ -120,9 +120,9 @@ def recolor_png(orig: bytes) -> bytes:
             raise ValueError("only PNG filter type 0 is supported")
         for x in range(w):
             p = y * stride + 1 + x * 4
-            new[p] = 255 - new[p]
-            new[p + 1] = 255 - new[p + 1]
-            new[p + 2] = 255 - new[p + 2]
+            new[p] = 0
+            new[p + 1] = 0
+            new[p + 2] = 0
 
     target_total = len(orig)
     best = None
@@ -299,8 +299,11 @@ def selftest() -> int:
             fail += 1
             print("FAIL", name)
 
-    # Synthetic 32x32 RGBA PNG: a noisy-ish raster leaves room to pad the
-    # inverted stream back to the original IDAT length.
+    # Synthetic 32x32 RGBA PNG with a stored (level 0) IDAT: stored deflate
+    # blocks have a fixed RFC 1950/1951 layout, so the fixture's byte length
+    # is identical on every zlib version (CI runs py3.11 and py3.13).  The
+    # blackened stream compresses smaller at level 9, leaving room for the
+    # ancillary padding chunk on every interpreter.
     raw = bytearray()
     for y in range(32):
         raw.append(0)
@@ -310,7 +313,7 @@ def selftest() -> int:
     raw = bytes(raw)
     ihdr = struct.pack(">IIBBBBB", 32, 32, 8, 6, 0, 0, 0)
     png = (PNG_MAGIC + _chunk(b"IHDR", ihdr)
-           + _chunk(b"IDAT", zlib.compress(raw, 6)) + _chunk(b"IEND", b""))
+           + _chunk(b"IDAT", zlib.compress(raw, 0)) + _chunk(b"IEND", b""))
     check("png_chunks parses synthetic PNG",
           [t for t, o, n in png_chunks(png)] == [b"IHDR", b"IDAT", b"IEND"])
     new = recolor_png(png)
@@ -324,8 +327,7 @@ def selftest() -> int:
         exp.append(0)
         for x in range(32):
             p0 = y * 129 + 1 + x * 4
-            exp.extend((255 - raw[p0], 255 - raw[p0 + 1],
-                        255 - raw[p0 + 2], raw[p0 + 3]))
+            exp.extend((0, 0, 0, raw[p0 + 3]))
     check("IDAT decodes", zlib.decompress(new[new_idat[1]:new_idat[1] + new_idat[2]])
           == bytes(exp))
     check("changed bytes", new != png)
@@ -350,16 +352,15 @@ def selftest() -> int:
             for copy in COPIES:
                 rom = bytearray(ROM_A_LENGTH)
                 rom[:len(png)] = png
-                rom[0x1000:0x1000 + len(blob)] = blob
+                rom[len(png) + 0x1000:len(png) + 0x1000 + len(blob)] = blob
                 f.seek(copy + ROM_A_START - IMAGE_START)
                 f.write(bytes(rom))
             for copy in COPIES:
                 f.seek(copy + 0x30)
                 f.write(b"SUM4" + struct.pack("<I", 0))
         p = plan(path, offset)
-        expected = sum4(bytes(png) + b"\x00" * (ROM_A_LENGTH - len(png)))
-        expected = (expected - sum4(b"\x00" * 0x1000)
-                    + sum4(blob)) & 0xffffffff
+        expected = sum4(bytes(png) + b"\x00" * (ROM_A_LENGTH - len(png))
+                        + blob) & 0xffffffff
         check("plan sees stored 0", p["stored_sum4_0x200000"] == 0)
         check("plan sees actual recomputed", p["actual_sum4_0x200000"] == expected)
         check("plan reports in range", p["in_range"])
