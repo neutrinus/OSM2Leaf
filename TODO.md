@@ -506,8 +506,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-3720–C-3729
   - Result: EXP-2026-11-23-H56-progress-snapshot; selftest 27/27; table L1 1P/L2 8P1S2NC/L3 3P10B; PASS->FAIL rc=1; C-3720-C-3729
 
-- [ ] **H57 — Fixture regression baseline: a committed no-vendor baseline and a documented PASS->FAIL gate**
-  - Status: in progress · Owner: task/h57-fixture-baseline · Critical: no · Pair: solo
+- [x] **H57 — Fixture regression baseline: a committed no-vendor baseline and a documented PASS->FAIL gate**
+  - Status: done · Owner: task/h57-fixture-baseline · Critical: no · Pair: solo
   - Depends: H41 (matrix), H56 (snapshot)
   - Goal: H41 mentions a "committed no-vendor baseline" and H26's fixtures have PASS/FAIL counts, but no file holds the expected result and no doc states when a baseline may change. Without it "once a level passes, CI fails if it stops passing" (prompt_qa) is unenforceable.
   - Precheck: `git ls-files | grep -i baseline` returns nothing today; `grep -n baseline .github/workflows/*.yml` returns nothing.
@@ -517,6 +517,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: the baseline file exists for the H41/H56 fixture; `--check-baseline` fails on a synthetic PASS->FAIL and passes on the current fixture; the workflow README and `test-system.md` state the policy; `selftest.py` passes.
   - Stop: if H41/H56 choose a different output shape, commit the baseline in that shape and record the mapping in the EXP; do not fork a second schema.
   - Claims: C-3730–C-3739
+  - Result: EXP-2026-11-24-H57-fixture-baseline; 12 rows (9P/1S/2NC); SKIP->FAIL now REGRESSION rc=1; selftest 31/31; full selftest 282/0/21/303
 
 - [x] **H58 — Make the claims ledger reject non-runnable evidence (`...`/`START`/`MODULE` placeholders, prose loops)**
   - Status: done · Owner: task/h58-claims-runnable-evidence · Critical: yes · Pair: solo
