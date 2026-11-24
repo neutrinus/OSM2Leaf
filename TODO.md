@@ -595,8 +595,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-4060–C-4069
   - Result: EXP-2026-11-22-H83-board-ref-lint; C-4060–C-4066. tools/todo_check.py --board-refs lints the first Priorities section: unresolved bold IDs, done IDs under next/then/Take first/in flight, and done IDs as a current blocker (drift, warning-only). Warnings by default, ERRORs under --strict; findings are structural and never baselined (H128). At bd92ec6a on origin/main 17b22eaf: unresolved 0 / not-next 4 (H105, M9.58/M9.60/M9.61) / drift 0 / sections 1, exit 0; --strict adds 4 board-ref ERRORs (22 total); gate 5 pass; selftest 184/0/21; todo_check selftest 80 checks. Prose half shipped; the four stale sentences are the PO's (EXP Follow-ups).
 
-- [ ] **H84 — The QA-prompt manual/weekly IMG256 regression has no workflow: add the `workflow_dispatch` + scheduled job**
-  - Status: in progress · Owner: task/h84-img256-regression-workflow · Critical: no · Pair: required
+- [x] **H84 — The QA-prompt manual/weekly IMG256 regression has no workflow: add the `workflow_dispatch` + scheduled job**
+  - Status: done · Owner: task/h84-img256-regression-workflow · Critical: no · Pair: required
   - Depends: H25 (the CI skeleton), H28 (the same "optional IMG256 mode" contract, which stays about `l3check`); QA 2026-11-16 12th pass found the gap
   - Goal: `prompt_qa.txt` requires that "IMG256 / vendor-firmware-head regressions run **manually or weekly by QA** (`workflow_dispatch`/scheduled, approved runner/cache, SHA-256 verified), not as default PR CI", and `tools/realcheck.py` already implements the honest exit codes (`0 PASS/FAIL run`, `2` no image, `--require-image` turns a missing slice into `FAIL` exit 1). But **no workflow file has `workflow_dispatch` or `schedule`**: `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints `0`, so the only real-bytes regression (`realcheck.py IMG256`) never runs anywhere. On this host `python3 tools/realcheck.py IMG256` prints `realcheck: 0 PASS, 0 FAIL, 8 SKIP` and exits **2** — the image is absent, which is exactly the case the policy covers with an explicit skip, not a silent gap.
   - Precheck: `grep -lE 'workflow_dispatch|schedule' .github/workflows/*.yml | wc -l` prints `0`; `python3 tools/realcheck.py IMG256; echo $?` prints `2` and `0 PASS, 0 FAIL, 8 SKIP`; `python3 tools/realcheck.py IMG256 --require-image; echo $?` prints `1` with eight `FAIL … no image: …`.
@@ -606,6 +606,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: `workflow_dispatch` on a machine with the cached head runs `realcheck.py IMG256 --require-image` and the job summary says `PASS`/`FAIL` per check with the artifact; with no head it says `SKIP (no image)` and the job is neither green-as-passed nor red; the workflow never triggers on `pull_request`/`push`; `.github/workflows/README.md` documents it; `python3 tools/selftest.py` unchanged.
   - Stop: if the approved runner cannot cache or fetch the head within the job timeout (7.4 GB images are out of scope; only the 256 MiB head), ship the `workflow_dispatch` skeleton with an explicit `SKIP: no image` path and record the fetch gap in the EXP; do not vendor the head.
   - Claims: C-4070–C-4079
+  - Result: EXP-2026-11-24-H84-img256-regression-workflow; workflow_dispatch+schedule only, SKIP path, 4 mutations caught; C-4070–C-4079
 
 - [x] **H87 — `fn_audit.US_BUILD_STARTS` still calls itself the M1.22b placeholder, but M1.22b merged**
   - Status: done · Owner: task/h87-us-build-comment · Critical: no · Pair: solo
