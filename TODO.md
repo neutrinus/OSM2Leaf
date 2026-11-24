@@ -1027,6 +1027,31 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-8880–C-8889
   - Result: EXP-2026-11-23-M1.57-eu-card-unit-data-wroclaw; launcher passes; VSram erased → map + car in Wrocław; full VSram → Navi.exe exception (2/2); trigger in 0x400000–0x43FFFF, not the car position
 
+- [x] **M1.58 — EU vs US 2011 audio: why the EU card on Marek's US unit sounds laggy**
+  - Status: done · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.54, M1.57
+  - Goal: Marek (2026-11-24, car test L5 of M1.57): with the patched EU card the audio "works with an odd lag" (screen beeps and Bluetooth voice OK). Compare `Audio.exe`, the AUI layer and the audio DLLs of the EU and US 2011 cards, check what the unit's kernel NK1 starts for them, and check what the erased `SRAM` area 0 reset; name the most likely cause and the next car test.
+  - Precheck: `python3 tools/cerom.py modules --census EU_SYS US_SYS` lists 148 common modules.
+  - Scope: ROM A of both cards (first 100 MiB of each image), the committed NK1 (`firmware/unit-flash/nk1-QY7200ND.bin`), `OBJDLL.dll` backup table; static only, no emulator run.
+  - Done when: an EXP with the per-module result (functional difference or build-only), the driver names each `Audio.exe` opens and whether NK1 starts them on a USA unit, the area-0 object names, and a car test plan; claims.
+  - Stop: one session; no vendor bytes committed, no flash dump read.
+  - Falsifier: a non-radio audio module of ROM A whose code differs beyond build stamps (PDB GUID, timestamp, path) between EU and US.
+  - Claims: C-10210–C-10219
+  - Result: EXP-2026-11-24-M1.58-eu-us-audio; non-radio audio identical, EU tuner TNR2: not started on USA unit (most likely lag cause, HYPOTHESIS); car test plan
+
+- [x] **M1.59 — EU card on a USA unit: give the EU Audio.exe a tuner (TNR patch, then radio transplant)**
+  - Status: done · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.58
+  - Goal: Marek (2026-11-24): keep the EU card (EU time zones) and make its audio work on his USA unit. Step 1: one-character patch `TNR2:` -> `TNR4:` in the EU `Audio.exe` (both NB copies + SUM4), car test of equalizer/radio. Step 2: full radio transplant: US `Audio.exe` + `RBDS_CC.dll` (same DLL base `0x35A0000` as EU `RDSCC.dll`) into EU image A; XM DLLs collide with EU `CameraCC`/`PhoneCC` bases and are left out.
+  - Precheck: `python3 tools/audio_tnr_patch.py show EU_CARD` prints one `TNR2:` per copy and SUM4 ok.
+  - Scope: image A of the EU 2011 card only; TOC/o32 entries, NK2 length and SUM4; radio screen binding in `ScreenStateCC` (RDSCC ProgID); emulator boot `-M ze0` with NK1.
+  - Done when: step 1 tool with selftest and the patched-card SUM4 check; step 2 a tool that builds the transplanted image A, `cerom.py` lists US `Audio.exe` and `RBDS_CC.dll` in it, and NK1 + the card boots in `-M ze0` to the map; EXP; claims.
+  - Stop: two sessions; no vendor bytes committed.
+  - Falsifier: NK1 refuses a longer image A (length / RAM window), or the EU radio screens cannot bind to `RBDS_CC`.
+  - Claims: C-10220–C-10229
+  - Result: EXP-2026-11-24-M1.59-eu-audio-transplant; TNR patch 4 B; US Audio.exe transplanted, boots to map on NK1 (-M ze0); car test open
+  - Note: RBDS_CC.dll left out on purpose: EU radio screens bind RDSCC.RDSCtrl (C-10224); car test is Marek's
+
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
   - Depends: — (serves M5.61 and M5.35: their gates run the card verifier chain on hosts we do not control; rule 17)
