@@ -2661,8 +2661,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: KIWI's index is one container while ours is five unrelated files with different page formats.
   - Claims: C-7730–C-7739
 
-- [ ] **M4.75 — KIWI character codes against our strings: which code set and which string form do map names use**
-  - Status: in progress · Owner: task/m4.75-cycle10 · Critical: no · Pair: solo
+- [x] **M4.75 — KIWI character codes against our strings: which code set and which string form do map names use**
+  - Status: done · Owner: task/m4.75-cycle10 · Critical: no · Pair: solo
   - Step: P2
   - Depends: —
   - Goal: KIWI fixes how strings are stored (code set identifiers, length forms). `LCTBL` strings, `POINT` names (byte order still open in M3.11b) and tile names each have their own decoder here. One KIWI rule might cover all three and settle Polish letters.
@@ -2673,6 +2673,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: the same letter has different byte values in two families.
   - Claims: C-7740–C-7749
+  - Result: EXP-2026-11-24-M4.75-kiwi-string-families (C-7740–C-7747); 4 tool selftests PASS; negative mutations exit 1; todo_check/claims_check OK
 
 - [ ] **M4.76 — `kiwiread`'s OSM exporter as a class table seed: KIWI road and background types → OSM tags, inverted for our compiler**
   - Status: blocked · Owner: task/m4.76-cycle10 · Critical: no · Pair: solo
