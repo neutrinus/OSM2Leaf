@@ -5651,8 +5651,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7590–C-7599
   - Result: EXP-2026-11-24-M8.H62-tmc-entry-point; C-7590–C-7599; injection fn 0x003bcc7c (pdata START, r4=ctx); L3 2/2 + 0x14f4 mutation control
 
-- [ ] **M8.H63 — Inject one traffic event and watch `RDSTM001`/`LCTBL001` being read**
-  - Status: in progress · Owner: task/m8.h63-traffic-event · Critical: no · Pair: required
+- [x] **M8.H63 — Inject one traffic event and watch `RDSTM001`/`LCTBL001` being read**
+  - Status: done · Owner: task/m8.h63-traffic-event · Critical: no · Pair: required
   - Step: tooling
   - Depends: M8.H62
   - Goal: Call the injection point of `docs/firmware/tmc-path.md` with one real location code of the EU card and record the file reads and the result — the firmware-side test a generated Polish `RDSTM001`/`LCTBL001` will have to pass.
@@ -5663,6 +5663,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the event is dropped before the lookup (no tuner state), record the gate and stop.
   - Falsifier: both codes take the same path.
   - Claims: C-7600–C-7609
+  - Result: EXP-2026-11-24-M8.H63-traffic-event-injection; C-7600-C-7609; L3 4/4 (present 2,25,1203 status 1 + 48-B place Katerina/II-605/Exit 144, absent 2,25,60000 status 4), falsifier DIFFERENT, null-context + wrong-id controls pass; reader-coverage rows 21-22
 
 - [x] **M8.H64 — First generated card at L4: the P0 card (one tile with OSM roads) against the factory card**
   - Status: done · Owner: task/m8.h64-p0-card-l4 · Critical: yes · Pair: required
