@@ -200,8 +200,13 @@ def run(args):
             log=os.path.join(work, "serial.log"),
             panel_sock=os.path.join(work, "panel.ctl"),
             gps_sock=os.path.join(work, "gps.ctl"),
-            shot_dir=shot_dir, shot_cmd=None, guest_clock=None,
+            shot_dir=shot_dir, guest_clock=None,
             wait_timeout=args.wait_timeout, poll=0.5, quiet=False)
+        if args.plane:
+            runner_args.shot_cmd = [sys.executable, os.path.join(
+                HERE, "ze0_screenshot.py"), "plane", "-n", str(args.plane)]
+        else:
+            runner_args.shot_cmd = None
         runner = ze0_ui.Runner(runner_args)
 
         t0 = time.monotonic()
@@ -258,10 +263,15 @@ def run(args):
     windows = {}
     names = list(phase_counts)
     for a, b in zip(names, names[1:]):
+        lines = (trace_slice(trace_path, phase_counts[a], phase_counts[b])
+                 if os.path.exists(trace_path) else [])
         windows["%s->%s" % (a, b)] = {
-            "start": phase_counts[a], "end": phase_counts[b],
-            "lines": trace_slice(trace_path, phase_counts[a], phase_counts[b])
-            if os.path.exists(trace_path) else []}
+            "start": phase_counts[a], "end": phase_counts[b], "lines": lines}
+        slice_path = os.path.join(work, "trace-%s-%s.log" % (a, b))
+        with open(slice_path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + ("\n" if lines else ""))
+        print("window %s->%s: [%d:%d] = %d lines -> %s" % (
+            a, b, phase_counts[a], phase_counts[b], len(lines), slice_path))
 
     serial = os.path.join(work, "serial.log")
     tail = []
@@ -350,6 +360,10 @@ def main(argv=None):
     runp.add_argument("--flash", default="anon")
     runp.add_argument("--nk", default=ze0_launch.DEFAULT_NK)
     runp.add_argument("--ui-start", action="store_true")
+    runp.add_argument("--plane", type=int, default=0,
+                      help="capture plane N -n N via ze0_screenshot.py plane "
+                           "(0 = composited screen, which blinks; use 1 for "
+                           "stable AUI-plane hashes per H39)")
     runp.add_argument("--timeout", type=float, default=0)
     runp.add_argument("--wait-timeout", type=float, default=60)
     runp.add_argument("--json")
