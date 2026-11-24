@@ -894,7 +894,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Hints (strings seen 2026-11-21, US256, not decompiled): the audio microcontroller side reports `ANT_RCV_SECURITY_LOCK` / `ANT_RCV_SECURITY_RELEASE_OK`, the SH-4 answers `ANT_SEND_SEC_RESPONSE` / `ANT_SEND_SEC_RELEASE`; the updater (`CUpManager::AntiTheftThreadMain`), `Audio.exe` (`CAudioAccessFunction::AntitheftFunc`), telematics (`dcc_AntiTheftProc`), USB (`UsbAntiTheftProc`) and `Vehicle.exe` (`[VCL]Antitheft Lock...`) each run a thread that waits for the unlock; the HMI has `SRT_COLD_SECURE` / `POP_SRT_COLD_ANTI_THIEF_SECURE` screens and status pairs `…_FNR_…` / `…_CAS_…` (two vehicle variants). Marek's unit has the flag at 0 and code `FF FF FF FF` (C-5202).
   - Done when: the page has the lock and the release sequence with the VA of each send/receive, names where the code comparison happens (or shows it is not in SH-4 code), and lists what each waiting process refuses while locked.
   - Stop: no code or PROD bytes of a real unit are committed; do not describe how to defeat the lock on a unit that is not one's own beyond what LeafSDTools already documents.
-  - Claims: C-6730–C-6739
+  - Claims: C-10200–C-10209
 
 - [x] **M1.49 — Polish in the user interface: where the UI texts live and what adding a language would take**
   - Status: done · Owner: task/m1.49-ui-strings · Critical: no · Pair: solo
