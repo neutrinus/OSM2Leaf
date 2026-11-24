@@ -82,7 +82,10 @@ def encoder(libz: str | None) -> factory_zlib.Lib:
         raise AddError(
             "stock zlib 1.3.1 is required (--libz PATH/TO/libz.so.1.3.1); "
             "without it no byte-identical recompression claim can be made")
-    lib = factory_zlib.Lib("libz", libz)
+    try:
+        lib = factory_zlib.Lib("libz", libz)
+    except OSError as exc:
+        raise AddError(f"cannot load zlib from {libz}: {exc}") from exc
     if lib.version != REFERENCE_ZLIB:
         raise AddError(
             f"encoder zlib {lib.version} is not the pinned reference "
