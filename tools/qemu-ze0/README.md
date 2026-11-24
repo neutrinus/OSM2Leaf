@@ -326,6 +326,16 @@ kept), so the next run extracts cleanly.
   purpose, because it is made against the tree with every other patch
   applied. Screen hashes taken before it are box-fill renders. See
   [`EXP-2026-11-23-M8.C1u-2dg-area-pattern.md`](../../docs/experiments/EXP-2026-11-23-M8.C1u-2dg-area-pattern.md).
+- **M8.H12 (US 2011 card):** the card is accepted on `-M ze0` with the
+  card-derived `verinf=QSD-301-100,mapdb=16-16` and a US IPL patch (kernel 81/91,
+  image A 113/151 modules) — `Store Mgr Ready!`, `Launcher End !`, no
+  `Error Proc`/`FailSafe.exe` — but the US build never prints
+  `Finish Launch Threads`: at 900 s the first US-only blocker is
+  `CAuiMonitorCmn::ThreadProc::TIMEOUT!!!!!` then
+  `Pow >> No Action at ACC-OFF? Timeout!! Force PowerOff!!!` (EU: `FinishThread
+  Error TimeOut` 10×, `Finish Launch Threads` 1). The `dbgmsg` sink is the same
+  VA (`0x880404f4`, verified on the US head). See
+  [`EXP-2026-11-24-M8.H12-us-card-ze0.md`](../../docs/experiments/EXP-2026-11-24-M8.H12-us-card-ze0.md).
 - `tools/selftest.py` discovers only `tools/*.py`, so this shell script's
   `--selftest` is not part of that registry; run it directly.
 
