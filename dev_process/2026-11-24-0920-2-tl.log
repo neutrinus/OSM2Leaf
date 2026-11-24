@@ -201,3 +201,59 @@ TL-only fixes after merges:
 
 Handoff: next role should look at the four blocked tasks and their Unblock IDs,
 and the rule-15 task M8.H80 added by M8.H15.
+
+=== ROUND 2 (21 tasks, 41 subagents: 20 pairs + 1 solo H142) ===
+origin/main at round-2 start: c015970e. Eligible set recomputed: 28 open
+tasks with deps done, 1 critical (H140). Skipped: M8.C (umbrella), M8.H68
+(superseded by merged M8.H68a), and 4 London-PBF tasks (M5.94/M5.96/M5.98/
+M5.101 — PBF absent on this host). 21 worktrees created, archive symlinks
+verified. Brief: ~/projekty/leafre-work/scratch/dev_assignments_round2.md.
+
+Manifest (task -> branch, mode; all from origin/main c015970e):
+  H140  task/h140-workflow-contract     pair (required, critical)
+  H142  task/h142-test-system-map       SOLO (docs only)
+  M1.42 task/m1.42-audio-stack          pair
+  M2.24 task/m2.24-error-screens        pair
+  M3.39 task/m3.39-tile-read-order      pair (required)
+  M4.71 task/m4.71-kiwi-name-frame      pair (required)
+  M4.74 task/m4.74-kiwi-index           pair (docs/format/refer.md shared)
+  M5.93 task/m5.93-subrecord-writer     pair (writer + L4)
+  M6.22 task/m6.22-s1-emulator          pair (L4)
+  M8.C1v task/m8.c1v-aui-buttons        pair (L4 model)
+  M8.H5 task/m8.h5-savevm               pair (required)
+  M8.H9 task/m8.h9-tcg-coverage         pair (required)
+  M8.H16 task/m8.h16-testmode-kernel    pair (L4)
+  M8.H22 task/m8.h22-unmapped-census    pair (L4)
+  M8.H25 task/m8.h25-boot-budget        pair (L4)
+  M8.H40 task/m8.h40-live-window        pair (L4)
+  M8.H41 task/m8.h41-route-scenario     pair (required)
+  M8.H61 task/m8.h61-camera-path        pair (L4)
+  M8.H80 task/m8.h80-checked-build      pair (follow-up of blocked M8.H15)
+  M8.H20a task/m8.h20a-position-record  pair (firmware search)
+  M3.16 task/m3.16-inter-frway          pair (retired-lead search)
+
+Driver session IDs (in launch order):
+  ses_df1dbd6c9ffegkgmRCDtI8ajNg, ses_df1dbd6c8ffekcGEnxeOXCdyzS,
+  ses_df1dbd6c7ffe5Iq7KfYcXNyHzA, ses_df1dbd6c2ffdcXkHYSE572gyuZ,
+  ses_df1dbd6b5ffetSWc7MDdH7vzDa, ses_df1dbd6b3ffev1S6gxD3qNqAv3,
+  ses_df1dbd6aeffemyoDSvLZWSegmM, ses_df1db23e7ffdT43eopfq5QlhsW,
+  ses_df1db23e6ffe51xi3Yw6ptiGWF, ses_df1db23e6ffdDVXiHAbDklbpwz,
+  ses_df1db23e3ffdEWvW5MUWVO2o61, ses_df1db23dfffe2YZulITe57733p,
+  ses_df1db23deffeH8DMR786tAKOwm, ses_df1db23dcffe4zIm9MfhqEYPmZ,
+  ses_df1daa2a1ffejVjx163d4HxmzD, ses_df1daa2a1ffdH52ctACKTr6WGM,
+  ses_df1daa2a0ffe9sX0ENrPOgpsjp, ses_df1daa29dffdVl0aJ5ewPQiI05,
+  ses_df1daa298ffeEhPD1A15KQr9BG, ses_df1daa298ffdRtX1Xyw9eHuWKi,
+  ses_df1daa292ffegMWlZRW565QP5U
+Navigator session IDs (in launch order):
+  ses_df1d9f167ffd473F839iiXGtfT, ses_df1d9f166ffeYQ8SuyN79jUHTw,
+  ses_df1d9f166ffd9I0NFV7kRebHVu, ses_df1d9f15effdspHttOelRaPyDr,
+  ses_df1d9f153ffesl8iTK8wQYGB3R, ses_df1d9f152ffeT2N8YTzpJsn0i8,
+  ses_df1d9f14effeb43rdxAlsZi1Qu, ses_df1d9992dffetyttWs7S0J6dqx,
+  ses_df1d9992dffdl6RdCUuCGJoG7U, ses_df1d9992dffcp7S6PyvJLEncK0,
+  ses_df1d99929ffde0Q33RswNmthpo, ses_df1d99926ffeJjfAhUmXEKBknQ,
+  ses_df1d99925ffetlK2ecfOk51pqc, ses_df1d99920ffeLYuylOIFMpiWGV,
+  ses_df1d86d3dffdRBDVIkGmF2y3JO, ses_df1d86d3cffeqn9wnZOTSAZxO2,
+  ses_df1d86d3cffd83OgUMHw0FJbcq, ses_df1d86d38ffdqMHy9LyCKrXqgR,
+  ses_df1d86d34fferr2A3jKlPCfVqS, ses_df1d86d33ffeVko07Il1CdhLtM
+
+(outcome table appended below)
