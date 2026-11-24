@@ -61,20 +61,24 @@ PHASE_RE = re.compile(r"PHASE\s+([A-Za-z0-9_]+)")
 # ---------------------------------------------------------------------------
 
 def parse_phases(text):
-    """Map 1-based scenario step line number -> phase name.
+    """Map scenario step ordinal (1-based) -> phase name.
 
-    ``ze0_ui.parse_scenario`` numbers steps by physical line; comments after
-    ``#`` are ignored there, so a ``# PHASE name`` tail is safe.  Only lines
-    that contain a real step plus a PHASE comment get an entry.
+    ``ze0_ui.parse_scenario`` drops blank/comment-only lines, so a ``PHASE``
+    tail on a step maps to its step ordinal in ``steps``, not its physical line.
+    A comment-only line with a PHASE tail produces no step and is ignored.
     """
     phases = {}
-    for i, raw in enumerate(text.splitlines(), 1):
+    steps = ze0_ui.parse_scenario(text)
+    step_no = 0
+    for raw in text.splitlines():
         code, sep, comment = raw.partition("#")
-        if not sep or not code.strip():
+        if not code.strip():
             continue
-        m = PHASE_RE.search(comment)
-        if m:
-            phases[i] = m.group(1)
+        step_no += 1
+        if sep:
+            m = PHASE_RE.search(comment)
+            if m:
+                phases[step_no] = m.group(1)
     return phases
 
 
