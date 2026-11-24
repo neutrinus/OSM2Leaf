@@ -1264,7 +1264,7 @@ KIWI node layout was adopted. Evidence:
 
 | Family | KIWI structure | Our node format | Record id / parcel pointer | Verdict |
 | --- | --- | --- | --- | --- |
-| `POINT` | 11.1 index frame; 11.7 category codes; 11.8 jump table | name-trie + 12-`u16` index records + spatial leaves | 24-bit key; leaf = low 11 bits of name pointer | concept only |
+| `POINT` | 11.1 index frame; 11.7 category codes; 11.8 jump table | name-trie + 12-`u16` index records + spatial leaves | 24-byte key; leaf = low 11 bits of name pointer | concept only |
 | `ADDRE` | 11.1 index frame; 7.4 name frame | 12-B initial directory + 6-B cells + 22-B index records | 11 BE `u16`; packed coord id + point tokens | concept only |
 | `ZCODE` | 11.1 index frame; 11.7 category codes | 12-B digit-tag directory, child `0x1204 + offset*2` | 1-B tag; 16-B area ladder, not a parcel id | concept only |
 | `ICODE` | 11.8 jump table; 7.4 name frame | 12-B name rows in per-language chains | `u16` chain-relative `roff`; chain terminator `0xffffffff` | concept only |

@@ -44,7 +44,7 @@ VERDICTS = {"adopt", "partial", "unrelated"}
 CANONICAL_ROWS = (
     "| POINT POI index | 11.1 Index Data Frame; 11.7 Category Codes; "
     "11.8 Jump Table | name-trie + 12-u16 index records + spatial leaves | "
-    "24-bit index key (12 BE u16) | spatial leaf by low 11 bits of name ptr | "
+    "24-byte index key (12 BE u16) | spatial leaf by low 11 bits of name ptr | "
     "0/0 | concept-only: tries, index and category words present; KIWI node "
     "format not on disk; 2,814,259/2,814,259 key joins | partial | "
     "EXP-M4.74; C-7730, C-7731 |",
