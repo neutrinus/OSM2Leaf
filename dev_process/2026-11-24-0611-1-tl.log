@@ -138,3 +138,60 @@ Still in flight: M5.92 #702 (capacity probe done, resolving fn_audit corpus),
 M3.14 #705 (just approved, negative EXP pending). Both drivers report to TL.
 
 (outcome table appended when the last two land)
+
+HANDOFF (2026-11-24 ~11:15 UTC): a SEPARATE TL invocation launched batch 2 at
+09:20 UTC (dev_process/2026-11-24-0920-2-tl.log) on the same repo. It closed
+this batch's stale claim-only drafts #713 (M6.25), #715 (M8.H68a), #718
+(M9.78) under rule 8 and re-launched those tasks as #729/#749/#745 with fresh
+worktrees/subagents. It also merged external PR #728 (M2.27) as 5be6cb00.
+This batch-1 driver therefore STOPS merging/launching to avoid ghost claims
+and duplicate PRs on tasks batch 2 now owns. My own batch-1 agents still
+running on M9.78/M8.H68a/M6.25 will be stopped by the new owner's PRs.
+
+Last action by batch 1: fixed a CI-breaking defect in M5.79's tool
+(tools/refer002_add_station.py --selftest hardcoded a home-tree libz path,
+crashing quality on every PR: #728, #729) — patched to fall back to
+zlib.compress for the synthetic fixture; committed d7454841 on main. Gate
+re-verified 5 pass / 0 fail / 0 skip with the fix.
+
+FINAL OUTCOME TABLE — cycle-10 BATCH 1 (26 tasks selected; 20 pairs + 6 solos
+= 46 subagents; board task IDs from the launch manifest):
+| Task | Mode | Outcome | PR | merge SHA |
+| --- | --- | --- | --- | --- |
+| M4.76 | pair | blocked (premise refuted, Unblock M5.3) | #714 | 6617b3a6 |
+| H42 | pair | done | #709 | e0fa9633 |
+| M8.G2 | solo | done | #725 | 084327fe |
+| M8.H54 | solo | blocked (Unblock M8.H75) | #726 | 396e728d |
+| M8.H39 | pair | done | #704 | 07e5a640 |
+| M8.H17 | solo | done | #727 | ce0c2eb0 |
+| M8.H62 | pair | done | #721 | 9ebf6ea2 |
+| M5.79 | pair | done | #716 | 47214694 |
+| M4.75 | solo | done | #723 | 5567ea68 |
+| M4.57 | solo | done | #722 | 1b3aee83 |
+| M8.H12 | pair | done | #717 | e9bb3f20 |
+| M4.59 | solo | done (after CI zlib fix) | #724 | c869990d |
+| M1.53 | pair | done | #719 | e8b04626 |
+| M2.21 | pair | done | #703 | b730e8bc |
+| M8.C1p | pair | blocked (EU flash; Unblock M6.18 dump) | #706 | 3da49f59 |
+| M4.28 | pair | done | #707 | d599b93a + repair 69e55c8e/9d60509d |
+| M1.38 | pair | blocked (Unblock M8.G4) | #708 | a13c05c1 |
+| M4.78 | pair | done | #710 | 7125c4e0 |
+| M8.H20 | pair | blocked (Unblock M8.H20a) | #720 | eed1ae0b |
+| M5.95 | pair | done | #712 | 90f37fc1 |
+| M1.52 | pair | done | #711 | 148f485d |
+| M5.92 | pair | done | #702 | c3dd1564 |
+| M3.14 | pair | blocked (Unblock M3.43) | #705 | 2ebcfe81 |
+| M6.25 | pair | done (handed to batch 2 PR #729) | #713->#729 | — |
+| M9.78 | pair | work done, handed to batch 2 PR #745 | #718->#745 | — |
+| M8.H68a | pair | plan approved, handed to batch 2 PR #749 | #715->#749 | — |
+
+23 of 26 merged by batch 1 (17 done, 6 blocked negative); 3 re-launched by
+batch 2. Rule-15 follow-ups opened: M8.G4, M8.H20a, M8.H79a (prior cycle).
+Navigator catches worth keeping: M2.21 card-value self-cancel (unit override
+load-bearing); M4.28 5 surplus RESERVED claims; M8.C1p H69 verify accepted any
+comparator with unlock id; M4.59 zlib version-dependent PNG fixture; M1.38
++0x800000 RAM shift correction; M5.92 shape-pool arithmetic; repeated stale
+EXP Method labels against post-M9.77 exp_check.
+
+handoff to batch 2 / next TL: do not re-merge PRs whose content is on main;
+the CI fix d7454841 must remain; batch 2 owns M6.25/M9.78/M8.H68a now.
