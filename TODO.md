@@ -1229,8 +1229,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: required
   - Result: EXP-2026-11-24-H145-eu2014-pinned-head; clean clone 0 missing, claims_check PASS; isolated selftest PASS
 
-- [ ] **H147 — CI `ze0 patch series still applies` red: one patch has a lint-invalid name**
-  - Status: in progress · Owner: task/h147-patch-lint-name · Critical: yes · Pair: required
+- [x] **H147 — CI `ze0 patch series still applies` red: one patch has a lint-invalid name**
+  - Status: done · Owner: task/h147-patch-lint-name · Critical: yes · Pair: required
   - Depends: —
   - Goal: the `CI quality gate` workflow's `ze0 patch series still applies` job fails on `main` at `1612bc68` with `selftest: 88 passed, 2 failed`: both `lint real series` checks fire because `tools/qemu-ze0/patches/ze0-m223-sd-fixed-pwd.patch` is `BAD NAME` (the lint wants `ze0-NNNN-<slug>.patch` or `ze0-hNN-<slug>.patch`). The file was added by M2.23 (commit `0350cde9`) and is already on main; EXP-2026-11-24-M8.H9 O3 and its Follow-ups record the defect as pre-existing and out of that task's scope. Rename it to the next free series number `ze0-0020-sd-fixed-pwd.patch` and update all references so the job turns green.
   - Precheck: `bash tools/qemu-ze0/build.sh --selftest` prints `selftest: 88 passed, 2 failed` with `FAIL lint real series` and `lint: BAD NAME ze0-m223-sd-fixed-pwd.patch`; `grep -rn 'ze0-m223-sd-fixed-pwd' --include='*.py' --include='*.md' .` lists the tool constant and the EXP/claim references; `ls tools/qemu-ze0/patches/ze0-00*.patch | tail -1` shows the series ends at `0019`.
@@ -1241,6 +1241,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: `lint real series` still reports a BAD NAME, or the renamed patch's bytes differ from the original.
   - Claims: C-10350–C-10359
   - Pair: required
+  - Result: EXP-2026-11-24-H147-patch-lint-name; build.sh selftest 94/0, patch sha unchanged
 
 
 ## M2 — Map code, activation, updater
