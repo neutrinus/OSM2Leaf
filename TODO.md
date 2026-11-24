@@ -5082,8 +5082,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the log is empty at idle (then every polled block is already stubbed and the table is the list of stubs).
   - Claims: C-7190–C-7199
 
-- [ ] **M8.H23 — Guest profiler: where the CPU time goes (module and function histogram by PC sampling)**
-  - Status: in progress · Owner: task/m8.h23-pc-sampler · Critical: no · Pair: solo
+- [x] **M8.H23 — Guest profiler: where the CPU time goes (module and function histogram by PC sampling)**
+  - Status: done · Owner: task/m8.h23-pc-sampler · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1e (done)
   - Goal: M8.C1e found a spinning driver thread by sampling the PC by hand about 20 times. Make it a tool: it tells why a boot is slow and which thread waits for which device.
@@ -5094,6 +5094,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: one session.
   - Falsifier: samples are uniformly spread over one idle loop in both phases (then sampling by PC alone is useless and the EXP says what else is needed).
   - Claims: C-7200–C-7209
+  - Result: EXP-2026-11-24-M8.H23-pc-sampler; 8 claims C-7200-C-7207; 300+500-sample EU2011 histograms, top-3 fns named; selftest 20/20 PASS; negative mutation rejects corrupt PC
 
 - [x] **M8.H24 — Emulator quick start for a human: build, boot a card, take a screenshot, in one page**
   - Status: done · Owner: task/m8.h24-emulator-quickstart · Critical: no · Pair: solo
