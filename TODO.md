@@ -1241,8 +1241,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: all mutated cards pass like the factory card (then the launcher path in the emulator skips the check: find which precondition is missing).
   - Claims: C-8030–C-8039
 
-- [ ] **M2.22 — Does a fully rebuilt card boot? `mkcard` output against in-place patching, at L4**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M2.22 — Does a fully rebuilt card boot? `mkcard` output against in-place patching, at L4**
+  - Status: done · Owner: task/m2.22-sdhost-dma-l4 · Critical: yes · Pair: required
   - Step: reader
   - Depends: M8.H13
   - Goal: The fourth PM review ruled that test cards must be patched in place because a rebuilt card loses the volume label and has a new FAT layout. That rule costs every card-building task. Test it in the emulator: which of the differences actually matters to the firmware.
@@ -1253,6 +1253,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session.
   - Falsifier: (b) and (a) behave the same in the emulator while the rule says (b) fails on the unit — then the emulator lacks the check, and the EXP names the check (label read, cluster layout) to model.
   - Claims: C-8040–C-8049
+  - Result: EXP-2026-11-24-M2.22-sdhost-dma-l4; 5 L4 boots, 4 good PASS/F5 + negative FAIL/F4 [0x28]
 
 - [ ] **M2.23 — The SD lock in the emulator: locked, unlocked and wrong-password cards**
   - Status: open · Owner: — · Critical: no · Pair: required
