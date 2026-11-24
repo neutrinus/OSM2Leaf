@@ -62,6 +62,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "l3_harness"))
 
+import ce_module  # noqa: E402
 import cerom  # noqa: E402
 import point_census as pc  # noqa: E402
 import point_pair_regen as regen  # noqa: E402
@@ -155,19 +156,15 @@ class Firmware:
         off = BUILD_CHECK[0] - self.navi_va
         if not 0 <= off < len(self.navi) - 2 or struct.unpack_from("<H", self.navi, off)[0] != BUILD_CHECK[1]:
             raise Blocked("this image is not EU2011: no 0x07ff literal at %#010x" % BUILD_CHECK[0])
-        import nk_decomp
         mod = self.rom.module("STDDLL.dll")
+        raw_secs = list(self.rom.o32(mod))
         self.std = []                               # (name, va, bytes, perms) of every STDDLL section
-        for n, sec in enumerate(self.rom.o32(mod)):
-            off = self.rom.va2file(sec["dataptr"])
-            if sec["flags"] & cerom.IMAGE_SCN_COMPRESSED:
-                size, data = nk_decomp.decompress(image, off, sec["psize"], sec["vsize"])
-                data = data[:size]
-            else:
-                data = image[off:off + sec["psize"]]
-            data = bytes(data).ljust((max(sec["vsize"], len(data)) + 0xFFF) & ~0xFFF, b"\0")
-            code = bool(sec["flags"] & 0x20000000)
-            self.std.append(("stddll%d" % n, sec["realaddr"], data, "rx" if code else "rw"))
+        for index, va, vsize, psize, compressed, ex, init_len, blob in ce_module.module_sections(
+                image, IMAGE_START, "STDDLL.dll"):
+            # ce_module's exec flag must agree with the raw section flags
+            assert bool(raw_secs[index]["flags"] & 0x20000000) == ex
+            data = bytes(blob).ljust((max(vsize, len(blob)) + 0xFFF) & ~0xFFF, b"\0")
+            self.std.append(("stddll%d" % index, va, data, "rx" if ex else "rw"))
         # STDDLL's own imports (COREDLL arithmetic and maths): slot -> name
         kernel = cerom.CERom(image, KERNEL_START)
         core = {o: n for o, n, _r in kernel.exports(kernel.module("coredll.dll"))}
