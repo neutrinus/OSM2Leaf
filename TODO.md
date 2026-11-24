@@ -938,7 +938,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-22-M1.54-eu-us-card-diff, `docs/research/eu-us-card-diff.md`, `tools/card_diff.py`, `docs/research/card-manifests/`; ROM B/C same bytes, only `CMP.LST` same on the map partition; voices do not overlap (EU 7 languages, US `US`/`CF`) → M1.55.
 
 - [ ] **M1.55 — Which `SPEECH` language folder does a US unit ask for with the EU card?**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m1.55-speech-language · Critical: no · Pair: solo
   - Step: static
   - Depends: M1.54
   - Goal: the EU 2011 card has voices `BE, DU, FR, GE, IT, PT, SP`, the US card `US, CF`; none overlap (C-8452). Find how the firmware picks the `SPEECH/<ll>` folder (unit language setting, area, or a list on the card), which languages the setup screen offers on a US unit with the EU card, and what happens when the folder is missing (silence, error, fallback).
