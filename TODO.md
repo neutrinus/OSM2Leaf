@@ -1225,7 +1225,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: `python3 tools/claims_check.py --selftest` passes with the new case; a depth-1 clone with no `archive/` vendor files runs `python3 tools/claims_check.py --strict --count-check` with `genuine missing evidence paths: 0` and exit 0; the same clone with C-6961's pin removed (negative control) still reports a genuine missing path, and a git-ignored `archive/` path that is not a known pin still fails; `tools/gate.py` reports `claims_check PASS`; `todo_check.py` and `board.py lost --base origin/main` pass; `selftest.py --only claims_check` passes in isolation.
   - Stop: if `fetch_image.py` does not actually pin one of the two heads, leave that path out of the set and record the gap in the EXP rather than inventing a pin.
   - Falsifier: `claims_check --strict --count-check` still reports `MISSING` for C-6961/62/63 or C-10265 on a clean clone, or a genuinely unpinned git-ignored path now passes silently.
-  - Claims: C-10290–C-10299
+  - Claims: C-10360–C-10369
   - Pair: required
   - Result: EXP-2026-11-24-H145-eu2014-pinned-head; clean clone 0 missing, claims_check PASS; isolated selftest PASS
 
