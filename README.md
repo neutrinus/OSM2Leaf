@@ -190,6 +190,8 @@ python3 tools/verify.py --root /path/to/root
 
 Community and reference material used by this research:
 
+- **osm2clarion** — prior reverse-engineering work on the Clarion map format:
+  <https://github.com/albertbm/osm2clarion>
 - **LeafSDTools** — community tooling for Leaf map SD cards:
   <https://github.com/developerfromjokela/leafsdtools>
 - **LeafSDTools wiki — Updating Map Data**:
