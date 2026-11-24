@@ -3975,9 +3975,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `s1_wide_dir.py census` accepts the written tile; an L4 screenshot of a parcel written as four sub-records shows roads in all four quarters (or the EXP proves which quarter is not read); selftest covers the split.
   - Stop: one session for the writer; L4 depends on a parcel on screen (the start-screen parcel may be forced to sub-records for the test).
   - Claims: C-8730–C-8739
-  - Blocker: L4 boot never reached Pow Off 1st Detect in 600 s (0 markers, 1,084-line log); no screenshot and no quarter proven unread; L3 walk of sub0 ran but sub1-3 harness groups produce no LOC_map on the unmodified factory card too
+  - Blocker: L4 boot never reached Pow Off 1st Detect in 600 s; no screenshot. All four quarters READ at L3 (reply sub 3, VAs 0x404ee4/0x3f6968) via tools/m593_l3.py; LOC_map walk covers only SW group at the harness's fixed x=y=1024 position (same limit on factory card)
   - Unblock: M8.C1p
-  - Result: EXP-2026-11-24-M5.93-subrecord-writer (writer+census+L3 PASS; L4 NOT VERIFIED)
+  - Result: EXP-2026-11-24-M5.93-subrecord-writer (writer 148/148 + census + L3 read 4/4 PASS; L4 NOT VERIFIED)
+  - Pair: required
 
 - [ ] **M5.94 — London in numbers: per-parcel OSM size against the factory records and the limits**
   - Status: open · Owner: — · Critical: no · Pair: solo

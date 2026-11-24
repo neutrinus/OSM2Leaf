@@ -982,8 +982,10 @@ def build_subrecord_split(level, parcel, runs, table, country, write_names=True)
     different names-section offset for its own label subset, so a union names
     section would need an offset remap that is out of scope here.  Split parts
     are built with ``write_names=False`` (name_off 0xffff) and the build report
-    says so.  Refused (CheckFailed) for a level other than 1, fewer than two
-    populated quadrants, or a sub-record that is itself over budget.
+    says so.  Refused (CheckFailed) for a level other than 1 or a sub-record
+    that is itself over budget.  Empty quadrants emit a placeholder with
+    ``(NO_SUB, NO_SUB)`` sizes so the four sub-size words stay index-aligned
+    with the subN record keys (M5.93 navigator review, sparse splits).
     """
     if level != 1:
         raise CheckFailed("sub-record split is only modelled at level 1")
@@ -993,11 +995,8 @@ def build_subrecord_split(level, parcel, runs, table, country, write_names=True)
     for run in runs:
         quads[_sub_quadrant(run, lon0, lat0, width, height)].append(run)
     populated = [k for k in range(4) if quads[k]]
-    if len(populated) < 2:
-        raise CheckFailed(
-            "parcel %r has runs in only %d quadrant(s); a sub-record split "
-            "needs at least two" % (parcel, len(populated))
-        )
+    if not populated:
+        raise CheckFailed("parcel %r has no runs in any quadrant" % (parcel,))
 
     parent = build_road_record(level, parcel, runs, table, country,
                                write_names=False)
@@ -1009,17 +1008,22 @@ def build_subrecord_split(level, parcel, runs, table, country, write_names=True)
     parts = [("even", p_plain, p_comp, parent_code)]
     sizes = []
     for k in range(4):
-        if not quads[k]:
-            sizes.append((0, 0))
-            continue
         sub_parcel = s1_wide_dir.sub_code(parent_code, k)
+        if not quads[k]:
+            # Keep a placeholder at EVERY index so the four sub-size words
+            # stay aligned with the subN record keys (M5.93 reviewer bug:
+            # sparse splits used to shift later sizes into the wrong slot).
+            parts.append(("sub%d" % k, b"", b"", sub_parcel))
+            sizes.append((s1_wide_dir.NO_SUB, s1_wide_dir.NO_SUB))
+            continue
         # The sub code is a full 0x00fa record parsed at level 1; build it for
         # the ORIGINAL parcel geometry (the points already lie in the right
         # quadrant of the parent lattice) and patch only its code words.
         sub = build_road_record(level, parcel, quads[k], table, country,
                                 write_names=False)
         if sub is None:
-            sizes.append((0, 0))
+            parts.append(("sub%d" % k, b"", b"", sub_parcel))
+            sizes.append((s1_wide_dir.NO_SUB, s1_wide_dir.NO_SUB))
             continue
         sub_plain, _sub_comp, _sub_names, _sub_info = sub
         sub_plain = struct.pack(">HH", *sub_parcel) + sub_plain[4:]
@@ -1573,6 +1577,8 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs,
                         % (y0, x0, index)
                     )
                 parts = split["parts"]
+                for k in range(4):
+                    recs.pop((col, "sub%d" % k), None)
                 for part, plain, comp, code in parts:
                     if part == "even":
                         continue
@@ -1582,15 +1588,14 @@ def _splice_row_model_dir(out: bytearray, directory, level, rows, changed_pairs,
                             "sub %d of %r has code %r, not the M5.53 sub-code"
                             % (k, (y0, x0, index, col), code)
                         )
+                    if not comp:
+                        continue
                     recs[(col, part)] = dict(col=col, part=part, raw=comp,
                                              words=len(plain) // 2)
                     changed_pairs.add((y0, x0, index, (2 * col, part)))
                     stats["subs_written"] += 1
                 cell = row["cols"][col]
-                cell["subs"] = [(len(comp) // 2, len(plain) // 2)
-                                for _part, plain, comp, _code in parts[1:]]
-                while len(cell["subs"]) < 4:
-                    cell["subs"].append((s1_wide_dir.NO_SUB, s1_wide_dir.NO_SUB))
+                cell["subs"] = list(split["info"]["sub_sizes"])
                 cell["even"] = (cell["even"][0] | s1_wide_dir.FLAG, cell["even"][1])
             else:
                 for k in range(4):
@@ -2572,20 +2577,23 @@ def _m593_split(check, root, cell):
     lon0, lat0, width, height = clarion_bg.parcel_geo(1, yb, xb + 1, 3, 5)
     corners = [(0.15, 0.15, 0.35, 0.35), (0.65, 0.15, 0.85, 0.35),
                (0.15, 0.65, 0.35, 0.85), (0.65, 0.65, 0.85, 0.85)]
-    recs = []
-    nid = 0
-    for a, b, c, d in corners:
-        pts = [(lon0 + a * width, lat0 + b * height),
-               (lon0 + c * width, lat0 + d * height)]
-        n1, n2 = "n%d" % nid, "n%d" % (nid + 1)
-        recs.append(dict(imf=1, type="node", id=n1, lat=pts[0][1], lon=pts[0][0], tile=cell))
-        recs.append(dict(imf=1, type="node", id=n2, lat=pts[1][1], lon=pts[1][0], tile=cell))
-        recs.append(dict(imf=1, type="way", id="wq%d" % nid, tile=cell, tiles=[cell],
-                         nodes=[n1, n2], tags={"highway": "residential"}))
-        nid += 2
+    def imf_for_quads(which):
+        recs = []
+        nid = 0
+        for k in which:
+            a, b, c, d = corners[k]
+            pts = [(lon0 + a * width, lat0 + b * height),
+                   (lon0 + c * width, lat0 + d * height)]
+            n1, n2 = "n%d" % nid, "n%d" % (nid + 1)
+            recs.append(dict(imf=1, type="node", id=n1, lat=pts[0][1], lon=pts[0][0], tile=cell))
+            recs.append(dict(imf=1, type="node", id=n2, lat=pts[1][1], lon=pts[1][0], tile=cell))
+            recs.append(dict(imf=1, type="way", id="wq%d" % nid, tile=cell, tiles=[cell],
+                             nodes=[n1, n2], tags={"highway": "residential"}))
+            nid += 2
+        return "".join(json.dumps(r, sort_keys=True) + "\n" for r in recs)
+
     imf = root / "m593.imf.jsonl"
-    imf.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in recs),
-                   encoding="utf-8")
+    imf.write_text(imf_for_quads(range(4)), encoding="utf-8")
     forced = {(yb, xb + 1, 3, 5)}
     fpath = root / "m593.factory.DAT"
     fpath.write_bytes(fw)
@@ -2615,6 +2623,31 @@ def _m593_split(check, root, cell):
     verify_factory(fw, blob, 1, {(yb, xb + 1, 3, 5): dict(
         plain=b"", comp=b"", names_sec=None)}, report["container"])
     check("M5.93 split: verify_factory passes", True)
+
+    # Sparse splits (navigator review blocker 1): 1/2/3 populated quadrants
+    # must keep size words index-aligned with subN record keys.
+    for which in ((0,), (0, 1), (0, 1, 2)):
+        sparse_imf = root / ("m593.sparse%d.imf.jsonl" % len(which))
+        sparse_imf.write_text(imf_for_quads(which), encoding="utf-8")
+        sp_blob, sp_rep = build(str(sparse_imf), cell, factory_path=str(fpath),
+                                level=1, country=616, write_names=False,
+                                force_subrecords=forced)
+        spa = s1_wide_dir.parse_dir(sp_blob, wd["off"])
+        cell5 = spa["rows"][3]["cols"][5]
+        subs_present = [k for k, sz in enumerate(cell5["subs"])
+                        if sz != (s1_wide_dir.NO_SUB, s1_wide_dir.NO_SUB)]
+        rec_parts = [part for part in ("sub0", "sub1", "sub2", "sub3")
+                     if any(r["col"] == 5 and r["part"] == part
+                            for r in spa["rows"][3]["records"])]
+        check("M5.93 sparse %d quadrant(s): sizes align with sub keys" % len(which),
+              subs_present == list(which)
+              and rec_parts == ["sub%d" % k for k in which]
+              and not any(r["errors"] for r in spa["rows"])
+              and spa["size_ok"], (subs_present, rec_parts,
+                                   sp_rep["subrecord_splits"][-1]["sub_sizes"]))
+        verify_factory(fw, sp_blob, 1, {(yb, xb + 1, 3, 5): dict(
+            plain=b"", comp=b"", names_sec=None)}, sp_rep["container"])
+    check("M5.93 sparse: verify_factory passed for 1/2/3 quadrants", True)
 
     # Negative 1: drop one sub-record (zero its sizes) -> census must fail.
     broken = bytearray(blob)

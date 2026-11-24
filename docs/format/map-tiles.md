@@ -297,9 +297,14 @@ All five target tiles now rebuild **byte-identically**, including the dense
    full `0x00fa` record whose code is `sub_code(parent,k)`, with points in
    the matching half-parcel quadrant of the full 0..2047 lattice. The
    directory size, kind and `s1_wide_dir census` counts are unchanged
-   (C-8730-C-8737). Widening a narrow row needs a 512-B relocation and is
+   (C-8730-C-8737). Empty quadrants emit a `(NO_SUB, NO_SUB)` placeholder so
+   the four sub-size words stay index-aligned with the subN keys (sparse-split
+   fix, C-8735). Widening a narrow row needs a 512-B relocation and is
    refused; street names in split subs need a per-sub name-offset remap and
-   are not written (C-8730);
+   are not written (C-8730). At L3 the firmware reads all four sub-codes
+   (reply sub 3, reader VAs 0x404ee4/0x3f6968, `tools/m593_l3.py`, C-8737);
+   the `LOC_map` walk harness covers only the SW group at x=y=1024 (C-8738)
+   and L4 drawing is not verified (C-8739);
 - copy the 55 KiB unreferenced gap at `0x9a520..0xa7d00` verbatim.
 
 Road-shape records (section 1, even pair, `w2=0x00fa`) are decoded:
