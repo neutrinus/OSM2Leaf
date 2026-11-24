@@ -167,44 +167,54 @@ def _int(token, what):
         raise PanelError("%s must be an integer, got %r" % (what, token))
 
 
+import peerlib  # noqa: E402  (shared control-command dispatch)
+
+
 def control_commands(line, state):
     """Apply one control line; return an answer starting with OK or ERR.
 
     Accepted: ``tap X Y [--ms N]``, ``drag X1 Y1 X2 Y2``, ``key NAME
     [--long]``, ``status``.  A rejected command must not change the event
-    stream — the negative control used by the selftest.
+    stream — the negative control used by the selftest.  Verbs, event bytes
+    and replies stay here; only the dispatch is shared (M8.H77).
     """
+    def tap(parts, state):
+        x, y = _int(parts[1], "x"), _int(parts[2], "y")
+        ms = 100
+        if len(parts) == 5:
+            if parts[3].lower() != "--ms":
+                raise PanelError("expected --ms N")
+            ms = _int(parts[4], "ms")
+        ev = tap_events(x, y, ms)
+        state["events"].extend(format_event(*e) for e in ev)
+        return "OK tap %d %d %d events" % (x, y, len(ev))
+
+    def drag(parts, state):
+        x1, y1, x2, y2 = (_int(p, "coordinate") for p in parts[1:])
+        ev = drag_events(x1, y1, x2, y2)
+        state["events"].extend(format_event(*e) for e in ev)
+        return "OK drag %d %d %d %d %d events" % (x1, y1, x2, y2, len(ev))
+
+    def key(parts, state):
+        if len(parts) == 3 and parts[2].lower() != "--long":
+            raise PanelError("expected --long")
+        ev = key_events(parts[1], len(parts) == 3)
+        state["events"].extend(format_event(*e) for e in ev)
+        return "OK key %s%s" % (parts[1], " long" if len(parts) == 3 else "")
+
+    def status(parts, state):
+        return "OK status events=%d" % len(state["events"])
+
     parts = line.strip().split()
-    if not parts:
-        return "ERR empty command"
-    cmd = parts[0].lower()
-    try:
-        if cmd == "tap" and len(parts) in (3, 5):
-            x, y = _int(parts[1], "x"), _int(parts[2], "y")
-            ms = 100
-            if len(parts) == 5:
-                if parts[3].lower() != "--ms":
-                    raise PanelError("expected --ms N")
-                ms = _int(parts[4], "ms")
-            ev = tap_events(x, y, ms)
-            state["events"].extend(format_event(*e) for e in ev)
-            return "OK tap %d %d %d events" % (x, y, len(ev))
-        if cmd == "drag" and len(parts) == 5:
-            x1, y1, x2, y2 = (_int(p, "coordinate") for p in parts[1:])
-            ev = drag_events(x1, y1, x2, y2)
-            state["events"].extend(format_event(*e) for e in ev)
-            return "OK drag %d %d %d %d %d events" % (x1, y1, x2, y2, len(ev))
-        if cmd == "key" and len(parts) in (2, 3):
-            if len(parts) == 3 and parts[2].lower() != "--long":
-                raise PanelError("expected --long")
-            ev = key_events(parts[1], len(parts) == 3)
-            state["events"].extend(format_event(*e) for e in ev)
-            return "OK key %s%s" % (parts[1], " long" if len(parts) == 3 else "")
-        if cmd == "status":
-            return "OK status events=%d" % len(state["events"])
-    except PanelError as exc:
-        return "ERR %s" % exc
-    return "ERR unknown command: %s" % cmd
+    cmd = parts[0].lower() if parts else ""
+    rules = [
+        (lambda c, p: c == "tap" and len(p) in (3, 5), tap),
+        (lambda c, p: c == "drag" and len(p) == 5, drag),
+        (lambda c, p: c == "key" and len(p) in (2, 3), key),
+        (lambda c, p: c == "status", status),
+    ]
+    return peerlib.dispatch(line, rules, state,
+                            empty="ERR empty command", error=PanelError)
 
 
 # --------------------------------------------------------------------------
