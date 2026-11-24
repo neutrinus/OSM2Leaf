@@ -1057,8 +1057,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-24-M1.59-eu-audio-transplant; TNR patch 4 B; US Audio.exe transplanted, boots to map on NK1 (-M ze0); car test open
   - Note: RBDS_CC.dll left out on purpose: EU radio screens bind RDSCC.RDSCtrl (C-10224); car test is Marek's
 
-- [ ] **M1.60 — EU card on a USA unit: why FM radio only partly works after the audio patch**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M1.60 — EU card on a USA unit: why FM radio only partly works after the audio patch**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Depends: M1.59
   - Goal: Marek (2026-11-24, car test of M1.59): with the audio patch the equalizer and beeps work, but FM "does not fully work". Find what limits FM: band raster (US 200 kHz odd 87.9–107.9 vs EU 100 kHz / 50 kHz from 87.5), seek thresholds, RDS vs RBDS decoding, or the EU radio screen (`RDSCC.RDSCtrl`) not matching the US `Audio.exe` messages; propose a patch.
   - Precheck: Marek's symptom list (which stations: none / some; manual step size shown; RDS name; sound) ; the car ran the full transplant (US `Audio.exe`).
@@ -1066,7 +1066,19 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Done when: an EXP naming the FM band/step tables in each `Audio.exe` and in the NK1 tuner driver, the cause matching Marek's symptoms, and a patch tool or a car test plan; claims.
   - Stop: two sessions; no vendor bytes committed, no flash dump committed.
   - Falsifier: the US `Audio.exe` already tunes 100 kHz steps from 87.5 MHz (then the raster is not the cause).
-  - Claims: C-10250–C-10259
+  - Claims: C-10310–C-10319
+  - Result: EXP-2026-11-24-M1.60-radio-ui-tuner-path; EU radio screen and US Audio.exe use different IPC ids/queue/shared block (screen dead after transplant); tools/audio_rds_launch.py starts TNR2 (CRds) from the card; car test open; FM raster not in card or NK1 code (microcontroller)
+
+- [ ] **M1.61 — EU card on a USA unit: the US radio chain complete (RBDS_CC + US radio screens)**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Depends: M1.60
+  - Goal: fallback if the USA unit's audio microcontroller does not serve RDS mode (car test of `audio_rds_launch.py` gives an open driver and a silent or dead tuner). Find where the radio screens live (skin forms such as `AvFMAMMain`, `ScreenStateCC` bindings), what binds a form to `RDSCC.RDSCtrl` or `RBDS_CC.RBDSCtl`, and whether the US forms + `RBDS_CC.dll` can be put on the EU card beside the M1.59 transplant.
+  - Precheck: car result of M1.60's patch is "driver opens, tuner dead" (otherwise this task is not needed).
+  - Scope: skins and forms of both 2011 cards (image A files and the card's FAT), `ScreenStateCC.dll` both builds, `RBDS_CC.dll` type library; static plus `-M ze0` form load.
+  - Done when: an EXP naming the files and records that tie the FM/AM form to its control in each build, and either a tool that swaps them on the EU card or the reason it cannot be done; claims.
+  - Stop: two sessions; no vendor bytes committed.
+  - Falsifier: the US radio form uses methods or events the EU `ScreenStateCC.dll` cannot route.
+  - Claims: C-10320–C-10329
 
 - [ ] **H120 — Three checks that say PASS when nothing was checked (found by running the tools on a clean host)**
   - Status: open · Owner: — · Critical: no · Pair: required
