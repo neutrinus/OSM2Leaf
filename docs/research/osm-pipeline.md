@@ -168,6 +168,48 @@ classifies `other-alpha` (no `S\d+:E\d+` family). Thus `A4`+`E 40` →
 EXP-2026-11-23-M4.95-ref-shield-writer. The firmware glyph choice remains an
 L3/L4 question (rule 13); this is a data-side mapping only.
 
+## OSM tag → POI category profile (M5.73, EU2011)
+
+The POI writer (M5.18/M5.63) needs one byte-aligned `POINT` category code per
+OSM object. `tools/osm_ingest.py` emits `poi.category = key=value` and keeps the
+`brand`/`operator`/`name` tags; `profiles/poi-categories.json` is the ordered
+rule set that resolves those to a code (first match by ascending priority).
+`tools/poi_category_profile.py --selftest` validates every targeted code
+against the generated M4.88 table (`docs/format/poi-categories.md`) and maps a
+synthetic fixture of one object per rule; `validate` prints the cross-check as
+JSON. Evidence: EXP-2026-11-24-M5.73-poi-category-profile, C-10140–C-10149.
+
+| Required OSM category | Target code(s) | Status |
+| --- | --- | --- |
+| `amenity=fuel` | `0x0190` generic; brand `0x0193` BP, `0x01bc` Aral | mapped |
+| `amenity=restaurant`/`cafe`/`fast_food`/`bar`/`pub` | `0x0391` | mapped |
+| `tourism=hotel`/`motel`/`guest_house` | `0x0dac` generic; brand `0x0dad` Best Western, `0x0db7` Hilton, `0x0db8` Holiday Inn | mapped |
+| `shop=supermarket` | brand `0x01a1` Carrefour, `0x01be` Intermarche, `0x0195` ASDA | brand-only |
+| `amenity=charging_station` | — | UNMAPPED (separate REFER002 EV layer, M5.79) |
+| `amenity=parking` | — | UNMAPPED (glyph 20 exists, code unknown — OQ-20) |
+| `amenity=hospital`/`clinic`/`doctors` | — | UNMAPPED |
+| `amenity=pharmacy` | — | UNMAPPED (glyph 19 exists, code unknown — OQ-20) |
+| `amenity=bank`/`atm` | — | UNMAPPED |
+| `railway=station`/`public_transport=station` | — | UNMAPPED |
+| `aeroway=aerodrome`/`airport` | — | UNMAPPED |
+
+Only four of the eleven categories have factory category codes; the other
+seven are deliberately left `code: null` rather than guessed. The task
+falsifier ("a rule targets a code with zero records on the factory card") is
+enforced by `validate`: a fabricated or absent code fails the run. Generic
+supermarket has **no** category code — the factory stores brand codes only —
+so an unbranded `shop=supermarket` is also UNMAPPED.
+
+**Tooling decision.** `tools/profile_validate.py` validates *build* profiles
+(region/coverage/tiles, schema v2); it is not a validator for a tag→code
+table and would reject this file with `E002` as it already rejects the
+non-build `profiles/pl-glyphs.json`. The runnable gate for this profile is
+therefore `tools/poi_category_profile.py --selftest` (picked up by
+`tools/selftest.py`). The existing four build profiles remain unchanged.
+
+This is a data-side mapping only (rule 13): no firmware reader VA for the
+category→icon table is known (C-988), so nothing here claims `CONFIRMED`.
+
 ## Open questions
 
 1. **Charset** — answered for the glyph table by M4.87 (8/18 present); still

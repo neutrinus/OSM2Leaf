@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "name": "poi-categories",
+  "source": "docs/format/poi-categories.md (M4.88, C-7890-C-7899) and tools/poi_icons.py MAPPING (C-983)",
+  "description": "OSM tag expression -> ZE0 POI category code. Rules are tried in ascending priority; first match wins. A rule with code null is a known OSM category with no code on the EU 2011 factory card (UNMAPPED). No code is invented: every non-null code is counted >0 in the M4.88 table.",
+  "table": "docs/format/poi-categories.md",
+  "rules": [
+    {
+      "id": "fuel-bp",
+      "category": "fuel",
+      "priority": 10,
+      "match": {"amenity": ["fuel"], "brand_any": ["BP"]},
+      "code": "0x0193",
+      "code_label": "BP",
+      "evidence": "C-983 MAPPING, M4.88 table count 5531",
+      "note": "Brand-specific fuel logo; falls back to the generic pump when the brand is absent."
+    },
+    {
+      "id": "fuel-aral",
+      "category": "fuel",
+      "priority": 10,
+      "match": {"amenity": ["fuel"], "brand_any": ["ARAL"]},
+      "code": "0x01bc",
+      "code_label": "Aral",
+      "evidence": "C-983 MAPPING, M4.88 table count 2436",
+      "note": "Brand-specific fuel logo."
+    },
+    {
+      "id": "fuel-generic",
+      "category": "fuel",
+      "priority": 20,
+      "match": {"amenity": ["fuel"]},
+      "code": "0x0190",
+      "code_label": "petrol station (generic)",
+      "evidence": "C-983 MAPPING, C-7892, M4.88 table count 31684",
+      "note": "Generic fuel pump glyph 0; the fallback for all amenity=fuel objects."
+    },
+    {
+      "id": "charging-station",
+      "category": "charging station",
+      "priority": 20,
+      "match": {"amenity": ["charging_station"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "C-143, C-2224, C-10100-C-10109; REFER002 is a separate EV layer",
+      "note": "UNMAPPED: no category code in M4.88. Charging stations belong to REFER002 (M5.79), not the REFER001 POINT category table."
+    },
+    {
+      "id": "parking",
+      "category": "parking",
+      "priority": 20,
+      "match": {"amenity": ["parking"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "C-984 generic glyph 20 exists; OQ-20: parking code not isolated",
+      "note": "UNMAPPED: glyph 20 (parking) is in BICON001 but no category code was isolated (OQ-20). Do not guess."
+    },
+    {
+      "id": "restaurant",
+      "category": "restaurant",
+      "priority": 20,
+      "match": {"amenity": ["restaurant", "cafe", "fast_food", "bar", "pub"]},
+      "code": "0x0391",
+      "code_label": "restaurant/cafe (generic)",
+      "evidence": "C-983 MAPPING, C-7892, M4.88 table count 31660",
+      "note": "Generic knife-and-fork glyph 18; covers all amenity eatery values."
+    },
+    {
+      "id": "hotel-best-western",
+      "category": "hotel",
+      "priority": 10,
+      "match": {"tourism": ["hotel", "motel", "guest_house"], "brand_any": ["BEST WESTERN"]},
+      "code": "0x0dad",
+      "code_label": "Best Western",
+      "evidence": "C-983 MAPPING, M4.88 table count 1202",
+      "note": "Branded hotel: category 0x0dac, brand code 0x0dad selects the logo (C-987)."
+    },
+    {
+      "id": "hotel-hilton",
+      "category": "hotel",
+      "priority": 10,
+      "match": {"tourism": ["hotel", "motel", "guest_house"], "brand_any": ["HILTON"]},
+      "code": "0x0db7",
+      "code_label": "Hilton",
+      "evidence": "C-983 MAPPING, M4.88 table count 137",
+      "note": "Branded hotel logo."
+    },
+    {
+      "id": "hotel-holiday-inn",
+      "category": "hotel",
+      "priority": 10,
+      "match": {"tourism": ["hotel", "motel", "guest_house"], "brand_any": ["HOLIDAY INN"]},
+      "code": "0x0db8",
+      "code_label": "Holiday Inn",
+      "evidence": "C-983 MAPPING, M4.88 table count 265",
+      "note": "Branded hotel logo."
+    },
+    {
+      "id": "hotel-generic",
+      "category": "hotel",
+      "priority": 20,
+      "match": {"tourism": ["hotel", "motel", "guest_house"]},
+      "code": "0x0dac",
+      "code_label": "hotel (unbranded)",
+      "evidence": "C-983 MAPPING, C-7892, M4.88 table count 98791",
+      "note": "Generic bed glyph 21; the fallback for all tourism accommodation objects."
+    },
+    {
+      "id": "supermarket-carrefour",
+      "category": "supermarket",
+      "priority": 10,
+      "match": {"shop": ["supermarket"], "brand_any": ["CARREFOUR"]},
+      "code": "0x01a1",
+      "code_label": "Carrefour",
+      "evidence": "C-983 MAPPING, M4.88 table count 338",
+      "note": "Shop brand logo; code 0x01e6 is the CARREFOUR MARKET brand-only record."
+    },
+    {
+      "id": "supermarket-intermarche",
+      "category": "supermarket",
+      "priority": 10,
+      "match": {"shop": ["supermarket"], "brand_any": ["INTERMARCHE", "INTERMARCHÉ"]},
+      "code": "0x01be",
+      "code_label": "Intermarche",
+      "evidence": "C-983 MAPPING, M4.88 table count 1533",
+      "note": "Shop brand logo."
+    },
+    {
+      "id": "supermarket-asda",
+      "category": "supermarket",
+      "priority": 10,
+      "match": {"shop": ["supermarket"], "brand_any": ["ASDA"]},
+      "code": "0x0195",
+      "code_label": "ASDA",
+      "evidence": "C-983 MAPPING, M4.88 table count 174",
+      "note": "Shop brand logo."
+    },
+    {
+      "id": "supermarket-generic",
+      "category": "supermarket",
+      "priority": 20,
+      "match": {"shop": ["supermarket", "grocery"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "M4.88 table: only brand-coded shops, no generic supermarket category code",
+      "note": "UNMAPPED generic: the factory card carries brand codes (Carrefour, Intermarche, …), not a generic supermarket category. Write a brand rule or omit; do not invent a code."
+    },
+    {
+      "id": "hospital",
+      "category": "hospital",
+      "priority": 20,
+      "match": {"amenity": ["hospital", "clinic", "doctors"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "M4.88 table: no hospital/clinic name or code",
+      "note": "UNMAPPED: no category code in M4.88."
+    },
+    {
+      "id": "pharmacy",
+      "category": "pharmacy",
+      "priority": 20,
+      "match": {"amenity": ["pharmacy"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "C-984 generic glyph 19 exists; OQ-20: pharmacy code not isolated",
+      "note": "UNMAPPED: glyph 19 (pharmacy cross) is in BICON001 but no category code was isolated (OQ-20)."
+    },
+    {
+      "id": "bank-atm",
+      "category": "bank/ATM",
+      "priority": 20,
+      "match": {"amenity": ["bank", "atm"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "M4.88 table: no bank/ATM name or code",
+      "note": "UNMAPPED: no category code in M4.88."
+    },
+    {
+      "id": "railway-station",
+      "category": "railway station",
+      "priority": 20,
+      "match": {"railway": ["station"], "public_transport": ["station"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "M4.88 table: no railway/station name or code",
+      "note": "UNMAPPED: no category code in M4.88."
+    },
+    {
+      "id": "airport",
+      "category": "airport",
+      "priority": 20,
+      "match": {"aeroway": ["aerodrome", "airport"]},
+      "code": null,
+      "code_label": null,
+      "evidence": "M4.88 table: only 'card: CUMULUS AIRPORT' (a hotel brand name, 0x0dce), no airport category",
+      "note": "UNMAPPED: the only 'AIRPORT' string is a hotel name hint, not an airport category."
+    }
+  ]
+}

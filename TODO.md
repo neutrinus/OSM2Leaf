@@ -3542,8 +3542,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Unblock: M9.67
   - Result: EXP-2026-11-22-M5.72-locmap-ref-words (in-window fix PASS, census negative)
 
-- [ ] **M5.73 — OSM tag → POI category table for the unit's category codes**
-  - Status: in progress · Owner: task/m5.73-poi-category-profile · Critical: no · Pair: solo
+- [x] **M5.73 — OSM tag → POI category table for the unit's category codes**
+  - Status: done · Owner: task/m5.73-poi-category-profile · Critical: no · Pair: solo
   - Step: P4
   - Depends: M4.88
   - Goal: With the category table of M4.88, define which OSM tags become which category, so the POI writer (M5.18, M5.63) has a rule set.
@@ -3554,6 +3554,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Falsifier: a rule targets a code with zero records on the factory card.
   - Claims: C-7920–C-7929
+  - Result: EXP-2026-11-24-M5.73-poi-category-profile; 17/17 selftest, 11 mapped/8 unmapped, falsifier enforced
 
 - [x] **M5.74 — Water and forests from OSM: first slice of a background writer**
   - Status: done · Owner: task/m5.74-osm-background-writer · Critical: no · Pair: required
