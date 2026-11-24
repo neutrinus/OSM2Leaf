@@ -1684,7 +1684,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Result: EXP-2026-11-23-H41-l1l2-progress-matrix.md; selftest 25/25; matrix 12 rows (9P/0F/1S, 2 NOT_COVERED); baseline rc=0 / PASS->FAIL rc=1 / missing-key rc=1; C-3280–C-3289
 
 - [ ] **H42 — Wire progress dashboard and L1/L2/L3/L4-emu/L5-bench status into CI artifacts/job summaries (no vendor data)**
-  - Status: open · Owner: — · Critical: yes
+  - Status: in progress · Owner: task/h42-cycle10 · Critical: yes
   - Depends: H27, H41, H28, H55
   - Goal: make the per-level progress signal visible on every PR/push: publish `progress.json/md` (H27 schema) plus H41 per-file/per-feature matrix as artifacts/job summaries.
   - Scope: workflow changes only (extend existing workflows or add `progress.yml` as appropriate); no vendor data, no IMG256/ROOT, no QEMU/M8 run in PR gate, no L5 bench execution. Integrate H28 L3 synthetic summary when H28 lands. Local/vendor checks listed as LOCAL-ONLY/NOT RUNNABLE, never executed in PR gate.
