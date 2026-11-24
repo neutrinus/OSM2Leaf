@@ -1192,6 +1192,19 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Pair: solo
   - Result: EXP-2026-11-24-H143-consent-detect-identity; selftest 23/23; renamed EU card: one literal per copy 0x08a6->0x0891, verify PASS. Gate: no new failure (refer002_add_station fails on origin/main too)
 
+- [ ] **H146 — CI selftest red: inter_l3_probe inverts its exit code and C-7194's selftest count is unpinned**
+  - Status: in progress · Owner: task/h146-selftest-gate-fixes · Critical: yes · Pair: required
+  - Depends: —
+  - Goal: the standing `CI quality gate` on `origin/main` `007d6cd3` still has two failures. (1) `tools/inter_l3_probe.py --selftest` prints `selftest: PASS` but exits 1: its last line is `return 0 if fails else 1`, the inverse of every other tool (`return 1 if fails else 0`), so `selftest.py` reports `tool:inter_l3_probe FAIL`. (2) `claims_check --strict --count-check` reports `COUNT C-7194 claims 26, tools/ze0_unmapped.py prints 22 (57146bb7)`: the M8.H22 EXP last moved with the tool at `57146bb7` (22 checks), and the later tool-only commit `1322037e` raised it to 26 without moving the record. The earlier ghost-`Unblock` half (M8.H5a/M8.H81) is already fixed upstream in `007d6cd3`.
+  - Precheck: `python3 tools/inter_l3_probe.py --selftest` prints `selftest: PASS` and exits 1; `python3 tools/claims_check.py --strict --count-check` prints `count mismatches: 1` naming C-7194; `gh run view 45442631393 --log-failed` names `tool:inter_l3_probe FAIL` and `COUNT C-7194`.
+  - Scope: `tools/inter_l3_probe.py` (one-line exit-code fix), `docs/research/claims.md` C-7194 and `docs/experiments/EXP-2026-11-24-M8.H22-unmapped-census.md` (record the pin change), plus a new EXP. Do not add the M8.H5a/M8.H81 task blocks (already on main), and do not touch any other tool or claim. Use `board.py` for all ledger edits.
+  - Input: `tools/inter_l3_probe.py:selftest`, `tools/claims_check.py:_pinned_revision`/`check_count_token`, `docs/research/claims.md` C-7194, `docs/experiments/EXP-2026-11-24-M8.H22-unmapped-census.md`, EXP-2026-11-16-H78 pinned-revision rule.
+  - Done when: `python3 tools/inter_l3_probe.py --selftest` exits 0 on PASS and 1 on a seeded failing check (negative control); `python3 tools/claims_check.py --strict --count-check` reports `count mismatches: 0` and `claims_check: OK` on a clean clone; `python3 tools/todo_check.py --selftest` and `--only inter_l3_probe`/`--only claims_check` pass; `python3 tools/board.py lost --base origin/main` is clean; an EXP records the before/after exit codes and the pin resolution.
+  - Stop: if a different agent changes C-7194 or the EXP first, rebase and re-derive the pin with `claims_check` rather than forcing a number.
+  - Falsifier: `inter_l3_probe --selftest` still exits 1 on PASS, a failing check exits 0, or `count mismatches` remains above 0.
+  - Claims: C-10340–C-10349
+  - Pair: required
+
 
 ## M2 — Map code, activation, updater
 
