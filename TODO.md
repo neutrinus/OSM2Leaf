@@ -4974,7 +4974,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7110–C-7119
 
 - [ ] **M8.H15 — Turn on the firmware's own debug output: debug zones of `Navi.exe` and the drivers**
-  - Status: in progress · Owner: task/m8.h15-debug-zones · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m8.h15-debug-zones · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.C1d (done)
   - Goal: `ze0-0007` hooks the kernel debug message path, but retail modules print little. CE modules carry `dpCurSettings` zone masks (and often a registry override). Find how to enable them for `Navi.exe` map modules, `SDHC.dll`, `navdrv.dll`, `lcddrv.dll`, so a boot log names file opens, positions and errors in the vendor's words.
@@ -4985,6 +4985,9 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if the retail build compiled the messages out (no format strings behind the zones), say so with the string census and stop.
   - Falsifier: setting the mask adds no line for any module.
   - Claims: C-7120–C-7129
+  - Blocker: EU2011 retail modules (builds A/B/C, 1111 sections, 0 candidates) have no DBGPARAM zone-mask record and the ROM hives have no DebugZones value, so there is no mask VA/default to set; the debug-sink hook works (142 baseline lines) but only kernel/OAL messages print
+  - Unblock: M8.H80
+  - Result: EXP-2026-11-24-M8.H15-debug-zones (negative: 0 DBGPARAM in 1111 sections, 0 skipped; selftest 9/9; baseline 142 hook hits); C-7120–C-7129
 
 - [ ] **M8.H16 — Boot the test-mode kernel (ROM image C) on `-M ze0`: the service screens as a test bench for the models**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -5929,6 +5932,19 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: the EU2014 kernel prints debug text at the EU2011 VA `0x880404f4` and ends at the EU2011 final PC `0x8803d266` — then no X212 subclass is needed and this task records that instead of adding a machine.
   - Claims: C-10240–C-10246
   - Result: EXP-2026-11-24-M8.G4-aze0-machine; -M aze0 5s: 462 vs 0 wrong-VA/0 off lines, entry 0x8800f100, RAM 0x8a640000, ze0 PC 0x8803d266 unchanged; C-10240..C-10246
+
+- [ ] **M8.H80 — Obtain a checked/debug build of the ZE0 map modules to get `DBGPARAM` zone records**
+  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Step: tooling
+  - Depends: —
+  - Goal: M8.H15 found no `DBGPARAM` record and no `DebugZones` registry value in the EU2011 retail modules (builds A/B/C, 1111 sections, 0 candidates, EXP-2026-11-24-M8.H15-debug-zones). A checked build of the same sources would have `DEBUGMSG` zones compiled in; with it the zone-mask table of M8.H15 can be populated.
+  - Precheck: `python3 tools/ce_dbgzones.py archive/head256.img --image-start 0x200200 --decoded-dir DIR` prints `dbgparam_candidates 0` for the shipped image (after `cerom.py decompress --out DIR`).
+  - Scope: locate a shipped checked/debug build of `NaviMapCC.dll`/`Navi.exe`/`SDHC.dll` (update package, SDK, service manual media) or a way to build one from symbols; run `tools/ce_dbgzones.py` on it and, if records appear, add `run.sh --debug-zones FILE` that sets them. No car/bench work.
+  - Input: `tools/ce_dbgzones.py`, EXP-2026-11-24-M8.H15-debug-zones, `docs/research/sources.md`.
+  - Done when: an EXP shows at least one valid `DBGPARAM` (name + 16 zone names + mask VA) in a real image with a printed command, and either a mask-set boot that adds DBGMSG lines over the 142-line baseline or a named blocker for the missing build.
+  - Stop: if no checked build is obtainable, record the source search as a negative EXP and leave M8.H15 blocked.
+  - Falsifier: a checked build with no `DBGPARAM` and no new boot lines.
+  - Claims: C-10140–C-10149
 
 ---
 
