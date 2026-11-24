@@ -4871,8 +4871,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-7100–C-7109
   - Result: EXP-2026-11-22-M8.H13-l4check; factory exit 0 stage F5 idle 218.62 s, broken card exit 1 stage F4, gate 5 pass / 0 fail / 0 skip
 
-- [ ] **M8.H14 — CI: every push checks that the `ze0` patch series still applies**
-  - Status: in progress · Owner: task/m8.h14-patch-apply-ci · Critical: no · Pair: solo
+- [x] **M8.H14 — CI: every push checks that the `ze0` patch series still applies**
+  - Status: done · Owner: task/m8.h14-patch-apply-ci · Critical: no · Pair: solo
   - Step: tooling
   - Depends: —
   - Goal: The series is 13+ patches and several agents will add more in parallel. A patch that no longer applies after a merge is found today only by the next person who builds.
@@ -4883,6 +4883,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if GitHub runners cannot reach `download.qemu.org`, use the gitlab tag fallback of `build.sh`, else blocked with the error.
   - Falsifier: the job stays green with a patch that does not apply.
   - Claims: C-7110–C-7119
+  - Result: EXP-2026-11-24-M8.H14-ci-ze0-patch-series; CI green run 45374933105 / RED control run 45376535423; 30 applied, 0 failed; selftest 88/0
 
 - [ ] **M8.H15 — Turn on the firmware's own debug output: debug zones of `Navi.exe` and the drivers**
   - Status: open · Owner: — · Critical: no · Pair: solo
