@@ -5353,7 +5353,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Re-opened: rule 15, TL 2026-11-23: M8.C1n merged (#636) with the UI leaving INI_STARTUP and touch accepted; the key-control/tap blocker is resolved. Blocker line kept as a note.
 
 - [ ] **M8.H40 — Live window: host mouse and keyboard drive the emulated unit**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+  - Status: in progress · Owner: task/m8.h40-live-window · Critical: no · Pair: solo
   - Step: tooling
   - Depends: M8.H4, M8.H38
   - Goal: For exploring the UI by hand: `run.sh --display gtk` (or VNC) where a mouse click is a tap and mapped keyboard keys are the hard keys.
