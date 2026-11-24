@@ -3914,7 +3914,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-24-M5.92-capacity-probe; 8/8 probes + 2 edge runs; first failing window 68096 B (pass 67840 B); enforcing VA 0x004262f8 (0x109A0 pool), point gate 0x0041f4bc (1000); L3 only (L4 NOT RUN exit 3)
 
 - [ ] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
-  - Status: in progress · Owner: task/m5.93-subrecord-writer · Critical: no · Pair: solo
+  - Status: blocked · Owner: task/m5.93-subrecord-writer · Critical: no · Pair: solo
   - Step: limits
   - Depends: M5.85
   - Goal: the factory keeps dense parcels as four sub-records in a wide directory row (M5.53); our writer drops them. Write them, so a dense OSM parcel keeps its detail without exceeding the record limit.
@@ -3924,6 +3924,9 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: `s1_wide_dir.py census` accepts the written tile; an L4 screenshot of a parcel written as four sub-records shows roads in all four quarters (or the EXP proves which quarter is not read); selftest covers the split.
   - Stop: one session for the writer; L4 depends on a parcel on screen (the start-screen parcel may be forced to sub-records for the test).
   - Claims: C-8730–C-8739
+  - Blocker: L4 boot never reached Pow Off 1st Detect in 600 s (0 markers, 1,084-line log); no screenshot and no quarter proven unread; L3 walk of sub0 ran but sub1-3 harness groups produce no LOC_map on the unmodified factory card too
+  - Unblock: M8
+  - Result: EXP-2026-11-24-M5.93-subrecord-writer (writer+census+L3 PASS; L4 NOT VERIFIED)
 
 - [ ] **M5.94 — London in numbers: per-parcel OSM size against the factory records and the limits**
   - Status: open · Owner: — · Critical: no · Pair: solo
