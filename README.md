@@ -3,14 +3,29 @@
 OpenStreetMap map compiler research for the **Nissan Leaf ZE0 (2011–2012)**
 navigation unit.
 
-> **Status: research only.** This project currently reverse-engineers the
-> factory map SD card format. Nothing here is installed in a car, and no
-> modified map has been validated on real hardware yet.
+> **Status: development stopped (2026-11-25).** The OSM map generator that
+> lived here was removed. [osm2clarion](https://github.com/albertbm/osm2clarion)
+> builds OSM maps for Clarion QY7/QY8 units (including the 2011 QY7 format)
+> and is where map generation continues. What stays here is the knowledge
+> around the 2011 Leaf unit: format and firmware notes, the decompiled unit
+> side, the QEMU `-M ze0` emulator patches, and the scripts that build and
+> patch SD card images.
+>
+> See also [leaf-hu-emulator](https://github.com/alexpalyan/leaf-hu-emulator),
+> another head-unit emulator for the Leaf.
 
-The long-term goal is to determine whether a usable map database can be
-generated from OpenStreetMap and written back to a Leaf map SD card. The first
-milestone is not a full compiler — it is a verified, reproducible description
-of the existing format and a small toolset that can read it.
+What is still here:
+
+- `docs/format/`, `docs/firmware/`, `docs/hardware/`: card format, firmware
+  and unit findings (region and map-code checks, SD lock, EU card on a US unit).
+- `tools/qemu-ze0/`, `tools/ze0_*.py`, `docs/emulator/`: the emulator and its
+  peers (touch, GPS, audio micom).
+- Image scripts: `mkcard.py`, `imgpatch.py`, `card_mapcode.py`,
+  `ze0_consent.py`, `audio_transplant.py`, `cmpind_writer.py`.
+- `docs/experiments/` and `docs/research/claims.md`: the record of what was measured.
+
+The sections below describe the original goal and the findings as of the
+research phase.
 
 ## Target hardware
 

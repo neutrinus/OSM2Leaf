@@ -1015,10 +1015,10 @@ EXP: `EXP-2026-11-08-M4.29-classcode-control-r2.md` (blocked: non-motorway contr
 | C-2703 | US `LCTBL001` (SHA-256 `87f11053…`, 303,023 records, 157,218 numbered, 139,373 unnumbered control, 621 streams) provides a second-country numbered-road corpus (US route refs visible: I-75/I-85/I-20/I-575/US-19/I-985, Georgia-area) with a sharply different `class_code` distribution from EU samples (`0x4e8f` 118,973/75.7% of numbered; `0x283c` 1,534/1.0%). No US OSM IMF/PBF with `ref`+`highway` exists in accessible archive paths (`leafre-work/osm/` contains only Dolnośląskie artifacts); the M4.17 road-number→OSM-ref join and second-country LORO vs null cannot be computed. | OBSERVED (structural) / blocked (join) | H | EXP-2026-11-08-M4.29-classcode-control-r2; `lctbl_records` parse of `m422/us/.../LCTBL001.DAT`; archive search |
 | C-2704 | M4.29 Done-when partially unmet: EXP reports LORO vs null on a non-motorway control set (C-2701) but cannot report LORO vs null on a second country due to missing US IMF join data (C-2703). M4.29 status `blocked` (not `done`). C-1825 remains HYPOTHESIS and is narrowed by C-2701/C-2703 (not promoted, not retracted on a true second-country class-label join). | VERIFIED (task status) | H | EXP-2026-11-08-M4.29-classcode-control-r2 (Conclusion) |
 | C-2705 | Unblock: produce or obtain a US (or other second-country) IMF/PBF with `ref`+`highway` tags matching the US card's coverage, then run `road_class_probe.py` on `m422/us/RDSTM001/LCTBL001.DAT` for true second-country LORO vs null. If LORO < 3 sd, retract C-1825's road-class aspect while keeping C-1823 (numbered-road marker). | OBSERVED (process) | M | EXP-2026-11-08-M4.29-classcode-control-r2 (Follow-ups) |
-| C-2706 | RESERVED (M4.29). | — | — | — |
-| C-2707 | RESERVED (M4.29). | — | — | — |
-| C-2708 | RESERVED (M4.29). | — | — | — |
-| C-2709 | RESERVED (M4.29). | — | — | — |
+| C-2706 | Not used: M4.29 was cancelled 2026-11-25 (map generation removed). | — | — | — |
+| C-2707 | Not used: M4.29 was cancelled 2026-11-25 (map generation removed). | — | — | — |
+| C-2708 | Not used: M4.29 was cancelled 2026-11-25 (map generation removed). | — | — | — |
+| C-2709 | Not used: M4.29 was cancelled 2026-11-25 (map generation removed). | — | — | — |
 
 ## M4.11 — `LEV3456R.DAT` coarse levels 3–5 (C-990–C-999)
 | ID | Claim | Status | Confidence | Evidence |
@@ -7934,3 +7934,9 @@ into three printed classes.
 | C-10374 | The upstream tree has no guard against a zlib-ng Python build (0 hits for `zlib-ng`, `zlib_ng`, `ZLIB_VERSION` in `tools`, `tests`, `build.py`), although its byte-identical rebuild claims depend on the deflate implementation (our H9). | VERIFIED (source read) | M | EXP-2026-11-24-H148-osm2clarion-comparison; `grep -rni "zlib-ng\\|zlib_ng\\|ZLIB_VERSION" tools tests build.py` upstream |
 | C-10375 | On the map compiler, osm2clarion covers more than this repository on every compared row except QY7 from-scratch background: whole-country builds (Iceland QY8, Finland QY7), levels 1–5 road drawing, speed limits, link codes, turn restrictions, ADDRE/INTER/POINT/ICODE writers, `HOUSE001`, cameras; its README reports them working on QY8 units and routes tried on one QY7 unit. Not reproduced here. | OBSERVED | M | EXP-2026-11-24-H148-osm2clarion-comparison; `docs/research/osm2clarion-comparison.md` §2 |
 | C-10376 | An osm2clarion area-mode card built on the EU 2011 base `QSD-309-101` boots and draws roads in `-M ze0`. | HYPOTHESIS | L | untested; M5.104 decides it |
+
+## H150 osm2clarion pilot
+| ID | Claim | Status | Confidence | Evidence |
+| --- | --- | --- | --- | --- |
+| C-10400 | An osm2clarion area-mode card for Dolnośląskie (EU 2011 base, map code and image A name patched, US Audio.exe transplanted) reaches `MAP_MAPOPERATION_NORMAL_MAP` in `-M ze0` on the anonymous unit flash only after SRAM area 0 (flash 0x400000–0x45FFFF) is set to 0xFF; with the unmodified anonymous flash the same card, and the plain patched EU base, never leave `INI_STARTUP` (ACM::WaitModule timeouts). | VERIFIED | M | EXP-2026-11-25-H150-osm2clarion-pilot |
+| C-10401 | The unmodified US 2011 card boots to the consent screen on the same anonymous flash with `--ui-start` (control: the emulator setup works). | VERIFIED | M | EXP-2026-11-25-H150-osm2clarion-pilot |

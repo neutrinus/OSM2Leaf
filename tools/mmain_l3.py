@@ -120,13 +120,11 @@ def judge(case: str, served: bytes | None, out: dict, buf: bytes | None) -> dict
 
 
 def cases(factory: bytes) -> list[tuple[str, dict, bytes | None]]:
-    import one_tile_pipeline
     rebuilt = mmain.write_mmain(mmain.parse_mmain(factory))
     return [
         ("factory", {}, factory),
         ("rebuilt", {"replace": rebuilt}, rebuilt),
         ("edited", {"replace": edited(factory)}, edited(factory)),
-        ("generated", {"replace": one_tile_pipeline._synth_mmain()}, one_tile_pipeline._synth_mmain()),
         ("cut4095", {"truncate": SIZE - 1}, factory[:SIZE - 1]),
         ("absent", {"hide": True}, None),
     ]

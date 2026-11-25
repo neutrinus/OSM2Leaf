@@ -254,47 +254,15 @@ at `0x4800200`), **C** (kernel + test mode) `0x5200200`. Tools for SH-4 code
 in the cloud environment: `apt-get install binutils-sh4-linux-gnu
 qemu-system-misc gdb-multiarch`.
 
-## Priorities (PO grooming 2026-11-23, 25th pass; `origin/main` `e84436f1`)
+## Priorities (2026-11-25: development stopped)
 
-**The four rule-17 numbers, first** (`python3 tools/map_signals.py --factory-root
-/home/marek/projekty/leafre-work/m5.4/card-factory --report
-/home/marek/projekty/leafre-work/scratch/m9.76/report.json`):
-`readers: located 18 partial 1 unlocated 1` · `l3_rows: l3-running 8` ·
-`tile_bytes: B28R070R 99.98%, B30R048R 95.86%, B48R058R 76.29%` ·
-`card_step: P0 (cardcheck_ok=True l2check_ok=True cardcheck_rc=0 l2check_rc=0
-card_sha256=b0faf119ee2ccfb3ce757bafa49ba7bdac6730d32c8ac97a2337fb18e3c33237)`.
-**None moved — fifth consecutive cycle.** M9.76 replaced the 2026-11-17 pin
-with a fresh report for the P0 card `b0faf119…c33237` (both gate rc values 0,
-full SHA and ladder step recorded in
-`~/projekty/leafre-work/scratch/m9.76/report.json`; EXP-2026-11-24-M9.76).
-The step stays P0 because the freshly gated card is the P0 one-tile card; a
-higher-step card must be built and gated to move it (the report's step is
-validated against `card_ladder.py steps --check`, whose board-hygiene rc is 1
-today for 7 missing + 7 bad unrelated Step tags). The other three numbers are
-byte-identical to the prior pass.
-
-**Critical path — what blocks a car card, in order:**
-
-- **L1 (structure):** ready; `cardcheck --image` + `imgpatch` gate P0/P1.
-  **H104** (committed baseline) is the one open L1 blocker.
-- **L2 (the product):** the **P1 Poland card** M5.61 is blocked only on **M5.68**,
-  itself blocked on **M5.99** (the driver's own parse OOM); M5.69/M5.70 merged.
-  Then **M5.66** (render gate) and **M5.83** (Polish diacritics) prove the card.
-- **L3 (firmware accepts):** **M9.12** (card gate) and **M9.31** are done;
-  **M9.76** makes this number read a current report. Routing: **M4.55** (open,
-  unowned) → **M4.40** → **M5.57** → **M9.56**, with **M4.97** as the parallel
-  grammar path. **M9.80** closes rule 13 for our generated section-4 names;
-  **M9.15/M9.18** are the reader/target rows still open.
-- **L4 (emulator):** **M8.H64** (P0 card) → **M8.H79** (first boot of the
-  from-zero card) → **M8.E4** (full `Navi.exe` acceptance); **M8.H78**
-  (positioning) is re-opened per rule 15.
-- **L5 (car):** hardware unavailable; S0→S3 unchanged (M6.2, M6.18, M6.5, M6.6,
-  M6.7). Every card passes L3 first.
-
-**Take first if you are not on M8 (no emulator, no network):** **M5.99** (sole
-P1 blocker), **M4.55** (unblocks M4.40/routing), **M8.H64**, **M9.80**, **M4.99**,
-**M9.76**, **M9.79** (selftest regressions). **For Marek:** an OSM extract on
-`files.viaaq.eu` (M5.61/M4.2/M5.3/M5.77/M5.78). **In flight:** open PR titles.
+Map generation moved out of this repo: [osm2clarion](https://github.com/albertbm/osm2clarion)
+builds OSM maps for 2011 QY7 units. The generator tools and the tasks that
+needed them (M5.*, M7.*, S1–S3 card tests, from-zero card runs) were closed as
+cancelled. What stays open is the unit side: firmware reading (M3/M4/M9),
+the `-M ze0` emulator (M8), SD lock and region work (M2/M6), and the process
+checks (H*). Take tasks from those streams only if the question is about the
+unit or the emulator, not about generating maps.
 
 ### Map signal (read first)
 
@@ -1254,6 +1222,18 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Falsifier: the upstream tree has no `X08-02` format object (then the old note stands).
   - Claims: C-10370–C-10379
   - Result: EXP-2026-11-24-H148-osm2clarion-comparison (C-10370–C-10376): upstream now writes X08-02 (QY7) in area mode; comparison, contribution list (not sent) and direction assessment in docs/research/osm2clarion-comparison.md; follow-ups M5.104, H149
+
+- [x] **H150 — Stop map generation here: osm2clarion pilot on the EU 2011 base, remove the generator, close dependent tasks**
+  - Status: done · Owner: claude/project-thread-ctv13b · Critical: yes · Pair: solo
+  - Depends: H148 (owner decision 2026-11-24/25)
+  - Goal: the owner chose osm2clarion for map generation; test its area mode on our emulator, remove our generator and close the tasks that needed it.
+  - Scope: one Dolnośląskie card from their area mode, one `-M ze0` boot; deletion of the generator tools and `profiles/`; no vendor data committed; firmware/unit docs, QEMU patches and image-patch scripts stay.
+  - Input: osm2clarion `458f5f0d`, EU 2011 card, `firmware/unit-flash/`, `tools/ze0_launch.py`.
+  - Done when: `python3 tools/gate.py` has no FAIL; README states the new status; EXP records the pilot boot.
+  - Stop: one session.
+  - Falsifier: the card does not reach the map in `-M ze0` (then the pilot is a negative result, not a pass).
+  - Claims: C-10400–C-10409
+  - Result: EXP-2026-11-25-H150-osm2clarion-pilot (C-10400–C-10401): pilot card boots to the map in -M ze0 once SRAM area 0 is erased in the anonymous flash; roads not yet seen; generator removed, 36 tasks cancelled.
 
 - [ ] **H149 — `tools/ze0-viewer` pins an upstream osm2clarion commit that no longer exists**
   - Status: open · Owner: — · Critical: no · Pair: solo
@@ -2474,8 +2454,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-2680–C-2684
   - Result: EXP-2026-11-24-M4.28-poi-lat-residual-explained.md; point_census.py refs: median 114.6 m vs 3557.7 m, 16/16 closer, swapped 1567.9 m; C-1903/C-1904 RETRACTED -> C-2683/C-2684 OBSERVED
 
-- [ ] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
-  - Status: blocked · Owner: task/m4.29-classcode-control-r2 · Critical: no
+- [x] **M4.29 — `class_code` second-country / non-motorway control (M4.17 follow-up)**
+  - Status: done · Owner: task/m4.29-classcode-control-r2 · Critical: no
   - Step: P3
   - Blocker: second-country (US) `LCTBL001` exists (157,218 numbered, Georgia-area I-/US- refs) but no US OSM IMF/PBF with `ref`+`highway` is present in accessible archive (`leafre-work/osm/` Dolnośląskie-only), so M4.17 road-number→OSM-ref join/LORO vs null for a true second country cannot be computed (Stop condition triggered for that part). Non-motorway control was computed.
   - Unblock: produce/obtain a US (or other second-country) IMF/PBF matching the US card's coverage and run `road_class_probe.py` for true second-country LORO vs null; then re-open M4.29.
@@ -2493,7 +2473,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: if no second-country numbered-road sample can be joined, record why
     and stop.
   - Claims: C-2700–C-2709
-  - Result: EXP-2026-11-08-M4.29-classcode-control-r2 (blocked). Non-motorway control reported on EU 2011/2014/2016 Dolnośląskie joins (6 scopes): no scope reaches M4.17's 3 sd LORO-vs-null falsifier (EU 2011 below null; EU 2014/2016 < 1 sd above). EU 2016 replication also negative (+0.13 sd). US LCTBL sampled (157k numbered, 0x4e8f-dominant distribution) but second-country LORO not computable — no US IMF in archive. C-1825 narrowed (remains HYPOTHESIS), not promoted/retracted on a true second-country class-label join.
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 ---
 
@@ -2847,8 +2827,8 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7740–C-7749
   - Result: EXP-2026-11-24-M4.75-kiwi-string-families (C-7740–C-7747); 4 tool selftests PASS; negative mutations exit 1; todo_check/claims_check OK
 
-- [ ] **M4.76 — `kiwiread`'s OSM exporter as a class table seed: KIWI road and background types → OSM tags, inverted for our compiler**
-  - Status: blocked · Owner: task/m4.76-cycle10 · Critical: no · Pair: solo
+- [x] **M4.76 — `kiwiread`'s OSM exporter as a class table seed: KIWI road and background types → OSM tags, inverted for our compiler**
+  - Status: done · Owner: task/m4.76-cycle10 · Critical: no · Pair: solo
   - Step: P1
   - Depends: M4.69
   - Goal: `kiwiread` ships `osm.c`, which writes KIWI data as OSM. Its type → tag choices, inverted, are a first OSM → Clarion class table (M5.3) — valid only for the codes M4.69 confirmed on our card.
@@ -2861,10 +2841,10 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Claims: C-7750–C-7759
   - Blocker: Premise source false: osm.c is a render utility, osmtag() has 1 road row, M4.69 confirmed-code set empty, probe yields 7 classes not 10 with class_code LORO below null
   - Unblock: M5.3
-  - Result: EXP-2026-11-24-M4.76-kiwi-class-seed (negative, 11 PASS selftests)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M4.77 — A real KIWI disc image as a control: run `kiwiread` on it and on our card**
-  - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
+- [x] **M4.77 — A real KIWI disc image as a control: run `kiwiread` on it and on our card**
+  - Status: done · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
   - Step: tooling
   - Depends: M4.65
   - Goal: A mapping claim is stronger with a positive control: the reader on a real KIWI volume, the same reader on our files, and the point where they part. Needs a lawfully held KIWI DVD image (`ALLDATA.KWI`), which the sandbox cannot fetch.
@@ -2875,6 +2855,7 @@ gap); re-run the M5.38 ladder after M9.76 lands.
   - Stop: one session; without a lawful image, blocked with the list of where one can be obtained.
   - Falsifier: `kiwiread` parses our tile without error (then our container is KIWI and M4.66–M4.71 collapse into using it as an oracle).
   - Claims: C-7760–C-7769
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M4.78 — KIWI verdict and plan: one page that says what the format buys us, and renames our fields**
   - Status: done · Owner: task/m4.78-cycle10 · Critical: no · Pair: solo
@@ -3213,13 +3194,14 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     (EXP-2026-11-06-M5.2-mesh-splitter).
   - Claims: C-1040–C-1049
 
-- [ ] **M5.3 — OSM → Clarion road class/speed table**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.3 — OSM → Clarion road class/speed table**
+  - Status: done · Owner: — · Critical: yes
   - Step: P2
   - Depends: M4.2
   - Done when: a table covers every `highway=*` value in the region with
     unmapped values listed.
   - Claims: C-1050–C-1059
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.4 — Tile writer: roads only**
   - Status: done · Owner: claude/m5.4-tile-splice · Critical: yes
@@ -3241,11 +3223,12 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     (EXP-2026-11-08-M5.4-tile-splice). Provisional classes; not firmware-tested.
   - Claims: C-1060–C-1069
 
-- [ ] **M5.5 — Connectivity across tile borders**
-  - Status: open · Owner: — · Critical: no
+- [x] **M5.5 — Connectivity across tile borders**
+  - Status: done · Owner: — · Critical: no
   - Step: P2
   - Depends: M5.4, M4.3
   - Claims: C-1070–C-1079
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.6 — Rebuild `DRSTR001`/`MMAIN001`/`.ind`/`CMP.LST`**
   - Status: done · Owner: task/m5.6-rebuild-drstr-mmain-ind-cmplst · Critical: yes
@@ -3393,8 +3376,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-23-M5.16-factory-reencode; whole-file factory rebuild byte-identical (76,066,304 B, sha256 08a584fe..., cmp silent); verify levels 3-6 OK, 6 regions; L3 mount MATCH 9/9 and diff SAME 28/28 for the rebuilt file; 3 negative controls fail; gate 5 pass, selftest 253/0/21
   - Scope: Re-scoped 2026-11-23 to the factory-data re-encode path only; no OSM writer is in this task (tools/lev3456gen.py remains the separate generator). The earlier Result line documents the wider, blocked attempt.
 
-- [ ] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
-  - Status: open · Owner: — · Critical: yes
+- [x] **M5.18 — `POINT` and `ADDRE` writers, the two families Poland must generate (H11 G6)**
+  - Status: done · Owner: — · Critical: yes
   - Step: P4
   - Depends: M3.11, M3.13, M5.7, M5.1c (one PR per family: `[M5.18] POINT …`)
   - Goal: H11 G6, narrowed: `COORD001`/`ZCODE`/`ICODE001` for Poland already
@@ -3410,6 +3393,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
     passes on the rebuilt pair, and the `INDEX003` name-search entry either
     updates or is proven unnecessary.
   - Claims: C-2420–C-2429
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 ---
 
@@ -3467,8 +3451,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-5160–C-5169 (was none yet; fresh block for this run)
   - Result: EXP-2026-11-19-M5.37-route-graph-golden — `tools/tile_graph_roundtrip.py` + `l2check --graph-tiles`: PASS on the synthetic fixture (2/2) and on the real `B48R058R` splice with 32 writer-emitted section-2 records (32/32, 73,384 others factory-identical); FAIL on a moved endpoint, a dropped link and an unclaimed change; `preserved` (73,416) for an untouched section 2; factory re-emit 67,674/69,345 records, 0 failures. Compared: parcel, nodes, links (id, direction), edge entries; `UNKNOWN`: w4, w5, class/cost words, countries, part b (C-5160–C-5166).
 
-- [ ] **M5.57 — Section-2 writer: the full route graph of a generated tile from OSM (attributes, not only framing)**
-  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: required
+- [x] **M5.57 — Section-2 writer: the full route graph of a generated tile from OSM (attributes, not only framing)**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: required
   - Step: P2
   - Depends: M4.40 (section-2 grammar incl. part b), M5.37 (L2 graph round-trip, done), M4.39 (link key `(parcel, class & 0xf, w3 & 0x1fff)`, done), M5.23 (section-1 record fields)
   - Unblock: M4.40 (field table for part a and part b in `docs/format/map-tiles.md` with the reading VA per field)
@@ -3484,9 +3468,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Note: 2026-11-23 M9.75 (L4): unit-0 framing and the route-search link key are read off firmware (EXP-2026-11-23-M9.75-sec2-readers-l4, C-9914/C-9915); the attribute words are M4.98. A from-zero card with empty section 2 cannot route (C-9910).
     2026-11-23 M4.98: direction (w2>>14), cost (w5), length (w6), turn words and boundary links are named (EXP-2026-11-23-M4.98-sec2-fields-ghidra); a first writer can set them from OSM oneway/highway and leave conditions out.
     2026-11-23 first writer (tools/sec2_writer.py, tile_from_zero --sec2): the London OSM card routes and draws in L4 after one-way traps are removed (EXP-2026-11-23-M5.57-sec2-writer-l4, C-10050–C-10057). Open: level-2/4 section 2 + unit 1 from OSM (M5.103), done-when 1 (factory re-emit).
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M5.103 — Section 2 at levels 2 and 4 from OSM (with the level-2 → level-1 map), so long routes work on a from-zero card**
-  - Status: in progress · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
+- [x] **M5.103 — Section 2 at levels 2 and 4 from OSM (with the level-2 → level-1 map), so long routes work on a from-zero card**
+  - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
   - Step: P2
   - Depends: M5.57 (level-1 writer, London card routes in L4), M4.98 (level-2 unit 1, C-9938)
   - Goal: the firmware searches long routes top-down: `LEV4Top`, then `LEV2DSIDE`, `LEV1DSIDE` (C-10057). Our cards hold section 2 at level 1 only, so a destination outside the local search cannot be reached. Write the level-2 graph (unit 0), its unit 1 (level-2 node → level-1 junction, first level-1 step per link) and level 4 (in `LEV3456R.DAT` or the grid tile, find out which) from the same OSM graph.
@@ -3494,6 +3479,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: (1) `sec2_fields.py --level2` passes on our tile with the factory's counts of rule hits (100 %); (2) in L4 a route from the London start to a destination two or more meshes away on our card prints `LEV2DSIDE`/`LEV4Top` (or the level our card has) and draws.
   - Falsifier: the route search ignores our level 2 (same stages and result with level 2 removed).
   - Claims: C-10060–C-10069
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.38 — The card ladder P0–P4: what a Poland card contains at each step and which software gate it must pass**
   - Status: done · Owner: task/m5.38-card-ladder · Critical: yes · Pair: solo
@@ -3507,8 +3493,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: do not invent format facts to fill a cell — `unknown` with the task that answers it.
   - Claims: none yet
 
-- [ ] **M5.40 — Card ladder P0 is only checked on this host: pin the M5.34 factory-backed run as a QA manual regression**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.40 — Card ladder P0 is only checked on this host: pin the M5.34 factory-backed run as a QA manual regression**
+  - Status: done · Owner: — · Critical: no · Pair: required
   - Step: P0
   - Depends: M5.34 (done), H84 (the `workflow_dispatch`/scheduled skeleton), M5.38 (the ladder page names P0)
   - Goal: M5.34's P0 step (`EXP-2026-11-17-M5.34-parcel`: 480 files compared, 2 differ, tile `293,990,518 B` / `b746427c…34c2ef`, `cardcheck` + targeted `l2check` rc=0) ran once by hand. Nothing on `main` fails when that run stops completing — CI has no factory tree and must not download one, so the regression today is invisible. One scheduled/manual job that reproduces the P0 gate (skip, not red, when the factory tree or OSM extract is absent) makes rule 17's "highest ladder step that passes its gate" a check, not a log line.
@@ -3519,6 +3505,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: a `workflow_dispatch` run on a runner with both inputs completes the P0 gate and the summary names exit code, tile SHA-256/size, `cardcheck_rc`, `tiles=1` and the zlib build; with the factory tree absent it prints `SKIP (no factory tree)`; the workflow never triggers on `pull_request`/`push`; `.github/workflows/README.md` documents it; `python3 tools/selftest.py` unchanged.
   - Stop: if a runner cannot hold the 480-file factory tree and the ~90 MB extract within the job timeout, ship the skeleton with the explicit `SKIP` path and record the cache gap in the EXP; do not vendor either input.
   - Claims: C-4300–C-4309
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 
 - [x] **M5.53 — P1 needs 11 more directories: make the `0x2146`–`0x2946` section-1 kinds writable (or prove they cannot be)**
@@ -3548,8 +3535,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-20-M5.54-wide-kinds. `WIDE_SPLICE_DIR_KINDS` = `0x2146`–`0x2946`; narrowing is per directory (a partial splice keeps the kind). Seven real pipeline runs on `B48R058R`: each of the six remaining bbox directories (2–22 fixture ways from the new `s1_wide_dir.py fixture`) ends as `0x2046` with the diff confined to it, `cardcheck` + `one_tile_one_directory` PASS, `l2check --semantic-tiles --skip-mutation` PASS, census OK; the partial `(74,938)` run keeps `0x2246`. Factory precheck: `spliceable=20 preserve-only=0` (P1 20/20). Deviation: the full `l2check` FAILs only `refer_rename_resize`, identically on the untouched factory tree (C-5543) → new **M5.55**. `clarion_tile` remainder limit raised to `31*512` (C-5542); `0x2a46`+ are now preserve-only. After review: `0x2446`/`0x2746`/`0x2846` spliced by tilewriter runs on `B30R058R`/`B30R068R`/`B38R058R` (C-5548); L3 mount: the firmware reads each of the six spliced directories with `0x00414dbc` at the `0x2046` length, header-flip control DIFFERENT (C-5546/C-5547); record/sub-record decoding not covered (rule 13).
 
 
-- [ ] **M5.61 — "Poland to look at": a display-only card with OSM roads in every section-1 directory of the 4 Poland tiles**
-  - Status: blocked · Owner: task/m5.61-poland-card · Critical: yes · Pair: required
+- [x] **M5.61 — "Poland to look at": a display-only card with OSM roads in every section-1 directory of the 4 Poland tiles**
+  - Status: done · Owner: task/m5.61-poland-card · Critical: yes · Pair: required
   - Step: P1
   - Depends: M5.53/M5.54 (all 20 directory kinds spliceable, done), M5.30 (relocation + manifest patch, done), M9.13 (container read in L3, done); M9.53 strengthens the gate (records read) but does not block the build
   - Goal: the ladder has P0 (one directory) and P1 as a census/one-tile row, but no task builds the first card a person would call a map of Poland: `profiles/poland-full.json`, tiles `B48R050R`, `B48R058R`, `B50R050R`, `B50R058R`, every level-1 and level-2 section-1 directory that intersects the profile filled from OSM; sections 2/4, `LEV3456R`, `REFER001`, `RDSTM001` and assets factory. This is the nearest result that can be shown in a car, and it measures the size budget (M7.1/M7.2) on real data.
@@ -3562,7 +3549,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: the gate passes on a card where one directory was written with the ways of the neighbouring directory.
   - Blocker: tilewriter, not the card: (1) read_jsonl holds the whole split -> Max RSS 5.2 GB, signal 9 on B48R050R (1.6M single-cell ways) and B48R058R (M5.68); (2) the 0x2046 even/odd pair splice leaves the pair regenerated-but-unwritten, B50R058R level 1 fails (81,941,22,59): 1 changed but not regenerated (M5.69); (3) B50R050R level 2 has 1,313 parcels with no even slot (M5.70). B48R058R ingest was stopped, not attempted.
   - Unblock: M5.68 only — the other two tilewriter fixes merged and are recorded in Result; rule 15 re-opens this task when M5.68 merges
-  - Result: EXP-2026-11-21-M5.61-poland-card (negative; 1 of 4 tiles: B50R050R level 1 passes all gates, the other three hit tilewriter defects M5.68-M5.70); p1.img tile B50R050R = 7c6ea211…, template repaired
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
   - Claims: C-6250–C-6259
   - Note: 2026-11-23 SE rule-15 sweep: M5.69 and M5.70 are done; Unblock now names the one live blocker M5.68 (itself blocked on M5.99).
 
@@ -3595,8 +3582,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Result: EXP-2026-11-22-M5.65-osm-section4-places; 37/37 OSM names, section4 verify OK, l2check PASS, C-6650-C-6659
   - Note: M4.71 (EXP-2026-11-24-M4.71-kiwi-name-frame) re-checked the substituted name bytes: KIWI 7.4 adds no placement rule; same-length CP1252 d=NAME substitution stays correct (C-7700-C-7709).
 
-- [ ] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.66 — L2 visual map gate: render a generated tile to PNG and fail on a pixel diff**
+  - Status: done · Owner: — · Critical: no · Pair: required
   - Step: P1
   - Depends: M5.61 (a generated Poland tile to render), M5.62 (section-count L2 refusal, done); reads the tile only — no writer dependency
   - Goal: every L2 check today is structural or semantic (`cardcheck`, `l2check`, `semantic-tiles`, the class golden) — none shows that the tile *looks* like a map, so a writer regression that keeps every field valid but moves the roads passes L2 and is only caught in the car (L5), which is expensive. The viewer already renders (`tools/ze0-viewer/harness.py render <tile> <out.png>`); make that a checked gate: a pinned render of a factory tile and of a generated tile, compared within a stated tolerance, so "roads in the right place" fails loudly at L2 and a human can look at a PNG before a card is cut.
@@ -3607,9 +3594,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if a stable cross-host render is impossible (font/AA nondeterminism), pin the geometric `compare_osm` median instead of a pixel diff and record the two render hashes it could not match — do not chase renderer determinism for more than one session.
   - Falsifier: a tile whose `l2check` is PASS and whose render gate is PASS while a factory-derived `compare_osm` says the roads are hundreds of metres off (then the tolerance or the pinned view is too loose; tighten the view, not the tolerance).
   - Claims: C-6660–C-6669
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M5.67 — The L2 result is one PASS for the whole card: no per-feature row (roads/names/POIs/geometry) says which OSM feature a generated card actually carries**
-  - Status: open · Owner: — · Critical: yes · Pair: required
+- [x] **M5.67 — The L2 result is one PASS for the whole card: no per-feature row (roads/names/POIs/geometry) says which OSM feature a generated card actually carries**
+  - Status: done · Owner: — · Critical: yes · Pair: required
   - Depends: M5.61 (a generated Poland tile with road names/POIs to count), M5.62 (section-count refusal, done); complements M5.65 (section-4 names) and M5.66 (the visual render) — those write and render, this one counts what the firmware-facing files actually contain
   - Goal: the QA prompt asks the test system to show L2 "pass/fail per file **and per feature** (roads, names, POIs, geometry)", but `l2check.py --json` reports a `checks[]` list of file/stream digests plus `stats[name]={"features":n,"digest":…}` per `.cmp` stream — an aggregate count, not "roads written = X of Y OSM ways, names = X of Y, POIs = X of Y". A card can pass L2 with an empty road set (H103's Done-when explicitly allows it) and every number stays green. The signal the goal needs — "does the generated Poland card actually carry the roads/names/POIs the OSM input had" — is not on the ladder anywhere between L2 and a hand-run tile diff.
   - Precheck: `python3 tools/l2check.py --root CARD --json L2.json --no-cmp --no-tiles` writes a report whose keys are `checks`/`stats`/`result`; `python3 -c "import json;d=json.load(open('L2.json'));print(sorted(d))"` prints no `features`/`by_kind`/`per_feature` key; `python3 tools/l2check.py --help` lists no `--features` flag.
@@ -3621,9 +3609,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Falsifier: an L2 PASS on a generated card whose manifest has N road ways and whose tile decodes 0, still reported as one green `RESULT: PASS`.
   - Claims: C-6710–C-6719
   - Step: tooling
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M5.68 — `tilewriter.read_jsonl` streams a way at a time: a 1.6 M-way split fits in RAM**
-  - Status: blocked · Owner: task/m5.68-stream-jsonl · Critical: no · Pair: required
+- [x] **M5.68 — `tilewriter.read_jsonl` streams a way at a time: a 1.6 M-way split fits in RAM**
+  - Status: done · Owner: task/m5.68-stream-jsonl · Critical: no · Pair: required
   - Step: P1
   - Depends: — (`tilewriter.py` is on `main`; the negative record is EXP-2026-11-21-M5.61-poland-card §6)
   - Goal: M5.61 built `B50R050R` level 1 but could not build `B48R050R`: `tilewriter.read_jsonl` calls `_read_text(path).splitlines()`, so a 1,837,383,144 B split (1,641,585 single-cell ways) is one Python string plus a list of lines plus the parsed records. `/usr/bin/time -v` records `Maximum resident set size (kbytes): 5224528` and `Command terminated by signal 9` on a 7,735 MB host; a gzipped split peaks at `5,226,136` kB and is killed too. This is a tool limit, not a card or format limit, and it gates the other three Poland tiles.
@@ -3636,7 +3625,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6790–C-6799
   - Blocker: Driver's own nodes/ways parse OOMs at 5512296 kB before tilewriter starts (Stop-clause copy); tilewriter alone fits at 4657860 kB but stops on the M5.69 splice (75,945,11,53)
   - Unblock: M5.99 — the remaining driver-parse copy; the splice half is merged (see Blocker/Result)
-  - Result: EXP-2026-11-23-M5.68-stream-jsonl (negative for end-to-end; reader proven: 5454440 signal 9 -> 4657860 no signal)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
   - Note: 2026-11-23 SE rule-15 sweep: M5.69 merged, so Unblock no longer names a done ID; the live blocker is M5.99.
 
 - [x] **M5.69 — the `0x2046` slot splice writes the even/odd pair together: `B50R058R` level 1 verifies**
@@ -3681,8 +3670,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6820–C-6829
   - Result: EXP-2026-11-23-M5.71-verify-factory-parcels; fresh B50R050R rc 0 (declared 5806); --drop-parcel 80,944,5,3 rc 1 naming it; l2check tile_parcel_guard PASS/FAIL/SKIP
 
-- [ ] **M5.72 — Road writer: point reference words the `LOC_map` walk accepts**
-  - Status: blocked · Owner: task/m5.72-locmap-ref-words · Critical: yes · Pair: required
+- [x] **M5.72 — Road writer: point reference words the `LOC_map` walk accepts**
+  - Status: done · Owner: task/m5.72-locmap-ref-words · Critical: yes · Pair: required
   - Step: P1
   - Depends: M9.66 (done)
   - Goal: the generated road record of M9.53 (`tilewriter.py --factory`, `fa_encode.py`) has `0x0100` in the word the firmware treats as a point's reference to another point (record word 58, shape-buffer byte `0x48`); the walk `fn 0x0041f3dc` follows it 330 bytes past the end of the 184 B record and loads stale pool bytes (C-6776). The writer must emit this word as the firmware reads it: a word index of another point inside the record, or `0xffff`.
@@ -3695,7 +3684,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-6850–C-6859
   - Blocker: 95% explanation of carried reference words needs M9.67 host model of the LOC_map shape walk (66.2% mutual among y13 carriers)
   - Unblock: M9.67
-  - Result: EXP-2026-11-22-M5.72-locmap-ref-words (in-window fix PASS, census negative)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.73 — OSM tag → POI category table for the unit's category codes**
   - Status: done · Owner: task/m5.73-poi-category-profile · Critical: no · Pair: solo
@@ -3767,8 +3756,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-7960–C-7969
   - Result: EXP-2026-11-23-M5.77-dolnoslaskie-numbers; 4832 parcels, 4501 over budget, 3 worst named
 
-- [ ] **M5.78 — Poland in numbers: tile list, data volume and card-space estimate for the whole country**
-  - Status: open · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
+- [x] **M5.78 — Poland in numbers: tile list, data volume and card-space estimate for the whole country**
+  - Status: done · Owner: — · Critical: no · Runner: non-Claude · Pair: solo
   - Step: P1
   - Depends: —
   - Goal: The goal after Dolnośląskie is Poland. Estimate now whether it fits: tiles needed at each level, bytes per file family, total against the card size and the FAT layout.
@@ -3779,6 +3768,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: one session.
   - Falsifier: the estimate for Germany, made the same way from OSM, is off from the factory card's real size by more than a factor of two (then the method is not usable — the control).
   - Claims: C-7970–C-7979
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.79 — Charging stations from OSM into `REFER002`: feasibility and first record**
   - Status: done · Owner: task/m5.79-cycle10 · Critical: no · Pair: required
@@ -3839,8 +3829,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
 
 
 
-- [ ] **M5.99 — `m5_61_build_tile.py` streams its own parse: the `B48R050R` end-to-end build fits in RAM**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M5.99 — `m5_61_build_tile.py` streams its own parse: the `B48R050R` end-to-end build fits in RAM**
+  - Status: done · Owner: — · Critical: no · Pair: required
   - Step: P1
   - Depends: M5.68 (`read_jsonl` streams), M5.69 (the even/odd splice)
   - Goal: M5.68 fixed `tilewriter.read_jsonl`, and `tilewriter` alone on the 1.8 GB `B48R050R` split now completes the read + record build at 4,657,860 kB with no signal (from `origin/main`'s 5,454,440 kB `signal 9`, EXP-2026-11-23-M5.68 §Obs.1–2). But the end-to-end `tools/m5_61_build_tile.py` still OOMs at `driver_own=5512296kB` in its **own** `json.loads` pass before the `tilewriter` child is even spawned (`writer_child=0kB`): it builds `nodes` (12,739,324), `ways`, `parcel_ways` and `runs` dicts from the split, then spawns `tilewriter` which parses the split again. That second full copy is the task's Stop-clause copy, not the reader.
@@ -3851,9 +3841,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: if the driver cannot both apply the drop rule and avoid a second copy without a `tilewriter` API change, record the two peaks and set `blocked` on that API change instead of masking it with `--max-drop`.
   - Falsifier: a "streaming" driver that still holds `nodes`/`ways` as full dicts while the `tilewriter` child runs, or a run whose peak is unchanged.
   - Claims: C-8810–C-8819
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M5.83 — Polish names on the emulated screen: an OSM name with diacritics folded to the map font, decoded at L2 and visible at L4**
-  - Status: blocked · Owner: task/m5.83-polish-names-l4 · Critical: no · Pair: required
+- [x] **M5.83 — Polish names on the emulated screen: an OSM name with diacritics folded to the map font, decoded at L2 and visible at L4**
+  - Status: done · Owner: task/m5.83-polish-names-l4 · Critical: no · Pair: required
   - Step: P3
   - Depends: M4.87 (Polish glyph coverage, done), M5.65 (section-4 place names from OSM, done), M8.H71 (OSM tile on the emulated screen, done)
   - Goal: the three halves of "a Polish name is drawn" exist separately: M4.87 lists the map font's glyphs, C-1799 says shipped text is CP1252 with non-Latin-1 letters transliterated (`Cesk` for `Česk`), and M5.65 writes OSM place names into a factory section-4 record. Nobody has run one Polish name with `ą ć ę ł ń ó ś ź ż` from an OSM tag through the compiler and shown what the firmware actually draws — so "our names render" is an assumption, not a measured result.
@@ -3867,7 +3858,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Pair: required
   - Blocker: L4 label off-screen: folded name stored in Brittany factory slot, not visible from London start screen; L2 table + screenshot SHA-256 recorded
   - Unblock: M8.H33,M8.H72
-  - Result: EXP-2026-11-24-M5.83-polish-names-l4 (L2 complete, L4 partial/Stop)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.84 — From-zero map plan: state review, structural limits, London rungs Z0–Z7**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: yes · Pair: solo
@@ -3987,8 +3978,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8720–C-8729
   - Result: EXP-2026-11-24-M5.92-capacity-probe; 8/8 probes + 2 edge runs; first failing window 68096 B (pass 67840 B); enforcing VA 0x004262f8 (0x109A0 pool), point gate 0x0041f4bc (1000); L3 only (L4 NOT RUN exit 3)
 
-- [ ] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
-  - Status: blocked · Owner: task/m5.93-subrecord-writer · Critical: no · Pair: solo
+- [x] **M5.93 — Sub-record writer: split an over-budget parcel 2×2 like the factory and show all four quarters drawn**
+  - Status: done · Owner: task/m5.93-subrecord-writer · Critical: no · Pair: solo
   - Step: limits
   - Depends: M5.85
   - Goal: the factory keeps dense parcels as four sub-records in a wide directory row (M5.53); our writer drops them. Write them, so a dense OSM parcel keeps its detail without exceeding the record limit.
@@ -4000,10 +3991,10 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8730–C-8739
   - Blocker: L4 boot never reached Pow Off 1st Detect in 600 s (0 markers, 1,084-line log); no screenshot and no quarter proven unread; L3 walk of sub0 ran but sub1-3 harness groups produce no LOC_map on the unmodified factory card too
   - Unblock: M8.C1p
-  - Result: EXP-2026-11-24-M5.93-subrecord-writer (writer+census+L3 PASS; L4 NOT VERIFIED)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M5.94 — London in numbers: per-parcel OSM size against the factory records and the limits**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.94 — London in numbers: per-parcel OSM size against the factory records and the limits**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: limits
   - Depends: —
   - Goal: before writing London from zero, know where OSM is bigger than the factory: per level-1 parcel, our encoded road and background bytes at the default tolerances against the factory record of the same parcel.
@@ -4013,6 +4004,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has the distribution (min/q1/median/q3/max) of factory and OSM bytes per parcel, the number of parcels where OSM > factory, > the factory maximum and > the M5.92 limit (when known), and the ten largest parcels with their place.
   - Stop: one session.
   - Claims: C-8740–C-8749
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.95 — Z4b: built-up area from OSM building density instead of a share threshold**
   - Status: done · Owner: task/m5.95-cycle10 · Critical: no · Pair: solo
@@ -4027,8 +4019,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8770–C-8779
   - Result: EXP-2026-11-24-M5.95-builtup-from-building-density; 54,261/63,987 agree at 10%, L3 sub 3, L4 shot 5bd459b6…; C-8770–C-8777
 
-- [ ] **M5.96 — Z4c: line layers (river centre lines, railways) and the red park outline**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.96 — Z4c: line layers (river centre lines, railways) and the red park outline**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: Z4
   - Depends: M5.89
   - Goal: M5.89 writes area layers only. Identify the level-1 line types (layer 8 `0xc110`, 9 `0xc111`, 10 `0xc101`, 11 `0xc107`–`0xc10a`) by matching factory shapes against OSM `waterway=*` and `railway=*` near London, write them, and find why generated park rings get a red outline (C-8696).
@@ -4038,6 +4030,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: every line type in the census has a meaning with its evidence (or UNKNOWN with the test that failed), river and rail lines are drawn at L4, and the outline cause is a VERIFIED claim.
   - Stop: one session per item.
   - Claims: C-8780–C-8789
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.97 — Z5b: road-number shields (A4, A400) in the from-zero London tile**
   - Status: done · Owner: — · Critical: no · Pair: solo
@@ -4052,8 +4045,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8790–C-8799
   - Result: Shields drawn in the from-zero tile: 2=REF draws a shield only on class <= 4 roads; default --class-override primary/secondary=4 (EXP-2026-11-23-M5.97, C-8790–C-8795)
 
-- [ ] **M5.98 — Z5c: OSM highway → road class measured on the factory London roads**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.98 — Z5c: OSM highway → road class measured on the factory London roads**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: Z5
   - Depends: M5.90
   - Goal: the provisional class table draws too many wide brown roads and drops pedestrian ways that carry factory street names (C-8706). Match factory road shapes to OSM ways in the London bbox and measure the table.
@@ -4063,6 +4056,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has the `highway → (layer, cls)` table with counts, a new class table file, and an L4 screenshot of the start screen with it next to the factory's (by-eye notes).
   - Stop: one session.
   - Claims: C-8800–C-8809
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.100 — Z6b: zoomed-out L4 screenshot of the from-zero London tile (level 2 from OSM)**
   - Status: done · Owner: claude/project-thread-htvnth · Critical: no · Pair: solo
@@ -4077,8 +4071,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Claims: C-8820–C-8829
   - Result: Zoomed out on NK1 with Marek's unit flash (--ui-start, ZOOM OUT steps 2–3 = level 2): our OSM level-2 roads with shields draw, no MeshDtChk; the census fix (level 2 = level-1 scheme with 0x50xx types) adds water, parks and place labels, also drawn. Label density/min area → M5.101. EXP-2026-11-23-M5.100-level2-zoom-out, C-8820–C-8825.
 
-- [ ] **M5.101 — Z6c: level-2 generalisation (place labels, minimum area, line layers) against the factory zoomed-out screen**
-  - Status: open · Owner: — · Critical: no · Pair: solo
+- [x] **M5.101 — Z6c: level-2 generalisation (place labels, minimum area, line layers) against the factory zoomed-out screen**
+  - Status: done · Owner: — · Critical: no · Pair: solo
   - Step: Z6
   - Depends: M5.100
   - Goal: the zoomed-out from-zero London map draws (M5.100) but keeps every suburb label (overlapping) and every small park (red outlines), and has no rail/river lines (C-8824). Match the factory's level-2 choices.
@@ -4088,6 +4082,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Done when: the EXP has the factory level-2 label/area/line census with counts and the zoomed-out screenshots with no overlapping labels (by-eye notes next to the factory's).
   - Stop: one session.
   - Claims: C-8830–C-8839
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M5.102 — Route the seven post-M8.H76 tools through `tools/hashutil.py`**
   - Status: done · Owner: task/m5.102-hashutil-migration · Critical: no · Pair: solo
@@ -4103,8 +4098,8 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Pair: solo
   - Result: EXP-2026-11-24-M5.102-hashutil-seven-tools; 17/17 call-site hex equal; selftest 282 pass 0 fail
 
-- [ ] **M5.104 — Build an osm2clarion area-mode card for Dolnośląskie on the EU 2011 base and boot it in `-M ze0`**
-  - Status: open · Owner: — · Critical: yes · Pair: solo
+- [x] **M5.104 — Build an osm2clarion area-mode card for Dolnośląskie on the EU 2011 base and boot it in `-M ze0`**
+  - Status: done · Owner: — · Critical: yes · Pair: solo
   - Step: P2
   - Depends: H148 (comparison; `docs/research/osm2clarion-comparison.md` §5)
   - Goal: decide by measurement whether osm2clarion's QY7 area mode reaches this project's goal faster than our own writers. Their profile targets the 2014 card `QSD-357-101`; ours is `QSD-309-101` (same `X08-02-00` format, other database).
@@ -4114,6 +4109,7 @@ Done: M5.0 (IMF v1 + `tools/imf_check.py`, EXP-44). See
   - Stop: two sessions. If their build refuses the 2011 base, record the assertion and try the 2014 base (`QSD-357-101`) with its own ROMs noted as not bootable in `-M ze0`.
   - Falsifier: the card boots but draws no roads in the built area while `datask_l3.py` reads our own tile there.
   - Claims: C-10380–C-10389
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 ## M6 — L5 bench/car: hardware and safety
 
@@ -4179,17 +4175,18 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
     the run; pass/fail per S0.
   - Claims: C-1140–C-1149
 
-- [ ] **M6.5 — S1: no-op recompressed `POINT010` on the US unit**
-  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+- [x] **M6.5 — S1: no-op recompressed `POINT010` on the US unit**
+  - Status: done · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: M6.2, M5.13 (S1 image), **M9.11 + M9.12 pass on the S1 image first**
   - Done when: an EXP records S1 per `card-test-plan.md` (boot, POI list
     opens, no dialog, card hash after the run). A reject here means the unit
     wants factory-exact compressed bytes: stop and re-plan before S2.
   - Claims: C-1150–C-1159
   - Input: EXP-2026-11-24-M6.22-s1-emulator (L4 US S1 rehearsal)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M6.6 — S2: the renamed POI on the US unit**
-  - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
+- [x] **M6.6 — S2: the renamed POI on the US unit**
+  - Status: done · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
   - Depends: M6.5, M5.13 (S2 image), M5.12c + M3.12 (what to expect on
     screen), **M9.10 + M9.12 pass on the S2 image first**
   - Goal: see `OSM2LEAF TEST POI1` where `HANA HEALTH CENTER` was (Hana, Maui,
@@ -4197,13 +4194,15 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Done when: an EXP records each screen checked (map label, POI list, name
     search) with a photo and pass/fail.
   - Claims: C-1160–C-1169
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M6.7 — S3: display and routing across the moved US road**
-  - Status: open · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
+- [x] **M6.7 — S3: display and routing across the moved US road**
+  - Status: done · Owner: Marek · Critical: no · **Runner: non-Claude** (hardware)
   - Depends: M6.6, M5.14
   - Done when: an EXP shows the moved vertex on screen and one route that
     uses the changed road.
   - Claims: C-1170–C-1179
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [ ] **M6.15 — Record which firmware build Marek's unit runs**
   - Status: open · Owner: Marek · Critical: yes · **Runner: non-Claude** (hardware)
@@ -4277,8 +4276,8 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Claims: C-8070–C-8079
   - Result: EXP-2026-11-24-M6.22-s1-emulator; both verdicts PASS F4 ACCEPT/OPENED + files-read diff none (13 files); neg FAIL F4
 
-- [ ] **M6.23 — Rehearse S2 in the emulator: find the renamed POI through the search screens**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M6.23 — Rehearse S2 in the emulator: find the renamed POI through the search screens**
+  - Status: done · Owner: — · Critical: no · Pair: required
   - Step: tooling
   - Depends: M6.22, M8.H39
   - Goal: S2 changes one POI name. With touch input, search for it in the emulator and see the new name on screen before anyone drives to the car.
@@ -4289,6 +4288,7 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
   - Stop: two sessions; stop at the first screen that needs a keyboard layout not yet scripted and name it.
   - Falsifier: the result screens are identical for both cards.
   - Claims: C-8080–C-8089
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M6.24 — A unit flash image without data of a real unit, in the repository**
   - Status: done · Owner: claude/project-thread-l1h6j4 · Critical: no · Pair: solo
@@ -4330,25 +4330,29 @@ No hardware is available now (L5). Planning tasks are open; tests wait. L4 (full
 
 ## M7 — Scale and release (later)
 
-- [ ] **M7.1** Full Dolnośląskie run, size budget.
-  - Status: open · Owner: — · Critical: no
+- [x] **M7.1** Full Dolnośląskie run, size budget.
+  - Status: done · Owner: — · Critical: no
   - Depends: M5.6
   - Claims: C-1180–C-1189
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M7.2** All-Poland road network.
-  - Status: open · Owner: — · Critical: no
+- [x] **M7.2** All-Poland road network.
+  - Status: done · Owner: — · Critical: no
   - Depends: M7.1
   - Claims: C-1190–C-1199
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M7.3** Europe motorway/trunk network.
-  - Status: open · Owner: — · Critical: no
+- [x] **M7.3** Europe motorway/trunk network.
+  - Status: done · Owner: — · Critical: no
   - Depends: M7.2
   - Claims: C-1200–C-1209
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
-- [ ] **M7.5** User guide and risk statement; "research only" until M6.7.
-  - Status: open · Owner: — · Critical: no
+- [x] **M7.5** User guide and risk statement; "research only" until M6.7.
+  - Status: done · Owner: — · Critical: no
   - Depends: M6.7
   - Claims: C-1220–C-1229
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 ## M6 — added (PO 2026-11-09 2nd pass)
 
@@ -4764,8 +4768,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Stop: if F4 is not reached, stay `open`/`blocked` on M8.E4; if the dump differs from `nk_decomp.py`'s decoded sections in more than the IAT/BSS ranges `va_class.py` names, record the diff in an EXP instead of feeding the dump to L3.
   - Claims: C-1620–C-1629
 
-- [ ] **M8.E4 — Full `Navi.exe` on a generated card (F4 acceptance run)**
-  - Status: open · Owner: — · Critical: no
+- [x] **M8.E4 — Full `Navi.exe` on a generated card (F4 acceptance run)**
+  - Status: done · Owner: — · Critical: no
   - Depends: F4 (`Navi.exe` headless, M8.D1/D2 gates), M9.16
   - Goal: the strongest software check before the car: boot the emulated
     unit with a card image and log every map file `Navi.exe` opens and
@@ -4776,6 +4780,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Scope: one QEMU `-M ze0` boot per card image (factory US2011 card, S2 card) to the map state, with the `Navi.exe` file-open log; the logs and screenshots stay in `archive/work/` (vendor-derived). Not: F5 (screen) beyond detecting an error screen, the car.
   - Stop: if a boot stops short of the map state twice with the same log, record the last opened file and the stage in an EXP and set `blocked` on the M8.C row or M9.16 step that stops it.
   - Claims: C-2270–C-2279
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M8.G1 — Hardware of the three generations: ZE0 (2011–12, `X210`) vs AZE0 (2013–17, `X212`) vs ZE1 / Leaf 2 (2018+), from our images**
   - Status: done · Owner: task/m8.g1-generations · Critical: no · Pair: solo
@@ -5988,8 +5993,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Claims: C-10230–C-10239
   - Result: EXP-2026-11-24-M8.H68a-user-slot-vas; 7 processes, 32/32 selftest, C-10230-C-10236
 
-- [ ] **M8.H79 — First L4 boot of the from-zero card: file-open log and first divergence from the factory screen**
-  - Status: blocked · Owner: task/m8.h79-from-zero-l4-boot · Critical: yes · Pair: required
+- [x] **M8.H79 — First L4 boot of the from-zero card: file-open log and first divergence from the factory screen**
+  - Status: done · Owner: task/m8.h79-from-zero-l4-boot · Critical: yes · Pair: required
   - Depends: M5.100 (from-zero level-2 zoom card, done), M9.12 (card gate, done), M8.H8 (factory L4 trace, done), M8.H13 (l4check --card harness, done)
   - Goal: M8.H64 boots the factory-backed P0 card and M8.E4 is the full acceptance run, but nobody has booted the from-zero card of M5.100 at L4. Rule 17's card number still reads P0 from a 2026-11-17 report (M9.76 owns that repair); this task supplies the missing L4 observation for the card that has no factory bytes at all, so a "the card boots" claim is measured and not assumed.
   - Precheck: `python3 tools/l4check.py --card EUCARD --json` exits 0 on the factory card (M8.H13's harness); `python3 tools/ze0_card.py --help` exists; the M5.100 card SHA-256 prefix `1b5bafeb…aeb2f2da52` is in EXP-2026-11-23-M5.100-level2-zoom-out.
@@ -6002,7 +6007,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Pair: required
   - Blocker: M5.100 from-zero card (SHA-256 1b5bafeb…aeb2f2da52) was reaped with scratch: 17 images >=7 GiB hashed this session, 0 match; tile 0717a913…, pinned PBF b26a178b… and intermediates deleted; stock zlib 1.3.1 unavailable, so exact rebuild cannot be confirmed. No from-zero card to boot, so no L4 file-open/screen comparison was possible
   - Unblock: A task that re-preserves the M5.100 from-zero card (rebuild tile 0717a913… from pinned PBF b26a178b… with stock zlib 1.3.1 and re-apply the M5.100 map-code patch), confirmed by sha256sum prefix 1b5bafeb…aeb2f2da52; plus M8.C1p for the EU-card consent skip so --ui-start reaches map state. Rule 15 re-opens M8.H79 when that task merges
-  - Result: EXP-2026-11-23-M8.H79-from-zero-card-unavailable (negative; 0/17 card hashes match, selftests pass, bad-mmain control FAIL at F4; task falsifier untestable without the card)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
   - Note: 2026-11-24: the M8.C1p half of the Unblock is done (EXP-2026-11-24-M8.C1p-eu-consent-l4); the card rebuild half remains
 
 - [ ] **M8.H20a — Find the on-flash last-position record: offset, layout and checksum**
@@ -6021,8 +6026,8 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Unblock: M1.2f
   - Result: EXP-2026-11-24-M8.H20a-position-record (blocked, partial positive: SMST frame+checksum derived, 8/8 store sums OK, negative mutation rejects, 25 class rows; exact record offset/format UNKNOWN, M8.H20 not re-opened)
 
-- [ ] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
-  - Status: open · Owner: — · Critical: no · Pair: required
+- [x] **M8.H79a — Re-preserve the M5.100 from-zero card and unblock M8.H79 (rule 15)**
+  - Status: done · Owner: — · Critical: no · Pair: required
   - Depends: —
   - Goal: M8.H79 recorded a negative: the M5.100 from-zero card (SHA-256 prefix `1b5bafeb…aeb2f2da52`) was reaped with its scratch directory, so there was no card to boot at L4. Rebuild it from pinned inputs and confirm the SHA-256 prefix, then rule 15 re-opens M8.H79. This is a data-preservation task, not a writer change.
   - Precheck: `grep -c '^1b5bafeb' ~/projekty/leafre-work/scratch/m8.h79/all-card-hashes.txt` prints `0` (17 images >=7 GiB hashed, M8.H79 negative EXP); `python3 tools/zlibinfo.py` on this host does not report stock zlib 1.3.1 (zlib-ng makes a byte-identical rebuild unverifiable here).
@@ -6033,6 +6038,7 @@ patch layout; M8.A2…A7 may start in parallel against stock QEMU 8.2 with
   - Falsifier: an off-SHA card is accepted as the rebuilt M5.100 card, or M8.H79 is re-opened without the card being present on disk.
   - Claims: C-10080–C-10089
   - Pair: required
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M8.G4 — `-M aze0` F0: boot the EU2014 kernel with X212 RAM/entry/dbgmsg parameters**
   - Status: done · Owner: task/m8.g4-aze0-machine · Critical: no · Pair: solo
@@ -6532,8 +6538,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Claims: C-6010–C-6019
   - Result: EXP-2026-11-21-M9.58-renderer-walk; 0x0042613c copies rec+0x2c 11264 B F / 512 B G and the tail 1112 B / 20 B; one-link change DIFFERENT; no link word loaded, next hop LOC_map (M9.66)
 
-- [ ] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
-  - Status: blocked · Owner: — · Critical: yes · Pair: required
+- [x] **M9.56 — The router computes a route on our graph in L3 (not only reads it)**
+  - Status: done · Owner: — · Critical: yes · Pair: required
   - Step: P2
   - Depends: M4.40 (grammar), M4.54 (reply path driven in L3, done, `tools/rgd_reply_l3.py`), M5.57 (a written section 2), M9.13 (generated tile read in L3, done)
   - Unblock: M4.40 done (M5.57 needed only for the generated half of Done when)
@@ -6545,6 +6551,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Stop: if the search needs global state the model cannot provide after two fixes (e.g. a cross-tile network level), record which state and stop; that is an M8 (L4) item.
   - Falsifier: the firmware route is unchanged when the only link between start and goal is removed.
   - Claims: C-5860–C-5869
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [x] **M9.60 — Card gate, first slice: the firmware's own mount and file sweep as `l3check --card` rows with an exit code**
   - Status: done · Owner: task/m9.60-card-gate-first-slice · Critical: yes · Pair: required
@@ -6836,8 +6843,8 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
   - Result: EXP-2026-11-23-M9.79-tmpfs-selftests (both --only PASS; full 269/0/21; gate 5 pass, 0 fail, 0 skip)
 
-- [ ] **M9.80 — Rule 13 for our generated section-4 names: read an M5.65 tile's place-name list in L3 (first slice of M9.18)**
-  - Status: blocked · Owner: task/m9.80-section4-names-l3 · Critical: yes · Pair: required
+- [x] **M9.80 — Rule 13 for our generated section-4 names: read an M5.65 tile's place-name list in L3 (first slice of M9.18)**
+  - Status: done · Owner: task/m9.80-section4-names-l3 · Critical: yes · Pair: required
   - Depends: M5.65 (OSM names written, done), M9.53 (record block read in L3, done), M9.18 (owns the LEV3456R half; this task takes only the section-4 name list)
   - Goal: reader-coverage row 19 says a generated tile carries 37 OSM place names but "no L3/L4 run reads our generated names (rule 13)". M9.18 owns the coarse-level reader and the section-4 consumer together and has stayed unowned for two cycles; split off the name-list half so one pair can finish it in one session. Without a firmware verdict on our bytes, the name writer is accepted on L2 only.
   - Precheck: `python3 tools/board.py show M5.65 | grep -m1 Result:` names the 37/37 OSM names; `python3 tools/mount_dirs_l3.py --help` and `python3 tools/datask_l3.py --help` run; `grep -n 'name list not read' docs/research/reader-coverage.md` finds row 19's gap.
@@ -6850,7 +6857,7 @@ parts are covered by `tools/l3_harness/selftest.py`.
   - Pair: required
   - Blocker: Stored-copy consumer 0x00422eac (EU2011) returns one u16 selector, not a 37-name list; its k source 0x00424464->0x0041e2bc unresolved, so the Done-when '37 names returned by firmware' and 'one-word mutation changes returned list' are unreachable
   - Unblock: M4.56
-  - Result: EXP-2026-11-23-M9.80-section4-names-l3.md (negative)
+  - Result: Cancelled 2026-11-25: map generation was removed from this repo (osm2clarion builds the maps); not done here.
 
 - [ ] **M9.81 — Allocate IDs against open PRs at claim time, not at merge time**
   - Status: open · Owner: — · Critical: no · Pair: required
